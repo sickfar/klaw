@@ -21,6 +21,7 @@ dependencies {
     "kaptTest"("io.micronaut:micronaut-inject-java:$micronautVersion")
 
     testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.testcontainers)
     testImplementation(libs.wiremock)
     testImplementation("io.micronaut.test:micronaut-test-junit5")

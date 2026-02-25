@@ -1,0 +1,1 @@
+{"id":"chatcmpl-glm-001","object":"chat.completion","created":1708800000,"model":"glm-5","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! How can I assist you today?","tool_calls":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":9,"total_tokens":19}}

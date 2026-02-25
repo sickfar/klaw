@@ -1,0 +1,37 @@
+package io.github.klaw.engine.llm
+
+import io.github.klaw.common.error.KlawError
+import kotlinx.coroutines.delay
+import java.io.IOException
+
+private val RETRYABLE_STATUS_CODES = setOf(429, 500, 502, 503, 504)
+
+suspend fun <T> withRetry(
+    maxRetries: Int,
+    initialBackoffMs: Long,
+    multiplier: Double,
+    block: suspend () -> T,
+): T {
+    var attempt = 0
+    var backoffMs = initialBackoffMs
+    while (true) {
+        try {
+            return block()
+        } catch (e: KlawError.ContextLengthExceededError) {
+            throw e
+        } catch (e: KlawError.ProviderError) {
+            if (e.statusCode != null && e.statusCode !in RETRYABLE_STATUS_CODES) throw e
+            if (attempt >= maxRetries) throw e
+            delay(backoffMs)
+            backoffMs = (backoffMs * multiplier).toLong()
+            attempt++
+        } catch (e: IOException) {
+            if (attempt >= maxRetries) {
+                throw KlawError.ProviderError(null, "Network error: ${e.message}")
+            }
+            delay(backoffMs)
+            backoffMs = (backoffMs * multiplier).toLong()
+            attempt++
+        }
+    }
+}
