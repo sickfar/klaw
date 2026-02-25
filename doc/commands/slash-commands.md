@@ -1,0 +1,35 @@
+# Slash Commands
+
+## How commands work
+
+Slash commands arrive as `type: "command"` messages from the Gateway. The Engine handles them directly — the LLM is not invoked. The agent only sees the resulting state change (e.g. a new session segment after `/new`), not the command itself.
+
+## /new
+
+Resets the sliding window and last summary. Starts a new conversation segment.
+
+What is preserved: core memory, archival memory, the current model, and the full conversation log on disk.  
+What changes: the segment boundary moves to now; the LLM no longer sees messages before this point.
+
+## /model
+
+- Without argument: shows the current session model
+- With argument `provider/model-id` (e.g. `/model deepseek/deepseek-chat`): switches the model for this session
+
+The model must be defined in `engine.yaml` under `models:`. Use `/models` to list available options.
+
+## /models
+
+Lists all models configured in `engine.yaml` with their `contextBudget` values. Useful before recommending a model switch.
+
+## /memory
+
+Displays `core_memory.json` to the user. The agent can also read core memory programmatically with `memory_core_get`.
+
+## /status
+
+Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
+
+## /help
+
+Lists all configured commands with descriptions, as defined in `engine.yaml` under `commands:`.

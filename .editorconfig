@@ -1,0 +1,9 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+indent_style = space
+
+# Disable ktlint for generated code (SqlDelight, kapt, etc.)
+[{**/build/generated/**,build/generated/**}]
+ktlint_standard = disabled

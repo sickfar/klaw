@@ -4,8 +4,10 @@ import io.github.klaw.common.error.KlawError
 import kotlinx.coroutines.delay
 import java.io.IOException
 
+@Suppress("MagicNumber")
 private val RETRYABLE_STATUS_CODES = setOf(429, 500, 502, 503, 504)
 
+@Suppress("ThrowsCount", "SwallowedException")
 suspend fun <T> withRetry(
     maxRetries: Int,
     initialBackoffMs: Long,
@@ -27,6 +29,7 @@ suspend fun <T> withRetry(
             attempt++
         } catch (e: IOException) {
             if (attempt >= maxRetries) {
+                // IOException message is included; cause not propagated because ProviderError is a data class
                 throw KlawError.ProviderError(null, "Network error: ${e.message}")
             }
             delay(backoffMs)

@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS sessions (
+    chat_id TEXT NOT NULL PRIMARY KEY,
+    model TEXT NOT NULL,
+    segment_start TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+getSession:
+SELECT * FROM sessions WHERE chat_id = ?;
+
+insertSession:
+INSERT OR REPLACE INTO sessions (chat_id, model, segment_start, created_at)
+VALUES (?, ?, ?, ?);
+
+updateModel:
+UPDATE sessions SET model = ? WHERE chat_id = ?;
+
+updateSegmentStart:
+UPDATE sessions SET segment_start = ? WHERE chat_id = ?;

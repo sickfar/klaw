@@ -86,7 +86,10 @@ class ChineseLlmFunctionCallingTest {
                 buildClient().chat(
                     LlmRequest(
                         messages = listOf(LlmMessage("user", "Get weather for Moscow")),
-                        tools = listOf(ToolDef("get_weather", "Weather tool", buildJsonObject { put("type", "object") })),
+                        tools =
+                            listOf(
+                                ToolDef("get_weather", "Weather tool", buildJsonObject { put("type", "object") }),
+                            ),
                     ),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("zai", "glm-5", maxTokens = 8192),
@@ -178,7 +181,10 @@ class ChineseLlmFunctionCallingTest {
                 buildClient().chat(
                     LlmRequest(
                         messages = listOf(LlmMessage("user", "Search memory")),
-                        tools = listOf(ToolDef("memory_search", "Search tool", buildJsonObject { put("type", "object") })),
+                        tools =
+                            listOf(
+                                ToolDef("memory_search", "Search tool", buildJsonObject { put("type", "object") }),
+                            ),
                     ),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("deepseek", "deepseek-chat", maxTokens = 32768),
@@ -209,7 +215,14 @@ class ChineseLlmFunctionCallingTest {
             buildClient().chat(
                 LlmRequest(
                     messages = listOf(LlmMessage("user", "Hi")),
-                    tools = listOf(ToolDef("my_function", "My function description", buildJsonObject { put("type", "object") })),
+                    tools =
+                        listOf(
+                            ToolDef(
+                                "my_function",
+                                "My function description",
+                                buildJsonObject { put("type", "object") },
+                            ),
+                        ),
                     maxTokens = 256,
                 ),
                 ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),

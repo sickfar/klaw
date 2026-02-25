@@ -1,0 +1,28 @@
+CREATE TABLE IF NOT EXISTS messages (
+    id TEXT NOT NULL PRIMARY KEY,
+    channel TEXT NOT NULL,
+    chat_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    metadata TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages (chat_id);
+
+insertMessage:
+INSERT OR REPLACE INTO messages (id, channel, chat_id, role, type, content, metadata, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+getWindowMessages:
+SELECT * FROM messages
+WHERE chat_id = ? AND created_at >= ?
+ORDER BY created_at ASC
+LIMIT ?;
+
+getLastMessageId:
+SELECT id FROM messages
+WHERE chat_id = ?
+ORDER BY created_at DESC
+LIMIT 1;

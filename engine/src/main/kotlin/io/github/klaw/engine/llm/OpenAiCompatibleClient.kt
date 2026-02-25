@@ -34,6 +34,9 @@ private val json =
         encodeDefaults = false
     }
 
+@Suppress("MagicNumber")
+private val HTTP_SUCCESS_RANGE = 200..299
+
 class OpenAiCompatibleClient(
     private val retryConfig: LlmRetryConfig,
 ) : LlmClient {
@@ -71,7 +74,7 @@ class OpenAiCompatibleClient(
             }
 
         val status = response.statusCode()
-        if (status !in 200..299) {
+        if (status !in HTTP_SUCCESS_RANGE) {
             throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
         }
 

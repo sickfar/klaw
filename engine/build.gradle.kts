@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.micronaut.application)
+    alias(libs.plugins.sqldelight)
 }
 
 apply(plugin = "org.jetbrains.kotlin.kapt")
@@ -14,11 +15,16 @@ dependencies {
     implementation(project(":common"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")
     "kaptTest"("io.micronaut:micronaut-inject-java:$micronautVersion")
+
+    implementation(libs.sqldelight.runtime)
+    implementation(libs.sqldelight.coroutines)
+    implementation("app.cash.sqldelight:sqlite-driver:${libs.versions.sqldelight.get()}")
 
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -48,4 +54,18 @@ java {
 
 kotlin {
     jvmToolchain(21)
+}
+
+sqldelight {
+    databases {
+        create("KlawDatabase") {
+            packageName.set("io.github.klaw.engine.db")
+        }
+    }
+}
+
+ktlint {
+    filter {
+        exclude("**/build/generated/**")
+    }
 }

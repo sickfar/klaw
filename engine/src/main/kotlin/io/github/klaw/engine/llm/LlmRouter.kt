@@ -25,6 +25,7 @@ class LlmRouter(
         return provider to model
     }
 
+    @Suppress("LoopWithTooManyJumpStatements", "TooGenericExceptionCaught")
     suspend fun chat(
         request: LlmRequest,
         modelId: String,

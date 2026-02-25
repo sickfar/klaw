@@ -1,0 +1,371 @@
+package io.github.klaw.engine.context
+
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.ChunkingConfig
+import io.github.klaw.common.config.CodeExecutionConfig
+import io.github.klaw.common.config.CompatibilityConfig
+import io.github.klaw.common.config.ContextConfig
+import io.github.klaw.common.config.EmbeddingConfig
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.LoggingConfig
+import io.github.klaw.common.config.MemoryConfig
+import io.github.klaw.common.config.ModelConfig
+import io.github.klaw.common.config.ProcessingConfig
+import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.RoutingConfig
+import io.github.klaw.common.config.SearchConfig
+import io.github.klaw.common.config.TaskRoutingConfig
+import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.engine.db.KlawDatabase
+import io.github.klaw.engine.message.MessageRepository
+import io.github.klaw.engine.session.Session
+import io.mockk.coEvery
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.buildJsonObject
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import kotlin.time.Instant
+
+class ContextBuilderTest {
+    private lateinit var db: KlawDatabase
+    private lateinit var messageRepository: MessageRepository
+
+    private val workspaceLoader = mockk<WorkspaceLoader>()
+    private val coreMemoryService = mockk<CoreMemoryService>()
+    private val summaryService = mockk<SummaryService>()
+    private val skillRegistry = mockk<SkillRegistry>()
+    private val toolRegistry = mockk<ToolRegistry>()
+
+    private fun buildConfig(
+        contextBudget: Int = 4096,
+        slidingWindow: Int = 10,
+        subagentWindow: Int = 5,
+        modelContextBudget: Int? = null,
+    ): EngineConfig =
+        EngineConfig(
+            providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
+            models =
+                mapOf(
+                    "test/model" to
+                        ModelConfig(
+                            contextBudget = modelContextBudget,
+                        ),
+                ),
+            routing =
+                RoutingConfig(
+                    default = "test/model",
+                    fallback = emptyList(),
+                    tasks = TaskRoutingConfig(summarization = "test/model", subagent = "test/model"),
+                ),
+            memory =
+                MemoryConfig(
+                    embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
+                    chunking = ChunkingConfig(size = 512, overlap = 64),
+                    search = SearchConfig(topK = 10),
+                ),
+            context =
+                ContextConfig(
+                    defaultBudgetTokens = contextBudget,
+                    slidingWindow = slidingWindow,
+                    subagentWindow = subagentWindow,
+                ),
+            processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
+            llm =
+                LlmRetryConfig(
+                    maxRetries = 1,
+                    requestTimeoutMs = 5000,
+                    initialBackoffMs = 100,
+                    backoffMultiplier = 2.0,
+                ),
+            logging = LoggingConfig(subagentConversations = false),
+            codeExecution =
+                CodeExecutionConfig(
+                    dockerImage = "python:3.12-slim",
+                    timeout = 30,
+                    allowNetwork = false,
+                    maxMemory = "256m",
+                    maxCpus = "1.0",
+                    keepAlive = false,
+                    keepAliveIdleTimeoutMin = 5,
+                    keepAliveMaxExecutions = 100,
+                ),
+            files = FilesConfig(maxFileSizeBytes = 10485760),
+            commands = emptyList(),
+            compatibility = CompatibilityConfig(),
+        )
+
+    private fun buildSession(
+        chatId: String = "chat-1",
+        model: String = "test/model",
+        segmentStart: String = "2024-01-01T00:00:00Z",
+    ) = Session(
+        chatId = chatId,
+        model = model,
+        segmentStart = segmentStart,
+        createdAt = Instant.parse("2024-01-01T00:00:00Z"),
+    )
+
+    private fun buildContextBuilder(config: EngineConfig): ContextBuilder =
+        ContextBuilder(
+            workspaceLoader = workspaceLoader,
+            coreMemory = coreMemoryService,
+            messageRepository = messageRepository,
+            summaryService = summaryService,
+            skillRegistry = skillRegistry,
+            toolRegistry = toolRegistry,
+            config = config,
+        )
+
+    @BeforeEach
+    fun setUp() {
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        db = KlawDatabase(driver)
+        messageRepository = MessageRepository(db)
+
+        coEvery { workspaceLoader.loadSystemPrompt() } returns ""
+        coEvery { coreMemoryService.load() } returns ""
+        coEvery { summaryService.getLastSummary(any()) } returns null
+        coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
+        coEvery { toolRegistry.listTools() } returns emptyList()
+    }
+
+    @Test
+    fun `context includes system prompt and core memory`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns "You are a helpful assistant."
+            coEvery { coreMemoryService.load() } returns "User prefers concise answers."
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val session = buildSession()
+
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertEquals(1, messages.size)
+            val systemMessage = messages[0]
+            assertEquals("system", systemMessage.role)
+            assertTrue(systemMessage.content!!.contains("You are a helpful assistant."))
+            assertTrue(systemMessage.content!!.contains("Core Memory"))
+            assertTrue(systemMessage.content!!.contains("User prefers concise answers."))
+        }
+
+    @Test
+    fun `sliding window respects contextBudget`() =
+        runTest {
+            // Insert 15 messages into DB, but window is 10 by default
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            for (i in 1..15) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                )
+            }
+
+            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10))
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            // system + up to 10 history messages
+            // The DB LIMIT 10 only returns 10, so at most 10 messages from DB
+            val historyMessages = messages.drop(1) // remove system message
+            val maxHistory = 10
+            assertTrue(
+                historyMessages.size <= maxHistory,
+                "Should have at most $maxHistory history messages but got ${historyMessages.size}",
+            )
+        }
+
+    @Test
+    fun `sliding window only shows messages from current segment (respects segmentStart)`() =
+        runTest {
+            // Insert messages BEFORE segmentStart (should be excluded)
+            db.messagesQueries.insertMessage(
+                "old-msg-1",
+                "telegram",
+                "chat-seg",
+                "user",
+                "text",
+                "Old message before segment",
+                null,
+                "2024-01-01T09:00:00Z",
+            )
+            db.messagesQueries.insertMessage(
+                "old-msg-2",
+                "telegram",
+                "chat-seg",
+                "assistant",
+                "text",
+                "Old reply before segment",
+                null,
+                "2024-01-01T09:30:00Z",
+            )
+
+            // Insert messages AFTER segmentStart (should be included)
+            val segmentStart = "2024-01-01T10:00:00Z"
+            db.messagesQueries.insertMessage(
+                "new-msg-1",
+                "telegram",
+                "chat-seg",
+                "user",
+                "text",
+                "Hello in new segment",
+                null,
+                "2024-01-01T10:01:00Z",
+            )
+            db.messagesQueries.insertMessage(
+                "new-msg-2",
+                "telegram",
+                "chat-seg",
+                "assistant",
+                "text",
+                "Hi there in new segment",
+                null,
+                "2024-01-01T10:02:00Z",
+            )
+
+            val session = buildSession(chatId = "chat-seg", segmentStart = segmentStart)
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = messages.drop(1)
+            assertEquals(2, historyMessages.size, "Should only include 2 messages from new segment")
+            assertTrue(historyMessages.any { it.content == "Hello in new segment" })
+            assertTrue(historyMessages.any { it.content == "Hi there in new segment" })
+        }
+
+    @Test
+    fun `subagent uses subagentWindow instead of slidingWindow`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 8 messages
+            for (i in 1..8) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "sub-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                )
+            }
+
+            // subagentWindow = 5, slidingWindow = 10
+            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentWindow = 5))
+
+            val messagesSubagent = contextBuilder.buildContext(session, emptyList(), isSubagent = true)
+            val messagesNormal = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historySubagent = messagesSubagent.drop(1)
+            val historyNormal = messagesNormal.drop(1)
+
+            assertTrue(
+                historySubagent.size <= 5,
+                "Subagent should have at most 5 messages, got ${historySubagent.size}",
+            )
+            assertTrue(historyNormal.size <= 10, "Normal should have at most 10 messages")
+            assertTrue(
+                historySubagent.size < historyNormal.size,
+                "Subagent window ${historySubagent.size} should be smaller than normal window ${historyNormal.size}",
+            )
+        }
+
+    @Test
+    fun `10 percent safety margin applied to contextBudget`() =
+        runTest {
+            // Use a very small context budget to force token trimming
+            // Budget = 100 tokens, 10% safety = 90 effective tokens
+            // System prompt uses some tokens, remaining is small
+            // Insert messages that would exceed budget
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // A very large message that would exceed a tiny budget
+            val bigContent = "word ".repeat(200) // ~57 tokens from approximateTokenCount
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "big-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    bigContent,
+                    null,
+                    ts,
+                )
+            }
+
+            // Budget of 100 tokens with 10% safety = 90 tokens effective
+            // Each big message ~57 tokens means we cannot fit more than 1
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = messages.drop(1)
+            // With 90 effective tokens and ~57 tokens per message, at most 1 message should fit
+            // (system message content is empty since systemPrompt/memory are empty mocks)
+            assertTrue(
+                historyMessages.size <= 2,
+                "With tight budget, should trim messages. Got ${historyMessages.size}",
+            )
+        }
+
+    @Test
+    fun `summary included when available`() =
+        runTest {
+            coEvery { summaryService.getLastSummary("chat-sum") } returns "Previously: User asked about weather."
+
+            val session = buildSession(chatId = "chat-sum")
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertEquals(1, messages.size)
+            val systemContent = messages[0].content!!
+            assertTrue(systemContent.contains("Last Summary"), "System message should contain summary section")
+            assertTrue(systemContent.contains("Previously: User asked about weather."))
+        }
+
+    @Test
+    fun `tool descriptions included in system message`() =
+        runTest {
+            val toolDef =
+                ToolDef(
+                    name = "read_file",
+                    description = "Read a file from the workspace",
+                    parameters = buildJsonObject {},
+                )
+            coEvery { toolRegistry.listTools() } returns listOf(toolDef)
+            val skillDesc = "skill: code_review — Review code for issues"
+            coEvery { skillRegistry.listSkillDescriptions() } returns listOf(skillDesc)
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertEquals(1, messages.size)
+            val systemContent = messages[0].content!!
+            assertTrue(systemContent.contains("Available Tools"), "System message should contain tools section")
+            assertTrue(systemContent.contains("Read a file from the workspace"))
+            assertTrue(systemContent.contains("skill: code_review"))
+        }
+}

@@ -1,5 +1,6 @@
 package io.github.klaw.engine.socket
 
+import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -19,7 +20,7 @@ class SocketPermissionsTest {
     @BeforeEach
     fun setUp() {
         socketPath = tempDir.resolve("engine.sock").toString()
-        val handler = NoOpSocketMessageHandler()
+        val handler = mockk<SocketMessageHandler>(relaxed = true)
         server = EngineSocketServer(socketPath, handler)
         server.start()
         Thread.sleep(100)
