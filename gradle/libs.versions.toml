@@ -1,0 +1,46 @@
+[versions]
+kotlin = "2.3.10"
+kotlinx-serialization = "1.10.0"
+kotlinx-coroutines = "1.10.2"
+kotlinx-datetime = "0.7.1"
+micronaut-platform = "4.10.7"
+micronaut-gradle-plugin = "4.6.2"
+kaml = "0.65.0"
+sqldelight = "2.2.1"
+quartz = "2.5.2"
+onnxruntime = "1.24.2"
+djl-tokenizers = "0.36.0"
+tgbotapi = "22.0.0"
+clikt = "5.1.0"
+mockk = "1.14.9"
+wiremock = "3.13.2"
+testcontainers = "2.0.3"
+ktlint-gradle = "14.0.1"
+detekt = "1.23.8"
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
+quartz = { module = "org.quartz-scheduler:quartz", version.ref = "quartz" }
+onnxruntime = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = "onnxruntime" }
+djl-tokenizers = { module = "ai.djl.huggingface:tokenizers", version.ref = "djl-tokenizers" }
+tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgbotapi" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+micronaut-application = { id = "io.micronaut.application", version.ref = "micronaut-gradle-plugin" }
+micronaut-library = { id = "io.micronaut.library", version.ref = "micronaut-gradle-plugin" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-gradle" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
