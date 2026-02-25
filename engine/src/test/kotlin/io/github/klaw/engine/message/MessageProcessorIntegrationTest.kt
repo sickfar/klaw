@@ -170,6 +170,7 @@ class MessageProcessorIntegrationTest {
         val commandHandler =
             CommandHandler(
                 sessionManager = sessionManager,
+                messageRepository = messageRepository,
                 coreMemory = coreMemory,
                 config = config,
             )

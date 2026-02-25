@@ -15,15 +15,14 @@ import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ToolExecutor
-import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -47,8 +46,9 @@ class MessageProcessor(
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
 ) : SocketMessageHandler {
+    private val log = LoggerFactory.getLogger(MessageProcessor::class.java)
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val llmSemaphore = Semaphore(config.processing.maxConcurrentLlm)
+    private val llmLimiter = PriorityLlmLimiter(config.processing.maxConcurrentLlm)
 
     private val debounceBuffer =
         DebounceBuffer(
@@ -57,7 +57,6 @@ class MessageProcessor(
             onFlush = ::processMessages,
         )
 
-    @PreDestroy
     fun close() {
         processingScope.cancel()
     }
@@ -77,13 +76,57 @@ class MessageProcessor(
     override suspend fun handleCliRequest(request: CliRequestMessage): String = """{"status":"ok","engine":"klaw"}"""
 
     @Suppress("TooGenericExceptionCaught")
+    suspend fun handleScheduledMessage(message: ScheduledMessage) {
+        val model = message.model ?: config.routing.tasks.subagent
+        val chatId = "subagent:${message.name}"
+
+        processingScope
+            .launch {
+                llmLimiter.withSubagentPermit {
+                    try {
+                        val session = sessionManager.getOrCreate(chatId, model)
+                        if (message.model != null) {
+                            sessionManager.updateModel(chatId, message.model)
+                        }
+
+                        val tools = toolRegistry.listTools()
+                        val context = contextBuilder.buildContext(session, listOf(message.message), isSubagent = true)
+
+                        val runner =
+                            ToolCallLoopRunner(
+                                llmRouter,
+                                toolExecutor,
+                                config.processing.maxToolCallRounds,
+                            )
+                        val response = runner.run(context.toMutableList(), session, tools)
+                        val content = response.content ?: ""
+
+                        if (!isSilent(content) && message.injectInto != null) {
+                            socketServer.pushToGateway(
+                                OutboundSocketMessage(
+                                    channel = "engine",
+                                    chatId = message.injectInto,
+                                    content = content,
+                                ),
+                            )
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        log.error("Subagent '{}' failed: {}", message.name, e.message, e)
+                    }
+                }
+            }
+    }
+
+    @Suppress("TooGenericExceptionCaught", "LongMethod")
     private suspend fun processMessages(messages: List<InboundSocketMessage>) {
         if (messages.isEmpty()) return
         val first = messages.first()
         val chatId = first.chatId
         val channel = first.channel
 
-        llmSemaphore.withPermit {
+        llmLimiter.withInteractivePermit {
             try {
                 val session = sessionManager.getOrCreate(chatId, config.routing.default)
                 val tools: List<ToolDef> = toolRegistry.listTools()
@@ -102,7 +145,15 @@ class MessageProcessor(
                     )
                 }
 
-                val runner = ToolCallLoopRunner(llmRouter, toolExecutor, config.processing.maxToolCallRounds)
+                val runner =
+                    ToolCallLoopRunner(
+                        llmRouter,
+                        toolExecutor,
+                        config.processing.maxToolCallRounds,
+                        messageRepository,
+                        channel,
+                        chatId,
+                    )
                 val response = runner.run(context.toMutableList(), session, tools)
 
                 // Persist assistant response to DB

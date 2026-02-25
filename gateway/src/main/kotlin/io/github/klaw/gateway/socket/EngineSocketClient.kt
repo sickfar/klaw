@@ -14,6 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
@@ -123,20 +124,25 @@ class EngineSocketClient(
     }
 
     private suspend fun handleIncomingLine(line: String): Boolean =
-        when (val msg = json.decodeFromString<SocketMessage>(line)) {
-            is OutboundSocketMessage -> {
-                outboundHandler.handleOutbound(msg)
-                false
-            }
+        try {
+            when (val msg = json.decodeFromString<SocketMessage>(line)) {
+                is OutboundSocketMessage -> {
+                    outboundHandler.handleOutbound(msg)
+                    false
+                }
 
-            is ShutdownMessage -> {
-                outboundHandler.handleShutdown()
-                true
-            }
+                is ShutdownMessage -> {
+                    outboundHandler.handleShutdown()
+                    true
+                }
 
-            else -> {
-                false
-            } // RegisterMessage, InboundSocketMessage, etc -- ignored from engine
+                else -> {
+                    false
+                } // RegisterMessage, InboundSocketMessage, etc -- ignored from engine
+            }
+        } catch (_: SerializationException) {
+            System.err.println("EngineSocketClient: malformed engine message, skipping")
+            false
         }
 
     private fun drainBuffer() {

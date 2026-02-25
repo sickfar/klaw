@@ -17,6 +17,7 @@ import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.context.CoreMemoryService
+import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.mockk.coVerify
@@ -28,6 +29,7 @@ import kotlin.time.Clock
 
 class CommandHandlerTest {
     private val sessionManager = mockk<SessionManager>(relaxed = true)
+    private val messageRepository = mockk<MessageRepository>(relaxed = true)
     private val coreMemory = mockk<CoreMemoryService>()
 
     private val defaultModels = mapOf("test/model" to ModelConfig(contextBudget = 4096))
@@ -93,11 +95,12 @@ class CommandHandlerTest {
     @Test
     fun `slash_new resets segment and returns confirmation`() =
         runTest {
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig())
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
             val session = makeSession()
 
             val result = handler.handle(makeCmd("new"), session)
 
+            coVerify { messageRepository.appendSessionBreak("chat-1") }
             coVerify { sessionManager.resetSegment("chat-1") }
             assertTrue(result.contains("started", ignoreCase = true) || result.contains("New", ignoreCase = true))
         }
@@ -105,7 +108,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_model without args shows current model`() =
         runTest {
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig())
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("model"), session)
@@ -121,7 +124,7 @@ class CommandHandlerTest {
                     "test/model" to ModelConfig(contextBudget = 4096),
                     "other/model" to ModelConfig(contextBudget = 8192),
                 )
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig(models))
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig(models))
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("model", "other/model"), session)
@@ -134,7 +137,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_model with invalid model returns error`() =
         runTest {
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig())
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
             val session = makeSession()
 
             val result = handler.handle(makeCmd("model", "nonexistent/model"), session)
@@ -154,7 +157,7 @@ class CommandHandlerTest {
                     "glm/glm-5" to ModelConfig(contextBudget = 8192),
                     "deepseek/deepseek-chat" to ModelConfig(contextBudget = 32768),
                 )
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig(models))
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig(models))
             val session = makeSession()
 
             val result = handler.handle(makeCmd("models"), session)
@@ -169,7 +172,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_status returns session info`() =
         runTest {
-            val handler = CommandHandler(sessionManager, coreMemory, makeConfig())
+            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("status"), session)

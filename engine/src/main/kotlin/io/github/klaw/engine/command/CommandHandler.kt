@@ -3,6 +3,7 @@ package io.github.klaw.engine.command
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.context.CoreMemoryService
+import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import jakarta.inject.Singleton
@@ -10,6 +11,7 @@ import jakarta.inject.Singleton
 @Singleton
 class CommandHandler(
     private val sessionManager: SessionManager,
+    private val messageRepository: MessageRepository,
     private val coreMemory: CoreMemoryService,
     private val config: EngineConfig,
 ) {
@@ -28,6 +30,7 @@ class CommandHandler(
         }
 
     private suspend fun handleNew(chatId: String): String {
+        messageRepository.appendSessionBreak(chatId)
         sessionManager.resetSegment(chatId)
         return "New conversation started. Previous context cleared."
     }

@@ -31,10 +31,11 @@ class MessageRepository(
         type: String,
         content: String,
         metadata: String? = null,
-    ) = withContext(Dispatchers.VT) {
-        val now = Clock.System.now().toString()
-        db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
-    }
+    ): Unit =
+        withContext(Dispatchers.VT) {
+            val now = Clock.System.now().toString()
+            db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
+        }
 
     suspend fun getWindowMessages(
         chatId: String,
@@ -56,10 +57,19 @@ class MessageRepository(
             }
         }
 
-    suspend fun appendSessionBreak(chatId: String) =
+    suspend fun appendSessionBreak(chatId: String): Unit =
         withContext(Dispatchers.VT) {
-            val id = "break-${Clock.System.now().toEpochMilliseconds()}"
-            val now = Clock.System.now().toString()
-            db.messagesQueries.insertMessage(id, "internal", chatId, "session_break", "marker", "", null, now)
+            val now = Clock.System.now()
+            val id = "break-${now.toEpochMilliseconds()}"
+            db.messagesQueries.insertMessage(
+                id,
+                "internal",
+                chatId,
+                "session_break",
+                "marker",
+                "",
+                null,
+                now.toString(),
+            )
         }
 }

@@ -9,9 +9,14 @@ import jakarta.inject.Singleton
 class LlmRouterFactory {
     @Singleton
     fun llmRouter(config: EngineConfig): LlmRouter {
+        val resolvedProviders =
+            config.providers.mapValues { (_, provider) ->
+                provider.copy(apiKey = EnvVarResolver.resolve(provider.apiKey))
+            }
         val models =
             config.models.mapValues { (key, cfg) ->
                 val parts = key.split("/", limit = 2)
+                require(parts.size == 2) { "Model key '$key' must contain '/' separator (e.g., 'provider/model')" }
                 ModelRef(
                     provider = parts[0],
                     modelId = parts[1],
@@ -21,7 +26,7 @@ class LlmRouterFactory {
                 )
             }
         return LlmRouter(
-            providers = config.providers,
+            providers = resolvedProviders,
             models = models,
             routing = config.routing,
             retryConfig = config.llm,

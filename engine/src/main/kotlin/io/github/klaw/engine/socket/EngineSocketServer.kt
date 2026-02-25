@@ -8,7 +8,6 @@ import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
 import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +32,7 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+@Suppress("TooManyFunctions")
 class EngineSocketServer(
     private val socketPath: String,
     private val messageHandler: SocketMessageHandler,
@@ -48,7 +48,8 @@ class EngineSocketServer(
 
     @Volatile private var gatewayWriter: PrintWriter? = null
     private val writerLock = ReentrantLock()
-    private var serverChannel: ServerSocketChannel? = null
+
+    @Volatile private var serverChannel: ServerSocketChannel? = null
 
     @PostConstruct
     fun start() {
@@ -59,6 +60,9 @@ class EngineSocketServer(
 
         val addr = UnixDomainSocketAddress.of(socketPath)
         val channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
+        // Note: Brief TOCTOU window between bind() and setPosixFilePermissions() where socket
+        // is accessible with default umask. Accepted risk: Unix socket is local-only and chmod 600
+        // follows immediately. JVM has no umask API without JNI.
         channel.bind(addr)
         // Restrict permissions to owner read/write only (600)
         Files.setPosixFilePermissions(Path.of(socketPath), PosixFilePermissions.fromString("rw-------"))
@@ -67,7 +71,6 @@ class EngineSocketServer(
         scope.launch { acceptLoop() }
     }
 
-    @PreDestroy
     fun stop() {
         running = false
         // Notify connected gateway before shutting down
@@ -93,14 +96,19 @@ class EngineSocketServer(
         }
     }
 
-    @Suppress("LoopWithTooManyJumpStatements")
+    @Suppress("LoopWithTooManyJumpStatements", "TooGenericExceptionCaught")
     private suspend fun acceptLoop() {
         while (running) {
             try {
                 val client = withContext(Dispatchers.IO) { serverChannel?.accept() } ?: continue
                 scope.launch { handleClient(client) }
-            } catch (_: Exception) {
+            } catch (_: java.nio.channels.ClosedChannelException) {
                 break
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                break
+            } catch (e: Exception) {
+                System.err.println("EngineSocketServer: accept error (continuing): ${e.message}")
+                continue
             }
         }
     }
@@ -110,7 +118,12 @@ class EngineSocketServer(
         val writer = PrintWriter(Channels.newOutputStream(channel), true)
 
         try {
-            val firstLine = withContext(Dispatchers.IO) { reader.readLine() } ?: return
+            val firstLine =
+                try {
+                    withContext(Dispatchers.IO) { readLineLimited(reader) }
+                } catch (_: IllegalArgumentException) {
+                    return
+                } ?: return
             dispatchFirstMessage(firstLine, reader, writer)
         } finally {
             try {
@@ -143,25 +156,67 @@ class EngineSocketServer(
         writer: PrintWriter,
     ) {
         // Gateway connection -- store writer for push operations
-        gatewayWriter = writer
+        writerLock.withLock {
+            try {
+                gatewayWriter?.close()
+            } catch (_: Exception) {
+            }
+            gatewayWriter = writer
+        }
         // Read subsequent inbound/command messages in a loop
+        @Suppress("LoopWithTooManyJumpStatements")
         while (running) {
-            val line = withContext(Dispatchers.IO) { reader.readLine() } ?: break
+            val line =
+                try {
+                    withContext(Dispatchers.IO) { readLineLimited(reader) }
+                } catch (_: IllegalArgumentException) {
+                    System.err.println("EngineSocketServer: oversized message, skipping")
+                    continue
+                } ?: break
             dispatchGatewayMessage(line)
         }
     }
 
     private suspend fun dispatchGatewayMessage(line: String) {
-        when (val inMsg = json.decodeFromString<SocketMessage>(line)) {
-            is InboundSocketMessage -> {
-                messageHandler.handleInbound(inMsg)
-            }
+        try {
+            when (val inMsg = json.decodeFromString<SocketMessage>(line)) {
+                is InboundSocketMessage -> {
+                    messageHandler.handleInbound(inMsg)
+                }
 
-            is CommandSocketMessage -> {
-                messageHandler.handleCommand(inMsg)
-            }
+                is CommandSocketMessage -> {
+                    messageHandler.handleCommand(inMsg)
+                }
 
-            else -> {} // Ignore other SocketMessage types sent by gateway
+                else -> {} // Ignore other SocketMessage types sent by gateway
+            }
+        } catch (_: SerializationException) {
+            System.err.println("EngineSocketServer: malformed gateway message, skipping")
+        }
+    }
+
+    private fun readLineLimited(
+        reader: BufferedReader,
+        maxBytes: Int = 1_048_576,
+    ): String? {
+        val sb = StringBuilder()
+        while (true) {
+            val ch = reader.read()
+            if (ch == -1) return if (sb.isEmpty()) null else sb.toString()
+            if (ch == '\n'.code) return sb.toString()
+            if (ch == '\r'.code) continue
+            sb.append(ch.toChar())
+            if (sb.length > maxBytes) {
+                drainLine(reader)
+                throw IllegalArgumentException("Line exceeds max length ($maxBytes bytes)")
+            }
+        }
+    }
+
+    private fun drainLine(reader: BufferedReader) {
+        while (true) {
+            val c = reader.read()
+            if (c == -1 || c == '\n'.code) break
         }
     }
 

@@ -1,7 +1,7 @@
 package io.github.klaw.engine.message
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.LlmRetryConfig
-import io.github.klaw.engine.llm.LlmClient
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
@@ -12,6 +12,8 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolResult
+import io.github.klaw.engine.db.KlawDatabase
+import io.github.klaw.engine.llm.LlmClient
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ToolExecutor
@@ -261,5 +263,64 @@ class ToolCallLoopTest {
             val toolMsg = context.find { it.role == "tool" }
             assertNotNull(toolMsg, "Context must contain tool result message")
             assertEquals("lookup result", toolMsg!!.content)
+        }
+
+    @Test
+    fun `tool_call and tool_result messages persisted to database`() =
+        runTest {
+            val driver = JdbcSqliteDriver("jdbc:sqlite:")
+            KlawDatabase.Schema.create(driver)
+            val db = KlawDatabase(driver)
+            val messageRepository = MessageRepository(db)
+
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "my_tool", arguments = """{"key":"value"}""")
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(
+                        content = null,
+                        toolCalls = listOf(toolCall),
+                        usage = null,
+                        finishReason = FinishReason.TOOL_CALLS,
+                    ),
+                    LlmResponse(
+                        content = "Final",
+                        toolCalls = null,
+                        usage = null,
+                        finishReason = FinishReason.STOP,
+                    ),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = "tool output"))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    messageRepository = messageRepository,
+                    channel = "telegram",
+                    chatId = "chat-test",
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Hello"))
+            runner.run(context, testSession)
+
+            val messages = messageRepository.getWindowMessages("chat-test", "2000-01-01T00:00:00Z", 100)
+            val toolCallMsgs = messages.filter { it.type == "tool_call" }
+            val toolResultMsgs = messages.filter { it.type == "tool_result" }
+
+            assertEquals(1, toolCallMsgs.size, "Should have 1 tool_call message in DB")
+            assertEquals("assistant", toolCallMsgs[0].role)
+            assertEquals(1, toolResultMsgs.size, "Should have 1 tool_result message in DB")
+            assertEquals("tool", toolResultMsgs[0].role)
+            assertEquals("tool output", toolResultMsgs[0].content)
+            assertEquals("call-1", toolResultMsgs[0].metadata)
         }
 }
