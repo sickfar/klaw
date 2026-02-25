@@ -18,6 +18,20 @@ kotlin {
             }
         }
     }
+    macosArm64 {
+        binaries {
+            executable {
+                entryPoint = "io.github.klaw.cli.main"
+            }
+        }
+    }
+    macosX64 {
+        binaries {
+            executable {
+                entryPoint = "io.github.klaw.cli.main"
+            }
+        }
+    }
 
     sourceSets {
         nativeMain.dependencies {

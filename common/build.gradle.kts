@@ -7,6 +7,8 @@ kotlin {
     jvm()
     linuxArm64()
     linuxX64()
+    macosArm64()
+    macosX64()
 
     sourceSets {
         commonMain.dependencies {
@@ -16,6 +18,12 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+        }
+        val jvmMain by getting {
+            dependencies {
+                implementation(libs.kaml)
+                implementation(libs.jtokkit)
+            }
         }
     }
 }

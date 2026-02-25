@@ -1,5 +1,6 @@
 [versions]
 kotlin = "2.3.10"
+jtokkit = "1.1.0"
 kotlinx-serialization = "1.10.0"
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.7.1"
@@ -32,6 +33,7 @@ tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgbotapi" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 
 [plugins]
