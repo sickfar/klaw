@@ -5,14 +5,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class KlawPathsTest {
-
     private fun buildTestPaths(
         env: Map<String, String> = emptyMap(),
         home: String = "/home/testuser",
-    ): KlawPathsSnapshot = buildPaths(
-        envProvider = { key -> env[key] },
-        homeProvider = { home },
-    )
+    ): KlawPathsSnapshot =
+        buildPaths(
+            envProvider = { key -> env[key] },
+            homeProvider = { home },
+        )
 
     @Test
     fun `default config path uses HOME dot config klaw`() {
@@ -132,15 +132,17 @@ class KlawPathsTest {
 
     @Test
     fun `all XDG vars set simultaneously`() {
-        val paths = buildTestPaths(
-            env = mapOf(
-                "XDG_CONFIG_HOME" to "/c",
-                "XDG_DATA_HOME" to "/d",
-                "XDG_STATE_HOME" to "/s",
-                "XDG_CACHE_HOME" to "/ca",
-                "KLAW_WORKSPACE" to "/w",
-            ),
-        )
+        val paths =
+            buildTestPaths(
+                env =
+                    mapOf(
+                        "XDG_CONFIG_HOME" to "/c",
+                        "XDG_DATA_HOME" to "/d",
+                        "XDG_STATE_HOME" to "/s",
+                        "XDG_CACHE_HOME" to "/ca",
+                        "KLAW_WORKSPACE" to "/w",
+                    ),
+            )
         assertEquals("/c/klaw", paths.config)
         assertEquals("/d/klaw", paths.data)
         assertEquals("/s/klaw", paths.state)

@@ -7,7 +7,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class KlawErrorTest {
-
     @Test
     fun `ProviderError can be caught as KlawError`() {
         val error = KlawError.ProviderError(statusCode = 429, message = "Rate limited")

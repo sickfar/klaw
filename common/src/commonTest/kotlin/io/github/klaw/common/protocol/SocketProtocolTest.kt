@@ -1,7 +1,7 @@
 package io.github.klaw.common.protocol
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,40 +9,46 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class SocketProtocolTest {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
 
     @Test
     fun `InboundSocketMessage serializes with correct type discriminator`() {
-        val msg = InboundSocketMessage(
-            id = "msg_1",
-            channel = "telegram",
-            chatId = "telegram_123",
-            content = "Hello",
-            ts = "2024-01-01T00:00:00Z",
-        )
+        val msg =
+            InboundSocketMessage(
+                id = "msg_1",
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Hello",
+                ts = "2024-01-01T00:00:00Z",
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         assertTrue(encoded.contains(""""type":"inbound""""), "Expected type=inbound in: $encoded")
     }
 
     @Test
     fun `OutboundSocketMessage serializes with correct type discriminator`() {
-        val msg = OutboundSocketMessage(
-            channel = "telegram",
-            chatId = "telegram_123",
-            content = "Response",
-        )
+        val msg =
+            OutboundSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Response",
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         assertTrue(encoded.contains(""""type":"outbound""""), "Expected type=outbound in: $encoded")
     }
 
     @Test
     fun `CommandSocketMessage serializes with correct type discriminator`() {
-        val msg = CommandSocketMessage(
-            channel = "telegram",
-            chatId = "telegram_123",
-            command = "status",
-        )
+        val msg =
+            CommandSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                command = "status",
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         assertTrue(encoded.contains(""""type":"command""""), "Expected type=command in: $encoded")
     }
@@ -56,13 +62,14 @@ class SocketProtocolTest {
 
     @Test
     fun `InboundSocketMessage round-trip`() {
-        val msg = InboundSocketMessage(
-            id = "msg_1",
-            channel = "telegram",
-            chatId = "telegram_123",
-            content = "Hello",
-            ts = "2024-01-01T00:00:00Z",
-        )
+        val msg =
+            InboundSocketMessage(
+                id = "msg_1",
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Hello",
+                ts = "2024-01-01T00:00:00Z",
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         val decoded = json.decodeFromString<SocketMessage>(encoded)
         assertIs<InboundSocketMessage>(decoded)
@@ -71,13 +78,14 @@ class SocketProtocolTest {
 
     @Test
     fun `OutboundSocketMessage round-trip with meta`() {
-        val msg = OutboundSocketMessage(
-            replyTo = "msg_1",
-            channel = "telegram",
-            chatId = "telegram_123",
-            content = "Response",
-            meta = mapOf("key" to "value"),
-        )
+        val msg =
+            OutboundSocketMessage(
+                replyTo = "msg_1",
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Response",
+                meta = mapOf("key" to "value"),
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         val decoded = json.decodeFromString<SocketMessage>(encoded)
         assertIs<OutboundSocketMessage>(decoded)
@@ -86,12 +94,13 @@ class SocketProtocolTest {
 
     @Test
     fun `CommandSocketMessage round-trip with args`() {
-        val msg = CommandSocketMessage(
-            channel = "telegram",
-            chatId = "telegram_123",
-            command = "model",
-            args = "deepseek/deepseek-chat",
-        )
+        val msg =
+            CommandSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                command = "model",
+                args = "deepseek/deepseek-chat",
+            )
         val encoded = json.encodeToString<SocketMessage>(msg)
         val decoded = json.decodeFromString<SocketMessage>(encoded)
         assertIs<CommandSocketMessage>(decoded)

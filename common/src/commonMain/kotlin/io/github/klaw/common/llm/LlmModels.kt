@@ -57,7 +57,7 @@ data class TokenUsage(
 @Serializable
 enum class FinishReason {
     STOP,
-    LENGTH,  // matches OpenAI-compatible wire format: "length"
+    LENGTH, // matches OpenAI-compatible wire format: "length"
     TOOL_CALLS,
     ERROR,
 }

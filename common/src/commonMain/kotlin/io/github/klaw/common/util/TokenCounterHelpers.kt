@@ -1,11 +1,11 @@
 package io.github.klaw.common.util
 
 internal fun Char.isCjkOrKana(): Boolean =
-    this in '\u3040'..'\u30FF' ||  // Hiragana + Katakana
-    this in '\u3400'..'\u4DBF' ||  // CJK Extension A
-    this in '\u4E00'..'\u9FFF' ||  // CJK Unified Ideographs
-    this in '\uAC00'..'\uD7A3' ||  // Hangul Syllables
-    this in '\uF900'..'\uFAFF'     // CJK Compatibility Ideographs
+    this in '\u3040'..'\u30FF' || // Hiragana + Katakana
+        this in '\u3400'..'\u4DBF' || // CJK Extension A
+        this in '\u4E00'..'\u9FFF' || // CJK Unified Ideographs
+        this in '\uAC00'..'\uD7A3' || // Hangul Syllables
+        this in '\uF900'..'\uFAFF' // CJK Compatibility Ideographs
 
 /**
  * Platform-independent approximation of token count.

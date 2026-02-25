@@ -1,6 +1,7 @@
 package io.github.klaw.common.paths
 
 internal expect fun platformEnv(name: String): String?
+
 internal expect fun platformHome(): String
 
 data class KlawPathsSnapshot(

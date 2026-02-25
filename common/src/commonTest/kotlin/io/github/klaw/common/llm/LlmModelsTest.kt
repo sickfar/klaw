@@ -6,13 +6,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LlmModelsTest {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+        }
 
     @Test
     fun `LlmMessage user role round-trip`() {
@@ -53,11 +56,12 @@ class LlmModelsTest {
 
     @Test
     fun `LlmRequest without tools round-trip`() {
-        val req = LlmRequest(
-            messages = listOf(LlmMessage("user", "Hello")),
-            maxTokens = 512,
-            temperature = 0.7,
-        )
+        val req =
+            LlmRequest(
+                messages = listOf(LlmMessage("user", "Hello")),
+                maxTokens = 512,
+                temperature = 0.7,
+            )
         val encoded = json.encodeToString(req)
         val decoded = json.decodeFromString<LlmRequest>(encoded)
         assertEquals(req, decoded)
@@ -66,15 +70,17 @@ class LlmModelsTest {
 
     @Test
     fun `LlmRequest with tools round-trip`() {
-        val toolDef = ToolDef(
-            name = "get_weather",
-            description = "Get weather",
-            parameters = buildJsonObject { put("type", "object") },
-        )
-        val req = LlmRequest(
-            messages = listOf(LlmMessage("user", "What's the weather?")),
-            tools = listOf(toolDef),
-        )
+        val toolDef =
+            ToolDef(
+                name = "get_weather",
+                description = "Get weather",
+                parameters = buildJsonObject { put("type", "object") },
+            )
+        val req =
+            LlmRequest(
+                messages = listOf(LlmMessage("user", "What's the weather?")),
+                tools = listOf(toolDef),
+            )
         val encoded = json.encodeToString(req)
         val decoded = json.decodeFromString<LlmRequest>(encoded)
         assertEquals(req, decoded)
@@ -84,12 +90,13 @@ class LlmModelsTest {
 
     @Test
     fun `LlmResponse without toolCalls round-trip`() {
-        val resp = LlmResponse(
-            content = "Hello there",
-            toolCalls = null,
-            usage = TokenUsage(10, 5, 15),
-            finishReason = FinishReason.STOP,
-        )
+        val resp =
+            LlmResponse(
+                content = "Hello there",
+                toolCalls = null,
+                usage = TokenUsage(10, 5, 15),
+                finishReason = FinishReason.STOP,
+            )
         val encoded = json.encodeToString(resp)
         val decoded = json.decodeFromString<LlmResponse>(encoded)
         assertEquals(resp, decoded)
@@ -97,12 +104,13 @@ class LlmModelsTest {
 
     @Test
     fun `LlmResponse with toolCalls round-trip`() {
-        val resp = LlmResponse(
-            content = null,
-            toolCalls = listOf(ToolCall("id1", "fn", "{}")),
-            usage = null,
-            finishReason = FinishReason.TOOL_CALLS,
-        )
+        val resp =
+            LlmResponse(
+                content = null,
+                toolCalls = listOf(ToolCall("id1", "fn", "{}")),
+                usage = null,
+                finishReason = FinishReason.TOOL_CALLS,
+            )
         val encoded = json.encodeToString(resp)
         val decoded = json.decodeFromString<LlmResponse>(encoded)
         assertEquals(resp, decoded)

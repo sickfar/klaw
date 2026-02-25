@@ -6,7 +6,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TokenCounterTest {
-
     @Test
     fun `empty string returns 0`() {
         assertEquals(0, approximateTokenCount(""))

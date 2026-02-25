@@ -1,7 +1,9 @@
 package io.github.klaw.common.error
 
-sealed class KlawError(message: String? = null, cause: Throwable? = null) : Exception(message, cause) {
-
+sealed class KlawError(
+    message: String? = null,
+    cause: Throwable? = null,
+) : Exception(message, cause) {
     data class ProviderError(
         val statusCode: Int?,
         override val message: String,

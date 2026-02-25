@@ -8,8 +8,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ConfigParsingTest {
-
-    private val gatewayYaml = """
+    private val gatewayYaml =
+        """
 channels:
   telegram:
     token: "test_bot_token_123"
@@ -17,9 +17,10 @@ channels:
   discord:
     enabled: false
     token: "discord_bot_token"
-""".trimIndent()
+        """.trimIndent()
 
-    private val engineYaml = """
+    private val engineYaml =
+        """
 providers:
   glm:
     type: openai-compatible
@@ -117,7 +118,7 @@ commands:
     description: "Agent status"
   - name: help
     description: "List commands"
-""".trimIndent()
+        """.trimIndent()
 
     @Test
     fun `parse gateway yaml - telegram token`() {
@@ -202,7 +203,8 @@ commands:
 
     @Test
     fun `parse engine yaml - optional fields absent from YAML parse to null or default`() {
-        val minimalYaml = """
+        val minimalYaml =
+            """
 providers:
   glm:
     type: openai-compatible
@@ -249,7 +251,7 @@ codeExecution:
   keepAliveMaxExecutions: 10
 files:
   maxFileSizeBytes: 1048576
-""".trimIndent()
+            """.trimIndent()
         val config = parseEngineConfig(minimalYaml)
         assertNull(config.providers["glm"]?.apiKey)
     }
