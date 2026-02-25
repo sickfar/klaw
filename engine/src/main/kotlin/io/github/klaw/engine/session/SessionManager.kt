@@ -17,18 +17,20 @@ class SessionManager(
         defaultModel: String,
     ): Session =
         withContext(Dispatchers.VT) {
-            val existing = db.sessionsQueries.getSession(chatId).executeAsOneOrNull()
-            if (existing != null) {
-                Session(
-                    chatId = existing.chat_id,
-                    model = existing.model,
-                    segmentStart = existing.segment_start,
-                    createdAt = Instant.parse(existing.created_at),
-                )
-            } else {
-                val now = Clock.System.now().toString()
-                db.sessionsQueries.insertSession(chatId, defaultModel, now, now)
-                Session(chatId = chatId, model = defaultModel, segmentStart = now, createdAt = Instant.parse(now))
+            db.transactionWithResult {
+                val existing = db.sessionsQueries.getSession(chatId).executeAsOneOrNull()
+                if (existing != null) {
+                    Session(
+                        chatId = existing.chat_id,
+                        model = existing.model,
+                        segmentStart = existing.segment_start,
+                        createdAt = Instant.parse(existing.created_at),
+                    )
+                } else {
+                    val now = Clock.System.now().toString()
+                    db.sessionsQueries.insertSession(chatId, defaultModel, now, now)
+                    Session(chatId = chatId, model = defaultModel, segmentStart = now, createdAt = Instant.parse(now))
+                }
             }
         }
 

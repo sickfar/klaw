@@ -24,7 +24,9 @@ data class ProviderConfig(
     val type: String,
     val endpoint: String,
     val apiKey: String? = null,
-)
+) {
+    override fun toString(): String = "ProviderConfig(type=$type, endpoint=$endpoint, apiKey=${if (apiKey != null) "***" else "null"})"
+}
 
 @Serializable
 data class ModelRef(

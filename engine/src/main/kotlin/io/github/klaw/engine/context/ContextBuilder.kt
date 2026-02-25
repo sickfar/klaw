@@ -75,7 +75,7 @@ class ContextBuilder(
                         tokens += msgTokens
                         kept.add(0, msg)
                     } else {
-                        break
+                        continue
                     }
                 }
                 kept

@@ -17,10 +17,14 @@ data class ChannelsConfig(
 data class TelegramConfig(
     val token: String,
     val allowedChatIds: List<String> = emptyList(),
-)
+) {
+    override fun toString(): String = "TelegramConfig(token=***, allowedChatIds=$allowedChatIds)"
+}
 
 @Serializable
 data class DiscordConfig(
     val enabled: Boolean = false,
     val token: String? = null,
-)
+) {
+    override fun toString(): String = "DiscordConfig(enabled=$enabled, token=${if (token != null) "***" else "null"})"
+}

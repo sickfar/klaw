@@ -24,6 +24,8 @@ import java.net.StandardProtocolFamily
 import java.net.UnixDomainSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 @Suppress("TooManyFunctions")
 class EngineSocketClient(
@@ -44,6 +46,8 @@ class EngineSocketClient(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     @Volatile private var connected = false
+
+    private val writerLock = ReentrantLock()
 
     @Volatile private var writer: PrintWriter? = null
     private var channel: SocketChannel? = null
@@ -69,7 +73,9 @@ class EngineSocketClient(
             return false
         }
         return try {
-            writer?.println(json.encodeToString<SocketMessage>(message))
+            writerLock.withLock {
+                writer?.println(json.encodeToString<SocketMessage>(message))
+            }
             true
         } catch (_: Exception) {
             buffer.append(message)
@@ -82,6 +88,7 @@ class EngineSocketClient(
         while (true) {
             try {
                 connectAndRun()
+                backoff = INITIAL_BACKOFF_MS
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -150,7 +157,9 @@ class EngineSocketClient(
             val messages = buffer.drain()
             messages.forEach { msg ->
                 try {
-                    writer?.println(json.encodeToString<SocketMessage>(msg))
+                    writerLock.withLock {
+                        writer?.println(json.encodeToString<SocketMessage>(msg))
+                    }
                 } catch (_: Exception) {
                     buffer.append(msg)
                 }

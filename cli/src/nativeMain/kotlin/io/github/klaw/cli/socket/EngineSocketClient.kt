@@ -18,18 +18,28 @@ import platform.posix.sockaddr
 import platform.posix.socket
 
 @OptIn(ExperimentalForeignApi::class)
-class EngineSocketClient(private val socketPath: String = KlawPaths.engineSocket) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+class EngineSocketClient(
+    private val socketPath: String = KlawPaths.engineSocket,
+) {
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+        }
 
-    fun request(command: String, params: Map<String, String> = emptyMap()): String {
+    fun request(
+        command: String,
+        params: Map<String, String> = emptyMap(),
+    ): String {
         val fd = socket(AF_UNIX, SOCK_STREAM, 0)
         if (fd < 0) throw EngineNotRunningException()
 
         val pathBytes = socketPath.encodeToByteArray()
         val addrBytes = buildSockAddrBytes(pathBytes)
-        val connectResult = addrBytes.usePinned { pinned ->
-            platform.posix.connect(fd, pinned.addressOf(0).reinterpret<sockaddr>(), addrBytes.size.convert())
-        }
+        val connectResult =
+            addrBytes.usePinned { pinned ->
+                platform.posix.connect(fd, pinned.addressOf(0).reinterpret<sockaddr>(), addrBytes.size.convert())
+            }
         if (connectResult < 0) {
             close(fd)
             throw EngineNotRunningException()

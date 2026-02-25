@@ -7,6 +7,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
+import java.util.concurrent.ConcurrentHashMap
 
 class LlmRouter(
     private val providers: Map<String, ProviderConfig>,
@@ -15,6 +16,8 @@ class LlmRouter(
     private val retryConfig: LlmRetryConfig,
     private val clientFactory: ((ProviderConfig) -> LlmClient)?,
 ) {
+    private val clientCache = ConcurrentHashMap<String, LlmClient>()
+
     fun resolve(fullModelId: String): Pair<ProviderConfig, ModelRef> {
         val model =
             models[fullModelId]
@@ -51,9 +54,11 @@ class LlmRouter(
 
     private fun clientFor(provider: ProviderConfig): LlmClient {
         if (clientFactory != null) return clientFactory.invoke(provider)
-        return when (provider.type) {
-            "openai-compatible" -> OpenAiCompatibleClient(retryConfig)
-            else -> throw KlawError.ProviderError(null, "Unsupported provider type: ${provider.type}")
+        return clientCache.getOrPut(provider.type) {
+            when (provider.type) {
+                "openai-compatible" -> OpenAiCompatibleClient(retryConfig)
+                else -> throw KlawError.ProviderError(null, "Unsupported provider type: ${provider.type}")
+            }
         }
     }
 

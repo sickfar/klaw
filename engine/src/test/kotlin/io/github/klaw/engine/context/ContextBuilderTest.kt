@@ -329,6 +329,60 @@ class ContextBuilderTest {
         }
 
     @Test
+    fun `skips oversized message but keeps smaller older messages`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Message 1: small (oldest)
+            db.messagesQueries.insertMessage(
+                "sm-1",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "Small old message",
+                null,
+                "2024-01-01T00:01:00Z",
+            )
+            // Message 2: very large (middle) — should be skipped
+            val hugeContent = "word ".repeat(500) // ~143 tokens
+            db.messagesQueries.insertMessage(
+                "big-2",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                hugeContent,
+                null,
+                "2024-01-01T00:02:00Z",
+            )
+            // Message 3: small (newest)
+            db.messagesQueries.insertMessage(
+                "sm-3",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "Small new message",
+                null,
+                "2024-01-01T00:03:00Z",
+            )
+
+            // Budget allows ~50 tokens for messages (enough for 2 small but not the big one)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 60))
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val history = messages.drop(1)
+            val contents = history.map { it.content }
+            assertTrue(contents.contains("Small new message"), "Newest small message should be kept")
+            assertTrue(
+                contents.contains("Small old message"),
+                "Oldest small message should be kept despite large message in between",
+            )
+        }
+
+    @Test
     fun `summary included when available`() =
         runTest {
             coEvery { summaryService.getLastSummary("chat-sum") } returns "Previously: User asked about weather."
