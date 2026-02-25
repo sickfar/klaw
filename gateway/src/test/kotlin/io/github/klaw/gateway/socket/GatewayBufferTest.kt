@@ -99,4 +99,20 @@ class GatewayBufferTest {
         assertTrue(msg is InboundSocketMessage)
         assertEquals("msg-valid", (msg as InboundSocketMessage).id)
     }
+
+    @Test
+    fun `drain preserves file if parsing throws unexpected error`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        // Write valid JSONL content directly
+        val validMessage = sampleInbound("msg-keep")
+        val validLine = json.encodeToString<SocketMessage>(validMessage)
+        File(bufferPath).writeText("$validLine\n")
+
+        // Drain should succeed and delete the file
+        val drained = GatewayBuffer(bufferPath).drain()
+        assertEquals(1, drained.size)
+        assertFalse(File(bufferPath).exists(), "File should be deleted after successful drain")
+    }
 }

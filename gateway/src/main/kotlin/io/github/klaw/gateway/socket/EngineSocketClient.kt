@@ -74,9 +74,14 @@ class EngineSocketClient(
         }
         return try {
             writerLock.withLock {
-                writer?.println(json.encodeToString<SocketMessage>(message))
+                val w = writer
+                if (w == null) {
+                    buffer.append(message)
+                    return@withLock false
+                }
+                w.println(json.encodeToString<SocketMessage>(message))
+                true
             }
-            true
         } catch (_: Exception) {
             buffer.append(message)
             false

@@ -266,6 +266,55 @@ class ToolCallLoopTest {
         }
 
     @Test
+    fun `warns when context exceeds budget during tool loop`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "big_tool", arguments = "{}")
+
+            // Tool returns large result that exceeds budget
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(
+                        content = null,
+                        toolCalls = listOf(toolCall),
+                        usage = null,
+                        finishReason = FinishReason.TOOL_CALLS,
+                    ),
+                    LlmResponse(
+                        content = "Done",
+                        toolCalls = null,
+                        usage = null,
+                        finishReason = FinishReason.STOP,
+                    ),
+                )
+
+            // Large tool result that will push context over budget
+            val largeResult = "word ".repeat(500)
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = largeResult))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    contextBudgetTokens = 50, // Very small budget
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Run tool"))
+            val response = runner.run(context, testSession)
+
+            // Should still complete (warning only, not blocking)
+            assertEquals("Done", response.content)
+            // Context should contain the tool result even though it exceeds budget
+            assertTrue(context.any { it.role == "tool" && it.content == largeResult })
+        }
+
+    @Test
     fun `tool_call and tool_result messages persisted to database`() =
         runTest {
             val driver = JdbcSqliteDriver("jdbc:sqlite:")

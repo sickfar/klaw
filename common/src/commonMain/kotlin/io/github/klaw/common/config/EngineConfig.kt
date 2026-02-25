@@ -76,26 +76,48 @@ data class EmbeddingConfig(
 data class ChunkingConfig(
     val size: Int,
     val overlap: Int,
-)
+) {
+    init {
+        require(size > 0) { "chunking size must be > 0, got $size" }
+        require(overlap >= 0) { "chunking overlap must be >= 0, got $overlap" }
+        require(overlap < size) { "chunking overlap ($overlap) must be < size ($size)" }
+    }
+}
 
 @Serializable
 data class SearchConfig(
     val topK: Int,
-)
+) {
+    init {
+        require(topK > 0) { "topK must be > 0, got $topK" }
+    }
+}
 
 @Serializable
 data class ContextConfig(
     val defaultBudgetTokens: Int,
     val slidingWindow: Int,
     val subagentWindow: Int,
-)
+) {
+    init {
+        require(defaultBudgetTokens > 0) { "defaultBudgetTokens must be > 0, got $defaultBudgetTokens" }
+        require(slidingWindow > 0) { "slidingWindow must be > 0, got $slidingWindow" }
+        require(subagentWindow > 0) { "subagentWindow must be > 0, got $subagentWindow" }
+    }
+}
 
 @Serializable
 data class ProcessingConfig(
     val debounceMs: Long,
     val maxConcurrentLlm: Int,
     val maxToolCallRounds: Int,
-)
+) {
+    init {
+        require(debounceMs >= 0) { "debounceMs must be >= 0, got $debounceMs" }
+        require(maxConcurrentLlm > 0) { "maxConcurrentLlm must be > 0, got $maxConcurrentLlm" }
+        require(maxToolCallRounds > 0) { "maxToolCallRounds must be > 0, got $maxToolCallRounds" }
+    }
+}
 
 @Serializable
 data class LlmRetryConfig(
@@ -103,7 +125,14 @@ data class LlmRetryConfig(
     val requestTimeoutMs: Long,
     val initialBackoffMs: Long,
     val backoffMultiplier: Double,
-)
+) {
+    init {
+        require(maxRetries >= 0) { "maxRetries must be >= 0, got $maxRetries" }
+        require(requestTimeoutMs > 0) { "requestTimeoutMs must be > 0, got $requestTimeoutMs" }
+        require(initialBackoffMs > 0) { "initialBackoffMs must be > 0, got $initialBackoffMs" }
+        require(backoffMultiplier >= 1.0) { "backoffMultiplier must be >= 1.0, got $backoffMultiplier" }
+    }
+}
 
 @Serializable
 data class LoggingConfig(
@@ -131,7 +160,11 @@ data class CodeExecutionConfig(
 @Serializable
 data class FilesConfig(
     val maxFileSizeBytes: Long,
-)
+) {
+    init {
+        require(maxFileSizeBytes > 0) { "maxFileSizeBytes must be > 0, got $maxFileSizeBytes" }
+    }
+}
 
 @Serializable
 data class CommandConfig(

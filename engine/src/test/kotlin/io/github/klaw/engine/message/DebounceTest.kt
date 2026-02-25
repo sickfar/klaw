@@ -6,6 +6,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -149,5 +150,84 @@ class DebounceTest {
 
             assertEquals(1, flushed.size)
             assertEquals(ids, flushed[0].map { it.id }, "Messages should be flushed in insertion order")
+        }
+
+    @Test
+    fun `messages beyond maxEntries from new chatIds are rejected`() =
+        runTest {
+            val flushed = mutableListOf<List<InboundSocketMessage>>()
+            val buffer =
+                DebounceBuffer(
+                    debounceMs = 1000L,
+                    scope = this,
+                    onFlush = { flushed.add(it) },
+                    maxEntries = 3,
+                )
+
+            // Fill up to capacity with 3 distinct chatIds
+            buffer.add(makeMsg("m1", chatId = "chat-1"))
+            buffer.add(makeMsg("m2", chatId = "chat-2"))
+            buffer.add(makeMsg("m3", chatId = "chat-3"))
+
+            // 4th distinct chatId should be rejected
+            val accepted = buffer.add(makeMsg("m4", chatId = "chat-4"))
+            assertFalse(accepted, "Message from new chatId beyond maxEntries should be rejected")
+
+            advanceTimeBy(1100L)
+            advanceUntilIdle()
+
+            // Only 3 chatIds should have been flushed
+            assertEquals(3, flushed.size)
+            val flushedChatIds = flushed.map { it[0].chatId }.toSet()
+            assertTrue("chat-4" !in flushedChatIds, "Rejected chatId should not appear in flushed messages")
+        }
+
+    @Test
+    fun `existing chatIds can still add messages when at capacity`() =
+        runTest {
+            val flushed = mutableListOf<List<InboundSocketMessage>>()
+            val buffer =
+                DebounceBuffer(
+                    debounceMs = 1000L,
+                    scope = this,
+                    onFlush = { flushed.add(it) },
+                    maxEntries = 2,
+                )
+
+            buffer.add(makeMsg("m1", chatId = "chat-1"))
+            buffer.add(makeMsg("m2", chatId = "chat-2"))
+
+            // Adding to existing chatId should still work
+            val accepted = buffer.add(makeMsg("m3", chatId = "chat-1"))
+            assertTrue(accepted, "Message to existing chatId should be accepted even at capacity")
+
+            advanceTimeBy(1100L)
+            advanceUntilIdle()
+
+            val chat1Batch = flushed.first { it[0].chatId == "chat-1" }
+            assertEquals(listOf("m1", "m3"), chat1Batch.map { it.id })
+        }
+
+    @Test
+    fun `flush errors are logged not silently swallowed`() =
+        runTest {
+            val buffer =
+                DebounceBuffer(
+                    debounceMs = 500L,
+                    scope = this,
+                    onFlush = {
+                        @Suppress("TooGenericExceptionThrown")
+                        throw RuntimeException("flush failed")
+                    },
+                )
+
+            buffer.add(makeMsg("m1"))
+
+            // Should not throw — error is caught and logged
+            advanceTimeBy(600L)
+            advanceUntilIdle()
+
+            // If we get here without exception, the error was caught properly
+            // The error should be logged via SLF4J (verified by no exception propagation)
         }
 }

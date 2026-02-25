@@ -30,18 +30,20 @@ class GatewayBuffer(
             val file = File(bufferPath)
             if (!file.exists()) return@withLock emptyList()
             val lines = file.readLines()
-            file.delete()
-            lines.mapNotNull { line ->
-                if (line.isBlank()) {
-                    null
-                } else {
-                    try {
-                        json.decodeFromString<SocketMessage>(line)
-                    } catch (_: Exception) {
+            val messages =
+                lines.mapNotNull { line ->
+                    if (line.isBlank()) {
                         null
+                    } else {
+                        try {
+                            json.decodeFromString<SocketMessage>(line)
+                        } catch (_: Exception) {
+                            null
+                        }
                     }
                 }
-            }
+            file.delete()
+            messages
         }
     }
 

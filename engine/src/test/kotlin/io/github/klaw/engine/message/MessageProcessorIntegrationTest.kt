@@ -293,6 +293,100 @@ class MessageProcessorIntegrationTest {
 
     @Suppress("MaxLineLength")
     @Test
+    fun `scheduled message persists user and assistant messages when logging enabled`() {
+        wireMock.stubFor(
+            post(urlEqualTo("/chat/completions"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"id":"s1","choices":[{"index":0,"message":{"role":"assistant","content":"Scheduled reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}""",
+                        ),
+                ),
+        )
+
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        val db = KlawDatabase(driver)
+
+        val pushed = CompletableDeferred<OutboundSocketMessage>()
+        val socketServer = mockk<EngineSocketServer>(relaxed = true)
+        coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
+
+        val config = buildTestConfig().copy(logging = LoggingConfig(subagentConversations = true))
+        val processor = buildProcessor(config, db, socketServer)
+
+        runBlocking {
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(name = "daily-check", message = "Run daily check", model = null, injectInto = "chat-inject"),
+                ).join()
+
+            // Wait for the response to be pushed (confirms LLM call completed)
+            withTimeout(5000) { pushed.await() }
+
+            // Query persisted messages
+            val messageRepository = MessageRepository(db)
+            val messages = messageRepository.getWindowMessages("subagent:daily-check", "2000-01-01T00:00:00Z", 100)
+
+            assertEquals(2, messages.size, "Expected user + assistant messages, got: $messages")
+            val user = messages.first { it.role == "user" }
+            val assistant = messages.first { it.role == "assistant" }
+
+            assertEquals("scheduler", user.channel)
+            assertEquals("subagent:daily-check", user.chatId)
+            assertEquals("Run daily check", user.content)
+
+            assertEquals("scheduler", assistant.channel)
+            assertEquals("subagent:daily-check", assistant.chatId)
+            assertEquals("Scheduled reply", assistant.content)
+        }
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `scheduled message does not persist when logging disabled`() {
+        wireMock.stubFor(
+            post(urlEqualTo("/chat/completions"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"id":"s2","choices":[{"index":0,"message":{"role":"assistant","content":"Silent reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}""",
+                        ),
+                ),
+        )
+
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        val db = KlawDatabase(driver)
+
+        val pushed = CompletableDeferred<OutboundSocketMessage>()
+        val socketServer = mockk<EngineSocketServer>(relaxed = true)
+        coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
+
+        // logging.subagentConversations = false (default from buildTestConfig)
+        val config = buildTestConfig()
+        val processor = buildProcessor(config, db, socketServer)
+
+        runBlocking {
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(name = "quiet-task", message = "Do something", model = null, injectInto = "chat-inject"),
+                ).join()
+
+            withTimeout(5000) { pushed.await() }
+
+            val messageRepository = MessageRepository(db)
+            val messages = messageRepository.getWindowMessages("subagent:quiet-task", "2000-01-01T00:00:00Z", 100)
+            assertEquals(0, messages.size, "No messages should be persisted when logging disabled")
+        }
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
     fun `response is sent to gateway after processing`() {
         wireMock.stubFor(
             post(urlEqualTo("/chat/completions"))

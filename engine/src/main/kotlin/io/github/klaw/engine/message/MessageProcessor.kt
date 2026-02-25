@@ -19,6 +19,7 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -76,47 +77,70 @@ class MessageProcessor(
     override suspend fun handleCliRequest(request: CliRequestMessage): String = """{"status":"ok","engine":"klaw"}"""
 
     @Suppress("TooGenericExceptionCaught")
-    suspend fun handleScheduledMessage(message: ScheduledMessage) {
+    fun handleScheduledMessage(message: ScheduledMessage): Job {
         val model = message.model ?: config.routing.tasks.subagent
         val chatId = "subagent:${message.name}"
 
-        processingScope
-            .launch {
-                llmLimiter.withSubagentPermit {
-                    try {
-                        val session = sessionManager.getOrCreate(chatId, model)
-                        if (message.model != null) {
-                            sessionManager.updateModel(chatId, message.model)
-                        }
-
-                        val tools = toolRegistry.listTools()
-                        val context = contextBuilder.buildContext(session, listOf(message.message), isSubagent = true)
-
-                        val runner =
-                            ToolCallLoopRunner(
-                                llmRouter,
-                                toolExecutor,
-                                config.processing.maxToolCallRounds,
-                            )
-                        val response = runner.run(context.toMutableList(), session, tools)
-                        val content = response.content ?: ""
-
-                        if (!isSilent(content) && message.injectInto != null) {
-                            socketServer.pushToGateway(
-                                OutboundSocketMessage(
-                                    channel = "engine",
-                                    chatId = message.injectInto,
-                                    content = content,
-                                ),
-                            )
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        log.error("Subagent '{}' failed: {}", message.name, e.message, e)
+        return processingScope.launch {
+            llmLimiter.withSubagentPermit {
+                try {
+                    val session = sessionManager.getOrCreate(chatId, model)
+                    if (message.model != null) {
+                        sessionManager.updateModel(chatId, message.model)
                     }
+
+                    val tools = toolRegistry.listTools()
+                    val context = contextBuilder.buildContext(session, listOf(message.message), isSubagent = true)
+
+                    // Persist scheduled user message before LLM call
+                    if (config.logging.subagentConversations) {
+                        messageRepository.save(
+                            id = UUID.randomUUID().toString(),
+                            channel = "scheduler",
+                            chatId = chatId,
+                            role = "user",
+                            type = "text",
+                            content = message.message,
+                        )
+                    }
+
+                    val runner =
+                        ToolCallLoopRunner(
+                            llmRouter,
+                            toolExecutor,
+                            config.processing.maxToolCallRounds,
+                        )
+                    val response = runner.run(context.toMutableList(), session, tools)
+                    val content = response.content ?: ""
+
+                    // Persist assistant response
+                    if (config.logging.subagentConversations) {
+                        messageRepository.save(
+                            id = UUID.randomUUID().toString(),
+                            channel = "scheduler",
+                            chatId = chatId,
+                            role = "assistant",
+                            type = "text",
+                            content = content,
+                        )
+                    }
+
+                    if (!isSilent(content) && message.injectInto != null) {
+                        socketServer.pushToGateway(
+                            OutboundSocketMessage(
+                                channel = "engine",
+                                chatId = message.injectInto,
+                                content = content,
+                            ),
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.error("Subagent '{}' failed: {}", message.name, e.message, e)
                 }
             }
+        }
     }
 
     @Suppress("TooGenericExceptionCaught", "LongMethod")
@@ -145,6 +169,9 @@ class MessageProcessor(
                     )
                 }
 
+                val contextBudget =
+                    config.models[session.model]?.contextBudget
+                        ?: config.context.defaultBudgetTokens
                 val runner =
                     ToolCallLoopRunner(
                         llmRouter,
@@ -153,6 +180,7 @@ class MessageProcessor(
                         messageRepository,
                         channel,
                         chatId,
+                        contextBudgetTokens = contextBudget,
                     )
                 val response = runner.run(context.toMutableList(), session, tools)
 

@@ -11,9 +11,11 @@ import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -37,6 +39,11 @@ class EngineSocketServer(
     private val socketPath: String,
     private val messageHandler: SocketMessageHandler,
 ) {
+    companion object {
+        const val HANDSHAKE_TIMEOUT_MS = 30_000L
+        const val IDLE_TIMEOUT_MS = 300_000L
+    }
+
     private val json =
         Json {
             ignoreUnknownKeys = true
@@ -113,6 +120,7 @@ class EngineSocketServer(
         }
     }
 
+    @Suppress("ReturnCount")
     private suspend fun handleClient(channel: SocketChannel) {
         val reader = BufferedReader(InputStreamReader(Channels.newInputStream(channel)))
         val writer = PrintWriter(Channels.newOutputStream(channel), true)
@@ -120,8 +128,13 @@ class EngineSocketServer(
         try {
             val firstLine =
                 try {
-                    withContext(Dispatchers.IO) { readLineLimited(reader) }
+                    withTimeout(HANDSHAKE_TIMEOUT_MS) {
+                        withContext(Dispatchers.IO) { readLineLimited(reader) }
+                    }
                 } catch (_: IllegalArgumentException) {
+                    return
+                } catch (_: TimeoutCancellationException) {
+                    System.err.println("EngineSocketServer: handshake timeout, closing connection")
                     return
                 } ?: return
             dispatchFirstMessage(firstLine, reader, writer)
@@ -168,10 +181,15 @@ class EngineSocketServer(
         while (running) {
             val line =
                 try {
-                    withContext(Dispatchers.IO) { readLineLimited(reader) }
+                    withTimeout(IDLE_TIMEOUT_MS) {
+                        withContext(Dispatchers.IO) { readLineLimited(reader) }
+                    }
                 } catch (_: IllegalArgumentException) {
                     System.err.println("EngineSocketServer: oversized message, skipping")
                     continue
+                } catch (_: TimeoutCancellationException) {
+                    System.err.println("EngineSocketServer: gateway idle timeout, closing connection")
+                    break
                 } ?: break
             dispatchGatewayMessage(line)
         }

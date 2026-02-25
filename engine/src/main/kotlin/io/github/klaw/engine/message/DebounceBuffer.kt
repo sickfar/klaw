@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.slf4j.LoggerFactory
 
 /**
  * Per-chatId debounce accumulator.
@@ -20,22 +21,37 @@ import kotlinx.coroutines.sync.withLock
  * @param debounceMs  Quiet period in milliseconds before a batch is flushed.
  * @param scope       Coroutine scope used to launch timer coroutines (pass TestScope in tests).
  * @param onFlush     Suspend callback invoked with the accumulated message list when the timer fires.
+ * @param maxEntries  Maximum number of distinct chatIds tracked simultaneously. Messages from new
+ *                    chatIds are dropped when this limit is reached (existing chatIds can still add).
  */
 class DebounceBuffer(
     private val debounceMs: Long,
     private val scope: CoroutineScope,
     private val onFlush: suspend (List<InboundSocketMessage>) -> Unit,
+    private val maxEntries: Int = 1000,
 ) {
     private val buffers = mutableMapOf<String, MutableList<InboundSocketMessage>>()
     private val timers = mutableMapOf<String, Job>()
     private val mutex = Mutex()
 
+    private val logger = LoggerFactory.getLogger(DebounceBuffer::class.java)
+
     /**
      * Adds [message] to the accumulator for its chatId and restarts the debounce timer.
+     *
+     * @return `true` if the message was accepted, `false` if rejected due to capacity limit.
      */
-    suspend fun add(message: InboundSocketMessage) {
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun add(message: InboundSocketMessage): Boolean {
         mutex.withLock {
             val chatId = message.chatId
+
+            // Reject messages from new chatIds when at capacity
+            if (chatId !in buffers && buffers.size >= maxEntries) {
+                logger.warn("DebounceBuffer at capacity ({}), dropping message from chatId={}", maxEntries, chatId)
+                return false
+            }
+
             buffers.getOrPut(chatId) { mutableListOf() }.add(message)
 
             // Cancel any in-flight timer for this chatId before starting a fresh one
@@ -51,9 +67,14 @@ class DebounceBuffer(
                             msgs
                         }
                     if (messages.isNotEmpty()) {
-                        onFlush(messages)
+                        try {
+                            onFlush(messages)
+                        } catch (e: Exception) {
+                            logger.error("Error in onFlush callback for chatId={}", chatId, e)
+                        }
                     }
                 }
         }
+        return true
     }
 }

@@ -173,4 +173,26 @@ class EngineSocketClientTest {
         assertEquals("buffered-msg", inboundMessages[0].id)
         assertTrue(buffer.isEmpty(), "Buffer should be empty after drain")
     }
+
+    @Test
+    fun `send buffers message when writer is null despite connected flag`(
+        @TempDir tempDir: Path,
+    ) {
+        val socketPath = tempDir.resolve("engine.sock").toString()
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+        val handler = NoOpOutboundMessageHandler()
+        val client = EngineSocketClient(socketPath, buffer, handler)
+        clientUnderTest = client
+
+        // Use reflection to set connected=true without actually connecting (writer stays null)
+        val connectedField = EngineSocketClient::class.java.getDeclaredField("connected")
+        connectedField.isAccessible = true
+        connectedField.setBoolean(client, true)
+
+        val result = client.send(sampleInbound("null-writer-msg"))
+
+        assertFalse(result, "send() should return false when writer is null")
+        assertFalse(buffer.isEmpty(), "Message should be buffered when writer is null")
+    }
 }

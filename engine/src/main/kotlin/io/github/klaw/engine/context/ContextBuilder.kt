@@ -22,6 +22,7 @@ class ContextBuilder(
         private const val CONTEXT_SAFETY_MARGIN = 0.9
     }
 
+    @Suppress("LongMethod")
     suspend fun buildContext(
         session: Session,
         pendingMessages: List<String>,
@@ -48,7 +49,8 @@ class ContextBuilder(
             config.models[session.model]?.contextBudget
                 ?: config.context.defaultBudgetTokens
         val fixedTokens = approximateTokenCount(systemContent)
-        val remaining = (contextBudget * CONTEXT_SAFETY_MARGIN).toInt() - fixedTokens
+        val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
+        val remaining = (contextBudget * CONTEXT_SAFETY_MARGIN).toInt() - fixedTokens - pendingTokens
 
         val windowLimit =
             if (isSubagent) {
@@ -75,7 +77,7 @@ class ContextBuilder(
                         tokens += msgTokens
                         kept.add(0, msg)
                     } else {
-                        continue
+                        break
                     }
                 }
                 kept

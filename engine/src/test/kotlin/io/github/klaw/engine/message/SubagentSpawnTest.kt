@@ -32,7 +32,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
@@ -161,8 +160,7 @@ class SubagentSpawnTest {
                     injectInto = "chat-123",
                 )
 
-            processor.handleScheduledMessage(scheduled)
-            delay(500)
+            processor.handleScheduledMessage(scheduled).join()
 
             coVerify { sessionManager.getOrCreate("subagent:test-task", "test/model") }
             coVerify { contextBuilder.buildContext(session, listOf("do the task"), isSubagent = true) }
@@ -206,10 +204,15 @@ class SubagentSpawnTest {
                     toolRegistry = toolRegistry,
                 )
 
-            processor.handleScheduledMessage(
-                ScheduledMessage(name = "silent-task", message = "silent task", model = null, injectInto = "chat-123"),
-            )
-            delay(500)
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(
+                        name = "silent-task",
+                        message = "silent task",
+                        model = null,
+                        injectInto = "chat-123",
+                    ),
+                ).join()
 
             coVerify(exactly = 0) { socketServer.pushToGateway(any()) }
         }
@@ -244,10 +247,10 @@ class SubagentSpawnTest {
                     toolRegistry = toolRegistry,
                 )
 
-            processor.handleScheduledMessage(
-                ScheduledMessage(name = "bg-task", message = "background task", model = null, injectInto = null),
-            )
-            delay(500)
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(name = "bg-task", message = "background task", model = null, injectInto = null),
+                ).join()
 
             coVerify(exactly = 0) { socketServer.pushToGateway(any()) }
         }
@@ -282,15 +285,15 @@ class SubagentSpawnTest {
                     toolRegistry = toolRegistry,
                 )
 
-            processor.handleScheduledMessage(
-                ScheduledMessage(
-                    name = "custom-model-task",
-                    message = "task with custom model",
-                    model = "test/model",
-                    injectInto = null,
-                ),
-            )
-            delay(500)
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(
+                        name = "custom-model-task",
+                        message = "task with custom model",
+                        model = "test/model",
+                        injectInto = null,
+                    ),
+                ).join()
 
             coVerify { sessionManager.updateModel("subagent:custom-model-task", "test/model") }
         }
@@ -323,10 +326,15 @@ class SubagentSpawnTest {
                     toolRegistry = toolRegistry,
                 )
 
-            processor.handleScheduledMessage(
-                ScheduledMessage(name = "fallback-task", message = "fallback task", model = null, injectInto = null),
-            )
-            delay(500)
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(
+                        name = "fallback-task",
+                        message = "fallback task",
+                        model = null,
+                        injectInto = null,
+                    ),
+                ).join()
 
             // Should use config.routing.tasks.subagent ("test/model") as default
             coVerify { sessionManager.getOrCreate("subagent:fallback-task", "test/model") }

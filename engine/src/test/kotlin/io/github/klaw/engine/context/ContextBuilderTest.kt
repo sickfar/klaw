@@ -329,7 +329,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `skips oversized message but keeps smaller older messages`() =
+    fun `stops at oversized message preserving contiguous newest history`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
@@ -345,7 +345,7 @@ class ContextBuilderTest {
                 null,
                 "2024-01-01T00:01:00Z",
             )
-            // Message 2: very large (middle) — should be skipped
+            // Message 2: very large (middle) — should stop here
             val hugeContent = "word ".repeat(500) // ~143 tokens
             db.messagesQueries.insertMessage(
                 "big-2",
@@ -376,9 +376,55 @@ class ContextBuilderTest {
             val history = messages.drop(1)
             val contents = history.map { it.content }
             assertTrue(contents.contains("Small new message"), "Newest small message should be kept")
+            // Old message should NOT be included because the large message in between breaks contiguity
             assertTrue(
-                contents.contains("Small old message"),
-                "Oldest small message should be kept despite large message in between",
+                !contents.contains("Small old message"),
+                "Old message should be excluded — contiguous newest history stops at the oversized message",
+            )
+        }
+
+    @Test
+    fun `pending message tokens subtracted from context budget`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert small messages in DB
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "pm-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "History message $i",
+                    null,
+                    ts,
+                )
+            }
+
+            // Large pending messages that consume most of the budget
+            val largePending = "word ".repeat(200) // ~57 tokens each
+            val pendingMessages = listOf(largePending, largePending)
+
+            // Budget = 200 tokens, system ~0, pending ~114 tokens, remaining ~66 tokens
+            // History messages are small (~3 tokens each), but budget is tight
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 200))
+            val messages = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
+
+            // Verify pending messages are at the end
+            val lastTwo = messages.takeLast(2)
+            assertEquals("user", lastTwo[0].role)
+            assertEquals(largePending, lastTwo[0].content)
+
+            // Total context should respect budget: system + history + pending all fit within budget
+            // The key assertion: history should be reduced because pending tokens are accounted for
+            val historyWithoutSystemAndPending = messages.drop(1).dropLast(2)
+            assertTrue(
+                historyWithoutSystemAndPending.size < 5,
+                "History should be trimmed when large pending messages consume budget, " +
+                    "got ${historyWithoutSystemAndPending.size}",
             )
         }
 

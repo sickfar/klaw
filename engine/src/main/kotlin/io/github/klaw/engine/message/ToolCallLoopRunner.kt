@@ -5,10 +5,12 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ToolExecutor
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -22,6 +24,7 @@ import java.util.UUID
  *
  * Throws [KlawError.ToolCallLoopException] if [maxRounds] is exhausted.
  */
+@Suppress("LongParameterList")
 internal class ToolCallLoopRunner(
     private val llmRouter: LlmRouter,
     private val toolExecutor: ToolExecutor,
@@ -29,7 +32,10 @@ internal class ToolCallLoopRunner(
     private val messageRepository: MessageRepository? = null,
     private val channel: String? = null,
     private val chatId: String? = null,
+    private val contextBudgetTokens: Int = 0,
 ) {
+    private val log = LoggerFactory.getLogger(ToolCallLoopRunner::class.java)
+
     suspend fun run(
         context: MutableList<LlmMessage>,
         session: Session,
@@ -44,6 +50,18 @@ internal class ToolCallLoopRunner(
                 )
             rounds++
             if (response.toolCalls.isNullOrEmpty()) return response
+
+            if (contextBudgetTokens > 0) {
+                val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
+                if (currentTokens > contextBudgetTokens) {
+                    log.warn(
+                        "Tool call loop context ({} tokens) exceeds budget ({} tokens) at round {}",
+                        currentTokens,
+                        contextBudgetTokens,
+                        rounds,
+                    )
+                }
+            }
 
             val results = toolExecutor.executeAll(response.toolCalls!!)
             val assistantMsg = LlmMessage(role = "assistant", content = null, toolCalls = response.toolCalls)

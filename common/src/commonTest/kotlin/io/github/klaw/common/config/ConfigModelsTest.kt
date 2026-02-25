@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -161,6 +162,81 @@ class ConfigModelsTest {
         val encoded = json.encodeToString(r)
         val decoded = json.decodeFromString<RoutingConfig>(encoded)
         assertEquals(r, decoded)
+    }
+
+    // --- Validation tests ---
+
+    @Test
+    fun `ProcessingConfig rejects zero maxConcurrentLlm`() {
+        assertFailsWith<IllegalArgumentException> {
+            ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 0, maxToolCallRounds = 5)
+        }
+    }
+
+    @Test
+    fun `ProcessingConfig rejects negative debounceMs`() {
+        assertFailsWith<IllegalArgumentException> {
+            ProcessingConfig(debounceMs = -1, maxConcurrentLlm = 2, maxToolCallRounds = 5)
+        }
+    }
+
+    @Test
+    fun `ProcessingConfig rejects zero maxToolCallRounds`() {
+        assertFailsWith<IllegalArgumentException> {
+            ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 0)
+        }
+    }
+
+    @Test
+    fun `ContextConfig rejects zero defaultBudgetTokens`() {
+        assertFailsWith<IllegalArgumentException> {
+            ContextConfig(defaultBudgetTokens = 0, slidingWindow = 10, subagentWindow = 5)
+        }
+    }
+
+    @Test
+    fun `ContextConfig rejects zero slidingWindow`() {
+        assertFailsWith<IllegalArgumentException> {
+            ContextConfig(defaultBudgetTokens = 8000, slidingWindow = 0, subagentWindow = 5)
+        }
+    }
+
+    @Test
+    fun `ChunkingConfig rejects overlap greater than or equal to size`() {
+        assertFailsWith<IllegalArgumentException> {
+            ChunkingConfig(size = 100, overlap = 100)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            ChunkingConfig(size = 100, overlap = 150)
+        }
+    }
+
+    @Test
+    fun `LlmRetryConfig rejects negative maxRetries`() {
+        assertFailsWith<IllegalArgumentException> {
+            LlmRetryConfig(maxRetries = -1, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 2.0)
+        }
+    }
+
+    @Test
+    fun `LlmRetryConfig rejects backoffMultiplier less than 1`() {
+        assertFailsWith<IllegalArgumentException> {
+            LlmRetryConfig(maxRetries = 2, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 0.5)
+        }
+    }
+
+    @Test
+    fun `SearchConfig rejects zero topK`() {
+        assertFailsWith<IllegalArgumentException> {
+            SearchConfig(topK = 0)
+        }
+    }
+
+    @Test
+    fun `FilesConfig rejects zero maxFileSizeBytes`() {
+        assertFailsWith<IllegalArgumentException> {
+            FilesConfig(maxFileSizeBytes = 0)
+        }
     }
 
     @Test
