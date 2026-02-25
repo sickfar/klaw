@@ -12,7 +12,7 @@ class SocketProtocolTest {
     private val json =
         Json {
             ignoreUnknownKeys = true
-            encodeDefaults = true
+            encodeDefaults = false
         }
 
     @Test
@@ -134,15 +134,30 @@ class SocketProtocolTest {
     }
 
     @Test
+    fun `ShutdownMessage serializes with correct type discriminator`() {
+        val encoded = json.encodeToString<SocketMessage>(ShutdownMessage)
+        assertTrue(encoded.contains(""""type":"shutdown""""), "Expected type=shutdown in: $encoded")
+    }
+
+    @Test
+    fun `ShutdownMessage round-trip`() {
+        val encoded = json.encodeToString<SocketMessage>(ShutdownMessage)
+        assertIs<ShutdownMessage>(json.decodeFromString<SocketMessage>(encoded))
+    }
+
+    @Test
     fun `type field dispatches to correct subclass`() {
         val inboundJson = """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
         val outboundJson = """{"type":"outbound","channel":"tg","chatId":"123","content":"resp"}"""
         val commandJson = """{"type":"command","channel":"tg","chatId":"123","command":"new"}"""
         val registerJson = """{"type":"register","client":"gateway"}"""
 
+        val shutdownJson = """{"type":"shutdown"}"""
+
         assertIs<InboundSocketMessage>(json.decodeFromString<SocketMessage>(inboundJson))
         assertIs<OutboundSocketMessage>(json.decodeFromString<SocketMessage>(outboundJson))
         assertIs<CommandSocketMessage>(json.decodeFromString<SocketMessage>(commandJson))
         assertIs<RegisterMessage>(json.decodeFromString<SocketMessage>(registerJson))
+        assertIs<ShutdownMessage>(json.decodeFromString<SocketMessage>(shutdownJson))
     }
 }

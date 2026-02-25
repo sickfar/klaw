@@ -1,0 +1,154 @@
+package io.github.klaw.gateway.socket
+
+import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.RegisterMessage
+import io.github.klaw.common.protocol.ShutdownMessage
+import io.github.klaw.common.protocol.SocketMessage
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.PrintWriter
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
+import java.nio.channels.Channels
+import java.nio.channels.SocketChannel
+
+@Suppress("TooManyFunctions")
+class EngineSocketClient(
+    private val socketPath: String,
+    private val buffer: GatewayBuffer,
+    private val outboundHandler: OutboundMessageHandler,
+) {
+    private companion object {
+        const val INITIAL_BACKOFF_MS = 1_000L
+        const val MAX_BACKOFF_MS = 60_000L
+    }
+
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+        }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    @Volatile private var connected = false
+
+    @Volatile private var writer: PrintWriter? = null
+    private var channel: SocketChannel? = null
+
+    @PostConstruct
+    fun start() {
+        scope.launch { reconnectLoop() }
+    }
+
+    @PreDestroy
+    fun stop() {
+        connected = false
+        try {
+            channel?.close()
+        } catch (_: Exception) {
+        }
+        scope.cancel()
+    }
+
+    fun send(message: SocketMessage): Boolean {
+        if (!connected) {
+            buffer.append(message)
+            return false
+        }
+        return try {
+            writer?.println(json.encodeToString<SocketMessage>(message))
+            true
+        } catch (_: Exception) {
+            buffer.append(message)
+            false
+        }
+    }
+
+    private suspend fun reconnectLoop() {
+        var backoff = INITIAL_BACKOFF_MS
+        while (true) {
+            try {
+                connectAndRun()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // connection failed or dropped -- will retry after backoff
+            }
+            connected = false
+            delay(backoff)
+            backoff = minOf(backoff * 2, MAX_BACKOFF_MS)
+        }
+    }
+
+    private suspend fun connectAndRun() {
+        val addr = UnixDomainSocketAddress.of(socketPath)
+        val ch =
+            withContext(Dispatchers.IO) {
+                SocketChannel.open(StandardProtocolFamily.UNIX).apply { connect(addr) }
+            }
+        channel = ch
+        val reader = BufferedReader(InputStreamReader(Channels.newInputStream(ch)))
+        val w = PrintWriter(Channels.newOutputStream(ch), true)
+        writer = w
+
+        // Send registration first
+        w.println(json.encodeToString<SocketMessage>(RegisterMessage(client = "gateway")))
+        connected = true
+
+        // Drain any buffered messages now that we are connected
+        drainBuffer()
+
+        // Read messages from engine until connection closes or shutdown received
+        processIncomingMessages(reader)
+    }
+
+    private suspend fun processIncomingMessages(reader: BufferedReader) {
+        var shutdown = false
+        while (!shutdown) {
+            val line = withContext(Dispatchers.IO) { reader.readLine() } ?: break
+            shutdown = handleIncomingLine(line)
+        }
+    }
+
+    private suspend fun handleIncomingLine(line: String): Boolean =
+        when (val msg = json.decodeFromString<SocketMessage>(line)) {
+            is OutboundSocketMessage -> {
+                outboundHandler.handleOutbound(msg)
+                false
+            }
+
+            is ShutdownMessage -> {
+                outboundHandler.handleShutdown()
+                true
+            }
+
+            else -> {
+                false
+            } // RegisterMessage, InboundSocketMessage, etc -- ignored from engine
+        }
+
+    private fun drainBuffer() {
+        if (!buffer.isEmpty()) {
+            val messages = buffer.drain()
+            messages.forEach { msg ->
+                try {
+                    writer?.println(json.encodeToString<SocketMessage>(msg))
+                } catch (_: Exception) {
+                    buffer.append(msg)
+                }
+            }
+        }
+    }
+}

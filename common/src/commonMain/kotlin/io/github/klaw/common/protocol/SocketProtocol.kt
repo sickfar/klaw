@@ -45,6 +45,10 @@ data class RegisterMessage(
     val client: String,
 ) : SocketMessage()
 
+@Serializable
+@SerialName("shutdown")
+data object ShutdownMessage : SocketMessage()
+
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
 // It uses a separate framing path for CLI ↔ Engine communication,
 // distinct from the Gateway ↔ Engine socket protocol above.
