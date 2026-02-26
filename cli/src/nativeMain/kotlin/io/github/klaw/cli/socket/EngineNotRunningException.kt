@@ -2,5 +2,5 @@ package io.github.klaw.cli.socket
 
 class EngineNotRunningException :
     Exception(
-        "Engine не запущен. Запустите: systemctl start klaw-engine",
+        "Engine is not running. Start it with: systemctl --user start klaw-engine",
     )

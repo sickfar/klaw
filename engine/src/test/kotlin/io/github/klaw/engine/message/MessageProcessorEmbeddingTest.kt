@@ -36,6 +36,7 @@ import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.socket.CliCommandDispatcher
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.tools.ToolExecutor
 import io.mockk.coEvery
@@ -181,6 +182,8 @@ class MessageProcessorEmbeddingTest {
                 subagentHistoryLoader = subagentHistoryLoader,
             )
 
+        val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
+
         return MessageProcessor(
             sessionManager = sessionManager,
             messageRepository = messageRepository,
@@ -192,6 +195,7 @@ class MessageProcessorEmbeddingTest {
             commandHandler = commandHandler,
             config = config,
             messageEmbeddingService = messageEmbeddingService,
+            cliCommandDispatcher = cliCommandDispatcher,
         )
     }
 

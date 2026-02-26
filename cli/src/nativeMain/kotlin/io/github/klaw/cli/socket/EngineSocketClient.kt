@@ -4,18 +4,26 @@ import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CliRequestMessage
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import platform.posix.AF_UNIX
 import platform.posix.SOCK_STREAM
+import platform.posix.SOL_SOCKET
+import platform.posix.SO_RCVTIMEO
 import platform.posix.close
 import platform.posix.recv
 import platform.posix.send
+import platform.posix.setsockopt
 import platform.posix.sockaddr
 import platform.posix.socket
+import platform.posix.timeval
 
 @OptIn(ExperimentalForeignApi::class)
 class EngineSocketClient(
@@ -43,6 +51,14 @@ class EngineSocketClient(
         if (connectResult < 0) {
             close(fd)
             throw EngineNotRunningException()
+        }
+
+        // Set 120-second receive timeout to prevent indefinite blocking on slow LLM responses
+        memScoped {
+            val tv = alloc<timeval>()
+            tv.tv_sec = 120
+            tv.tv_usec = 0
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, tv.ptr, sizeOf<timeval>().convert())
         }
 
         val lineBytes = (json.encodeToString(CliRequestMessage(command, params)) + "\n").encodeToByteArray()

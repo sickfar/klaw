@@ -17,3 +17,6 @@ UPDATE sessions SET model = ? WHERE chat_id = ?;
 
 updateSegmentStart:
 UPDATE sessions SET segment_start = ? WHERE chat_id = ?;
+
+listSessions:
+SELECT * FROM sessions ORDER BY chat_id;

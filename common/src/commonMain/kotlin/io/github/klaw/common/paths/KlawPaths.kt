@@ -16,8 +16,10 @@ data class KlawPathsSnapshot(
     val schedulerDb: String,
     val conversations: String,
     val summaries: String,
+    val memory: String,
     val coreMemory: String,
     val skills: String,
+    val models: String,
 )
 
 internal fun buildPaths(
@@ -48,8 +50,10 @@ internal fun buildPaths(
         schedulerDb = "$data/scheduler.db",
         conversations = "$data/conversations",
         summaries = "$data/summaries",
+        memory = "$data/memory",
         coreMemory = "$data/memory/core_memory.json",
         skills = "$data/skills",
+        models = "$cache/models",
     )
 }
 
@@ -66,6 +70,8 @@ object KlawPaths {
     val schedulerDb: String get() = snapshot.schedulerDb
     val conversations: String get() = snapshot.conversations
     val summaries: String get() = snapshot.summaries
+    val memory: String get() = snapshot.memory
     val coreMemory: String get() = snapshot.coreMemory
     val skills: String get() = snapshot.skills
+    val models: String get() = snapshot.models
 }

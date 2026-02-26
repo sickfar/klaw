@@ -38,5 +38,8 @@ kotlin {
             implementation(project(":common"))
             implementation(libs.clikt)
         }
+        nativeTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }

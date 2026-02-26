@@ -54,4 +54,16 @@ class SessionManager(
             val newSegmentStart = Clock.System.now().toString()
             db.sessionsQueries.updateSegmentStart(newSegmentStart, chatId)
         }
+
+    suspend fun listSessions(): List<Session> =
+        withContext(Dispatchers.VT) {
+            db.sessionsQueries.listSessions().executeAsList().map { row ->
+                Session(
+                    chatId = row.chat_id,
+                    model = row.model,
+                    segmentStart = row.segment_start,
+                    createdAt = Instant.parse(row.created_at),
+                )
+            }
+        }
 }

@@ -131,6 +131,13 @@ class KlawPathsTest {
     }
 
     @Test
+    fun `models is in cache dir`() {
+        val paths = buildTestPaths(home = "/home/alice")
+        assertTrue(paths.models.startsWith(paths.cache))
+        assertTrue(paths.models.endsWith("models"))
+    }
+
+    @Test
     fun `all XDG vars set simultaneously`() {
         val paths =
             buildTestPaths(

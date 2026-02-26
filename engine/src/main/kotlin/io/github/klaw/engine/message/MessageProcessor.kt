@@ -12,6 +12,7 @@ import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.socket.CliCommandDispatcher
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ToolExecutor
@@ -47,6 +48,7 @@ class MessageProcessor(
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
     private val messageEmbeddingService: MessageEmbeddingService,
+    private val cliCommandDispatcher: CliCommandDispatcher,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -86,7 +88,7 @@ class MessageProcessor(
         )
     }
 
-    override suspend fun handleCliRequest(request: CliRequestMessage): String = """{"status":"ok","engine":"klaw"}"""
+    override suspend fun handleCliRequest(request: CliRequestMessage): String = cliCommandDispatcher.dispatch(request)
 
     @Suppress("TooGenericExceptionCaught", "LongMethod")
     fun handleScheduledMessage(message: ScheduledMessage): Job {

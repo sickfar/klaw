@@ -120,6 +120,7 @@ class SubagentSpawnTest {
             commandHandler = commandHandler,
             config = config,
             messageEmbeddingService = messageEmbeddingService,
+            cliCommandDispatcher = mockk(relaxed = true),
         )
 
     @Test
