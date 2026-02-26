@@ -55,22 +55,19 @@ Run once from the repo directory on the Pi:
 ./scripts/install.sh
 ```
 
-Installs systemd user service units and enables them. Then run `klaw init` (CLI) to create data directories and config templates.
+Installs systemd user service units and enables them.
 
-### 4. Config
-
-Copy templates and fill in API keys:
+### 4. Run the setup wizard
 
 ```bash
-cp ~/.config/klaw/engine.yaml.example ~/.config/klaw/engine.yaml
-cp ~/.config/klaw/gateway.yaml.example ~/.config/klaw/gateway.yaml
-# Edit both files with your API keys
+klaw init
 ```
 
-### 5. Start services
+Asks for your LLM API key, Telegram bot token, and agent identity. Creates config files, starts the engine, and enables both services automatically.
+
+### 5. Verify services are running
 
 ```bash
-systemctl --user start klaw-engine klaw-gateway
 systemctl --user status klaw-engine klaw-gateway
 ```
 
@@ -84,20 +81,19 @@ systemctl --user status klaw-engine klaw-gateway
 # 1. Build artifacts (must run first)
 ./scripts/build.sh
 
-# 2. Copy and fill in config
-cp config/engine.yaml.example config/engine.yaml
-cp config/gateway.yaml.example config/gateway.yaml
-# Edit config/engine.yaml and config/gateway.yaml with real API keys
+# 2. Run the setup wizard — creates config and starts containers
+./klaw init
+```
 
-# 3. Start engine + gateway
-docker compose up -d
+`./klaw init` runs interactively: it asks for your LLM API key, Telegram bot token, and agent identity, writes `config/engine.yaml` and `config/gateway.yaml`, then starts the engine and gateway containers automatically.
 
-# 4. Run CLI commands
+`config/` is gitignored — real API keys are never committed.
+
+```bash
+# 3. Run CLI commands
 ./klaw status
 ./klaw memory show
 ```
-
-`config/` is gitignored — real API keys are never committed.
 
 ### Useful Docker commands
 
