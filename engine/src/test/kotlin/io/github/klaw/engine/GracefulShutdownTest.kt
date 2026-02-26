@@ -1,9 +1,11 @@
 package io.github.klaw.engine
 
 import io.github.klaw.engine.message.MessageProcessor
+import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verifyOrder
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -14,8 +16,9 @@ class GracefulShutdownTest {
         runTest {
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
+            val scheduler = mockk<KlawScheduler>(relaxed = true)
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
             lifecycle.shutdown()
 
             verify { messageProcessor.close() }
@@ -23,13 +26,30 @@ class GracefulShutdownTest {
         }
 
     @Test
+    fun `shutdown calls scheduler before messageProcessor`() =
+        runTest {
+            val socketServer = mockk<EngineSocketServer>(relaxed = true)
+            val messageProcessor = mockk<MessageProcessor>(relaxed = true)
+            val scheduler = mockk<KlawScheduler>(relaxed = true)
+
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
+            lifecycle.shutdown()
+
+            verifyOrder {
+                scheduler.shutdownBlocking()
+                messageProcessor.close()
+            }
+        }
+
+    @Test
     fun `shutdown stops socket server even if processor close fails`() =
         runTest {
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
+            val scheduler = mockk<KlawScheduler>(relaxed = true)
             every { messageProcessor.close() } throws RuntimeException("close failed")
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
             lifecycle.shutdown()
 
             verify { socketServer.stop() }
@@ -40,12 +60,14 @@ class GracefulShutdownTest {
         runTest {
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
+            val scheduler = mockk<KlawScheduler>(relaxed = true)
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
             lifecycle.shutdown()
             lifecycle.shutdown()
 
             // Should only be called once each
+            verify(exactly = 1) { scheduler.shutdownBlocking() }
             verify(exactly = 1) { messageProcessor.close() }
             verify(exactly = 1) { socketServer.stop() }
         }
