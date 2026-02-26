@@ -1,6 +1,7 @@
 package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Singleton
 
@@ -14,4 +15,7 @@ class GatewaySocketFactory {
         buffer: GatewayBuffer,
         handler: OutboundMessageHandler,
     ): EngineSocketClient = EngineSocketClient(KlawPaths.engineSocket, buffer, handler)
+
+    @Singleton
+    fun conversationJsonlWriter(): ConversationJsonlWriter = ConversationJsonlWriter(KlawPaths.conversations)
 }

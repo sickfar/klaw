@@ -11,10 +11,11 @@ import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+private val logger = KotlinLogging.logger {}
+
 class GatewayBuffer(
     private val bufferPath: String,
 ) {
-    private val logger = KotlinLogging.logger {}
     private val lock = ReentrantLock()
     private val json =
         Json {
@@ -35,7 +36,7 @@ class GatewayBuffer(
                         PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")),
                     )
                 }.onFailure { e ->
-                    logger.warn { "Could not create buffer file with restricted permissions: ${e.message}" }
+                    logger.warn { "Could not create buffer file with restricted permissions: ${e::class.simpleName}" }
                 }
             }
             file.appendText(json.encodeToString<SocketMessage>(message) + "\n")

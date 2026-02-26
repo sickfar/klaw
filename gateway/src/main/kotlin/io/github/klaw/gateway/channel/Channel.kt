@@ -1,6 +1,6 @@
 package io.github.klaw.gateway.channel
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 interface Channel {
     val name: String
