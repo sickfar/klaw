@@ -48,7 +48,7 @@ class NativeSqliteVecLoader : SqliteVecLoader {
             }
             logger.info { "sqlite-vec extension loaded successfully" }
         } catch (e: Exception) {
-            logger.warn { "Failed to load sqlite-vec extension: ${e.message}" }
+            logger.warn(e) { "Failed to load sqlite-vec extension" }
             extensionLoadable.set(false)
         }
     }

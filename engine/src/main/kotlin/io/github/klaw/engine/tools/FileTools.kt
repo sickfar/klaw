@@ -38,7 +38,7 @@ class FileTools(
             }
             Result.success(resolved)
         } catch (e: Exception) {
-            Result.failure(SecurityException("Access denied: ${e.message}"))
+            Result.failure(SecurityException("Access denied: ${e::class.simpleName}"))
         }
     }
 
@@ -72,7 +72,7 @@ class FileTools(
                 if (start >= lines.size) return@withContext ""
                 lines.subList(start, end).joinToString("\n")
             } catch (e: Exception) {
-                "Error reading file: ${e.message}"
+                "Error reading file: ${e::class.simpleName}"
             }
         }
     }
@@ -108,7 +108,7 @@ class FileTools(
                 }
                 "OK: file written to $path"
             } catch (e: Exception) {
-                "Error writing file: ${e.message}"
+                "Error writing file: ${e::class.simpleName}"
             }
         }
     }
@@ -133,7 +133,7 @@ class FileTools(
                         .joinToString("\n")
                 }
             } catch (e: Exception) {
-                "Error listing directory: ${e.message}"
+                "Error listing directory: ${e::class.simpleName}"
             }
         }
     }

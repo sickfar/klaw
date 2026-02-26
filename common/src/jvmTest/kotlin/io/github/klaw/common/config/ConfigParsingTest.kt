@@ -203,7 +203,8 @@ commands:
 
     @Test
     fun `gateway config with commands parses correctly`() {
-        val yaml = """
+        val yaml =
+            """
             channels:
               telegram:
                 token: "bot-token"
@@ -214,7 +215,7 @@ commands:
                 description: "Start the bot"
               - name: "new"
                 description: "New conversation"
-        """.trimIndent()
+            """.trimIndent()
         val config = parseGatewayConfig(yaml)
         assertEquals(2, config.commands.size)
         assertEquals("start", config.commands[0].name)

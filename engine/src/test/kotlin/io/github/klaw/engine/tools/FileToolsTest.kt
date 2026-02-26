@@ -2,11 +2,13 @@ package io.github.klaw.engine.tools
 
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 
 class FileToolsTest {
     @TempDir
@@ -155,5 +157,65 @@ class FileToolsTest {
             val result = tools().write("dir-link/file.txt", "payload", "overwrite")
             assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
             Files.deleteIfExists(outsideDir)
+        }
+
+    @Test
+    fun `read IOException error contains class name not raw path`() =
+        runTest {
+            val file = workspace.resolve("no-read.txt")
+            Files.writeString(file, "content")
+            Files.setPosixFilePermissions(file, emptySet())
+            try {
+                val result = tools().read("no-read.txt")
+                assertTrue(result.startsWith("Error reading file:"), "Expected error prefix, got: $result")
+                // e::class.simpleName returns "AccessDeniedException"
+                assertTrue(result.contains("AccessDeniedException"), "Expected class name in error, got: $result")
+                // e.message returns the file path — it must NOT appear in the result
+                assertFalse(
+                    result.contains(file.toString()),
+                    "Error must not expose raw exception message (file path), got: $result",
+                )
+            } finally {
+                Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-rw-rw-"))
+            }
+        }
+
+    @Test
+    fun `write IOException error contains class name not raw path`() =
+        runTest {
+            val dir = workspace.resolve("no-write-dir")
+            Files.createDirectories(dir)
+            Files.setPosixFilePermissions(dir, emptySet())
+            val expectedPath = dir.resolve("file.txt").toString()
+            try {
+                val result = tools().write("no-write-dir/file.txt", "content", "overwrite")
+                assertTrue(result.startsWith("Error writing file:"), "Expected error prefix, got: $result")
+                assertTrue(result.contains("AccessDeniedException"), "Expected class name in error, got: $result")
+                assertFalse(
+                    result.contains(expectedPath),
+                    "Error must not expose raw exception message (file path), got: $result",
+                )
+            } finally {
+                Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxrwxrwx"))
+            }
+        }
+
+    @Test
+    fun `list IOException error contains class name not raw path`() =
+        runTest {
+            val dir = workspace.resolve("no-list-dir")
+            Files.createDirectories(dir)
+            Files.setPosixFilePermissions(dir, emptySet())
+            try {
+                val result = tools().list("no-list-dir")
+                assertTrue(result.startsWith("Error listing directory:"), "Expected error prefix, got: $result")
+                assertTrue(result.contains("AccessDeniedException"), "Expected class name in error, got: $result")
+                assertFalse(
+                    result.contains(dir.toString()),
+                    "Error must not expose raw exception message (dir path), got: $result",
+                )
+            } finally {
+                Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxrwxrwx"))
+            }
         }
 }

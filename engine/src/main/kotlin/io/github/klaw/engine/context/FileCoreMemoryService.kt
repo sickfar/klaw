@@ -78,7 +78,7 @@ class FileCoreMemoryService(
                 writeMemory(updated)
                 "OK: $section.$key updated"
             } catch (e: Exception) {
-                "Error: ${e.message}"
+                "Error: ${e::class.simpleName}"
             }
         }
 
@@ -107,7 +107,7 @@ class FileCoreMemoryService(
                 writeMemory(newMem)
                 "OK: $section.$key deleted"
             } catch (e: Exception) {
-                "Error: ${e.message}"
+                "Error: ${e::class.simpleName}"
             }
         }
 }

@@ -19,6 +19,10 @@ class ConversationJsonlWriter(
 ) {
     private val mutexes = ConcurrentHashMap<String, Mutex>()
 
+    companion object {
+        private val CHAT_ID_REGEX = Regex("^[a-zA-Z0-9][a-zA-Z0-9_:.-]*$")
+    }
+
     private fun mutexFor(chatId: String): Mutex = mutexes.computeIfAbsent(chatId) { Mutex() }
 
     private fun fileFor(chatId: String): File {
@@ -30,6 +34,7 @@ class ConversationJsonlWriter(
         chatId: String,
         jsonLine: String,
     ) {
+        require(chatId.matches(CHAT_ID_REGEX)) { "Invalid chatId format" }
         mutexFor(chatId).withLock {
             val file = fileFor(chatId)
             file.parentFile?.mkdirs()

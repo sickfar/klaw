@@ -59,7 +59,8 @@ class GatewayBuffer(
                         @Suppress("TooGenericExceptionCaught")
                         try {
                             messages.add(json.decodeFromString<SocketMessage>(line))
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.warn { "Skipping malformed buffer line: ${e::class.simpleName}" }
                             // Skip malformed lines — partial writes or corruption.
                         }
                     }

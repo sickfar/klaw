@@ -27,6 +27,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("io.micronaut.test:micronaut-test-junit5")
+    testImplementation("ch.qos.logback:logback-classic")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
 

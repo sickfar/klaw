@@ -7,26 +7,40 @@ import kotlinx.coroutines.withContext
 import java.nio.LongBuffer
 import java.nio.file.Path
 
-class OnnxEmbeddingService(
-    modelDir: Path =
-        Path.of(
-            System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache",
-            "klaw",
-            "models",
-            "all-MiniLM-L6-v2",
-        ),
+class OnnxEmbeddingService internal constructor(
+    private val env: ai.onnxruntime.OrtEnvironment,
+    private val session: ai.onnxruntime.OrtSession,
+    private val tokenizer: HuggingFaceTokenizer,
 ) : EmbeddingService {
-    private val tokenizer: HuggingFaceTokenizer
-    private val session: ai.onnxruntime.OrtSession
-    private val env: ai.onnxruntime.OrtEnvironment = ai.onnxruntime.OrtEnvironment.getEnvironment()
+    constructor(
+        modelDir: Path =
+            Path.of(
+                System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache",
+                "klaw",
+                "models",
+                "all-MiniLM-L6-v2",
+            ),
+    ) : this(
+        env = ai.onnxruntime.OrtEnvironment.getEnvironment(),
+        session = createSession(ai.onnxruntime.OrtEnvironment.getEnvironment(), modelDir),
+        tokenizer = createTokenizer(modelDir),
+    )
 
-    init {
-        val tokenizerPath = modelDir.resolve("tokenizer.json")
-        val modelPath = modelDir.resolve("model.onnx")
-        require(tokenizerPath.toFile().exists()) { "Tokenizer not found: $tokenizerPath" }
-        require(modelPath.toFile().exists()) { "ONNX model not found: $modelPath" }
-        tokenizer = HuggingFaceTokenizer.newInstance(tokenizerPath)
-        session = env.createSession(modelPath.toString())
+    companion object {
+        private fun createSession(
+            env: ai.onnxruntime.OrtEnvironment,
+            modelDir: Path,
+        ): ai.onnxruntime.OrtSession {
+            val modelPath = modelDir.resolve("model.onnx")
+            require(modelPath.toFile().exists()) { "ONNX model not found: $modelPath" }
+            return env.createSession(modelPath.toString())
+        }
+
+        private fun createTokenizer(modelDir: Path): HuggingFaceTokenizer {
+            val tokenizerPath = modelDir.resolve("tokenizer.json")
+            require(tokenizerPath.toFile().exists()) { "Tokenizer not found: $tokenizerPath" }
+            return HuggingFaceTokenizer.newInstance(tokenizerPath)
+        }
     }
 
     @Suppress("LongMethod")
@@ -38,26 +52,29 @@ class OnnxEmbeddingService(
             val tokenTypeIds = LongArray(inputIds.size) { 0L }
             val seqLen = inputIds.size.toLong()
 
-            val inputIdsTensor =
-                ai.onnxruntime.OnnxTensor.createTensor(
-                    env,
-                    LongBuffer.wrap(inputIds),
-                    longArrayOf(1, seqLen),
-                )
-            val attentionMaskTensor =
-                ai.onnxruntime.OnnxTensor.createTensor(
-                    env,
-                    LongBuffer.wrap(attentionMask),
-                    longArrayOf(1, seqLen),
-                )
-            val tokenTypeIdsTensor =
-                ai.onnxruntime.OnnxTensor.createTensor(
-                    env,
-                    LongBuffer.wrap(tokenTypeIds),
-                    longArrayOf(1, seqLen),
-                )
-
+            var inputIdsTensor: ai.onnxruntime.OnnxTensor? = null
+            var attentionMaskTensor: ai.onnxruntime.OnnxTensor? = null
+            var tokenTypeIdsTensor: ai.onnxruntime.OnnxTensor? = null
             try {
+                inputIdsTensor =
+                    ai.onnxruntime.OnnxTensor.createTensor(
+                        env,
+                        LongBuffer.wrap(inputIds),
+                        longArrayOf(1, seqLen),
+                    )
+                attentionMaskTensor =
+                    ai.onnxruntime.OnnxTensor.createTensor(
+                        env,
+                        LongBuffer.wrap(attentionMask),
+                        longArrayOf(1, seqLen),
+                    )
+                tokenTypeIdsTensor =
+                    ai.onnxruntime.OnnxTensor.createTensor(
+                        env,
+                        LongBuffer.wrap(tokenTypeIds),
+                        longArrayOf(1, seqLen),
+                    )
+
                 val inputs =
                     mapOf(
                         "input_ids" to inputIdsTensor,
@@ -95,9 +112,9 @@ class OnnxEmbeddingService(
                     result.close()
                 }
             } finally {
-                inputIdsTensor.close()
-                attentionMaskTensor.close()
-                tokenTypeIdsTensor.close()
+                inputIdsTensor?.close()
+                attentionMaskTensor?.close()
+                tokenTypeIdsTensor?.close()
             }
         }
 

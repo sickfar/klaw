@@ -2,10 +2,13 @@ package io.github.klaw.engine.context
 
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 
 class FileCoreMemoryServiceTest {
     @TempDir
@@ -99,5 +102,51 @@ class FileCoreMemoryServiceTest {
         runTest {
             val result = service().delete("invalid", "key")
             assertTrue(result.startsWith("Error"))
+        }
+
+    @Test
+    fun `update write failure returns class name not raw message`() =
+        runTest {
+            val memPath = tempDir.resolve("memory/core_memory.json")
+            // Create the file first so the service can read it, then make the file itself read-only
+            Files.createDirectories(memPath.parent)
+            Files.writeString(memPath, "{\"user\":{},\"agent\":{}}")
+            Files.setPosixFilePermissions(memPath, PosixFilePermissions.fromString("r--r--r--"))
+            try {
+                val svc = FileCoreMemoryService(memPath)
+                val result = svc.update("user", "name", "Alice")
+                assertTrue(result.startsWith("Error:"), "Expected 'Error:' prefix, got: $result")
+                // e::class.simpleName returns "AccessDeniedException"
+                assertTrue(result.contains("AccessDeniedException"), "Expected class name in error, got: $result")
+                // e.message returns the file path — must NOT appear in result
+                assertFalse(
+                    result.contains(memPath.toString()),
+                    "Error must not expose raw exception message (file path), got: $result",
+                )
+            } finally {
+                Files.setPosixFilePermissions(memPath, PosixFilePermissions.fromString("rw-rw-rw-"))
+            }
+        }
+
+    @Test
+    fun `delete write failure returns class name not raw message`() =
+        runTest {
+            val memPath = tempDir.resolve("memory/core_memory.json")
+            // Create the file with a key, then make the file itself read-only
+            Files.createDirectories(memPath.parent)
+            Files.writeString(memPath, "{\"user\":{\"name\":\"Alice\"},\"agent\":{}}")
+            Files.setPosixFilePermissions(memPath, PosixFilePermissions.fromString("r--r--r--"))
+            try {
+                val svc = FileCoreMemoryService(memPath)
+                val result = svc.delete("user", "name")
+                assertTrue(result.startsWith("Error:"), "Expected 'Error:' prefix, got: $result")
+                assertTrue(result.contains("AccessDeniedException"), "Expected class name in error, got: $result")
+                assertFalse(
+                    result.contains(memPath.toString()),
+                    "Error must not expose raw exception message (file path), got: $result",
+                )
+            } finally {
+                Files.setPosixFilePermissions(memPath, PosixFilePermissions.fromString("rw-rw-rw-"))
+            }
         }
 }

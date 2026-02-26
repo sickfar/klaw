@@ -34,8 +34,7 @@ suspend fun <T> withRetry(
             attempt++
         } catch (e: IOException) {
             if (attempt >= maxRetries) {
-                // IOException message is included; cause not propagated because ProviderError is a data class
-                throw KlawError.ProviderError(null, "Network error: ${e.message}")
+                throw KlawError.ProviderError(null, "Network error: ${e::class.simpleName}")
             }
             logger.warn { "LLM network error retry ${attempt + 1}/$maxRetries after ${backoffMs}ms" }
             delay(backoffMs)

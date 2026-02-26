@@ -149,6 +149,5 @@ class SQLiteDelegate : StdJDBCDelegate() {
             }
             return result
         }
-
     }
 }

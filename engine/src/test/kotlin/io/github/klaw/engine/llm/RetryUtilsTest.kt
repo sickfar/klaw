@@ -3,7 +3,9 @@ package io.github.klaw.engine.llm
 import io.github.klaw.common.error.KlawError
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RetryUtilsTest {
@@ -179,5 +181,31 @@ class RetryUtilsTest {
                 }
             assertEquals("ok", result)
             assertEquals(2, callCount)
+        }
+
+    @Test
+    fun `exhausted IOException wraps with class name not raw message`() =
+        runTest {
+            val exceptionMessage = "Connection timed out to host 192.168.1.1"
+            val caught =
+                try {
+                    withRetry<String>(maxRetries = 1, initialBackoffMs = 10L, multiplier = 2.0) {
+                        throw java.io.IOException(exceptionMessage)
+                    }
+                    null
+                } catch (e: KlawError.ProviderError) {
+                    e
+                }
+            assertNotNull(caught)
+            // The ProviderError message must contain the exception class name
+            assertTrue(
+                caught!!.message!!.contains("IOException"),
+                "Expected class name in ProviderError message, got: ${caught.message}",
+            )
+            // The ProviderError message must NOT contain the raw exception message
+            assertFalse(
+                caught.message!!.contains(exceptionMessage),
+                "ProviderError must not expose raw exception message, got: ${caught.message}",
+            )
         }
 }

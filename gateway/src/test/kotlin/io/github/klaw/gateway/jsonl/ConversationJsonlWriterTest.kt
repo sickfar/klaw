@@ -121,4 +121,76 @@ class ConversationJsonlWriterTest {
             val today = LocalDate.now().toString()
             assertTrue(File(tempDir, "$nestedChatId/$today.jsonl").exists())
         }
+
+    @Test
+    fun `writeInbound rejects path traversal chatId`() {
+        val writer = writer()
+        var thrown = false
+        try {
+            runBlocking { writer.writeInbound(sampleInbound("../evil")) }
+        } catch (_: IllegalArgumentException) {
+            thrown = true
+        }
+        assertTrue(thrown, "Expected IllegalArgumentException for chatId '../evil'")
+    }
+
+    @Test
+    fun `writeOutbound rejects path traversal chatId`() {
+        val writer = writer()
+        var thrown = false
+        try {
+            runBlocking { writer.writeOutbound("../../etc/passwd", "content") }
+        } catch (_: IllegalArgumentException) {
+            thrown = true
+        }
+        assertTrue(thrown, "Expected IllegalArgumentException for chatId '../../etc/passwd'")
+    }
+
+    @Test
+    fun `writeInbound rejects chatId with dots only`() {
+        val writer = writer()
+        var thrown = false
+        try {
+            runBlocking { writer.writeInbound(sampleInbound("..")) }
+        } catch (_: IllegalArgumentException) {
+            thrown = true
+        }
+        assertTrue(thrown, "Expected IllegalArgumentException for chatId '..'")
+    }
+
+    @Test
+    fun `writeInbound rejects chatId with special chars`() {
+        val writer = writer()
+        var thrown = false
+        try {
+            runBlocking { writer.writeInbound(sampleInbound("chat<id>")) }
+        } catch (_: IllegalArgumentException) {
+            thrown = true
+        }
+        assertTrue(thrown, "Expected IllegalArgumentException for chatId 'chat<id>'")
+    }
+
+    @Test
+    fun `writeInbound accepts valid telegram chatId`() =
+        runBlocking {
+            val writer = writer()
+            // Should not throw
+            writer.writeInbound(sampleInbound("telegram_12345"))
+        }
+
+    @Test
+    fun `writeInbound accepts valid subagent chatId`() =
+        runBlocking {
+            val writer = writer()
+            // Should not throw
+            writer.writeInbound(sampleInbound("subagent:name"))
+        }
+
+    @Test
+    fun `writeInbound accepts discord channel chatId`() =
+        runBlocking {
+            val writer = writer()
+            // Should not throw
+            writer.writeInbound(sampleInbound("discord_channel_456"))
+        }
 }

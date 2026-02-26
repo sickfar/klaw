@@ -1,5 +1,9 @@
 package io.github.klaw.gateway.socket
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import kotlinx.serialization.encodeToString
@@ -9,6 +13,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -168,5 +173,33 @@ class GatewayBufferTest {
         val drained = buffer.drain()
 
         assertEquals(listOf("first", "second", "third"), drained.map { (it as InboundSocketMessage).id })
+    }
+
+    @Test
+    fun `drain logs warning for malformed line`(
+        @TempDir tempDir: Path,
+    ) {
+        val loggerUnderTest = LoggerFactory.getLogger("io.github.klaw.gateway.socket") as Logger
+        val listAppender = ListAppender<ILoggingEvent>()
+        listAppender.start()
+        loggerUnderTest.addAppender(listAppender)
+
+        try {
+            val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+            File(bufferPath).writeText("{corrupt json\n")
+
+            val drained = GatewayBuffer(bufferPath).drain()
+            assertTrue(drained.isEmpty())
+
+            val warnLogs = listAppender.list.filter { it.level == Level.WARN }
+            assertTrue(warnLogs.isNotEmpty(), "Expected at least one WARN log for malformed line")
+            val matchesExpected =
+                warnLogs.any {
+                    it.formattedMessage.contains("malformed") || it.formattedMessage.contains("Skipping")
+                }
+            assertTrue(matchesExpected, "Expected WARN mentioning 'malformed' or 'Skipping'")
+        } finally {
+            loggerUnderTest.detachAppender(listAppender)
+        }
     }
 }
