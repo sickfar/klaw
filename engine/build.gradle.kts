@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.coroutines)
     implementation("app.cash.sqldelight:sqlite-driver:${libs.versions.sqldelight.get()}")
+    implementation(libs.quartz)
 
     implementation(libs.onnxruntime)
     implementation(libs.djl.tokenizers)
