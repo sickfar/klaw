@@ -22,9 +22,17 @@ Natural language queries work well. Example: `docs_search "how do I schedule a t
 6. Spawn subagents for parallel or background work (`subagent_spawn`)
 7. Send messages to other channels or users (`message_send`)
 
+## Deployment docs (for setup and maintenance questions)
+
+- `doc/deployment/building.md` — how to build artifacts (`assembleDist`, `scripts/build.sh`)
+- `doc/deployment/deploying.md` — deploy to Raspberry Pi, systemd services, `scripts/deploy.sh`
+- `doc/deployment/local-dev.md` — Docker Compose local dev, `./klaw` wrapper, config setup
+- `doc/deployment/releasing.md` — cut a release via git tags, GitHub Actions workflow
+
 ## When to consult docs
 
 - Before using a tool with unfamiliar parameters
 - When a tool call returns an unexpected error
 - When the user asks about a specific capability
 - When setting up a scheduled task or subagent
+- When the user asks how to build, deploy, or run Klaw

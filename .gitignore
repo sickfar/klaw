@@ -50,3 +50,11 @@ out/
 # Kotlin/Native
 *.kexe
 *.dSYM/
+
+build/dist/
+dist/
+
+# Config directory (real configs with secrets — keep only examples and .gitkeep)
+config/
+!config/.gitkeep
+!config/*.example
