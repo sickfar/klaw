@@ -46,6 +46,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -383,6 +384,61 @@ class MessageProcessorIntegrationTest {
             val messages = messageRepository.getWindowMessages("subagent:quiet-task", "2000-01-01T00:00:00Z", 100)
             assertEquals(0, messages.size, "No messages should be persisted when logging disabled")
         }
+    }
+
+    @Test
+    fun `handleInbound sends error to gateway when debounce buffer is at capacity`() {
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        val db = KlawDatabase(driver)
+
+        val capturedMessages = mutableListOf<OutboundSocketMessage>()
+        val socketServer = mockk<EngineSocketServer>(relaxed = true)
+        coEvery { socketServer.pushToGateway(any()) } answers { capturedMessages.add(firstArg()) }
+
+        // maxDebounceEntries=1 fills after the first chatId; long debounce keeps it in buffer
+        val config =
+            buildTestConfig().copy(
+                processing =
+                    ProcessingConfig(
+                        debounceMs = 60_000L,
+                        maxConcurrentLlm = 2,
+                        maxToolCallRounds = 5,
+                        maxDebounceEntries = 1,
+                    ),
+            )
+        val processor = buildProcessor(config, db, socketServer)
+
+        runBlocking {
+            // First chatId — accepted, debounce timer starts (60 s, will not fire during test)
+            processor.handleInbound(
+                InboundSocketMessage(
+                    id = "cap-1",
+                    channel = "telegram",
+                    chatId = "chat-cap-A",
+                    content = "Hello from A",
+                    ts = "2025-01-01T00:00:00Z",
+                ),
+            )
+
+            // Second chatId — buffer full, must be rejected with an error pushed to gateway
+            processor.handleInbound(
+                InboundSocketMessage(
+                    id = "cap-2",
+                    channel = "telegram",
+                    chatId = "chat-cap-B",
+                    content = "Hello from B",
+                    ts = "2025-01-01T00:00:00Z",
+                ),
+            )
+
+            assertEquals(1, capturedMessages.size, "Expected exactly one error message for rejected chatId-B")
+            val errorMsg = capturedMessages.first()
+            assertEquals("chat-cap-B", errorMsg.chatId)
+            assertEquals("telegram", errorMsg.channel)
+            assertTrue(errorMsg.content.contains("high load"), "Expected 'high load' in: ${errorMsg.content}")
+        }
+        processor.close()
     }
 
     @Suppress("MaxLineLength")

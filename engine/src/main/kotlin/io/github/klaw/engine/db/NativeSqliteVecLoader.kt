@@ -2,30 +2,45 @@ package io.github.klaw.engine.db
 
 import jakarta.inject.Singleton
 import org.slf4j.LoggerFactory
-import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Singleton
 class NativeSqliteVecLoader : SqliteVecLoader {
     private val log = LoggerFactory.getLogger(NativeSqliteVecLoader::class.java)
-    private var available: Boolean? = null
 
-    @Suppress("TooGenericExceptionCaught")
-    override fun isAvailable(): Boolean =
-        available ?: try {
-            val resource = javaClass.getResource("/native/vec0")
-            (resource != null).also { available = it }
+    private val resourcePresent: Boolean by lazy {
+        @Suppress("TooGenericExceptionCaught")
+        try {
+            javaClass.getResource("/native/vec0") != null
         } catch (_: Exception) {
-            available = false
             false
         }
+    }
+
+    // Set to false if extension loading fails at runtime despite resource being present.
+    private val extensionLoadable = AtomicBoolean(true)
+
+    override fun isAvailable(): Boolean = resourcePresent && extensionLoadable.get()
 
     @Suppress("TooGenericExceptionCaught")
     override fun loadExtension(connection: Connection) {
         if (!isAvailable()) return
         try {
             val resource = javaClass.getResourceAsStream("/native/vec0") ?: return
-            val tempFile = File.createTempFile("vec0", ".so")
+            // Create temp file with owner-only rwx permissions before writing the binary.
+            // This prevents local users from reading or replacing the .so between creation and load.
+            val tempPath =
+                runCatching {
+                    Files.createTempFile(
+                        "vec0",
+                        ".so",
+                        PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")),
+                    )
+                }.getOrElse { Files.createTempFile("vec0", ".so") }
+            val tempFile = tempPath.toFile()
             tempFile.deleteOnExit()
             resource.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
             connection.createStatement().use { stmt ->
@@ -34,7 +49,7 @@ class NativeSqliteVecLoader : SqliteVecLoader {
             log.info("sqlite-vec extension loaded successfully")
         } catch (e: Exception) {
             log.warn("Failed to load sqlite-vec extension: ${e.message}")
-            available = false
+            extensionLoadable.set(false)
         }
     }
 }

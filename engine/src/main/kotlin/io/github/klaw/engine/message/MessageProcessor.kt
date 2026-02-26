@@ -56,6 +56,7 @@ class MessageProcessor(
             debounceMs = config.processing.debounceMs,
             scope = processingScope,
             onFlush = ::processMessages,
+            maxEntries = config.processing.maxDebounceEntries,
         )
 
     fun close() {
@@ -63,7 +64,21 @@ class MessageProcessor(
     }
 
     override suspend fun handleInbound(message: InboundSocketMessage) {
-        debounceBuffer.add(message)
+        val accepted = debounceBuffer.add(message)
+        if (!accepted) {
+            log.warn(
+                "Debounce buffer at capacity, rejecting message from channel={} chatId={}",
+                message.channel,
+                message.chatId,
+            )
+            socketServer.pushToGateway(
+                OutboundSocketMessage(
+                    channel = message.channel,
+                    chatId = message.chatId,
+                    content = "The system is under high load. Please try again later.",
+                ),
+            )
+        }
     }
 
     override suspend fun handleCommand(message: CommandSocketMessage) {
@@ -109,6 +124,7 @@ class MessageProcessor(
                             llmRouter,
                             toolExecutor,
                             config.processing.maxToolCallRounds,
+                            maxToolOutputChars = config.processing.maxToolOutputChars,
                         )
                     val response = runner.run(context.toMutableList(), session, tools)
                     val content = response.content ?: ""
@@ -181,6 +197,7 @@ class MessageProcessor(
                         channel,
                         chatId,
                         contextBudgetTokens = contextBudget,
+                        maxToolOutputChars = config.processing.maxToolOutputChars,
                     )
                 val response = runner.run(context.toMutableList(), session, tools)
 

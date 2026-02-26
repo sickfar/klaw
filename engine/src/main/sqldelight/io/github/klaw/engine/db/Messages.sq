@@ -18,7 +18,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 getWindowMessages:
 SELECT * FROM messages
 WHERE chat_id = ? AND created_at >= ?
-ORDER BY created_at ASC
+ORDER BY created_at ASC, rowid ASC
 LIMIT ?;
 
 getLastMessageId:
@@ -36,4 +36,4 @@ SELECT COUNT(*) FROM messages;
 getMessagesByChatId:
 SELECT * FROM messages
 WHERE chat_id = ?
-ORDER BY created_at ASC;
+ORDER BY created_at ASC, rowid ASC;

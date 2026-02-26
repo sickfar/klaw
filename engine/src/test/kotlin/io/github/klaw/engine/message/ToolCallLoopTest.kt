@@ -262,7 +262,10 @@ class ToolCallLoopTest {
             assertNotNull(assistantMsg, "Context must contain assistant message with toolCalls")
             val toolMsg = context.find { it.role == "tool" }
             assertNotNull(toolMsg, "Context must contain tool result message")
-            assertEquals("lookup result", toolMsg!!.content)
+            assertTrue(
+                toolMsg!!.content?.contains("lookup result") == true,
+                "Context tool result must contain raw output",
+            )
         }
 
     @Test
@@ -310,8 +313,118 @@ class ToolCallLoopTest {
 
             // Should still complete (warning only, not blocking)
             assertEquals("Done", response.content)
-            // Context should contain the tool result even though it exceeds budget
-            assertTrue(context.any { it.role == "tool" && it.content == largeResult })
+            // Context should contain the tool result (wrapped in delimiters)
+            assertTrue(context.any { it.role == "tool" && it.content?.contains(largeResult) == true })
+        }
+
+    @Test
+    fun `tool output is wrapped in XML delimiters in context`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "my_tool", arguments = "{}")
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = "tool output"))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Do it"))
+            runner.run(context, testSession)
+
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg)
+            assertTrue(toolMsg!!.content?.contains("<tool_result") == true, "Must have opening tag")
+            assertTrue(toolMsg.content?.contains("tool output") == true, "Must contain raw output")
+            assertTrue(toolMsg.content?.contains("</tool_result>") == true, "Must have closing tag")
+        }
+
+    @Test
+    fun `tool output exceeding maxToolOutputChars is truncated`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "verbose_tool", arguments = "{}")
+            val hugeOutput = "x".repeat(10000) // 10000 chars — exceeds both 100 and 8000 defaults
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = hugeOutput))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    maxToolOutputChars = 100, // Much smaller than hugeOutput
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Go"))
+            runner.run(context, testSession)
+
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg)
+            val content = toolMsg!!.content!!
+            assertTrue(content.contains("output truncated"), "Must contain truncation marker")
+            assertTrue(content.length < hugeOutput.length, "Must be shorter than full output")
+        }
+
+    @Test
+    fun `tool executor failure is converted to error result allowing loop to continue`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "broken_tool", arguments = "{}")
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Handled error", null, null, FinishReason.STOP),
+                )
+
+            // Executor throws instead of returning a result
+            coEvery { mockToolExecutor.executeAll(any()) } throws RuntimeException("tool crashed")
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Call broken tool"))
+            val response = runner.run(context, testSession)
+
+            // Loop must continue after tool failure — LLM gets the error as a tool result
+            assertEquals("Handled error", response.content)
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg, "Error must be surfaced as tool result in context")
+            assertTrue(toolMsg!!.content?.contains("tool crashed") == true, "Error message must be included")
         }
 
     @Test

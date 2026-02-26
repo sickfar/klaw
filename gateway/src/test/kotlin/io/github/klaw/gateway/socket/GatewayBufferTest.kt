@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFileAttributes
+import java.nio.file.attribute.PosixFilePermission
 
 class GatewayBufferTest {
     private val json =
@@ -114,5 +117,56 @@ class GatewayBufferTest {
         val drained = GatewayBuffer(bufferPath).drain()
         assertEquals(1, drained.size)
         assertFalse(File(bufferPath).exists(), "File should be deleted after successful drain")
+    }
+
+    @Test
+    fun `buffer file has owner-only permissions after first append`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+
+        buffer.append(sampleInbound())
+
+        val attrs = Files.readAttributes(File(bufferPath).toPath(), PosixFileAttributes::class.java)
+        val perms = attrs.permissions()
+        assertTrue(perms.contains(PosixFilePermission.OWNER_READ), "Owner must have read")
+        assertTrue(perms.contains(PosixFilePermission.OWNER_WRITE), "Owner must have write")
+        assertFalse(perms.contains(PosixFilePermission.GROUP_READ), "Group must not have read")
+        assertFalse(perms.contains(PosixFilePermission.GROUP_WRITE), "Group must not have write")
+        assertFalse(perms.contains(PosixFilePermission.OTHERS_READ), "Others must not have read")
+        assertFalse(perms.contains(PosixFilePermission.OTHERS_WRITE), "Others must not have write")
+    }
+
+    @Test
+    fun `drain with many messages does not load all into memory at once`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+
+        // Write 500 messages to the buffer
+        repeat(500) { i -> buffer.append(sampleInbound("msg-$i")) }
+
+        val drained = buffer.drain()
+
+        assertEquals(500, drained.size)
+        assertTrue(buffer.isEmpty())
+    }
+
+    @Test
+    fun `drain messages are returned in insertion order`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+
+        buffer.append(sampleInbound("first"))
+        buffer.append(sampleInbound("second"))
+        buffer.append(sampleInbound("third"))
+
+        val drained = buffer.drain()
+
+        assertEquals(listOf("first", "second", "third"), drained.map { (it as InboundSocketMessage).id })
     }
 }

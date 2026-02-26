@@ -4,7 +4,9 @@ import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
+import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
@@ -33,6 +35,7 @@ internal class ToolCallLoopRunner(
     private val channel: String? = null,
     private val chatId: String? = null,
     private val contextBudgetTokens: Int = 0,
+    private val maxToolOutputChars: Int = 8000,
 ) {
     private val log = LoggerFactory.getLogger(ToolCallLoopRunner::class.java)
 
@@ -50,6 +53,7 @@ internal class ToolCallLoopRunner(
                 )
             rounds++
             if (response.toolCalls.isNullOrEmpty()) return response
+            val toolCalls = response.toolCalls!!
 
             if (contextBudgetTokens > 0) {
                 val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
@@ -63,35 +67,67 @@ internal class ToolCallLoopRunner(
                 }
             }
 
-            val results = toolExecutor.executeAll(response.toolCalls!!)
-            val assistantMsg = LlmMessage(role = "assistant", content = null, toolCalls = response.toolCalls)
-            context.add(assistantMsg)
-            results.forEach { context.add(LlmMessage(role = "tool", content = it.content, toolCallId = it.callId)) }
-
-            // Persist intermediate tool_call and tool_result messages to DB
-            if (messageRepository != null && channel != null && chatId != null) {
-                messageRepository.save(
-                    id = UUID.randomUUID().toString(),
-                    channel = channel,
-                    chatId = chatId,
-                    role = "assistant",
-                    type = "tool_call",
-                    content = "",
-                    metadata = Json.encodeToString(response.toolCalls!!),
-                )
-                results.forEach { result ->
-                    messageRepository.save(
-                        id = UUID.randomUUID().toString(),
-                        channel = channel,
-                        chatId = chatId,
-                        role = "tool",
-                        type = "tool_result",
-                        content = result.content,
-                        metadata = result.callId,
-                    )
+            @Suppress("TooGenericExceptionCaught")
+            val results =
+                try {
+                    toolExecutor.executeAll(toolCalls)
+                } catch (e: Exception) {
+                    log.warn("Tool executor failed, surfacing error as tool results: {}", e.message)
+                    toolCalls.map { call ->
+                        ToolResult(callId = call.id, content = "Tool execution failed: ${e.message}")
+                    }
                 }
+
+            val assistantMsg = LlmMessage(role = "assistant", content = null, toolCalls = toolCalls)
+            context.add(assistantMsg)
+            results.forEach { result ->
+                val safeContent = buildSafeToolContent(result.callId, result.content, maxToolOutputChars)
+                context.add(LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId))
             }
+
+            // Persist intermediate tool_call and tool_result messages to DB (raw content, not wrapped)
+            persistToolCallResults(toolCalls, results)
         }
         throw KlawError.ToolCallLoopException("Reached maxToolCallRounds limit")
+    }
+
+    private suspend fun persistToolCallResults(
+        toolCalls: List<ToolCall>,
+        results: List<ToolResult>,
+    ) {
+        if (messageRepository == null || channel == null || chatId == null) return
+        messageRepository.save(
+            id = UUID.randomUUID().toString(),
+            channel = channel,
+            chatId = chatId,
+            role = "assistant",
+            type = "tool_call",
+            content = "",
+            metadata = Json.encodeToString(toolCalls),
+        )
+        results.forEach { result ->
+            messageRepository.save(
+                id = UUID.randomUUID().toString(),
+                channel = channel,
+                chatId = chatId,
+                role = "tool",
+                type = "tool_result",
+                content = result.content,
+                metadata = result.callId,
+            )
+        }
+    }
+
+    /** Wraps tool output in XML delimiters and truncates to [limit] chars for prompt injection mitigation. */
+    private fun buildSafeToolContent(
+        callId: String,
+        rawContent: String,
+        limit: Int,
+    ): String {
+        // Escape callId to prevent attribute injection if the LLM returns a malicious id value.
+        val safeCallId = callId.replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+        val truncated = rawContent.take(limit)
+        val marker = if (rawContent.length > limit) "\n... output truncated at $limit chars ..." else ""
+        return "<tool_result tool_call_id=\"$safeCallId\">\n$truncated$marker\n</tool_result>"
     }
 }

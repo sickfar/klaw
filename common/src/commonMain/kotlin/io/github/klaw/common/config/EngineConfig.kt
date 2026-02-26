@@ -111,11 +111,15 @@ data class ProcessingConfig(
     val debounceMs: Long,
     val maxConcurrentLlm: Int,
     val maxToolCallRounds: Int,
+    val maxToolOutputChars: Int = 8000,
+    val maxDebounceEntries: Int = 1000,
 ) {
     init {
         require(debounceMs >= 0) { "debounceMs must be >= 0, got $debounceMs" }
         require(maxConcurrentLlm > 0) { "maxConcurrentLlm must be > 0, got $maxConcurrentLlm" }
         require(maxToolCallRounds > 0) { "maxToolCallRounds must be > 0, got $maxToolCallRounds" }
+        require(maxToolOutputChars > 0) { "maxToolOutputChars must be > 0, got $maxToolOutputChars" }
+        require(maxDebounceEntries > 0) { "maxDebounceEntries must be > 0, got $maxDebounceEntries" }
     }
 }
 

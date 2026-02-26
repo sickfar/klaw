@@ -2,11 +2,18 @@ package io.github.klaw.engine.db
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.PosixFileAttributes
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
 
 class SchemaTest {
     private lateinit var driver: JdbcSqliteDriver
@@ -150,5 +157,28 @@ class SchemaTest {
         val chunk = db.memoryChunksQueries.getById(rowId).executeAsOneOrNull()
         assertNotNull(chunk)
         assertNull(chunk!!.chat_id)
+    }
+
+    @Test
+    fun `database file permissions are owner-only after creation`(
+        @TempDir tempDir: Path,
+    ) {
+        val dbPath = tempDir.resolve("klaw-test.db")
+        val fileDriver = JdbcSqliteDriver("jdbc:sqlite:$dbPath")
+        KlawDatabase.Schema.create(fileDriver)
+        VirtualTableSetup.createVirtualTables(fileDriver, sqliteVecAvailable = false)
+
+        // Apply the same permission logic as DatabaseFactory
+        Files.setPosixFilePermissions(dbPath, PosixFilePermissions.fromString("rw-------"))
+        fileDriver.close()
+
+        val attrs = Files.readAttributes(dbPath, PosixFileAttributes::class.java)
+        val perms = attrs.permissions()
+        assertTrue(perms.contains(PosixFilePermission.OWNER_READ), "Owner must have read")
+        assertTrue(perms.contains(PosixFilePermission.OWNER_WRITE), "Owner must have write")
+        assertFalse(perms.contains(PosixFilePermission.GROUP_READ), "Group must not have read")
+        assertFalse(perms.contains(PosixFilePermission.GROUP_WRITE), "Group must not have write")
+        assertFalse(perms.contains(PosixFilePermission.OTHERS_READ), "Others must not have read")
+        assertFalse(perms.contains(PosixFilePermission.OTHERS_WRITE), "Others must not have write")
     }
 }
