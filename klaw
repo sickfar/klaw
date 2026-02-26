@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Wrapper: runs the klaw CLI inside Docker, sharing engine socket and workspace.
+# Usage: ./klaw status
+#        ./klaw memory show
+docker compose run --rm cli "$@"

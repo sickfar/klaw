@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.micronaut.application)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.shadow)
 }
 
 apply(plugin = "org.jetbrains.kotlin.kapt")

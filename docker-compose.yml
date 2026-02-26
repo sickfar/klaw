@@ -1,0 +1,46 @@
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: docker/engine/Dockerfile
+    environment:
+      - KLAW_WORKSPACE=/workspace
+    volumes:
+      - klaw-state:/root/.local/state/klaw
+      - klaw-data:/root/.local/share/klaw
+      - klaw-workspace:/workspace
+      - ./config:/root/.config/klaw:ro
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    depends_on:
+      - engine
+    volumes:
+      - klaw-state:/root/.local/state/klaw
+      - klaw-data:/root/.local/share/klaw
+      - ./config:/root/.config/klaw:ro
+    restart: unless-stopped
+
+  cli:
+    build:
+      context: .
+      dockerfile: docker/cli/Dockerfile
+    environment:
+      - KLAW_WORKSPACE=/workspace
+    volumes:
+      - klaw-state:/root/.local/state/klaw
+      - klaw-data:/root/.local/share/klaw
+      - klaw-workspace:/workspace
+      - ./config:/root/.config/klaw
+    profiles:
+      - cli
+    stdin_open: true
+    tty: true
+
+volumes:
+  klaw-state:
+  klaw-data:
+  klaw-workspace:

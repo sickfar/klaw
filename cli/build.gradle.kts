@@ -7,6 +7,7 @@ kotlin {
     linuxArm64 {
         binaries {
             executable {
+                baseName = "klaw"
                 entryPoint = "io.github.klaw.cli.main"
             }
         }
@@ -14,6 +15,7 @@ kotlin {
     linuxX64 {
         binaries {
             executable {
+                baseName = "klaw"
                 entryPoint = "io.github.klaw.cli.main"
             }
         }
@@ -21,6 +23,7 @@ kotlin {
     macosArm64 {
         binaries {
             executable {
+                baseName = "klaw"
                 entryPoint = "io.github.klaw.cli.main"
             }
         }
@@ -28,6 +31,7 @@ kotlin {
     macosX64 {
         binaries {
             executable {
+                baseName = "klaw"
                 entryPoint = "io.github.klaw.cli.main"
             }
         }
