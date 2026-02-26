@@ -1,6 +1,7 @@
 package io.github.klaw.engine.context
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.CompatibilityConfig
@@ -17,15 +18,19 @@ import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
+import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.engine.db.KlawDatabase
+import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,6 +45,8 @@ class ContextBuilderTest {
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
     private val toolRegistry = mockk<ToolRegistry>()
+    private val autoRagService = mockk<AutoRagService>()
+    private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
 
     private fun buildConfig(
         contextBudget: Int = 4096,
@@ -97,6 +104,7 @@ class ContextBuilderTest {
             files = FilesConfig(maxFileSizeBytes = 10485760),
             commands = emptyList(),
             compatibility = CompatibilityConfig(),
+            autoRag = AutoRagConfig(enabled = false),
         )
 
     private fun buildSession(
@@ -119,6 +127,8 @@ class ContextBuilderTest {
             skillRegistry = skillRegistry,
             toolRegistry = toolRegistry,
             config = config,
+            autoRagService = autoRagService,
+            subagentHistoryLoader = subagentHistoryLoader,
         )
 
     @BeforeEach
@@ -133,6 +143,8 @@ class ContextBuilderTest {
         coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { toolRegistry.listTools() } returns emptyList()
+        coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
+        coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
     }
 
     @Test
@@ -248,44 +260,96 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `subagent uses subagentHistory instead of slidingWindow`() =
+    fun `subagent context uses SubagentHistoryLoader not messageRepository getWindowMessages`() =
         runTest {
-            val segmentStart = "2024-01-01T00:00:00Z"
-            val session = buildSession(segmentStart = segmentStart)
+            val session = buildSession()
+            val historyFromLoader =
+                listOf(
+                    LlmMessage(role = "user", content = "Previous task user"),
+                    LlmMessage(role = "assistant", content = "Previous task assistant"),
+                )
+            coEvery { subagentHistoryLoader.loadHistory("my-task", any()) } returns historyFromLoader
 
-            // Insert 8 messages
-            for (i in 1..8) {
-                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
-                db.messagesQueries.insertMessage(
-                    "sub-msg-$i",
-                    "telegram",
-                    "chat-1",
-                    "user",
-                    "text",
-                    "Message $i",
-                    null,
-                    ts,
+            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentHistory = 5))
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "my-task")
+
+            // SubagentHistoryLoader messages appear in context
+            val historyMessages = messages.filter { it.role == "user" || it.role == "assistant" }
+            assertTrue(historyMessages.any { it.content == "Previous task user" })
+            assertTrue(historyMessages.any { it.content == "Previous task assistant" })
+        }
+
+    @Test
+    fun `subagent context has no auto-RAG block`() =
+        runTest {
+            val session = buildSession()
+            coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "task-x")
+
+            val systemMessages = messages.filter { it.role == "system" }
+            assertEquals(1, systemMessages.size, "Subagent should only have one system message")
+            systemMessages.forEach { msg ->
+                assertFalse(
+                    msg.content?.contains("From earlier in this conversation:") == true,
+                    "No auto-RAG block in subagent context",
                 )
             }
+            coVerify(exactly = 0) { autoRagService.search(any(), any(), any(), any(), any()) }
+        }
 
-            // subagentHistory = 5, slidingWindow = 10
-            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentHistory = 5))
+    @Test
+    fun `subagent context includes history messages from loader`() =
+        runTest {
+            val session = buildSession()
+            val historyFromLoader =
+                listOf(
+                    LlmMessage(role = "user", content = "Loader user 1"),
+                    LlmMessage(role = "assistant", content = "Loader assistant 1"),
+                    LlmMessage(role = "user", content = "Loader user 2"),
+                    LlmMessage(role = "assistant", content = "Loader assistant 2"),
+                )
+            coEvery { subagentHistoryLoader.loadHistory("scheduled-task", 5) } returns historyFromLoader
 
-            val messagesSubagent = contextBuilder.buildContext(session, emptyList(), isSubagent = true)
-            val messagesNormal = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val contextBuilder = buildContextBuilder(buildConfig(subagentHistory = 5))
+            val messages =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("Pending message"),
+                    isSubagent = true,
+                    taskName = "scheduled-task",
+                )
 
-            val historySubagent = messagesSubagent.drop(1)
-            val historyNormal = messagesNormal.drop(1)
+            // system + 4 history + 1 pending = 6 messages
+            assertEquals(6, messages.size)
+            assertEquals("system", messages[0].role)
+            assertEquals("Loader user 1", messages[1].content)
+            assertEquals("Loader assistant 1", messages[2].content)
+            assertEquals("Loader user 2", messages[3].content)
+            assertEquals("Loader assistant 2", messages[4].content)
+            assertEquals("Pending message", messages[5].content)
+        }
 
-            assertTrue(
-                historySubagent.size <= 5,
-                "Subagent should have at most 5 messages, got ${historySubagent.size}",
-            )
-            assertTrue(historyNormal.size <= 10, "Normal should have at most 10 messages")
-            assertTrue(
-                historySubagent.size < historyNormal.size,
-                "Subagent window ${historySubagent.size} should be smaller than normal window ${historyNormal.size}",
-            )
+    @Test
+    fun `subagent context with empty history has only system and pending messages`() =
+        runTest {
+            val session = buildSession()
+            coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val messages =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("Only pending"),
+                    isSubagent = true,
+                    taskName = "empty-task",
+                )
+
+            assertEquals(2, messages.size)
+            assertEquals("system", messages[0].role)
+            assertEquals("user", messages[1].role)
+            assertEquals("Only pending", messages[1].content)
         }
 
     @Test

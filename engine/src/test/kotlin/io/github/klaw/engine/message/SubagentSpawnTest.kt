@@ -107,6 +107,7 @@ class SubagentSpawnTest {
         toolExecutor: ToolExecutor = mockk(relaxed = true),
         socketServer: EngineSocketServer = mockk(relaxed = true),
         commandHandler: CommandHandler = mockk(relaxed = true),
+        messageEmbeddingService: MessageEmbeddingService = mockk(relaxed = true),
     ): MessageProcessor =
         MessageProcessor(
             sessionManager = sessionManager,
@@ -118,6 +119,7 @@ class SubagentSpawnTest {
             socketServer = socketServer,
             commandHandler = commandHandler,
             config = config,
+            messageEmbeddingService = messageEmbeddingService,
         )
 
     @Test
@@ -129,7 +131,7 @@ class SubagentSpawnTest {
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true) } returns
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
                 listOf(
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "do the task"),
@@ -163,7 +165,9 @@ class SubagentSpawnTest {
             processor.handleScheduledMessage(scheduled).join()
 
             coVerify { sessionManager.getOrCreate("subagent:test-task", "test/model") }
-            coVerify { contextBuilder.buildContext(session, listOf("do the task"), isSubagent = true) }
+            coVerify {
+                contextBuilder.buildContext(session, listOf("do the task"), isSubagent = true, taskName = "test-task")
+            }
             coVerify { llmRouter.chat(any(), "test/model") }
 
             val outSlot = slot<OutboundSocketMessage>()
@@ -182,7 +186,7 @@ class SubagentSpawnTest {
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true) } returns
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
                 listOf(
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "silent task"),
@@ -225,7 +229,7 @@ class SubagentSpawnTest {
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true) } returns
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
                 listOf(
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "background task"),
@@ -263,7 +267,7 @@ class SubagentSpawnTest {
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true) } returns
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
                 listOf(
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "task with custom model"),
@@ -306,7 +310,7 @@ class SubagentSpawnTest {
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true) } returns
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
                 listOf(
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "fallback task"),

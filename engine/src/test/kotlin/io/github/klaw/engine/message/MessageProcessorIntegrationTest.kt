@@ -29,11 +29,13 @@ import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.SkillRegistry
+import io.github.klaw.engine.context.SubagentHistoryLoader
 import io.github.klaw.engine.context.SummaryService
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.llm.LlmRouter
+import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.tools.ToolExecutor
@@ -157,6 +159,10 @@ class MessageProcessorIntegrationTest {
         val skillRegistry = mockk<SkillRegistry> { coEvery { listSkillDescriptions() } returns emptyList() }
         val toolRegistry = mockk<ToolRegistry> { coEvery { listTools() } returns emptyList() }
 
+        val autoRagService =
+            mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }
+        val subagentHistoryLoader = SubagentHistoryLoader()
+
         val contextBuilder =
             ContextBuilder(
                 workspaceLoader = workspaceLoader,
@@ -166,6 +172,8 @@ class MessageProcessorIntegrationTest {
                 skillRegistry = skillRegistry,
                 toolRegistry = toolRegistry,
                 config = config,
+                autoRagService = autoRagService,
+                subagentHistoryLoader = subagentHistoryLoader,
             )
 
         val commandHandler =
@@ -175,6 +183,8 @@ class MessageProcessorIntegrationTest {
                 coreMemory = coreMemory,
                 config = config,
             )
+
+        val messageEmbeddingService = mockk<MessageEmbeddingService>(relaxed = true)
 
         return MessageProcessor(
             sessionManager = sessionManager,
@@ -186,6 +196,7 @@ class MessageProcessorIntegrationTest {
             socketServer = socketServer,
             commandHandler = commandHandler,
             config = config,
+            messageEmbeddingService = messageEmbeddingService,
         )
     }
 

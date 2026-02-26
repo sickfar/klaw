@@ -46,6 +46,7 @@ class MessageProcessor(
     private val socketServer: EngineSocketServer,
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
+    private val messageEmbeddingService: MessageEmbeddingService,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -87,7 +88,7 @@ class MessageProcessor(
 
     override suspend fun handleCliRequest(request: CliRequestMessage): String = """{"status":"ok","engine":"klaw"}"""
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "LongMethod")
     fun handleScheduledMessage(message: ScheduledMessage): Job {
         val model = message.model ?: config.routing.tasks.subagent
         val chatId = "subagent:${message.name}"
@@ -101,17 +102,32 @@ class MessageProcessor(
                     }
 
                     val tools = toolRegistry.listTools()
-                    val context = contextBuilder.buildContext(session, listOf(message.message), isSubagent = true)
+                    val context =
+                        contextBuilder.buildContext(
+                            session,
+                            listOf(message.message),
+                            isSubagent = true,
+                            taskName = message.name,
+                        )
 
                     // Persist scheduled user message before LLM call
                     if (config.logging.subagentConversations) {
-                        messageRepository.save(
-                            id = UUID.randomUUID().toString(),
-                            channel = "scheduler",
-                            chatId = chatId,
-                            role = "user",
-                            type = "text",
-                            content = message.message,
+                        val userRowId =
+                            messageRepository.saveAndGetRowId(
+                                id = UUID.randomUUID().toString(),
+                                channel = "scheduler",
+                                chatId = chatId,
+                                role = "user",
+                                type = "text",
+                                content = message.message,
+                            )
+                        messageEmbeddingService.embedAsync(
+                            userRowId,
+                            "user",
+                            "text",
+                            message.message,
+                            config.autoRag,
+                            processingScope,
                         )
                     }
 
@@ -127,13 +143,22 @@ class MessageProcessor(
 
                     // Persist assistant response
                     if (config.logging.subagentConversations) {
-                        messageRepository.save(
-                            id = UUID.randomUUID().toString(),
-                            channel = "scheduler",
-                            chatId = chatId,
-                            role = "assistant",
-                            type = "text",
-                            content = content,
+                        val assistantRowId =
+                            messageRepository.saveAndGetRowId(
+                                id = UUID.randomUUID().toString(),
+                                channel = "scheduler",
+                                chatId = chatId,
+                                role = "assistant",
+                                type = "text",
+                                content = content,
+                            )
+                        messageEmbeddingService.embedAsync(
+                            assistantRowId,
+                            "assistant",
+                            "text",
+                            content,
+                            config.autoRag,
+                            processingScope,
                         )
                     }
 
@@ -167,19 +192,29 @@ class MessageProcessor(
                 val session = sessionManager.getOrCreate(chatId, config.routing.default)
                 val tools: List<ToolDef> = toolRegistry.listTools()
                 val pendingTexts = messages.map { it.content }
-                val context = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
 
-                // Persist user messages to DB before LLM call so history is intact on crash
+                // Persist user messages before building context so countInSegment is accurate
                 messages.forEach { msg ->
-                    messageRepository.save(
-                        id = msg.id,
-                        channel = msg.channel,
-                        chatId = msg.chatId,
-                        role = "user",
-                        type = "text",
-                        content = msg.content,
+                    val rowId =
+                        messageRepository.saveAndGetRowId(
+                            id = msg.id,
+                            channel = msg.channel,
+                            chatId = msg.chatId,
+                            role = "user",
+                            type = "text",
+                            content = msg.content,
+                        )
+                    messageEmbeddingService.embedAsync(
+                        rowId,
+                        "user",
+                        "text",
+                        msg.content,
+                        config.autoRag,
+                        processingScope,
                     )
                 }
+
+                val context = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
 
                 val contextBudget =
                     config.models[session.model]?.contextBudget
@@ -199,13 +234,22 @@ class MessageProcessor(
 
                 // Persist assistant response to DB
                 val content = response.content ?: ""
-                messageRepository.save(
-                    id = UUID.randomUUID().toString(),
-                    channel = channel,
-                    chatId = chatId,
-                    role = "assistant",
-                    type = "text",
-                    content = content,
+                val assistantRowId =
+                    messageRepository.saveAndGetRowId(
+                        id = UUID.randomUUID().toString(),
+                        channel = channel,
+                        chatId = chatId,
+                        role = "assistant",
+                        type = "text",
+                        content = content,
+                    )
+                messageEmbeddingService.embedAsync(
+                    assistantRowId,
+                    "assistant",
+                    "text",
+                    content,
+                    config.autoRag,
+                    processingScope,
                 )
 
                 if (!isSilent(content)) {

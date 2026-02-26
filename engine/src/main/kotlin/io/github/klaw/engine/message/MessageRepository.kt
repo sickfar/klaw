@@ -77,6 +77,14 @@ class MessageRepository(
             }
         }
 
+    suspend fun countInSegment(
+        chatId: String,
+        segmentStart: String,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.countInSegment(chatId, segmentStart).executeAsOne()
+        }
+
     suspend fun appendSessionBreak(chatId: String): Unit =
         withContext(Dispatchers.VT) {
             val now = Clock.System.now()

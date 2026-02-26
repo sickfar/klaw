@@ -424,7 +424,7 @@ class ToolCallLoopTest {
             assertEquals("Handled error", response.content)
             val toolMsg = context.find { it.role == "tool" }
             assertNotNull(toolMsg, "Error must be surfaced as tool result in context")
-            assertTrue(toolMsg!!.content?.contains("tool crashed") == true, "Error message must be included")
+            assertTrue(toolMsg!!.content?.contains("RuntimeException") == true, "Exception class name must be included")
         }
 
     @Test

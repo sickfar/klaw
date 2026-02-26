@@ -46,3 +46,6 @@ getAllMessages:
 SELECT rowid AS rowid, id, channel, chat_id, role, type, content, metadata, created_at
 FROM messages
 ORDER BY rowid ASC;
+
+countInSegment:
+SELECT COUNT(*) FROM messages WHERE chat_id = :chatId AND created_at >= :segmentStart;

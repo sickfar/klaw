@@ -69,7 +69,7 @@ internal class ToolCallLoopRunner(
                 } catch (e: Exception) {
                     logger.warn { "Tool executor failed, surfacing error as tool results: ${e::class.simpleName}" }
                     toolCalls.map { call ->
-                        ToolResult(callId = call.id, content = "Tool execution failed: ${e.message}")
+                        ToolResult(callId = call.id, content = "Tool execution failed: ${e::class.simpleName}")
                     }
                 }
 
