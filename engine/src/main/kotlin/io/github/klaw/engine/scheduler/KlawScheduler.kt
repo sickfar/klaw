@@ -12,4 +12,7 @@ interface KlawScheduler {
     ): String
 
     suspend fun remove(name: String): String
+
+    /** Synchronous shutdown — wait for running jobs to complete. Called from EngineLifecycle. */
+    fun shutdownBlocking() {}
 }
