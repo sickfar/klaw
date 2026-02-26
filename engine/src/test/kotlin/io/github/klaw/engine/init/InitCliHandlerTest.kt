@@ -76,6 +76,7 @@ class InitCliHandlerTest {
         }
 
     companion object {
+        @Suppress("MaxLineLength")
         fun buildMinimalConfig(): EngineConfig =
             EngineConfig(
                 providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:1234", "key")),

@@ -7,7 +7,7 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
-@OptIn(ExperimentalNativeApi::class)
+@OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 internal class ServiceInstaller(
     private val outputDir: String = defaultOutputDir(),
     private val commandRunner: (String) -> Unit = { cmd -> platform.posix.system(cmd) },
@@ -29,7 +29,7 @@ internal class ServiceInstaller(
         gatewayBin: String,
         envFile: String,
     ) {
-        platform.posix.mkdir(outputDir, 0x1EDu) // 0755, ignore errors
+        mkdirMode755(outputDir)
         writeFileText("$outputDir/klaw-engine.service", engineSystemdUnit(engineBin, envFile))
         writeFileText("$outputDir/klaw-gateway.service", gatewaySystemdUnit(gatewayBin, envFile))
     }
@@ -38,7 +38,7 @@ internal class ServiceInstaller(
         engineBin: String,
         gatewayBin: String,
     ) {
-        platform.posix.mkdir(outputDir, 0x1EDu)
+        mkdirMode755(outputDir)
         writeFileText("$outputDir/io.github.klaw.engine.plist", engineLaunchdPlist(engineBin))
         writeFileText("$outputDir/io.github.klaw.gateway.plist", gatewayLaunchdPlist(gatewayBin))
     }

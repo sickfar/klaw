@@ -3,7 +3,6 @@ package io.github.klaw.cli.init
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
-import platform.posix.chmod
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fwrite
@@ -35,7 +34,7 @@ internal object EnvWriter {
         }
 
         // chmod 0600 = 0x180 before rename so the final path is never visible with broad permissions
-        chmod(tmpPath, 0x180u)
+        chmodReadWrite(tmpPath)
         rename(tmpPath, path)
     }
 }

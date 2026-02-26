@@ -23,6 +23,7 @@ class InitCliHandler(
     private val llmRouter: LlmRouter,
     private val config: EngineConfig,
 ) {
+    @Suppress("FunctionOnlyReturningConstant")
     fun handleStatus(): String = """{"status":"ok","engine":"klaw"}"""
 
     suspend fun handleGenerateIdentity(params: Map<String, String>): String {

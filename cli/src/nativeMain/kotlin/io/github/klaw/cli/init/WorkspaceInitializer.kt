@@ -3,7 +3,6 @@ package io.github.klaw.cli.init
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
-import platform.posix.mkdir
 
 internal class WorkspaceInitializer(
     private val configDir: String = KlawPaths.config,
@@ -36,7 +35,7 @@ internal class WorkspaceInitializer(
             // Create parent dirs recursively
             val parent = path.substringBeforeLast('/')
             if (parent.isNotEmpty() && parent != path) mkdirAll(parent)
-            mkdir(path, 0x1EDu) // 0755
+            mkdirMode755(path)
         }
     }
 

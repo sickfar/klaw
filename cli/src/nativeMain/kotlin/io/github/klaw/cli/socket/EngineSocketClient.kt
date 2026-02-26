@@ -56,8 +56,7 @@ class EngineSocketClient(
         // Set 120-second receive timeout to prevent indefinite blocking on slow LLM responses
         memScoped {
             val tv = alloc<timeval>()
-            tv.tv_sec = 120
-            tv.tv_usec = 0
+            tv.tv_sec = 120.convert()
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, tv.ptr, sizeOf<timeval>().convert())
         }
 
