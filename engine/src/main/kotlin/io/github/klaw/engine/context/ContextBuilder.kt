@@ -54,7 +54,7 @@ class ContextBuilder(
 
         val windowLimit =
             if (isSubagent) {
-                config.context.subagentWindow
+                config.context.subagentHistory
             } else {
                 config.context.slidingWindow
             }

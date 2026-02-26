@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.db.SqliteVecLoader
 import io.github.klaw.engine.util.VT
+import io.github.klaw.engine.util.floatArrayToBlob
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -235,14 +236,5 @@ class MemoryServiceImpl(
         val merged = RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
         logger.trace { "Hybrid search: merged=${merged.size} results after RRF" }
         return merged
-    }
-
-    private fun floatArrayToBlob(arr: FloatArray): ByteArray {
-        val buf =
-            java.nio.ByteBuffer
-                .allocate(arr.size * 4)
-                .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        for (f in arr) buf.putFloat(f)
-        return buf.array()
     }
 }

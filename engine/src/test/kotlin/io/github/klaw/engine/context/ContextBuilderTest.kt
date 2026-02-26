@@ -44,7 +44,7 @@ class ContextBuilderTest {
     private fun buildConfig(
         contextBudget: Int = 4096,
         slidingWindow: Int = 10,
-        subagentWindow: Int = 5,
+        subagentHistory: Int = 5,
         modelContextBudget: Int? = null,
     ): EngineConfig =
         EngineConfig(
@@ -72,7 +72,7 @@ class ContextBuilderTest {
                 ContextConfig(
                     defaultBudgetTokens = contextBudget,
                     slidingWindow = slidingWindow,
-                    subagentWindow = subagentWindow,
+                    subagentHistory = subagentHistory,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             llm =
@@ -248,7 +248,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `subagent uses subagentWindow instead of slidingWindow`() =
+    fun `subagent uses subagentHistory instead of slidingWindow`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
@@ -268,8 +268,8 @@ class ContextBuilderTest {
                 )
             }
 
-            // subagentWindow = 5, slidingWindow = 10
-            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentWindow = 5))
+            // subagentHistory = 5, slidingWindow = 10
+            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentHistory = 5))
 
             val messagesSubagent = contextBuilder.buildContext(session, emptyList(), isSubagent = true)
             val messagesNormal = contextBuilder.buildContext(session, emptyList(), isSubagent = false)

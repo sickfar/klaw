@@ -91,6 +91,12 @@ object VirtualTableSetup {
                 "CREATE VIRTUAL TABLE IF NOT EXISTS vec_docs USING vec0(embedding float[384])",
                 0,
             )
+
+            driver.execute(
+                null,
+                "CREATE VIRTUAL TABLE IF NOT EXISTS vec_messages USING vec0(embedding float[384])",
+                0,
+            )
         }
     }
 }

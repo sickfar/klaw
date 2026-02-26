@@ -12,6 +12,7 @@ class MessageRepository(
     private val db: KlawDatabase,
 ) {
     data class MessageRow(
+        val rowId: Long, // SQLite implicit rowid for vec_messages FK
         val id: String,
         val channel: String,
         val chatId: String,
@@ -37,6 +38,24 @@ class MessageRepository(
             db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
         }
 
+    @Suppress("LongParameterList")
+    suspend fun saveAndGetRowId(
+        id: String,
+        channel: String,
+        chatId: String,
+        role: String,
+        type: String,
+        content: String,
+        metadata: String? = null,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            db.transactionWithResult {
+                val now = Clock.System.now().toString()
+                db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
+                db.messagesQueries.lastInsertRowId().executeAsOne()
+            }
+        }
+
     suspend fun getWindowMessages(
         chatId: String,
         segmentStart: String,
@@ -45,6 +64,7 @@ class MessageRepository(
         withContext(Dispatchers.VT) {
             db.messagesQueries.getWindowMessages(chatId, segmentStart, limit).executeAsList().map {
                 MessageRow(
+                    rowId = it.row_id,
                     id = it.id,
                     channel = it.channel,
                     chatId = it.chat_id,

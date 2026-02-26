@@ -56,7 +56,7 @@ class LlmRouterFactoryTest {
                 ContextConfig(
                     defaultBudgetTokens = 4096,
                     slidingWindow = 10,
-                    subagentWindow = 5,
+                    subagentHistory = 5,
                 ),
             processing =
                 ProcessingConfig(

@@ -17,6 +17,7 @@ data class EngineConfig(
     val files: FilesConfig,
     val commands: List<CommandConfig> = emptyList(),
     val compatibility: CompatibilityConfig? = null,
+    val autoRag: AutoRagConfig = AutoRagConfig(),
 )
 
 @Serializable
@@ -97,12 +98,12 @@ data class SearchConfig(
 data class ContextConfig(
     val defaultBudgetTokens: Int,
     val slidingWindow: Int,
-    val subagentWindow: Int,
+    val subagentHistory: Int,
 ) {
     init {
         require(defaultBudgetTokens > 0) { "defaultBudgetTokens must be > 0, got $defaultBudgetTokens" }
         require(slidingWindow > 0) { "slidingWindow must be > 0, got $slidingWindow" }
-        require(subagentWindow > 0) { "subagentWindow must be > 0, got $subagentWindow" }
+        require(subagentHistory > 0) { "subagentHistory must be > 0, got $subagentHistory" }
     }
 }
 
@@ -193,3 +194,19 @@ data class OpenClawSync(
     val dailyLogs: Boolean = false,
     val userMd: Boolean = false,
 )
+
+@Serializable
+data class AutoRagConfig(
+    val enabled: Boolean = true,
+    val topK: Int = 3,
+    val maxTokens: Int = 400,
+    val relevanceThreshold: Double = 0.5,
+    val minMessageTokens: Int = 10,
+) {
+    init {
+        require(topK > 0) { "topK must be > 0, got $topK" }
+        require(maxTokens > 0) { "maxTokens must be > 0, got $maxTokens" }
+        require(relevanceThreshold > 0.0) { "relevanceThreshold must be > 0, got $relevanceThreshold" }
+        require(minMessageTokens > 0) { "minMessageTokens must be > 0, got $minMessageTokens" }
+    }
+}

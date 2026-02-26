@@ -96,7 +96,7 @@ class MessageProcessorIntegrationTest {
                 ContextConfig(
                     defaultBudgetTokens = 4096,
                     slidingWindow = 20,
-                    subagentWindow = 10,
+                    subagentHistory = 10,
                 ),
             processing =
                 ProcessingConfig(

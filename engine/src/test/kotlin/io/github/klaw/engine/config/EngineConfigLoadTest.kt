@@ -39,6 +39,6 @@ class EngineConfigLoadTest {
     fun `context config is loaded`() {
         assertEquals(4096, config.context.defaultBudgetTokens)
         assertEquals(10, config.context.slidingWindow)
-        assertEquals(5, config.context.subagentWindow)
+        assertEquals(5, config.context.subagentHistory)
     }
 }

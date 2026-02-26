@@ -76,7 +76,7 @@ memory:
 context:
   defaultBudgetTokens: 8000
   slidingWindow: 20
-  subagentWindow: 5
+  subagentHistory: 5
 
 processing:
   debounceMs: 1500
@@ -228,7 +228,7 @@ memory:
 context:
   defaultBudgetTokens: 8000
   slidingWindow: 20
-  subagentWindow: 5
+  subagentHistory: 5
 processing:
   debounceMs: 1500
   maxConcurrentLlm: 2
