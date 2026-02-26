@@ -202,6 +202,33 @@ commands:
     }
 
     @Test
+    fun `gateway config with commands parses correctly`() {
+        val yaml = """
+            channels:
+              telegram:
+                token: "bot-token"
+                allowedChatIds:
+                  - "telegram_123"
+            commands:
+              - name: "start"
+                description: "Start the bot"
+              - name: "new"
+                description: "New conversation"
+        """.trimIndent()
+        val config = parseGatewayConfig(yaml)
+        assertEquals(2, config.commands.size)
+        assertEquals("start", config.commands[0].name)
+        assertEquals("New conversation", config.commands[1].description)
+    }
+
+    @Test
+    fun `gateway config without commands defaults to empty`() {
+        val yaml = "channels: {}"
+        val config = parseGatewayConfig(yaml)
+        assertTrue(config.commands.isEmpty())
+    }
+
+    @Test
     fun `parse engine yaml - optional fields absent from YAML parse to null or default`() {
         val minimalYaml =
             """

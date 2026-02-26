@@ -14,6 +14,9 @@ dependencies {
     implementation(project(":common"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.tgbotapi)
+    implementation(libs.kaml)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
     implementation(libs.kotlin.logging)

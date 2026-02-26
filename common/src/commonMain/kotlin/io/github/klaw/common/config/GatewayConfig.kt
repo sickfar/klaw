@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GatewayConfig(
     val channels: ChannelsConfig,
+    val commands: List<CommandConfig> = emptyList(),
 )
 
 @Serializable
