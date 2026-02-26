@@ -26,6 +26,9 @@ dependencies {
     implementation(libs.sqldelight.coroutines)
     implementation("app.cash.sqldelight:sqlite-driver:${libs.versions.sqldelight.get()}")
 
+    implementation(libs.onnxruntime)
+    implementation(libs.djl.tokenizers)
+
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.testcontainers)

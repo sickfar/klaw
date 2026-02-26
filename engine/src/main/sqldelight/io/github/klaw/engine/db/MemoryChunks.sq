@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS memory_chunks (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
+    chat_id TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+insert:
+INSERT INTO memory_chunks (source, chat_id, content, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM memory_chunks WHERE id = ?;
+
+getBySource:
+SELECT * FROM memory_chunks WHERE source = ?;
+
+deleteBySource:
+DELETE FROM memory_chunks WHERE source = ?;
+
+allChunks:
+SELECT * FROM memory_chunks ORDER BY id;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

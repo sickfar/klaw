@@ -1,0 +1,34 @@
+package io.github.klaw.engine.tools
+
+import io.github.klaw.engine.context.CoreMemoryService
+import io.github.klaw.engine.memory.MemoryService
+import jakarta.inject.Singleton
+
+@Singleton
+class MemoryTools(
+    private val memoryService: MemoryService,
+    private val coreMemory: CoreMemoryService,
+) {
+    suspend fun search(
+        query: String,
+        topK: Int = 10,
+    ): String = memoryService.search(query, topK)
+
+    suspend fun save(
+        content: String,
+        source: String = "manual",
+    ): String = memoryService.save(content, source)
+
+    suspend fun coreGet(): String = coreMemory.getJson()
+
+    suspend fun coreUpdate(
+        section: String,
+        key: String,
+        value: String,
+    ): String = coreMemory.update(section, key, value)
+
+    suspend fun coreDelete(
+        section: String,
+        key: String,
+    ): String = coreMemory.delete(section, key)
+}

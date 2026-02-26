@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS doc_chunks (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    file TEXT NOT NULL,
+    section TEXT,
+    content TEXT NOT NULL,
+    version TEXT
+);
+
+insert:
+INSERT INTO doc_chunks (file, section, content, version)
+VALUES (?, ?, ?, ?);
+
+getById:
+SELECT * FROM doc_chunks WHERE id = ?;
+
+deleteByFile:
+DELETE FROM doc_chunks WHERE file = ?;
+
+allDocChunks:
+SELECT * FROM doc_chunks ORDER BY id;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

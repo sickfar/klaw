@@ -7,13 +7,21 @@ import jakarta.inject.Singleton
 import java.io.File
 
 @Factory
-class DatabaseFactory {
-    @Singleton
-    fun klawDatabase(): KlawDatabase {
+class DatabaseFactory(
+    private val sqliteVecLoader: SqliteVecLoader,
+) {
+    private val driver: JdbcSqliteDriver by lazy {
         val dbPath = KlawPaths.klawDb
         File(dbPath).parentFile?.mkdirs()
-        val driver = JdbcSqliteDriver("jdbc:sqlite:$dbPath")
-        KlawDatabase.Schema.create(driver)
-        return KlawDatabase(driver)
+        val d = JdbcSqliteDriver("jdbc:sqlite:$dbPath")
+        KlawDatabase.Schema.create(d)
+        VirtualTableSetup.createVirtualTables(d, sqliteVecLoader.isAvailable())
+        d
     }
+
+    @Singleton
+    fun jdbcSqliteDriver(): JdbcSqliteDriver = driver
+
+    @Singleton
+    fun klawDatabase(): KlawDatabase = KlawDatabase(driver)
 }

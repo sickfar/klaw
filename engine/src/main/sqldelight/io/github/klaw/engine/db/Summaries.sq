@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS summaries (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    chat_id TEXT NOT NULL,
+    from_message_id TEXT NOT NULL,
+    to_message_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+insert:
+INSERT INTO summaries (chat_id, from_message_id, to_message_id, file_path, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+getByChatId:
+SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at;

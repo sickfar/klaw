@@ -190,6 +190,9 @@ class EngineSocketServer(
                 } catch (_: TimeoutCancellationException) {
                     System.err.println("EngineSocketServer: gateway idle timeout, closing connection")
                     break
+                } catch (_: java.io.IOException) {
+                    // Socket closed (e.g. AsynchronousCloseException) — normal during shutdown
+                    break
                 } ?: break
             dispatchGatewayMessage(line)
         }

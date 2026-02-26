@@ -26,3 +26,14 @@ SELECT id FROM messages
 WHERE chat_id = ?
 ORDER BY created_at DESC
 LIMIT 1;
+
+deleteAllMessages:
+DELETE FROM messages;
+
+countMessages:
+SELECT COUNT(*) FROM messages;
+
+getMessagesByChatId:
+SELECT * FROM messages
+WHERE chat_id = ?
+ORDER BY created_at ASC;
