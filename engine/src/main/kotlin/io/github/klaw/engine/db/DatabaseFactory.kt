@@ -2,9 +2,9 @@ package io.github.klaw.engine.db
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.paths.KlawPaths
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Singleton
-import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -14,7 +14,7 @@ import java.nio.file.attribute.PosixFilePermissions
 class DatabaseFactory(
     private val sqliteVecLoader: SqliteVecLoader,
 ) {
-    private val log = LoggerFactory.getLogger(DatabaseFactory::class.java)
+    private val logger = KotlinLogging.logger {}
     private val driver: JdbcSqliteDriver by lazy {
         val dbPath = KlawPaths.klawDb
         File(dbPath).parentFile?.mkdirs()
@@ -35,7 +35,7 @@ class DatabaseFactory(
         runCatching {
             Files.setPosixFilePermissions(Paths.get(path), PosixFilePermissions.fromString("rw-------"))
         }.onFailure { e ->
-            log.warn("Could not set owner-only permissions on {}: {}", path, e.message)
+            logger.warn { "Could not set owner-only permissions on $path: ${e.message}" }
         }
     }
 }

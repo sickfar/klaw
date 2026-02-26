@@ -1,13 +1,13 @@
 package io.github.klaw.engine.message
 
 import io.github.klaw.common.protocol.InboundSocketMessage
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.slf4j.LoggerFactory
 
 /**
  * Per-chatId debounce accumulator.
@@ -34,7 +34,7 @@ class DebounceBuffer(
     private val timers = mutableMapOf<String, Job>()
     private val mutex = Mutex()
 
-    private val logger = LoggerFactory.getLogger(DebounceBuffer::class.java)
+    private val logger = KotlinLogging.logger {}
 
     /**
      * Adds [message] to the accumulator for its chatId and restarts the debounce timer.
@@ -48,7 +48,7 @@ class DebounceBuffer(
 
             // Reject messages from new chatIds when at capacity
             if (chatId !in buffers && buffers.size >= maxEntries) {
-                logger.warn("DebounceBuffer at capacity ({}), dropping message from chatId={}", maxEntries, chatId)
+                logger.warn { "DebounceBuffer at capacity ($maxEntries), dropping message from chatId=$chatId" }
                 return false
             }
 
@@ -70,7 +70,7 @@ class DebounceBuffer(
                         try {
                             onFlush(messages)
                         } catch (e: Exception) {
-                            logger.error("Error in onFlush callback for chatId={}", chatId, e)
+                            logger.error(e) { "Error in onFlush callback for chatId=$chatId" }
                         }
                     }
                 }

@@ -89,6 +89,37 @@ engine/src/main/kotlin/io/github/klaw/engine/
 - Chinese LLMs (GLM-5, DeepSeek, Qwen) connect via OpenAI-compatible API
 - SQLite databases are cache/index only — source of truth is JSONL files on disk (recoverable via `klaw reindex`)
 
+## Logging Constraints
+
+**Library:** `io.github.oshai:kotlin-logging-jvm` (`KotlinLogging.logger {}`). Never use raw `org.slf4j.LoggerFactory`. Never use `System.err.println`.
+
+**Declaration:** File-level `private val logger = KotlinLogging.logger {}` for top-level functions; field-level inside classes.
+
+**Syntax:** Always use lambda form — `logger.debug { "..." }` — for all levels. The deprecated positional-arg form `logger.debug("msg {}", arg)` must NOT be used (kotlin-logging 7.x).
+
+**Log levels:**
+- `TRACE` — every individual micro-action (line received, message dispatched, embedding computed, buffer drained, retry attempt number). TRACE should make it possible to trace every step of execution.
+- `DEBUG` — flow-level events (session resumed/created, connection established, buffer drain count, LLM request/response summary, search result counts)
+- `INFO` — lifecycle events only (server started/stopped, socket connected/disconnected, session created for first time)
+- `WARN` — recoverable anomalies (oversized message, idle timeout, retry triggered, capacity limit hit)
+- `ERROR` — unexpected failures with attached throwable via `logger.error(e) { "..." }`
+
+**What MUST NOT be logged (ever, at any level):**
+- API keys, Bearer tokens, Authorization headers
+- LLM request body or response body content
+- Raw socket message content (the `line` string) — log only `line.length` or `msg::class.simpleName`
+- User chat message text
+- Memory chunk text or search query strings
+- Tool execution output or exception messages that may embed tool output (`e::class.simpleName` is safe; `e.message` is not)
+- When attaching a throwable via `logger.error(e) { }`, do NOT also include `${e.message}` in the lambda — it is redundant and leaks exception content
+
+**What is safe to log:** class names, byte/char counts, result counts, HTTP status codes, model IDs, endpoint URLs (no auth), chatIds (platform identifiers), source names, chunk indices, token counts.
+
+**Configuration:**
+- Production `logback.xml`: console + rolling file appender (`~/.local/state/klaw/logs/`), `io.github.klaw` at DEBUG, root at INFO. Overridable via `-Dklaw.log.dir=...`.
+- Test `logback-test.xml`: console only, `io.github.klaw` at TRACE (enables full trace output in tests).
+- Common module (KMP) has no SLF4J access — do NOT add logging to `common`.
+
 ## Development Workflow
 
 TDD on every task: write tests with edge cases first, then implement. After each task: run code-review subagent, then `lang-tools` MCP cleanup (imports + dead code scan for whole project). The lang-tools dead code detector reports ~163 false positives for public API in `common` — all expected (consumed by other modules).

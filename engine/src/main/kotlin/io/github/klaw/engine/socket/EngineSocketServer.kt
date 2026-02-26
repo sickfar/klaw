@@ -7,6 +7,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,8 @@ import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+
+private val logger = KotlinLogging.logger {}
 
 @Suppress("TooManyFunctions")
 class EngineSocketServer(
@@ -76,6 +79,7 @@ class EngineSocketServer(
         serverChannel = channel
         running = true
         scope.launch { acceptLoop() }
+        logger.info { "EngineSocketServer started at $socketPath" }
     }
 
     fun stop() {
@@ -93,6 +97,7 @@ class EngineSocketServer(
         }
         File(socketPath).delete()
         scope.cancel()
+        logger.info { "EngineSocketServer stopped" }
     }
 
     suspend fun pushToGateway(message: OutboundSocketMessage) {
@@ -108,13 +113,14 @@ class EngineSocketServer(
         while (running) {
             try {
                 val client = withContext(Dispatchers.IO) { serverChannel?.accept() } ?: continue
+                logger.trace { "Incoming connection accepted from socket" }
                 scope.launch { handleClient(client) }
             } catch (_: java.nio.channels.ClosedChannelException) {
                 break
             } catch (_: kotlinx.coroutines.CancellationException) {
                 break
             } catch (e: Exception) {
-                System.err.println("EngineSocketServer: accept error (continuing): ${e.message}")
+                logger.warn { "EngineSocketServer: accept error (continuing): ${e.message}" }
                 continue
             }
         }
@@ -134,7 +140,7 @@ class EngineSocketServer(
                 } catch (_: IllegalArgumentException) {
                     return
                 } catch (_: TimeoutCancellationException) {
-                    System.err.println("EngineSocketServer: handshake timeout, closing connection")
+                    logger.warn { "EngineSocketServer: handshake timeout, closing connection" }
                     return
                 } ?: return
             dispatchFirstMessage(firstLine, reader, writer)
@@ -176,6 +182,7 @@ class EngineSocketServer(
             }
             gatewayWriter = writer
         }
+        logger.debug { "Gateway connected" }
         // Read subsequent inbound/command messages in a loop
         @Suppress("LoopWithTooManyJumpStatements")
         while (running) {
@@ -185,34 +192,38 @@ class EngineSocketServer(
                         withContext(Dispatchers.IO) { readLineLimited(reader) }
                     }
                 } catch (_: IllegalArgumentException) {
-                    System.err.println("EngineSocketServer: oversized message, skipping")
+                    logger.warn { "EngineSocketServer: oversized message, skipping" }
                     continue
                 } catch (_: TimeoutCancellationException) {
-                    System.err.println("EngineSocketServer: gateway idle timeout, closing connection")
+                    logger.warn { "EngineSocketServer: gateway idle timeout, closing connection" }
                     break
                 } catch (_: java.io.IOException) {
                     // Socket closed (e.g. AsynchronousCloseException) — normal during shutdown
                     break
                 } ?: break
+            logger.trace { "Gateway line received: ${line.length} chars" }
             dispatchGatewayMessage(line)
         }
+        logger.debug { "Gateway disconnected" }
     }
 
     private suspend fun dispatchGatewayMessage(line: String) {
         try {
             when (val inMsg = json.decodeFromString<SocketMessage>(line)) {
                 is InboundSocketMessage -> {
+                    logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
                     messageHandler.handleInbound(inMsg)
                 }
 
                 is CommandSocketMessage -> {
+                    logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
                     messageHandler.handleCommand(inMsg)
                 }
 
                 else -> {} // Ignore other SocketMessage types sent by gateway
             }
         } catch (_: SerializationException) {
-            System.err.println("EngineSocketServer: malformed gateway message, skipping")
+            logger.warn { "EngineSocketServer: malformed gateway message, skipping" }
         }
     }
 
@@ -248,6 +259,7 @@ class EngineSocketServer(
         // CLI framing path -- CliRequestMessage is not a SocketMessage subclass
         try {
             val request = json.decodeFromString<CliRequestMessage>(firstLine)
+            logger.debug { "CLI request handled: ${request.command}" }
             val response = messageHandler.handleCliRequest(request)
             writer.println(response)
         } catch (_: SerializationException) {

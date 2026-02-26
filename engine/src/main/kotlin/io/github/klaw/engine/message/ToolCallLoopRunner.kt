@@ -11,8 +11,8 @@ import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ToolExecutor
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -37,7 +37,7 @@ internal class ToolCallLoopRunner(
     private val contextBudgetTokens: Int = 0,
     private val maxToolOutputChars: Int = 8000,
 ) {
-    private val log = LoggerFactory.getLogger(ToolCallLoopRunner::class.java)
+    private val logger = KotlinLogging.logger {}
 
     suspend fun run(
         context: MutableList<LlmMessage>,
@@ -58,12 +58,7 @@ internal class ToolCallLoopRunner(
             if (contextBudgetTokens > 0) {
                 val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
                 if (currentTokens > contextBudgetTokens) {
-                    log.warn(
-                        "Tool call loop context ({} tokens) exceeds budget ({} tokens) at round {}",
-                        currentTokens,
-                        contextBudgetTokens,
-                        rounds,
-                    )
+                    logger.warn { "Context $currentTokens tokens exceeds budget $contextBudgetTokens at round $rounds" }
                 }
             }
 
@@ -72,7 +67,7 @@ internal class ToolCallLoopRunner(
                 try {
                     toolExecutor.executeAll(toolCalls)
                 } catch (e: Exception) {
-                    log.warn("Tool executor failed, surfacing error as tool results: {}", e.message)
+                    logger.warn { "Tool executor failed, surfacing error as tool results: ${e::class.simpleName}" }
                     toolCalls.map { call ->
                         ToolResult(callId = call.id, content = "Tool execution failed: ${e.message}")
                     }

@@ -18,6 +18,7 @@ wiremock = "3.13.2"
 testcontainers = "2.0.3"
 ktlint-gradle = "14.0.1"
 detekt = "1.23.8"
+kotlin-logging = "7.0.7"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -36,6 +37,7 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

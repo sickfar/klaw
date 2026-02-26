@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
+    implementation(libs.kotlin.logging)
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")
     "kaptTest"("io.micronaut:micronaut-inject-java:$micronautVersion")

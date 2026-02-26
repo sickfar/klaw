@@ -19,6 +19,7 @@ import io.github.klaw.engine.llm.openai.OpenAiMessage
 import io.github.klaw.engine.llm.openai.OpenAiToolCallOut
 import io.github.klaw.engine.llm.openai.OpenAiToolDef
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -27,6 +28,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+
+private val logger = KotlinLogging.logger {}
 
 private val json =
     Json {
@@ -66,6 +69,8 @@ class OpenAiCompatibleClient(
     ): LlmResponse {
         val requestBody = json.encodeToString(request.toOpenAiRequest(model.modelId))
         val url = "${provider.endpoint}/chat/completions"
+        logger.debug { "LLM request to ${provider.endpoint} model=${model.modelId} messages=${request.messages.size}" }
+        logger.trace { "LLM request body size=${requestBody.length} chars" }
         val httpRequest = buildHttpRequest(url, requestBody, provider.apiKey)
 
         val response =
@@ -74,12 +79,18 @@ class OpenAiCompatibleClient(
             }
 
         val status = response.statusCode()
+        val body = response.body()
+        logger.debug { "LLM response status=$status bodyBytes=${body?.length ?: 0}" }
         if (status !in HTTP_SUCCESS_RANGE) {
             throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
         }
 
-        val body = response.body() ?: throw KlawError.ProviderError(status, "Empty response body")
-        return json.decodeFromString<OpenAiChatResponse>(body).toKlawResponse()
+        if (body == null) throw KlawError.ProviderError(status, "Empty response body")
+        val klawResponse = json.decodeFromString<OpenAiChatResponse>(body).toKlawResponse()
+        logger.trace {
+            "LLM response: finishReason=${klawResponse.finishReason} tokens=${klawResponse.usage?.totalTokens}"
+        }
+        return klawResponse
     }
 
     private fun buildHttpRequest(

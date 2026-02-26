@@ -1,9 +1,9 @@
 package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.protocol.SocketMessage
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -14,7 +14,7 @@ import kotlin.concurrent.withLock
 class GatewayBuffer(
     private val bufferPath: String,
 ) {
-    private val log = LoggerFactory.getLogger(GatewayBuffer::class.java)
+    private val logger = KotlinLogging.logger {}
     private val lock = ReentrantLock()
     private val json =
         Json {
@@ -35,7 +35,7 @@ class GatewayBuffer(
                         PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")),
                     )
                 }.onFailure { e ->
-                    log.warn("Could not create buffer file with restricted permissions: {}", e.message)
+                    logger.warn { "Could not create buffer file with restricted permissions: ${e.message}" }
                 }
             }
             file.appendText(json.encodeToString<SocketMessage>(message) + "\n")

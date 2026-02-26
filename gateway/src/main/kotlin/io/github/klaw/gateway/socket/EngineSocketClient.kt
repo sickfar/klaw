@@ -4,6 +4,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
@@ -26,6 +27,8 @@ import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+
+private val logger = KotlinLogging.logger {}
 
 @Suppress("TooManyFunctions")
 class EngineSocketClient(
@@ -69,6 +72,7 @@ class EngineSocketClient(
 
     fun send(message: SocketMessage): Boolean {
         if (!connected) {
+            logger.trace { "Not connected, buffering message: ${message::class.simpleName}" }
             buffer.append(message)
             return false
         }
@@ -76,10 +80,12 @@ class EngineSocketClient(
             writerLock.withLock {
                 val w = writer
                 if (w == null) {
+                    logger.trace { "Writer null, buffering message: ${message::class.simpleName}" }
                     buffer.append(message)
                     return@withLock false
                 }
                 w.println(json.encodeToString<SocketMessage>(message))
+                logger.trace { "Message sent to engine: ${message::class.simpleName}" }
                 true
             }
         } catch (_: Exception) {
@@ -92,6 +98,7 @@ class EngineSocketClient(
         var backoff = INITIAL_BACKOFF_MS
         while (true) {
             try {
+                logger.debug { "Attempting to connect to engine socket at $socketPath" }
                 connectAndRun()
                 backoff = INITIAL_BACKOFF_MS
             } catch (e: CancellationException) {
@@ -100,6 +107,8 @@ class EngineSocketClient(
                 // connection failed or dropped -- will retry after backoff
             }
             connected = false
+            logger.info { "Engine socket disconnected" }
+            logger.debug { "Reconnecting in ${backoff}ms" }
             delay(backoff)
             backoff = minOf(backoff * 2, MAX_BACKOFF_MS)
         }
@@ -119,6 +128,7 @@ class EngineSocketClient(
         // Send registration first
         w.println(json.encodeToString<SocketMessage>(RegisterMessage(client = "gateway")))
         connected = true
+        logger.info { "Engine socket connected" }
 
         // Drain any buffered messages now that we are connected
         drainBuffer()
@@ -131,6 +141,7 @@ class EngineSocketClient(
         var shutdown = false
         while (!shutdown) {
             val line = withContext(Dispatchers.IO) { reader.readLine() } ?: break
+            logger.trace { "Engine line received: ${line.length} chars" }
             shutdown = handleIncomingLine(line)
         }
     }
@@ -139,11 +150,13 @@ class EngineSocketClient(
         try {
             when (val msg = json.decodeFromString<SocketMessage>(line)) {
                 is OutboundSocketMessage -> {
+                    logger.trace { "Received engine message: ${msg::class.simpleName}" }
                     outboundHandler.handleOutbound(msg)
                     false
                 }
 
                 is ShutdownMessage -> {
+                    logger.debug { "Received shutdown from engine" }
                     outboundHandler.handleShutdown()
                     true
                 }
@@ -153,17 +166,19 @@ class EngineSocketClient(
                 } // RegisterMessage, InboundSocketMessage, etc -- ignored from engine
             }
         } catch (_: SerializationException) {
-            System.err.println("EngineSocketClient: malformed engine message, skipping")
+            logger.warn { "EngineSocketClient: malformed engine message, skipping" }
             false
         }
 
     private fun drainBuffer() {
         if (!buffer.isEmpty()) {
             val messages = buffer.drain()
+            logger.debug { "Draining ${messages.size} buffered messages" }
             messages.forEach { msg ->
                 try {
                     writerLock.withLock {
                         writer?.println(json.encodeToString<SocketMessage>(msg))
+                        logger.trace { "Drained buffered message: ${msg::class.simpleName}" }
                     }
                 } catch (_: Exception) {
                     buffer.append(msg)

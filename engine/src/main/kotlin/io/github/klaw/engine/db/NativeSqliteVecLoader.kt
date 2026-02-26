@@ -1,7 +1,7 @@
 package io.github.klaw.engine.db
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
-import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.sql.Connection
@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @Singleton
 class NativeSqliteVecLoader : SqliteVecLoader {
-    private val log = LoggerFactory.getLogger(NativeSqliteVecLoader::class.java)
+    private val logger = KotlinLogging.logger {}
 
     private val resourcePresent: Boolean by lazy {
         @Suppress("TooGenericExceptionCaught")
@@ -46,9 +46,9 @@ class NativeSqliteVecLoader : SqliteVecLoader {
             connection.createStatement().use { stmt ->
                 stmt.execute("SELECT load_extension('${tempFile.absolutePath}')")
             }
-            log.info("sqlite-vec extension loaded successfully")
+            logger.info { "sqlite-vec extension loaded successfully" }
         } catch (e: Exception) {
-            log.warn("Failed to load sqlite-vec extension: ${e.message}")
+            logger.warn { "Failed to load sqlite-vec extension: ${e.message}" }
             extensionLoadable.set(false)
         }
     }

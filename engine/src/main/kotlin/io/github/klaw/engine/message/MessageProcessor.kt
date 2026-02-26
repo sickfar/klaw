@@ -15,6 +15,7 @@ import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ToolExecutor
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +24,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.slf4j.LoggerFactory
 import java.util.UUID
 
 /**
@@ -47,7 +47,7 @@ class MessageProcessor(
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
 ) : SocketMessageHandler {
-    private val log = LoggerFactory.getLogger(MessageProcessor::class.java)
+    private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val llmLimiter = PriorityLlmLimiter(config.processing.maxConcurrentLlm)
 
@@ -66,11 +66,7 @@ class MessageProcessor(
     override suspend fun handleInbound(message: InboundSocketMessage) {
         val accepted = debounceBuffer.add(message)
         if (!accepted) {
-            log.warn(
-                "Debounce buffer at capacity, rejecting message from channel={} chatId={}",
-                message.channel,
-                message.chatId,
-            )
+            logger.warn { "Debounce buffer full, dropping message channel=${message.channel} chatId=${message.chatId}" }
             socketServer.pushToGateway(
                 OutboundSocketMessage(
                     channel = message.channel,
@@ -153,7 +149,7 @@ class MessageProcessor(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    log.error("Subagent '{}' failed: {}", message.name, e.message, e)
+                    logger.error(e) { "Subagent '${message.name}' failed" }
                 }
             }
         }

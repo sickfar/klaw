@@ -4,9 +4,12 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.db.SqliteVecLoader
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+
+private val logger = KotlinLogging.logger {}
 
 @Suppress("MagicNumber")
 class MemoryServiceImpl(
@@ -20,12 +23,18 @@ class MemoryServiceImpl(
         content: String,
         source: String,
     ): String {
+        logger.debug { "Reindex started for source=$source inputLength=${content.length}" }
         val chunks = chunker.chunk(content)
-        if (chunks.isEmpty()) return "No content to save."
+        if (chunks.isEmpty()) {
+            logger.debug { "No chunks produced for source=$source" }
+            return "No content to save."
+        }
+        logger.trace { "Chunked source=$source into ${chunks.size} chunks" }
 
         val now = Clock.System.now().toString()
         val embeddings =
             if (sqliteVecLoader.isAvailable()) {
+                logger.trace { "Computing embeddings for ${chunks.size} chunks source=$source" }
                 embeddingService.embedBatch(chunks.map { it.content })
             } else {
                 null
@@ -45,6 +54,7 @@ class MemoryServiceImpl(
                     if (embeddings != null) {
                         val rowId = database.memoryChunksQueries.lastInsertRowId().executeAsOne()
                         val blob = floatArrayToBlob(embeddings[index])
+                        logger.trace { "Memory chunk saved: chunkIndex=$index source=$source rowId=$rowId" }
                         driver.execute(
                             null,
                             "INSERT INTO vec_memory(rowid, embedding) VALUES (?, ?)",
@@ -57,6 +67,7 @@ class MemoryServiceImpl(
                 }
             }
         }
+        logger.debug { "Memory chunk saved: count=${chunks.size} source=$source" }
 
         return "Saved ${chunks.size} chunk(s) from source '$source'."
     }
@@ -65,7 +76,9 @@ class MemoryServiceImpl(
         query: String,
         topK: Int,
     ): String {
+        logger.debug { "Memory search: queryLength=${query.length} topK=$topK" }
         val results = hybridSearch(query, topK)
+        logger.debug { "Memory search: found ${results.size} chunks for query (${query.length} chars)" }
         if (results.isEmpty()) return "No relevant memories found."
 
         return results.joinToString("\n\n---\n\n") { result ->
@@ -79,6 +92,7 @@ class MemoryServiceImpl(
         topK: Int,
     ): List<MemorySearchResult> =
         withContext(Dispatchers.VT) {
+            logger.trace { "FTS search: queryLength=${query.length} topK=$topK" }
             val results = mutableListOf<MemorySearchResult>()
 
             // Search messages via messages_fts
@@ -151,19 +165,23 @@ class MemoryServiceImpl(
                 bindLong(1, topK.toLong())
             }
 
-            // Sort combined results by score descending, take topK
-            results
-                .sortedByDescending { it.score }
-                .take(topK)
+            val sorted = results.sortedByDescending { it.score }.take(topK)
+            logger.trace { "FTS search: returned ${sorted.size} results" }
+            sorted
         }
 
     internal suspend fun vectorSearch(
         query: String,
         topK: Int,
     ): List<MemorySearchResult> {
-        if (!sqliteVecLoader.isAvailable()) return emptyList()
+        if (!sqliteVecLoader.isAvailable()) {
+            logger.trace { "Vector search skipped: sqlite-vec not available" }
+            return emptyList()
+        }
 
+        logger.trace { "Vector search: computing embedding for queryLength=${query.length}" }
         val queryEmbedding = embeddingService.embed(query)
+        logger.trace { "Embedding computed: dims=${queryEmbedding.size} for input (${query.length} chars)" }
         val blob = floatArrayToBlob(queryEmbedding)
 
         return withContext(Dispatchers.VT) {
@@ -201,6 +219,7 @@ class MemoryServiceImpl(
                 bindBytes(0, blob)
                 bindLong(1, topK.toLong())
             }
+            logger.trace { "Vector search: returned ${results.size} results" }
             results
         }
     }
@@ -209,9 +228,13 @@ class MemoryServiceImpl(
         query: String,
         topK: Int,
     ): List<MemorySearchResult> {
+        logger.trace { "Hybrid search started: queryLength=${query.length} topK=$topK" }
         val ftsResults = ftsSearch(query, topK)
         val vectorResults = vectorSearch(query, topK)
-        return RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
+        logger.trace { "Hybrid search: fts=${ftsResults.size} vector=${vectorResults.size} before merge" }
+        val merged = RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
+        logger.trace { "Hybrid search: merged=${merged.size} results after RRF" }
+        return merged
     }
 
     private fun floatArrayToBlob(arr: FloatArray): ByteArray {
