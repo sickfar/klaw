@@ -5,8 +5,8 @@ import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verifyOrder
 import io.mockk.verify
+import io.mockk.verifyOrder
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 

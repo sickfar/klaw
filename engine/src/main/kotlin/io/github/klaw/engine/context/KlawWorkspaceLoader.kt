@@ -29,6 +29,7 @@ class KlawWorkspaceLoader(
     private val memoryService: MemoryService,
     private val coreMemory: CoreMemoryService,
 ) : WorkspaceLoader {
+    @Volatile
     private var cachedSystemPrompt: String = ""
 
     fun initialize() {
@@ -46,27 +47,29 @@ class KlawWorkspaceLoader(
 
     override suspend fun loadSystemPrompt(): String = cachedSystemPrompt
 
-    private fun buildSystemPrompt(): String {
-        val sections =
-            listOf(
-                "SOUL.md" to "## Soul",
-                "IDENTITY.md" to "## Identity",
-                "AGENTS.md" to "## Instructions",
-                "TOOLS.md" to "## Environment Notes",
-            )
-        val parts = mutableListOf<String>()
-        sections.forEach { (filename, header) ->
-            val file = workspacePath.resolve(filename)
-            if (Files.exists(file)) {
-                val content = Files.readString(file).trim()
-                if (content.isNotEmpty()) {
-                    parts.add("$header\n$content")
+    private suspend fun buildSystemPrompt(): String =
+        withContext(Dispatchers.VT) {
+            val sections =
+                listOf(
+                    "SOUL.md" to "## Soul",
+                    "IDENTITY.md" to "## Identity",
+                    "AGENTS.md" to "## Instructions",
+                    "TOOLS.md" to "## Environment Notes",
+                )
+            val parts = mutableListOf<String>()
+            sections.forEach { (filename, header) ->
+                val file = workspacePath.resolve(filename)
+                if (Files.exists(file)) {
+                    val content = Files.readString(file).trim()
+                    if (content.isNotEmpty()) {
+                        parts.add("$header\n$content")
+                    }
                 }
             }
+            parts.joinToString("\n\n")
         }
-        return parts.joinToString("\n\n")
-    }
 
+    @Suppress("ReturnCount")
     private suspend fun initCoreMemoryFromUserMd() {
         val userMd = workspacePath.resolve("USER.md")
         if (!Files.exists(userMd)) return
@@ -95,14 +98,16 @@ class KlawWorkspaceLoader(
         }
         val memoryDir = workspacePath.resolve("memory")
         if (Files.isDirectory(memoryDir)) {
-            withContext(Dispatchers.VT) {
-                Files.list(memoryDir).use { stream ->
-                    stream.filter { it.fileName.toString().endsWith(".md") }.forEach { file ->
-                        val content = Files.readString(file)
-                        runBlocking { memoryService.save(content, file.fileName.toString()) }
-                        logger.debug { "Indexed memory file name=${file.fileName}" }
+            val files =
+                withContext(Dispatchers.VT) {
+                    Files.list(memoryDir).use { stream ->
+                        stream.filter { it.fileName.toString().endsWith(".md") }.toList()
                     }
                 }
+            for (file in files) {
+                val content = withContext(Dispatchers.VT) { Files.readString(file) }
+                memoryService.save(content, file.fileName.toString())
+                logger.debug { "Indexed memory file name=${file.fileName}" }
             }
         }
     }

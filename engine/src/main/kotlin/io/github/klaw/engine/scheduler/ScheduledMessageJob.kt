@@ -32,6 +32,7 @@ class ScheduledMessageJob(
                 model = data.getString("model"),
                 injectInto = data.getString("injectInto"),
             )
+        @Suppress("TooGenericExceptionCaught")
         try {
             runBlocking { messageProcessor.handleScheduledMessage(message).join() }
         } catch (e: Exception) {

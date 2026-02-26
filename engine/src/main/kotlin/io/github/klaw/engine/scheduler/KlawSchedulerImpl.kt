@@ -25,6 +25,10 @@ class KlawSchedulerImpl(
         inner.start()
     }
 
+    // NOTE: shutdownBlocking() is called both explicitly by EngineLifecycle (to enforce ordering)
+    // and via @PreDestroy when Micronaut closes the ApplicationContext. This double-call is safe:
+    // QuartzKlawScheduler.shutdownBlocking() guards via quartzScheduler.isStarted (returns false
+    // once Quartz enters the shutdown/stopped state), so the second call is a no-op.
     @PreDestroy
     fun preDestroy() = inner.shutdownBlocking()
 

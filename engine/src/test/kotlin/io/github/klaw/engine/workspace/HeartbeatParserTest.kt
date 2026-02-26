@@ -9,11 +9,12 @@ class HeartbeatParserTest {
 
     @Test
     fun `parses basic task with cron and message`() {
-        val content = """
+        val content =
+            """
             ## Morning Check
             - Cron: 0 0 9 * * ?
             - Message: Check email
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals(1, tasks.size)
         assertEquals("Morning Check", tasks[0].name)
@@ -25,31 +26,34 @@ class HeartbeatParserTest {
 
     @Test
     fun `parses task with optional model`() {
-        val content = """
+        val content =
+            """
             ## Daily Digest
             - Cron: 0 0 8 * * ?
             - Message: Summarize news
             - Model: glm/glm-4-plus
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals("glm/glm-4-plus", tasks[0].model)
     }
 
     @Test
     fun `parses task with injectInto`() {
-        val content = """
+        val content =
+            """
             ## Alert Task
             - Cron: 0 */30 * * * ?
             - Message: Check alerts
             - InjectInto: telegram_123456
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals("telegram_123456", tasks[0].injectInto)
     }
 
     @Test
     fun `parses multiple tasks from single file`() {
-        val content = """
+        val content =
+            """
             ## Task One
             - Cron: 0 0 9 * * ?
             - Message: First task
@@ -57,7 +61,7 @@ class HeartbeatParserTest {
             ## Task Two
             - Cron: 0 0 18 * * ?
             - Message: Second task
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals(2, tasks.size)
         assertEquals("Task One", tasks[0].name)
@@ -72,33 +76,36 @@ class HeartbeatParserTest {
 
     @Test
     fun `handles malformed entry gracefully`() {
-        val content = """
+        val content =
+            """
             ## Bad Task
             - NoCron: here
             - Message: Some message
-        """.trimIndent()
+            """.trimIndent()
         // Missing cron → skip task
         assertTrue(parser.parse(content).isEmpty())
     }
 
     @Test
     fun `handles missing message gracefully`() {
-        val content = """
+        val content =
+            """
             ## Bad Task
             - Cron: 0 0 9 * * ?
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(parser.parse(content).isEmpty())
     }
 
     @Test
     fun `parses OpenClaw standard format with all fields`() {
-        val content = """
+        val content =
+            """
             ## Weekly Report
             - Cron: 0 0 9 ? * MON
             - Message: Generate weekly report and send to management
             - Model: glm/glm-4-plus
             - InjectInto: telegram_999
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals(1, tasks.size)
         with(tasks[0]) {
@@ -112,7 +119,8 @@ class HeartbeatParserTest {
 
     @Test
     fun `ignores non-task heading content before first task`() {
-        val content = """
+        val content =
+            """
             # HEARTBEAT
 
             This file defines recurring tasks.
@@ -120,7 +128,7 @@ class HeartbeatParserTest {
             ## Morning Check
             - Cron: 0 0 9 * * ?
             - Message: Check email
-        """.trimIndent()
+            """.trimIndent()
         val tasks = parser.parse(content)
         assertEquals(1, tasks.size)
         assertEquals("Morning Check", tasks[0].name)

@@ -50,26 +50,19 @@ class SQLiteDelegateTest {
 
     @Test
     fun `toJson and fromJson round-trip preserves string values`() {
-        // Verify via the companion object — access via Kotlin companion reflection
-        val companion = SQLiteDelegate.Companion
-        val toJson = companion::class.java.getDeclaredMethod("toJson", org.quartz.JobDataMap::class.java)
-        toJson.isAccessible = true
-
         val map =
             org.quartz.JobDataMap().apply {
                 put("name", "morning-check")
                 put("message", "Check emails")
                 put("model", "glm/glm-4-plus")
             }
-        val json = toJson.invoke(companion, map) as String
+        val json = SQLiteDelegate.toJson(map)
 
         assertTrue(json.contains("morning-check"), "Expected name in JSON: $json")
         assertTrue(json.contains("Check emails"), "Expected message in JSON: $json")
         assertTrue(json.contains("glm/glm-4-plus"), "Expected model in JSON: $json")
 
-        val fromJson = companion::class.java.getDeclaredMethod("fromJson", String::class.java)
-        fromJson.isAccessible = true
-        val restored = fromJson.invoke(companion, json) as org.quartz.JobDataMap
+        val restored = SQLiteDelegate.fromJson(json)
 
         assertTrue(restored.getString("name") == "morning-check")
         assertTrue(restored.getString("message") == "Check emails")

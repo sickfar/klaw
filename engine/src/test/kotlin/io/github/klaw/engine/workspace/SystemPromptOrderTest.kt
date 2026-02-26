@@ -37,40 +37,44 @@ class SystemPromptOrderTest {
     }
 
     @Test
-    fun `SOUL section appears before IDENTITY`() = runTest {
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(
-            prompt.indexOf("SOUL_CONTENT") < prompt.indexOf("IDENTITY_CONTENT"),
-            "SOUL must precede IDENTITY in: $prompt",
-        )
-    }
+    fun `SOUL section appears before IDENTITY`() =
+        runTest {
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(
+                prompt.indexOf("SOUL_CONTENT") < prompt.indexOf("IDENTITY_CONTENT"),
+                "SOUL must precede IDENTITY in: $prompt",
+            )
+        }
 
     @Test
-    fun `IDENTITY appears before AGENTS`() = runTest {
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(
-            prompt.indexOf("IDENTITY_CONTENT") < prompt.indexOf("AGENTS_CONTENT"),
-            "IDENTITY must precede AGENTS in: $prompt",
-        )
-    }
+    fun `IDENTITY appears before AGENTS`() =
+        runTest {
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(
+                prompt.indexOf("IDENTITY_CONTENT") < prompt.indexOf("AGENTS_CONTENT"),
+                "IDENTITY must precede AGENTS in: $prompt",
+            )
+        }
 
     @Test
-    fun `AGENTS appears before TOOLS`() = runTest {
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(
-            prompt.indexOf("AGENTS_CONTENT") < prompt.indexOf("TOOLS_CONTENT"),
-            "AGENTS must precede TOOLS in: $prompt",
-        )
-    }
+    fun `AGENTS appears before TOOLS`() =
+        runTest {
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(
+                prompt.indexOf("AGENTS_CONTENT") < prompt.indexOf("TOOLS_CONTENT"),
+                "AGENTS must precede TOOLS in: $prompt",
+            )
+        }
 
     @Test
-    fun `USER_md does not appear in system prompt`() = runTest {
-        Files.writeString(workspace.resolve("USER.md"), "USER_CONTENT_UNIQUE")
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertFalse(prompt.contains("## User"), "USER section should not be in system prompt")
-    }
+    fun `USER_md does not appear in system prompt`() =
+        runTest {
+            Files.writeString(workspace.resolve("USER.md"), "USER_CONTENT_UNIQUE")
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertFalse(prompt.contains("## User"), "USER section should not be in system prompt")
+        }
 }

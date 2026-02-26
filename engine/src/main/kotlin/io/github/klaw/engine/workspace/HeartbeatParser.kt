@@ -17,6 +17,7 @@ class HeartbeatParser {
         var currentModel: String? = null
         var currentInjectInto: String? = null
 
+        @Suppress("ReturnCount")
         fun flushTask() {
             val name = currentName ?: return
             val cron = currentCron ?: return
@@ -36,10 +37,22 @@ class HeartbeatParser {
                     flushTask()
                     currentName = line.removePrefix("## ").trim()
                 }
-                line.startsWith("- Cron:") -> currentCron = line.removePrefix("- Cron:").trim()
-                line.startsWith("- Message:") -> currentMessage = line.removePrefix("- Message:").trim()
-                line.startsWith("- Model:") -> currentModel = line.removePrefix("- Model:").trim()
-                line.startsWith("- InjectInto:") -> currentInjectInto = line.removePrefix("- InjectInto:").trim()
+
+                line.startsWith("- Cron:") -> {
+                    currentCron = line.removePrefix("- Cron:").trim()
+                }
+
+                line.startsWith("- Message:") -> {
+                    currentMessage = line.removePrefix("- Message:").trim()
+                }
+
+                line.startsWith("- Model:") -> {
+                    currentModel = line.removePrefix("- Model:").trim()
+                }
+
+                line.startsWith("- InjectInto:") -> {
+                    currentInjectInto = line.removePrefix("- InjectInto:").trim()
+                }
             }
         }
         flushTask()

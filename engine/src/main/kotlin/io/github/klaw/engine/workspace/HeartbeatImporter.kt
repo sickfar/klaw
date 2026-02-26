@@ -6,6 +6,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import jakarta.inject.Singleton
 import kotlinx.coroutines.runBlocking
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -25,13 +26,20 @@ class HeartbeatImporter(
     private val parser = HeartbeatParser()
 
     @PostConstruct
+    @Suppress("ReturnCount")
     fun importHeartbeat() {
         val heartbeatPath = Path.of(KlawPaths.workspace, "HEARTBEAT.md")
         if (!Files.exists(heartbeatPath)) {
             logger.debug { "No HEARTBEAT.md found — skipping heartbeat import" }
             return
         }
-        val content = Files.readString(heartbeatPath)
+        val content =
+            try {
+                Files.readString(heartbeatPath)
+            } catch (e: IOException) {
+                logger.warn(e) { "HeartbeatImporter: failed to read HEARTBEAT.md class=${e::class.simpleName}" }
+                return
+            }
         val tasks = parser.parse(content)
         if (tasks.isEmpty()) {
             logger.debug { "HEARTBEAT.md parsed but no valid tasks found" }
@@ -41,7 +49,7 @@ class HeartbeatImporter(
             tasks.forEach { task ->
                 val result = scheduler.add(task.name, task.cron, task.message, task.model, task.injectInto)
                 if (result.startsWith("Error")) {
-                    logger.warn { "HeartbeatImporter: $result task=${task.name}" }
+                    logger.warn { "HeartbeatImporter: failed to import task=${task.name}" }
                 } else {
                     logger.debug { "HeartbeatImporter: imported task=${task.name}" }
                 }

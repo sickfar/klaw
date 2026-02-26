@@ -13,7 +13,8 @@ import java.sql.DriverManager
  * corresponding to `org.quartz.dataSource.NAME.URL` in the scheduler properties.
  */
 class SqliteConnectionProvider : ConnectionProvider {
-    @Suppress("LateinitUsage")
+    // URL must match Quartz's property name exactly — Quartz injects it via bean-property setter setURL().
+    @Suppress("LateinitUsage", "VariableNaming", "ktlint:standard:property-naming")
     lateinit var URL: String
 
     override fun initialize() {

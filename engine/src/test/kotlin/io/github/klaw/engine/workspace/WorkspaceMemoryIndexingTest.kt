@@ -30,35 +30,39 @@ class WorkspaceMemoryIndexingTest {
     }
 
     @Test
-    fun `MEMORY_md indexed in sqlite-vec`() = runTest {
-        Files.writeString(workspace.resolve("MEMORY.md"), "Important fact: Kotlin is great.")
-        loader.initialize()
-        coVerify { memoryService.save(any(), eq("MEMORY.md")) }
-    }
+    fun `MEMORY_md indexed in sqlite-vec`() =
+        runTest {
+            Files.writeString(workspace.resolve("MEMORY.md"), "Important fact: Kotlin is great.")
+            loader.initialize()
+            coVerify { memoryService.save(any(), eq("MEMORY.md")) }
+        }
 
     @Test
-    fun `memory daily logs indexed`() = runTest {
-        val memoryDir = workspace.resolve("memory")
-        Files.createDirectories(memoryDir)
-        Files.writeString(memoryDir.resolve("2024-01-15.md"), "Learned something new.")
-        loader.initialize()
-        coVerify { memoryService.save(any(), eq("2024-01-15.md")) }
-    }
+    fun `memory daily logs indexed`() =
+        runTest {
+            val memoryDir = workspace.resolve("memory")
+            Files.createDirectories(memoryDir)
+            Files.writeString(memoryDir.resolve("2024-01-15.md"), "Learned something new.")
+            loader.initialize()
+            coVerify { memoryService.save(any(), eq("2024-01-15.md")) }
+        }
 
     @Test
-    fun `reindexing calls save for each source independently`() = runTest {
-        Files.writeString(workspace.resolve("MEMORY.md"), "Main memory content.")
-        val memoryDir = workspace.resolve("memory")
-        Files.createDirectories(memoryDir)
-        Files.writeString(memoryDir.resolve("2024-01-01.md"), "Day log.")
-        loader.initialize()
-        coVerify { memoryService.save(any(), eq("MEMORY.md")) }
-        coVerify { memoryService.save(any(), eq("2024-01-01.md")) }
-    }
+    fun `reindexing calls save for each source independently`() =
+        runTest {
+            Files.writeString(workspace.resolve("MEMORY.md"), "Main memory content.")
+            val memoryDir = workspace.resolve("memory")
+            Files.createDirectories(memoryDir)
+            Files.writeString(memoryDir.resolve("2024-01-01.md"), "Day log.")
+            loader.initialize()
+            coVerify { memoryService.save(any(), eq("MEMORY.md")) }
+            coVerify { memoryService.save(any(), eq("2024-01-01.md")) }
+        }
 
     @Test
-    fun `missing MEMORY_md does not throw`() = runTest {
-        loader.initialize()
-        coVerify(exactly = 0) { memoryService.save(any(), eq("MEMORY.md")) }
-    }
+    fun `missing MEMORY_md does not throw`() =
+        runTest {
+            loader.initialize()
+            coVerify(exactly = 0) { memoryService.save(any(), eq("MEMORY.md")) }
+        }
 }

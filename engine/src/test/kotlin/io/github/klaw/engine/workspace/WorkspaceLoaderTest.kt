@@ -33,59 +33,66 @@ class WorkspaceLoaderTest {
     }
 
     @Test
-    fun `buildSystemPrompt includes SOUL_md content`() = runTest {
-        Files.writeString(workspace.resolve("SOUL.md"), "Be kind and helpful.")
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(prompt.contains("Be kind and helpful."), "SOUL content missing from: $prompt")
-        assertTrue(prompt.contains("## Soul"), "## Soul header missing from: $prompt")
-    }
+    fun `buildSystemPrompt includes SOUL_md content`() =
+        runTest {
+            Files.writeString(workspace.resolve("SOUL.md"), "Be kind and helpful.")
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(prompt.contains("Be kind and helpful."), "SOUL content missing from: $prompt")
+            assertTrue(prompt.contains("## Soul"), "## Soul header missing from: $prompt")
+        }
 
     @Test
-    fun `buildSystemPrompt includes IDENTITY_md content`() = runTest {
-        Files.writeString(workspace.resolve("IDENTITY.md"), "My name is Klaw.")
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(prompt.contains("My name is Klaw."), "IDENTITY missing from: $prompt")
-        assertTrue(prompt.contains("## Identity"), "## Identity header missing from: $prompt")
-    }
+    fun `buildSystemPrompt includes IDENTITY_md content`() =
+        runTest {
+            Files.writeString(workspace.resolve("IDENTITY.md"), "My name is Klaw.")
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(prompt.contains("My name is Klaw."), "IDENTITY missing from: $prompt")
+            assertTrue(prompt.contains("## Identity"), "## Identity header missing from: $prompt")
+        }
 
     @Test
-    fun `buildSystemPrompt includes AGENTS_md content`() = runTest {
-        Files.writeString(workspace.resolve("AGENTS.md"), "Always be helpful.")
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertTrue(prompt.contains("Always be helpful."), "AGENTS missing from: $prompt")
-        assertTrue(prompt.contains("## Instructions"), "## Instructions header missing from: $prompt")
-    }
+    fun `buildSystemPrompt includes AGENTS_md content`() =
+        runTest {
+            Files.writeString(workspace.resolve("AGENTS.md"), "Always be helpful.")
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(prompt.contains("Always be helpful."), "AGENTS missing from: $prompt")
+            assertTrue(prompt.contains("## Instructions"), "## Instructions header missing from: $prompt")
+        }
 
     @Test
-    fun `buildSystemPrompt handles missing optional files`() = runTest {
-        loader.initialize()
-        val prompt = loader.loadSystemPrompt()
-        assertFalse(prompt.contains("null"), "null in prompt: $prompt")
-    }
+    fun `buildSystemPrompt handles missing optional files`() =
+        runTest {
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertFalse(prompt.contains("null"), "null in prompt: $prompt")
+        }
 
     @Test
-    fun `initCoreMemoryFromUserMd populates user section when empty`() = runTest {
-        Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
-        loader.initialize()
-        coVerify { coreMemory.update("user", "notes", "User likes cats.") }
-    }
+    fun `initCoreMemoryFromUserMd populates user section when empty`() =
+        runTest {
+            Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
+            loader.initialize()
+            coVerify { coreMemory.update("user", "notes", "User likes cats.") }
+        }
 
     @Test
-    fun `initCoreMemoryFromUserMd skips when user section already populated`() = runTest {
-        coEvery { coreMemory.getJson() } returns """{"user":{"notes":"existing data"},"agent":{}}"""
-        Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
-        loader.initialize()
-        coVerify(exactly = 0) { coreMemory.update("user", any(), any()) }
-    }
+    fun `initCoreMemoryFromUserMd skips when user section already populated`() =
+        runTest {
+            coEvery { coreMemory.getJson() } returns """{"user":{"notes":"existing data"},"agent":{}}"""
+            Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
+            loader.initialize()
+            coVerify(exactly = 0) { coreMemory.update("user", any(), any()) }
+        }
 
     @Test
-    fun `missing workspace dir handled gracefully`() = runTest {
-        val missing = workspace.resolve("nonexistent")
-        val safeLoader = KlawWorkspaceLoader(missing, memoryService, coreMemory)
-        safeLoader.initialize()
-        assertEquals("", safeLoader.loadSystemPrompt())
-    }
+    fun `missing workspace dir handled gracefully`() =
+        runTest {
+            val missing = workspace.resolve("nonexistent")
+            val safeLoader = KlawWorkspaceLoader(missing, memoryService, coreMemory)
+            safeLoader.initialize()
+            assertEquals("", safeLoader.loadSystemPrompt())
+        }
 }

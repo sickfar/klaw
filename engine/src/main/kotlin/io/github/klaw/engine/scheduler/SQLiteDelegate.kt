@@ -34,10 +34,13 @@ import java.sql.ResultSet
  * With isClustered=false Quartz uses in-process SimpleSemaphore, so db locking is never used.
  */
 class SQLiteDelegate : StdJDBCDelegate() {
-
     // ── Job-detail CRUD ──────────────────────────────────────────────────────────────────────
 
-    override fun insertJobDetail(conn: Connection, job: JobDetail): Int =
+    @Suppress("MagicNumber")
+    override fun insertJobDetail(
+        conn: Connection,
+        job: JobDetail,
+    ): Int =
         conn.prepareStatement(rtp(INSERT_JOB_DETAIL)).use { ps ->
             ps.setString(1, job.key.name)
             ps.setString(2, job.key.group)
@@ -51,7 +54,11 @@ class SQLiteDelegate : StdJDBCDelegate() {
             ps.executeUpdate()
         }
 
-    override fun updateJobDetail(conn: Connection, job: JobDetail): Int =
+    @Suppress("MagicNumber")
+    override fun updateJobDetail(
+        conn: Connection,
+        job: JobDetail,
+    ): Int =
         conn.prepareStatement(rtp(UPDATE_JOB_DETAIL)).use { ps ->
             ps.setString(1, job.description)
             ps.setString(2, job.jobClass.name)
@@ -65,7 +72,11 @@ class SQLiteDelegate : StdJDBCDelegate() {
             ps.executeUpdate()
         }
 
-    override fun updateJobData(conn: Connection, job: JobDetail): Int =
+    @Suppress("MagicNumber")
+    override fun updateJobData(
+        conn: Connection,
+        job: JobDetail,
+    ): Int =
         conn.prepareStatement(rtp(UPDATE_JOB_DATA)).use { ps ->
             ps.setString(1, toJson(job.jobDataMap))
             ps.setString(2, job.key.name)
@@ -73,7 +84,12 @@ class SQLiteDelegate : StdJDBCDelegate() {
             ps.executeUpdate()
         }
 
-    override fun selectJobDetail(conn: Connection, jobKey: JobKey, loadHelper: ClassLoadHelper): JobDetail? =
+    @Suppress("NestedBlockDepth")
+    override fun selectJobDetail(
+        conn: Connection,
+        jobKey: JobKey,
+        loadHelper: ClassLoadHelper,
+    ): JobDetail? =
         conn.prepareStatement(rtp(SELECT_JOB_DETAIL)).use { ps ->
             ps.setString(1, jobKey.name)
             ps.setString(2, jobKey.group)
@@ -85,10 +101,16 @@ class SQLiteDelegate : StdJDBCDelegate() {
                     group = rs.getString(COL_JOB_GROUP)
                     description = rs.getString(COL_DESCRIPTION)
                     @Suppress("UNCHECKED_CAST")
-                    jobClass = loadHelper.loadClass(rs.getString(COL_JOB_CLASS), Job::class.java)
-                        as Class<out Job>
+                    jobClass =
+                        loadHelper.loadClass(rs.getString(COL_JOB_CLASS), Job::class.java)
+                            as Class<out Job>
                     setDurability(getBoolean(rs, COL_IS_DURABLE))
                     setRequestsRecovery(getBoolean(rs, COL_REQUESTS_RECOVERY))
+                    // IS_NONCONCURRENT and IS_UPDATE_DATA are not restored from columns because
+                    // JobDetailImpl derives isConcurrentExecutionDisallowed() and
+                    // isPersistJobDataAfterExecution() dynamically from class annotations at runtime
+                    // (no corresponding setters exist in Quartz 2.5.x JobDetailImpl).
+                    // Setting jobClass above makes @DisallowConcurrentExecution effective immediately.
                     jobDataMap = if (json.isNullOrBlank()) JobDataMap() else fromJson(json)
                 }
             }
@@ -102,7 +124,11 @@ class SQLiteDelegate : StdJDBCDelegate() {
      * (BLOB column in QRTZ_TRIGGERS). Trigger job data is always empty in Klaw, so this
      * typically returns null.
      */
-    override fun getObjectFromBlob(rs: ResultSet, colName: String): Any? {
+    @Suppress("ReturnCount")
+    override fun getObjectFromBlob(
+        rs: ResultSet,
+        colName: String,
+    ): Any? {
         val bytes = rs.getBytes(colName) ?: return null
         if (bytes.isEmpty()) return null
         return ObjectInputStream(ByteArrayInputStream(bytes)).use { it.readObject() }
@@ -111,12 +137,12 @@ class SQLiteDelegate : StdJDBCDelegate() {
     // ── JSON helpers ─────────────────────────────────────────────────────────────────────────
 
     companion object {
-        private fun toJson(map: JobDataMap): String =
+        internal fun toJson(map: JobDataMap): String =
             buildJsonObject {
                 map.forEach { (k, v) -> put(k.toString(), v?.toString()) }
             }.toString()
 
-        private fun fromJson(json: String): JobDataMap {
+        internal fun fromJson(json: String): JobDataMap {
             val result = JobDataMap()
             Json.parseToJsonElement(json).jsonObject.forEach { (k, v) ->
                 if (v !is JsonNull) result[k] = v.jsonPrimitive.content
@@ -124,7 +150,5 @@ class SQLiteDelegate : StdJDBCDelegate() {
             return result
         }
 
-        internal fun buildLockSql(tablePrefix: String?, schedNameLiteral: String?): String =
-            "SELECT * FROM ${tablePrefix}LOCKS WHERE SCHED_NAME = $schedNameLiteral AND LOCK_NAME = ?"
     }
 }

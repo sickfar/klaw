@@ -23,7 +23,9 @@ private val logger = KotlinLogging.logger {}
  * Core Quartz scheduling logic. Not a Micronaut bean — used directly in integration tests
  * (no ApplicationContext required). Wrapped by [KlawSchedulerImpl] for production use.
  */
-class QuartzKlawScheduler(dbPath: String) : KlawScheduler {
+class QuartzKlawScheduler(
+    dbPath: String,
+) : KlawScheduler {
     internal val quartzScheduler =
         run {
             ensureDbDirectory(dbPath)
@@ -86,19 +88,21 @@ class QuartzKlawScheduler(dbPath: String) : KlawScheduler {
                         injectInto?.let { put("injectInto", it) }
                     }
                 val job =
-                    JobBuilder.newJob(ScheduledMessageJob::class.java)
+                    JobBuilder
+                        .newJob(ScheduledMessageJob::class.java)
                         .withIdentity(jobKey)
                         .usingJobData(jobData)
                         .storeDurably()
                         .build()
                 val trigger =
-                    TriggerBuilder.newTrigger()
+                    TriggerBuilder
+                        .newTrigger()
                         .withIdentity(TriggerKey(name, TRIGGER_GROUP))
                         .withSchedule(
-                            CronScheduleBuilder.cronSchedule(cron)
+                            CronScheduleBuilder
+                                .cronSchedule(cron)
                                 .withMisfireHandlingInstructionFireAndProceed(),
-                        )
-                        .build()
+                        ).build()
                 quartzScheduler.scheduleJob(job, trigger)
                 logger.debug { "Schedule added name=$name" }
                 "OK: '$name' scheduled with cron '$cron'"
@@ -135,12 +139,17 @@ class QuartzKlawScheduler(dbPath: String) : KlawScheduler {
 
         private fun initializeDdl(dbPath: String) {
             val ddl =
-                QuartzKlawScheduler::class.java.getResourceAsStream("/quartz-sqlite.sql")
-                    ?.bufferedReader()?.readText()
+                QuartzKlawScheduler::class.java
+                    .getResourceAsStream("/quartz-sqlite.sql")
+                    ?.bufferedReader()
+                    ?.readText()
                     ?: error("quartz-sqlite.sql not found in classpath")
             java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath").use { conn ->
                 conn.createStatement().use { stmt ->
-                    ddl.split(";").map { it.trim() }.filter { it.isNotEmpty() }
+                    ddl
+                        .split(";")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
                         .forEach { stmt.execute(it) }
                 }
             }
