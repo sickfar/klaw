@@ -13,14 +13,20 @@ Interactive first-time setup wizard. Guides through:
 2. LLM provider configuration (base URL, API key, model ID)
 3. Telegram bot setup (token, allowed chat IDs)
 4. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`)
-5. Engine auto-start (systemd on Linux, launchd on macOS)
+5. Engine auto-start
 6. Identity Q&A (agent name, personality, role, user description, domain)
 7. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
-8. Service unit installation (systemd or launchd)
+8. Service setup
 
 ```
 klaw init
 ```
+
+**Docker mode:** When `klaw init` is run inside a Docker container (detected via `/.dockerenv`), phases 5 and 8 use Docker Compose instead of systemd/launchd. The engine and gateway containers are started via `docker compose up -d` — no systemd unit files are written. See [klaw init in Docker](../deployment/local-dev.md#klaw-init-in-docker) for details.
+
+**Native mode (Linux/Pi):** Phase 5 runs `systemctl --user start klaw-engine`, phase 8 writes systemd unit files to `~/.config/systemd/user/`.
+
+**Native mode (macOS):** Phase 5 runs `launchctl load -w ~/Library/LaunchAgents/io.github.klaw.engine.plist`, phase 8 writes launchd plist files.
 
 ### `klaw config set KEY VALUE`
 

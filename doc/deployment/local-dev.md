@@ -96,16 +96,22 @@ docker compose exec gateway ls /root/.local/state/klaw/
 
 ## klaw init in Docker
 
-The CLI container does not have systemd, so `klaw init` skips service installation:
+`klaw init` detects it is running inside a container via `/.dockerenv` and automatically routes service management through Docker Compose instead of systemd/launchd.
 
 ```bash
 ./klaw init
-# Output will include:
-#   "systemd not available — skipping service installation"
-#   + confirmation that XDG dirs and config templates were created
 ```
 
-Data directories are created inside the `klaw-data` Docker volume.
+**What happens in Docker mode:**
+
+- **Phase 6 (Engine auto-start):** runs `docker compose -f /app/docker-compose.yml up -d klaw-engine` then polls `engine.sock` as usual
+- **Phase 9 (Service setup):** runs `docker compose -f /app/docker-compose.yml up -d klaw-engine klaw-gateway` — no systemd unit files are written
+
+The compose file is mounted read-only into the CLI container at `/app/docker-compose.yml` (see `docker-compose.yml` → cli volumes). The Docker socket `/var/run/docker.sock` is also mounted so the CLI can issue compose commands to the host daemon.
+
+After `klaw init` completes, both containers will be running and the Telegram gateway will be connected.
+
+> **Note:** Data directories are created inside the `klaw-data` Docker volume, not on the host filesystem.
 
 ## Differences from production (Pi)
 
