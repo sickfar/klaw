@@ -35,6 +35,8 @@ services:
       - klaw-data:/root/.local/share/klaw
       - klaw-workspace:/workspace
       - ./config:/root/.config/klaw
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker-compose.yml:/app/docker-compose.yml:ro
     profiles:
       - cli
     stdin_open: true

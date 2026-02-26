@@ -16,23 +16,26 @@ internal class EngineStarter(
     private val pollIntervalMs: Long = 500L,
     private val timeoutMs: Long = 30_000L,
     private val onTick: () -> Unit = {},
+    /** Override the start command. When null, OS-appropriate default is used (systemd/launchd). */
+    private val startCommand: String? = null,
 ) {
     fun startAndWait(): Boolean {
         val startCmd =
-            when (Platform.osFamily) {
-                OsFamily.LINUX -> {
-                    "systemctl --user start klaw-engine"
-                }
+            startCommand
+                ?: when (Platform.osFamily) {
+                    OsFamily.LINUX -> {
+                        "systemctl --user start klaw-engine"
+                    }
 
-                OsFamily.MACOSX -> {
-                    val home = platform.posix.getenv("HOME")?.toKString() ?: "/tmp"
-                    "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
-                }
+                    OsFamily.MACOSX -> {
+                        val home = platform.posix.getenv("HOME")?.toKString() ?: "/tmp"
+                        "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
+                    }
 
-                else -> {
-                    "echo 'Please start the engine manually'"
+                    else -> {
+                        "echo 'Please start the engine manually'"
+                    }
                 }
-            }
         commandRunner(startCmd)
 
         val deadline = Clock.System.now().toEpochMilliseconds() + timeoutMs

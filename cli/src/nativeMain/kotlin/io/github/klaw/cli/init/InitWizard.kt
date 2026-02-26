@@ -6,15 +6,22 @@ import io.github.klaw.cli.ui.Spinner
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.toKString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.native.OsFamily
+import kotlin.native.Platform
 
 private const val TOTAL_PHASES = 9
 
+@OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
+@Suppress("LongParameterList")
 internal class InitWizard(
     private val configDir: String = KlawPaths.config,
     private val workspaceDir: String = KlawPaths.workspace,
@@ -31,6 +38,9 @@ internal class InitWizard(
     private val readLine: () -> String?,
     private val printer: (String) -> Unit,
     private val commandRunner: (String) -> Int,
+    /** When true, Docker Compose commands are used instead of systemd/launchd for phases 6 and 9. */
+    private val isDockerEnv: Boolean = isInsideDocker(),
+    private val composeFilePath: String = "/app/docker-compose.yml",
     /** Factory that receives an `onTick` callback used to drive a spinner during polling. */
     private val engineStarterFactory: (onTick: () -> Unit) -> EngineStarter =
         { onTick ->
@@ -38,6 +48,15 @@ internal class InitWizard(
                 engineSocketPath = engineSocketPath,
                 commandRunner = commandRunner,
                 onTick = onTick,
+                startCommand =
+                    if (isDockerEnv) {
+                        require("'" !in composeFilePath) {
+                            "composeFilePath must not contain single-quote characters"
+                        }
+                        "docker compose -f '$composeFilePath' up -d klaw-engine"
+                    } else {
+                        null
+                    },
             )
         },
 ) {
@@ -100,7 +119,22 @@ internal class InitWizard(
         val engineStarted = engineStarter.startAndWait()
         if (!engineStarted) {
             printer("${AnsiColors.YELLOW}⚠ Engine did not start automatically.${AnsiColors.RESET}")
-            printer("  Start it manually: systemctl --user start klaw-engine")
+            val manualStartCmd =
+                when {
+                    isDockerEnv -> {
+                        "docker compose up -d klaw-engine"
+                    }
+
+                    Platform.osFamily == OsFamily.MACOSX -> {
+                        val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+                        "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
+                    }
+
+                    else -> {
+                        "systemctl --user start klaw-engine"
+                    }
+                }
+            printer("  Start it manually: $manualStartCmd")
             printer("  Identity generation will proceed and may fail if engine is not running.")
         } else {
             spinner.done("Engine started")
@@ -159,20 +193,31 @@ internal class InitWizard(
         writeFileText("$workspaceDir/AGENTS.md", agents)
         writeFileText("$workspaceDir/USER.md", user)
 
-        phase(9, "Service setup")
-        val envFile = "$configDir/.env"
-        val engineBin = "/usr/local/bin/klaw-engine"
-        val gatewayBin = "/usr/local/bin/klaw-gateway"
-        val serviceInstaller =
-            ServiceInstaller(
-                outputDir = serviceOutputDir,
-                commandRunner = { cmd ->
-                    commandRunner(cmd)
-                    Unit
-                },
-            )
-        serviceInstaller.install(engineBin, gatewayBin, envFile)
-        success("Service files written")
+        if (isDockerEnv) {
+            phase(9, "Container startup")
+            val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
+            if (!dockerInstaller.installServices()) {
+                printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
+                printer("  Start manually: docker compose up -d klaw-engine klaw-gateway")
+            } else {
+                success("Engine and Gateway containers started")
+            }
+        } else {
+            phase(9, "Service setup")
+            val envFile = "$configDir/.env"
+            val engineBin = "/usr/local/bin/klaw-engine"
+            val gatewayBin = "/usr/local/bin/klaw-gateway"
+            val serviceInstaller =
+                ServiceInstaller(
+                    outputDir = serviceOutputDir,
+                    commandRunner = { cmd ->
+                        commandRunner(cmd)
+                        Unit
+                    },
+                )
+            serviceInstaller.install(engineBin, gatewayBin, envFile)
+            success("Service files written")
+        }
 
         printSummary(agentName, modelId)
     }

@@ -32,6 +32,7 @@ class InitWizardTest {
         output: MutableList<String> = mutableListOf(),
         engineResponses: Map<String, String> = emptyMap(),
         commandRunner: (String) -> Int = { 0 },
+        isDockerEnv: Boolean = false,
     ): InitWizard {
         val inputQueue = ArrayDeque(inputs)
         return InitWizard(
@@ -46,10 +47,11 @@ class InitWizardTest {
             modelsDir = "$tmpDir/models",
             serviceOutputDir = "$tmpDir/service",
             engineSocketPath = "$tmpDir/engine.sock",
-            requestFn = { cmd, params -> engineResponses[cmd] ?: """{"error":"not mocked"}""" },
+            requestFn = { cmd, _ -> engineResponses[cmd] ?: """{"error":"not mocked"}""" },
             readLine = { inputQueue.removeFirstOrNull() ?: "" },
             printer = { output += it },
             commandRunner = commandRunner,
+            isDockerEnv = isDockerEnv,
             engineStarterFactory = { _ ->
                 EngineStarter(
                     engineSocketPath = "$tmpDir/engine.sock",
@@ -215,6 +217,132 @@ class InitWizardTest {
         // Service directory should have been created with unit files
         // The actual file names depend on OS (systemd vs launchd), so just check the dir was used
         assertTrue(fileExists("$tmpDir/service"), "Service output dir should exist")
+    }
+
+    @Test
+    fun `docker env phase 6 calls docker compose for engine and not systemctl`() {
+        val commandsRun = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandRunner = { cmd ->
+                    commandsRun += cmd
+                    0
+                },
+                isDockerEnv = true,
+            )
+        wizard.run()
+
+        val dockerComposeCalls = commandsRun.filter { it.contains("docker compose") }
+        assertTrue(
+            dockerComposeCalls.any { it.contains("klaw-engine") },
+            "Expected docker compose call for klaw-engine, got: $commandsRun",
+        )
+        val systemctlCalls = commandsRun.filter { it.contains("systemctl") }
+        assertTrue(
+            systemctlCalls.isEmpty(),
+            "Expected no systemctl calls in docker env, got: $systemctlCalls",
+        )
+    }
+
+    @Test
+    fun `docker env phase 9 does not write systemd unit files`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/service", 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                isDockerEnv = true,
+            )
+        wizard.run()
+
+        // In docker env mode, no systemd unit files should be written to serviceOutputDir
+        val unitFiles =
+            io.github.klaw.cli.util.listDirectory("$tmpDir/service").filter {
+                it.endsWith(".service") || it.endsWith(".plist")
+            }
+        assertTrue(
+            unitFiles.isEmpty(),
+            "Expected no systemd/launchd unit files in docker env mode, got: $unitFiles",
+        )
+    }
+
+    @Test
+    fun `docker env phase 9 calls docker compose for both services`() {
+        val commandsRun = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandRunner = { cmd ->
+                    commandsRun += cmd
+                    0
+                },
+                isDockerEnv = true,
+            )
+        wizard.run()
+
+        val phase9Calls = commandsRun.filter { it.contains("klaw-engine") && it.contains("klaw-gateway") }
+        assertTrue(
+            phase9Calls.isNotEmpty(),
+            "Expected docker compose up for both services in phase 9, got: $commandsRun",
+        )
+        assertTrue(
+            phase9Calls.any { it.contains("up -d") },
+            "Expected 'up -d' in phase 9 command, got: $phase9Calls",
+        )
     }
 
     @OptIn(ExperimentalForeignApi::class)
