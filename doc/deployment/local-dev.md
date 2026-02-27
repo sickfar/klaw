@@ -6,6 +6,7 @@
 |------|-------|
 | **Use Klaw (no git, no JDK)** | [Docker Quick Start](docker-quickstart.md) |
 | **Use Klaw (Java 21+, no Docker)** | [Native Quick Start](native-quickstart.md) |
+| **Use Klaw (native CLI + Docker services)** | [Native Quick Start — Hybrid mode](native-quickstart.md#hybrid-mode-docker-services) |
 | **Develop Klaw (build from source)** | Continue reading below |
 
 ---
@@ -106,7 +107,7 @@ docker compose exec gateway ls /root/.local/state/klaw/
 
 ## klaw init in Docker
 
-`klaw init` detects it is running inside a container via `/.dockerenv` and automatically routes service management through Docker Compose instead of systemd/launchd.
+`klaw init` detects it is running inside a container via `/.dockerenv` and automatically sets deployment mode to Docker — no mode selection prompt is shown. It prompts for a Docker image tag (default: `latest`) and routes service management through Docker Compose instead of systemd/launchd.
 
 ```bash
 ./klaw init
@@ -114,8 +115,10 @@ docker compose exec gateway ls /root/.local/state/klaw/
 
 **What happens in Docker mode:**
 
-- **Phase 6 (Engine auto-start):** runs `docker compose -f /app/docker-compose.yml up -d klaw-engine` then polls `engine.sock` as usual
-- **Phase 9 (Service setup):** runs `docker compose -f /app/docker-compose.yml up -d klaw-engine klaw-gateway` — no systemd unit files are written
+- **Phase 2 (Deployment mode):** auto-set to Docker; prompts for docker image tag only
+- **Phase 7 (Config generation):** writes `deploy.conf` with `mode=docker` and the chosen tag
+- **Phase 8 (Engine auto-start):** runs `docker compose -f /app/docker-compose.yml up -d engine` then polls `engine.sock` as usual
+- **Phase 11 (Service setup):** runs `docker compose -f /app/docker-compose.yml up -d engine gateway` — no systemd unit files are written
 
 The compose file is mounted read-only into the CLI container at `/app/docker-compose.yml` (see `docker-compose.yml` → cli volumes). The Docker socket `/var/run/docker.sock` is also mounted so the CLI can issue compose commands to the host daemon.
 

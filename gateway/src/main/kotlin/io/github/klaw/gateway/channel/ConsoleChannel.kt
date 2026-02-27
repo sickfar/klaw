@@ -3,10 +3,11 @@ package io.github.klaw.gateway.channel
 import io.github.klaw.common.protocol.ChatFrame
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.micronaut.websocket.WebSocketSession
+import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import jakarta.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -21,7 +22,7 @@ class ConsoleChannel(
 ) : Channel {
     override val name = "console"
 
-    @Volatile private var activeSession: WebSocketSession? = null
+    @Volatile private var activeSession: DefaultWebSocketServerSession? = null
     private val incomingQueue = KChannel<IncomingMessage>(KChannel.UNLIMITED)
 
     override suspend fun start() {
@@ -30,7 +31,11 @@ class ConsoleChannel(
 
     override suspend fun stop() {
         incomingQueue.close()
-        runCatching { activeSession?.close() }
+        try {
+            activeSession?.close(CloseReason(CloseReason.Codes.NORMAL, "ConsoleChannel stopped"))
+        } catch (_: Exception) {
+            // ignore close errors
+        }
         logger.info { "ConsoleChannel stopped" }
     }
 
@@ -42,7 +47,7 @@ class ConsoleChannel(
 
     suspend fun handleIncoming(
         content: String,
-        session: WebSocketSession,
+        session: DefaultWebSocketServerSession,
     ) {
         activeSession = session
         val incoming =
@@ -68,9 +73,7 @@ class ConsoleChannel(
                 return
             }
         val frame = Json.encodeToString(ChatFrame(type = "assistant", content = response.content))
-        withContext(Dispatchers.IO) {
-            runCatching { session.sendSync(frame) }
-                .onFailure { e -> logger.error(e) { "ConsoleChannel: send failed" } }
-        }
+        runCatching { session.send(Frame.Text(frame)) }
+            .onFailure { e -> logger.error(e) { "ConsoleChannel: send failed" } }
     }
 }

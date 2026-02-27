@@ -7,28 +7,36 @@ It communicates with the Engine via Unix domain socket (`engine.sock`).
 
 ### `klaw init`
 
-Interactive first-time setup wizard. Guides through:
+Interactive first-time setup wizard. Guides through 11 phases:
 
-1. Directory creation (XDG-compliant paths)
-2. LLM provider configuration (base URL, API key, model ID)
-3. Telegram bot setup (token, allowed chat IDs)
-4. Engine configuration
-5. WebSocket chat setup (enable `klaw chat`, port selection)
-6. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`)
-7. Engine auto-start
-8. Identity Q&A (agent name, personality, role, user description, domain)
-9. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
-10. Service setup
+1. Pre-check (aborts if `engine.yaml` already exists)
+2. Deployment mode selection (native or Docker services — skipped inside Docker containers)
+3. Directory creation (XDG-compliant paths)
+4. LLM provider configuration (base URL, API key, model ID)
+5. Telegram bot setup (token, allowed chat IDs)
+6. WebSocket chat setup (enable `klaw chat`, port selection)
+7. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`, `deploy.conf`, and `docker-compose.yml` for hybrid mode)
+8. Engine auto-start
+9. Identity Q&A (agent name, personality, role, user description, domain)
+10. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
+11. Service setup
 
 ```
 klaw init
 ```
 
-**Docker mode:** When `klaw init` is run inside a Docker container (detected via `/.dockerenv`), phases 5 and 8 use Docker Compose instead of systemd/launchd. The engine and gateway containers are started via `docker compose up -d` — no systemd unit files are written. See [klaw init in Docker](../deployment/local-dev.md#klaw-init-in-docker) for details.
+#### Deployment modes
 
-**Native mode (Linux/Pi):** Phase 5 runs `systemctl --user start klaw-engine`, phase 8 writes systemd unit files to `~/.config/systemd/user/`.
+Phase 2 presents a mode selector with two options when running on the host (not inside Docker):
 
-**Native mode (macOS):** Phase 5 runs `launchctl load -w ~/Library/LaunchAgents/io.github.klaw.engine.plist`, phase 8 writes launchd plist files.
+- **Fully native (systemd/launchd)** — Engine and Gateway run as native services. Phase 11 writes systemd unit files (Linux) or launchd plists (macOS).
+- **Docker services** (hybrid) — CLI stays native on the host; Engine and Gateway run in Docker containers with bind mounts to host XDG directories. Phase 7 generates `~/.config/klaw/docker-compose.yml` with host-path bind mounts. Phase 11 runs `docker compose up -d`.
+
+When running inside a Docker container (detected via `/.dockerenv`), mode is auto-set to **Docker** and Phase 2 is skipped. See [klaw init in Docker](../deployment/local-dev.md#klaw-init-in-docker) for details.
+
+For hybrid and Docker modes, Phase 2 also prompts for a **Docker image tag** (default: `latest`).
+
+The chosen mode and tag are persisted to `~/.config/klaw/deploy.conf` so subsequent `klaw engine start`, `klaw stop`, etc. route commands correctly without re-prompting.
 
 ### `klaw config set KEY VALUE`
 
@@ -53,9 +61,9 @@ klaw engine stop
 klaw engine restart
 ```
 
-In Docker environments, uses `docker compose up -d` / `stop` / `restart`.
-On Linux, delegates to `systemctl --user`.
-On macOS, delegates to `launchctl`.
+Routing depends on the deployment mode stored in `deploy.conf`:
+- **Native:** delegates to `systemctl --user` (Linux) or `launchctl` (macOS).
+- **Hybrid / Docker:** uses `docker compose` with the appropriate compose file.
 
 ### `klaw gateway start / stop / restart`
 

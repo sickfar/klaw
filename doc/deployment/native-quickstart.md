@@ -43,18 +43,20 @@ Add the above line to `~/.bashrc` or `~/.zshrc` to make it permanent.
 
 ## What `klaw init` will ask
 
-1. **LLM provider base URL** — default: `https://open.bigmodel.cn/api/paas/v4` (GLM)
-2. **LLM API key**
-3. **Model ID** — default: `glm/glm-4-plus`
-4. **Telegram bot token**
-5. **Allowed chat IDs** — comma-separated, or leave blank to allow all
-6. **Agent name** — default: `Klaw`
-7. **Personality traits** — e.g. "curious, analytical, warm"
-8. **Primary role** — e.g. "personal assistant"
-9. **User description** — tell the agent about yourself
-10. **Specialized domains** — optional
+1. **Deployment mode** — "Fully native (systemd/launchd)" or "Docker services" (hybrid). Choose native for a pure systemd/launchd setup; choose Docker services to run Engine and Gateway in Docker containers while keeping the CLI native on the host.
+2. **Docker image tag** (hybrid mode only) — default: `latest`
+3. **LLM provider base URL** — default: `https://api.z.ai/api/paas/v4` (GLM)
+4. **LLM API key**
+5. **Model ID** — default: `glm/glm-4-plus`
+6. **Telegram bot token**
+7. **Allowed chat IDs** — comma-separated, or leave blank to allow all
+8. **Agent name** — default: `Klaw`
+9. **Personality traits** — e.g. "curious, analytical, warm"
+10. **Primary role** — e.g. "personal assistant"
+11. **User description** — tell the agent about yourself
+12. **Specialized domains** — optional
 
-After answering, it writes config files to `~/.config/klaw/`, starts the engine, generates identity files, and installs service units.
+After answering, it writes config files to `~/.config/klaw/` (including `deploy.conf` with the chosen mode), starts the engine, generates identity files, and installs service units (native) or runs `docker compose up` (hybrid).
 
 ---
 
@@ -71,9 +73,11 @@ After answering, it writes config files to `~/.config/klaw/`, starts the engine,
 └── klaw-gateway.jar
 
 ~/.config/klaw/
-├── engine.yaml     # engine config (LLM settings, memory, etc.)
-├── gateway.yaml    # gateway config (Telegram token, allowed chats)
-└── .env            # API keys (0600 permissions)
+├── engine.yaml         # engine config (LLM settings, memory, etc.)
+├── gateway.yaml        # gateway config (Telegram token, allowed chats)
+├── .env                # API keys (0600 permissions)
+├── deploy.conf         # deployment mode and docker tag
+└── docker-compose.yml  # (hybrid mode only) compose file with bind mounts
 
 ~/.local/state/klaw/
 ├── engine.sock     # Unix socket for CLI ↔ engine communication
@@ -84,9 +88,9 @@ After answering, it writes config files to `~/.config/klaw/`, starts the engine,
 
 ## Service management
 
-Services are managed via your platform's init system:
+Service commands route automatically based on the mode stored in `deploy.conf`.
 
-### Linux (systemd)
+### Native mode — Linux (systemd)
 
 ```bash
 # Start / stop / restart individual services
@@ -110,7 +114,7 @@ systemctl --user enable klaw-engine klaw-gateway
 loginctl enable-linger $USER
 ```
 
-### macOS (launchd)
+### Native mode — macOS (launchd)
 
 ```bash
 klaw engine start
@@ -122,6 +126,18 @@ klaw stop
 Under the hood, these run `launchctl start/stop io.github.klaw.klaw-engine` etc.
 
 Plist files are in `~/Library/LaunchAgents/` — they load automatically on login.
+
+### Hybrid mode (Docker services)
+
+If you chose "Docker services" during `klaw init`, the same `klaw engine start/stop/restart` commands route through Docker Compose using `~/.config/klaw/docker-compose.yml`:
+
+```bash
+klaw engine start    # docker compose -f ~/.config/klaw/docker-compose.yml up -d engine
+klaw engine stop     # docker compose -f ~/.config/klaw/docker-compose.yml stop engine
+klaw stop            # stops both engine and gateway containers
+```
+
+Data stays on the host filesystem (bind mounts to XDG paths), so you can access config, logs, and databases directly without entering a container.
 
 ---
 

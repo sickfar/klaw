@@ -1,18 +1,22 @@
 package io.github.klaw.cli.init
 
 internal object ConfigTemplates {
+    /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`. */
+    fun apiKeyEnvVar(providerAlias: String): String = "${providerAlias.uppercase()}_API_KEY"
+
     fun engineYaml(
         providerUrl: String,
         modelId: String,
     ): String {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
         val modelName = modelId.substringAfter("/")
+        val apiKeyEnvVar = apiKeyEnvVar(providerName)
         return """
 providers:
   $providerName:
     type: openai-compatible
-    baseUrl: "$providerUrl"
-    apiKey: "${'$'}{KLAW_LLM_API_KEY}"
+    endpoint: "$providerUrl"
+    apiKey: "${'$'}{$apiKeyEnvVar}"
 models:
   $modelId:
     provider: $providerName
@@ -45,12 +49,23 @@ memory:
             """.trimIndent()
     }
 
+    @Suppress("LongParameterList")
     fun gatewayYaml(
+        telegramEnabled: Boolean = true,
         allowedChatIds: List<String> = emptyList(),
         enableConsole: Boolean = false,
         consolePort: Int = 37474,
     ): String {
         val chatIdsYaml = if (allowedChatIds.isEmpty()) "" else allowedChatIds.joinToString(", ")
+        val telegramSection =
+            if (telegramEnabled) {
+                """
+  telegram:
+    token: "${'$'}{KLAW_TELEGRAM_TOKEN}"
+    allowedChatIds: [$chatIdsYaml]"""
+            } else {
+                ""
+            }
         val consoleSection =
             if (enableConsole) {
                 """
@@ -60,11 +75,44 @@ memory:
             } else {
                 ""
             }
-        return """
-channels:
-  telegram:
-    token: "${'$'}{KLAW_TELEGRAM_TOKEN}"
-    allowedChatIds: [$chatIdsYaml]$consoleSection
-            """.trimIndent()
+        return "channels:$telegramSection$consoleSection".trimEnd()
     }
+
+    @Suppress("LongParameterList")
+    fun dockerComposeHybrid(
+        statePath: String,
+        dataPath: String,
+        configPath: String,
+        workspacePath: String,
+        imageTag: String,
+    ): String =
+        """
+services:
+  engine:
+    image: ghcr.io/sickfar/klaw-engine:$imageTag
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KLAW_WORKSPACE: /workspace
+    volumes:
+      - $statePath:/root/.local/state/klaw
+      - $dataPath:/root/.local/share/klaw
+      - $configPath:/root/.config/klaw:ro
+      - $workspacePath:/workspace
+  gateway:
+    image: ghcr.io/sickfar/klaw-gateway:$imageTag
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - engine
+    volumes:
+      - $statePath:/root/.local/state/klaw
+      - $dataPath:/root/.local/share/klaw
+      - $configPath:/root/.config/klaw:ro
+        """.trimIndent().trimEnd()
+
+    fun deployConf(
+        mode: DeployMode,
+        dockerTag: String,
+    ): String = "mode=${mode.configName}\ndocker_tag=$dockerTag\n"
 }

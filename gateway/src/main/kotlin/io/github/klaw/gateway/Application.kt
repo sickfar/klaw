@@ -6,6 +6,6 @@ object Application {
     @JvmStatic
     @Suppress("SpreadOperator")
     fun main(args: Array<String>) {
-        Micronaut.run(Application::class.java, *args)
+        Micronaut.run(*args)
     }
 }

@@ -5,7 +5,6 @@ import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -55,7 +54,6 @@ class EngineSocketClient(
     @Volatile private var writer: PrintWriter? = null
     private var channel: SocketChannel? = null
 
-    @PostConstruct
     fun start() {
         scope.launch { reconnectLoop() }
     }

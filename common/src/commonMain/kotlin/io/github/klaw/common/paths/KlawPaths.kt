@@ -20,6 +20,8 @@ data class KlawPathsSnapshot(
     val coreMemory: String,
     val skills: String,
     val models: String,
+    val deployConf: String,
+    val hybridDockerCompose: String,
 )
 
 internal fun buildPaths(
@@ -54,6 +56,8 @@ internal fun buildPaths(
         coreMemory = "$data/memory/core_memory.json",
         skills = "$data/skills",
         models = "$cache/models",
+        deployConf = "$config/deploy.conf",
+        hybridDockerCompose = "$config/docker-compose.yml",
     )
 }
 
@@ -74,4 +78,6 @@ object KlawPaths {
     val coreMemory: String get() = snapshot.coreMemory
     val skills: String get() = snapshot.skills
     val models: String get() = snapshot.models
+    val deployConf: String get() = snapshot.deployConf
+    val hybridDockerCompose: String get() = snapshot.hybridDockerCompose
 }

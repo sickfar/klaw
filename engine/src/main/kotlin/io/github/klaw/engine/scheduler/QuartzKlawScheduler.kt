@@ -33,7 +33,7 @@ class QuartzKlawScheduler(
             StdSchedulerFactory(buildProps(dbPath)).scheduler
         }
 
-    fun start() {
+    override fun start() {
         quartzScheduler.start()
         logger.info { "Quartz scheduler started" }
     }

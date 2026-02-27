@@ -6,6 +6,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
 import platform.posix.STDIN_FILENO
+import platform.posix.STDOUT_FILENO
 import platform.posix.fflush
 import platform.posix.fread
 import platform.posix.pclose
@@ -13,9 +14,13 @@ import platform.posix.popen
 import platform.posix.read
 import platform.posix.stdout
 import platform.posix.system
+import platform.posix.write
 
 /**
  * ANSI split-screen TUI for klaw chat.
+ *
+ * Uses the alternate screen buffer and absolute cursor positioning to avoid
+ * scroll/flicker artifacts in raw terminal mode.
  *
  * State management methods (addMessage, appendInput, etc.) are pure and testable.
  * Terminal I/O methods (init, cleanup, redraw) require a real terminal and are not covered by unit tests.
@@ -67,7 +72,8 @@ internal class ChatTui(
     fun init() {
         queryTerminalSize()
         system("stty raw -echo < /dev/tty > /dev/null 2>&1")
-        print("\u001B[?25l") // Hide cursor
+        rawWrite("\u001B[?1049h") // Enter alternate screen buffer
+        rawWrite("\u001B[?25l") // Hide cursor
         redrawFull()
     }
 
@@ -92,54 +98,124 @@ internal class ChatTui(
     }
 
     fun cleanup() {
-        print("\u001B[?25h") // Show cursor
-        print("\u001B[2J\u001B[H") // Clear screen
+        rawWrite("\u001B[?25h") // Show cursor
+        rawWrite("\u001B[?1049l") // Leave alternate screen buffer (restores original)
         fflush(stdout)
         system("stty sane < /dev/tty > /dev/null 2>&1")
     }
 
     fun redrawFull() {
         val sb = StringBuilder()
-        sb.append("\u001B[2J\u001B[H") // Clear, cursor to top-left
-
         val innerWidth = termWidth - 2
+
+        // Row 1: title bar
         val title = " Klaw Chat  Ctrl+C or /exit to quit "
         val padded = title.padEnd(innerWidth, '═')
-        sb.append("╔${padded.take(innerWidth)}╗\n")
+        sb.posLine(1, "╔${padded.take(innerWidth)}╗")
 
+        // Rows 2..(termHeight-3): history area
         val historyHeight = termHeight - 4
-        val recentMessages = history.takeLast(historyHeight)
-        repeat(historyHeight - recentMessages.size) {
-            sb.append("│${" ".repeat(innerWidth)}│\n")
+        val lines = renderHistoryLines(innerWidth)
+        val recentLines = lines.takeLast(historyHeight)
+        val emptyCount = historyHeight - recentLines.size
+        for (i in 0 until emptyCount) {
+            sb.posLine(2 + i, "│${" ".repeat(innerWidth)}│")
         }
-        for (msg in recentMessages) {
+        for (i in recentLines.indices) {
+            sb.posLine(2 + emptyCount + i, recentLines[i])
+        }
+
+        // Row (termHeight-2): separator
+        sb.posLine(termHeight - 2, "╠${"═".repeat(innerWidth)}╣")
+
+        // Row (termHeight-1): input line
+        val prompt = "> $inputBuffer"
+        val promptTruncated = prompt.take(innerWidth)
+        val promptPad = innerWidth - promptTruncated.length
+        sb.posLine(termHeight - 1, "║${promptTruncated}${" ".repeat(promptPad)}║")
+
+        // Row termHeight: bottom border
+        sb.posLine(termHeight, "╚${"═".repeat(innerWidth)}╝")
+
+        rawWrite(sb.toString())
+    }
+
+    fun redrawInputLine() {
+        val innerWidth = termWidth - 2
+        val prompt = "> $inputBuffer"
+        val promptTruncated = prompt.take(innerWidth)
+        val promptPad = innerWidth - promptTruncated.length
+        val sb = StringBuilder()
+        sb.posLine(termHeight - 1, "║${promptTruncated}${" ".repeat(promptPad)}║")
+        rawWrite(sb.toString())
+    }
+
+    private fun renderHistoryLines(innerWidth: Int): List<String> {
+        val lines = mutableListOf<String>()
+        for (msg in history) {
             val label =
                 if (msg.role == "user") {
                     "${AnsiColors.CYAN}You:${AnsiColors.RESET}"
                 } else {
                     "${AnsiColors.GREEN}$agentName:${AnsiColors.RESET}"
                 }
-            val contentWidth = innerWidth - 6
-            val content = msg.content.take(contentWidth)
-            val line = " $label $content"
-            val pad = maxOf(0, innerWidth - visibleLength(line))
-            sb.append("│$line${" ".repeat(pad)}│\n")
+            val labelVisible = if (msg.role == "user") "You:" else "$agentName:"
+            val prefixVisible = " ${labelVisible} "
+            val contentWidth = innerWidth - prefixVisible.length
+            val prefix = " $label "
+            val contentLines = wrapText(msg.content, contentWidth)
+            if (contentLines.isEmpty()) {
+                val pad = maxOf(0, innerWidth - prefixVisible.length)
+                lines.add("│$prefix${" ".repeat(pad)}│")
+            } else {
+                val firstLine = "$prefix${contentLines[0]}"
+                val firstPad = maxOf(0, innerWidth - visibleLength(firstLine))
+                lines.add("│$firstLine${" ".repeat(firstPad)}│")
+                for (i in 1 until contentLines.size) {
+                    val contLine = "${" ".repeat(prefixVisible.length)}${contentLines[i]}"
+                    val contPad = maxOf(0, innerWidth - contLine.length)
+                    lines.add("│$contLine${" ".repeat(contPad)}│")
+                }
+            }
         }
-
-        sb.append("╠${"═".repeat(innerWidth)}╣\n")
-
-        val prompt = "> $inputBuffer"
-        sb.append("║${prompt.padEnd(innerWidth)}║\n")
-        sb.append("╚${"═".repeat(innerWidth)}╝")
-
-        print(sb.toString())
-        fflush(stdout)
+        return lines
     }
 
-    fun redrawInputLine() {
-        print("\u001B[$termHeight;1H\u001B[K")
-        print("║> $inputBuffer")
-        fflush(stdout)
+    private fun wrapText(text: String, width: Int): List<String> {
+        if (width <= 0) return listOf(text)
+        val result = mutableListOf<String>()
+        for (paragraph in text.split('\n')) {
+            if (paragraph.isEmpty()) {
+                result.add("")
+                continue
+            }
+            var remaining = paragraph
+            while (remaining.length > width) {
+                val breakAt = remaining.lastIndexOf(' ', width)
+                val splitAt = if (breakAt > 0) breakAt else width
+                result.add(remaining.substring(0, splitAt))
+                remaining = remaining.substring(if (breakAt > 0) splitAt + 1 else splitAt)
+            }
+            result.add(remaining)
+        }
+        return result
+    }
+
+    /** Position cursor at (row, col=1) and write line content, clearing the rest of the row. */
+    private fun StringBuilder.posLine(row: Int, content: String): StringBuilder =
+        append("\u001B[${row};1H\u001B[2K$content")
+
+    /** Write directly to stdout fd, bypassing Kotlin buffered print. */
+    private fun rawWrite(s: String) {
+        val bytes = s.encodeToByteArray()
+        bytes.usePinned { pinned ->
+            var offset = 0
+            while (offset < bytes.size) {
+                val n = write(STDOUT_FILENO, pinned.addressOf(offset), (bytes.size - offset).convert())
+                if (n <= 0) break
+                offset += n.toInt()
+            }
+        }
     }
 }
 

@@ -2,13 +2,14 @@ package io.github.klaw.engine.tools
 
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.socket.EngineSocketServer
+import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 @Singleton
 class UtilityTools(
-    private val socketServer: EngineSocketServer,
+    private val socketServerProvider: Provider<EngineSocketServer>,
 ) {
     suspend fun currentTime(): String {
         val now = ZonedDateTime.now()
@@ -23,7 +24,7 @@ class UtilityTools(
         text: String,
     ): String =
         try {
-            socketServer.pushToGateway(OutboundSocketMessage(channel = channel, chatId = chatId, content = text))
+            socketServerProvider.get().pushToGateway(OutboundSocketMessage(channel = channel, chatId = chatId, content = text))
             "OK: message sent to $channel/$chatId"
         } catch (e: Exception) {
             "Error: ${e.message}"

@@ -17,6 +17,7 @@ import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
+import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +45,7 @@ class MessageProcessor(
     private val toolRegistry: ToolRegistry,
     private val llmRouter: LlmRouter,
     private val toolExecutor: ToolExecutor,
-    private val socketServer: EngineSocketServer,
+    private val socketServerProvider: Provider<EngineSocketServer>,
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
     private val messageEmbeddingService: MessageEmbeddingService,
@@ -70,7 +71,7 @@ class MessageProcessor(
         val accepted = debounceBuffer.add(message)
         if (!accepted) {
             logger.warn { "Debounce buffer full, dropping message channel=${message.channel} chatId=${message.chatId}" }
-            socketServer.pushToGateway(
+            socketServerProvider.get().pushToGateway(
                 OutboundSocketMessage(
                     channel = message.channel,
                     chatId = message.chatId,
@@ -83,7 +84,7 @@ class MessageProcessor(
     override suspend fun handleCommand(message: CommandSocketMessage) {
         val session = sessionManager.getOrCreate(message.chatId, config.routing.default)
         val result = commandHandler.handle(message, session)
-        socketServer.pushToGateway(
+        socketServerProvider.get().pushToGateway(
             OutboundSocketMessage(channel = message.channel, chatId = message.chatId, content = result),
         )
     }
@@ -165,7 +166,7 @@ class MessageProcessor(
                     }
 
                     if (!isSilent(content) && message.injectInto != null) {
-                        socketServer.pushToGateway(
+                        socketServerProvider.get().pushToGateway(
                             OutboundSocketMessage(
                                 channel = "engine",
                                 chatId = message.injectInto,
@@ -255,12 +256,12 @@ class MessageProcessor(
                 )
 
                 if (!isSilent(content)) {
-                    socketServer.pushToGateway(
+                    socketServerProvider.get().pushToGateway(
                         OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
                     )
                 }
             } catch (_: KlawError.ToolCallLoopException) {
-                socketServer.pushToGateway(
+                socketServerProvider.get().pushToGateway(
                     OutboundSocketMessage(
                         channel = channel,
                         chatId = chatId,
@@ -268,13 +269,13 @@ class MessageProcessor(
                     ),
                 )
             } catch (_: KlawError) {
-                socketServer.pushToGateway(
+                socketServerProvider.get().pushToGateway(
                     OutboundSocketMessage(channel = channel, chatId = chatId, content = "Sorry, something went wrong."),
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                socketServer.pushToGateway(
+                socketServerProvider.get().pushToGateway(
                     OutboundSocketMessage(channel = channel, chatId = chatId, content = "An internal error occurred."),
                 )
             }

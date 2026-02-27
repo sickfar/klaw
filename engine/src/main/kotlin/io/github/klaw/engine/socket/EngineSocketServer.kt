@@ -8,7 +8,6 @@ import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -61,7 +60,6 @@ class EngineSocketServer(
 
     @Volatile private var serverChannel: ServerSocketChannel? = null
 
-    @PostConstruct
     fun start() {
         // Clean up stale socket file if present
         File(socketPath).let { if (it.exists()) it.delete() }

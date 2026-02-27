@@ -11,10 +11,10 @@ data class EngineConfig(
     val memory: MemoryConfig,
     val context: ContextConfig,
     val processing: ProcessingConfig,
-    val llm: LlmRetryConfig,
-    val logging: LoggingConfig,
-    val codeExecution: CodeExecutionConfig,
-    val files: FilesConfig,
+    val llm: LlmRetryConfig = LlmRetryConfig(),
+    val logging: LoggingConfig = LoggingConfig(),
+    val codeExecution: CodeExecutionConfig = CodeExecutionConfig(),
+    val files: FilesConfig = FilesConfig(),
     val commands: List<CommandConfig> = emptyList(),
     val compatibility: CompatibilityConfig? = null,
     val autoRag: AutoRagConfig = AutoRagConfig(),
@@ -127,10 +127,10 @@ data class ProcessingConfig(
 
 @Serializable
 data class LlmRetryConfig(
-    val maxRetries: Int,
-    val requestTimeoutMs: Long,
-    val initialBackoffMs: Long,
-    val backoffMultiplier: Double,
+    val maxRetries: Int = 3,
+    val requestTimeoutMs: Long = 30_000,
+    val initialBackoffMs: Long = 500,
+    val backoffMultiplier: Double = 2.0,
 ) {
     init {
         require(maxRetries >= 0) { "maxRetries must be >= 0, got $maxRetries" }
@@ -142,20 +142,20 @@ data class LlmRetryConfig(
 
 @Serializable
 data class LoggingConfig(
-    val subagentConversations: Boolean,
+    val subagentConversations: Boolean = false,
 )
 
 @Serializable
 data class CodeExecutionConfig(
-    val dockerImage: String,
-    val timeout: Int,
-    val allowNetwork: Boolean,
-    val maxMemory: String,
-    val maxCpus: String,
+    val dockerImage: String = "python:3.12-slim",
+    val timeout: Int = 30,
+    val allowNetwork: Boolean = false,
+    val maxMemory: String = "256m",
+    val maxCpus: String = "1.0",
     val readOnlyRootfs: Boolean = true,
-    val keepAlive: Boolean,
-    val keepAliveIdleTimeoutMin: Int,
-    val keepAliveMaxExecutions: Int,
+    val keepAlive: Boolean = false,
+    val keepAliveIdleTimeoutMin: Int = 5,
+    val keepAliveMaxExecutions: Int = 100,
     val volumeMounts: List<String> = emptyList(),
 ) {
     // --privileged is hardcoded forbidden, never configurable
@@ -165,7 +165,7 @@ data class CodeExecutionConfig(
 
 @Serializable
 data class FilesConfig(
-    val maxFileSizeBytes: Long,
+    val maxFileSizeBytes: Long = 10_485_760,
 ) {
     init {
         require(maxFileSizeBytes > 0) { "maxFileSizeBytes must be > 0, got $maxFileSizeBytes" }

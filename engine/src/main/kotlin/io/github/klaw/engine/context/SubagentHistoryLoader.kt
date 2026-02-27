@@ -4,7 +4,6 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -12,7 +11,6 @@ import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
-@Singleton
 class SubagentHistoryLoader(
     private val conversationsDir: String = KlawPaths.conversations,
 ) {

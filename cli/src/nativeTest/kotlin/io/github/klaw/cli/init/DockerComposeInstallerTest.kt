@@ -25,7 +25,7 @@ class DockerComposeInstallerTest {
         assertTrue(result, "Expected installServices to return true on success")
         assertEquals(1, commandsRun.size, "Expected exactly one command")
         assertTrue(
-            commandsRun[0].contains("up -d klaw-engine klaw-gateway"),
+            commandsRun[0].contains("up -d engine gateway"),
             "Command should start both services: ${commandsRun[0]}",
         )
     }

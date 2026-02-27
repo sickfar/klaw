@@ -68,28 +68,53 @@ internal class ChatCommand(
                             outgoing = sendChannel,
                         )
                     } catch (e: Exception) {
-                        events.trySend(ChatEvent.MessageReceived("[Error: ${e::class.simpleName}]"))
+                        val msg =
+                            when (e::class.simpleName) {
+                                "ConnectException", "IOException" ->
+                                    "Cannot connect to gateway at $wsUrl — is the gateway running?"
+                                "WebSocketException" ->
+                                    "WebSocket connection failed — gateway may not have console chat enabled"
+                                else ->
+                                    "Connection error: ${e::class.simpleName}"
+                            }
+                        events.trySend(ChatEvent.MessageReceived(msg))
                     }
                 }
 
             val stdinJob =
                 launch(Dispatchers.Default) {
+                    var escState = 0 // 0=none, 1=got ESC, 2=got ESC+[
                     while (true) {
                         val byte = readRawByte() ?: break
-                        when (byte) {
-                            3 -> events.send(ChatEvent.Quit)
+                        when (escState) {
+                            1 -> {
+                                escState = if (byte == 0x5B) 2 else 0 // '[' → wait for direction
+                            }
 
-                            // Ctrl+C
+                            2 -> {
+                                escState = 0 // consume direction byte (A/B/C/D), ignore
+                            }
 
-                            127 -> events.send(ChatEvent.Backspace)
+                            else ->
+                                when (byte) {
+                                    0x1B -> escState = 1
 
-                            // Backspace
+                                    // ESC
 
-                            13, 10 -> events.send(ChatEvent.Enter)
+                                    3 -> events.send(ChatEvent.Quit)
 
-                            // Enter / newline
+                                    // Ctrl+C
 
-                            else -> if (byte >= 32) events.send(ChatEvent.KeyPressed(byte.toChar()))
+                                    127 -> events.send(ChatEvent.Backspace)
+
+                                    // Backspace
+
+                                    13, 10 -> events.send(ChatEvent.Enter)
+
+                                    // Enter / newline
+
+                                    else -> if (byte >= 32) events.send(ChatEvent.KeyPressed(byte.toChar()))
+                                }
                         }
                     }
                 }

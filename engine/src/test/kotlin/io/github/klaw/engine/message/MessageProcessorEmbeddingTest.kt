@@ -191,7 +191,7 @@ class MessageProcessorEmbeddingTest {
             toolRegistry = toolRegistry,
             llmRouter = buildLlmRouter(config),
             toolExecutor = toolExecutor,
-            socketServer = socketServer,
+            socketServerProvider = { socketServer },
             commandHandler = commandHandler,
             config = config,
             messageEmbeddingService = messageEmbeddingService,

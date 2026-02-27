@@ -4,7 +4,6 @@ import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.engine.tools.stubs.StubKlawScheduler
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Replaces
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
 
@@ -19,8 +18,7 @@ class KlawSchedulerImpl(
 ) : KlawScheduler {
     private val inner = QuartzKlawScheduler(KlawPaths.schedulerDb)
 
-    @PostConstruct
-    fun start() {
+    override fun start() {
         inner.quartzScheduler.setJobFactory(MicronautJobFactory(applicationContext))
         inner.start()
     }

@@ -2,23 +2,43 @@ package io.github.klaw.cli.init
 
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
+import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
 import kotlinx.cinterop.toKString
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import platform.posix.fread
+import platform.posix.pclose
+import platform.posix.popen
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
 private const val TOTAL_PHASES = 10
+private const val DEFAULT_MODEL = "zai/glm-5"
+private const val MODELS_FETCH_TIMEOUT = 10
+
+internal data class LlmProvider(
+    val label: String,
+    val baseUrl: String,
+    val alias: String,
+)
+
+private val LLM_PROVIDERS =
+    listOf(
+        LlmProvider("z.ai GLM", "https://api.z.ai/api/paas/v4", "zai"),
+    )
 
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 @Suppress("LongParameterList")
@@ -38,36 +58,158 @@ internal class InitWizard(
     private val readLine: () -> String?,
     private val printer: (String) -> Unit,
     private val commandRunner: (String) -> Int,
-    /** When true, Docker Compose commands are used instead of systemd/launchd for phases 6 and 9. */
+    private val commandOutput: (String) -> String? = { cmd ->
+        val pipe = popen(cmd, "r")
+        if (pipe == null) {
+            null
+        } else {
+            val sb = StringBuilder()
+            val buf = ByteArray(4096)
+            buf.usePinned { pinned ->
+                var n: Int
+                do {
+                    n = fread(pinned.addressOf(0), 1.convert(), buf.size.convert(), pipe).toInt()
+                    if (n > 0) sb.append(buf.decodeToString(0, n))
+                } while (n > 0)
+            }
+            pclose(pipe)
+            sb.toString()
+        }
+    },
+    private val radioSelector: (items: List<String>, prompt: String) -> Int? = { items, prompt ->
+        RadioSelector(items).select(prompt)
+    },
+    /** Separate from [radioSelector] so tests can mock mode selection independently from model selection. */
+    private val modeSelector: (items: List<String>, prompt: String) -> Int? = { items, prompt ->
+        RadioSelector(items).select(prompt)
+    },
+    /** When true, Docker Compose commands are used instead of systemd/launchd. */
     private val isDockerEnv: Boolean = isInsideDocker(),
-    private val composeFilePath: String = "/app/docker-compose.yml",
-    /** Factory that receives an `onTick` callback used to drive a spinner during polling. */
-    private val engineStarterFactory: (onTick: () -> Unit) -> EngineStarter =
-        { onTick ->
+    /** Factory that receives an `onTick` callback and start command used to drive a spinner during polling. */
+    private val engineStarterFactory: (onTick: () -> Unit, startCommand: String?) -> EngineStarter =
+        { onTick, startCommand ->
             EngineStarter(
                 engineSocketPath = engineSocketPath,
                 commandRunner = commandRunner,
                 onTick = onTick,
-                startCommand =
-                    if (isDockerEnv) {
-                        require("'" !in composeFilePath) {
-                            "composeFilePath must not contain single-quote characters"
-                        }
-                        "docker compose -f '$composeFilePath' up -d klaw-engine"
-                    } else {
-                        null
-                    },
+                startCommand = startCommand,
             )
         },
 ) {
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun run() {
+        // ── Collection phases (1–6): gather all user input before touching disk ──
+
         phase(1, "Pre-check")
         if (fileExists("$configDir/engine.yaml")) {
             printer("Already initialized. Use: klaw config set to modify settings.")
             return
         }
 
-        phase(2, "Directory setup")
+        phase(2, "Deployment mode")
+        val resolvedMode: DeployMode
+        val dockerTag: String
+        if (isDockerEnv) {
+            resolvedMode = DeployMode.DOCKER
+            printer("Docker image tag [latest]:")
+            dockerTag = (readLineOrExit() ?: return).trim().ifBlank { "latest" }
+        } else {
+            val modeItems = listOf("Fully native (systemd/launchd)", "Docker services")
+            val modeIdx = modeSelector(modeItems, "Deployment mode:")
+            if (modeIdx == null) {
+                printer("Interrupted.")
+                return
+            }
+            resolvedMode = if (modeIdx == 0) DeployMode.NATIVE else DeployMode.HYBRID
+            if (resolvedMode == DeployMode.HYBRID) {
+                printer("Docker image tag [latest]:")
+                dockerTag = (readLineOrExit() ?: return).trim().ifBlank { "latest" }
+            } else {
+                dockerTag = "latest"
+            }
+        }
+
+        phase(3, "LLM provider setup")
+        val providerIdx = radioSelector(LLM_PROVIDERS.map { it.label }, "LLM provider:")
+        val providerUrl: String
+        val defaultAlias: String
+        if (providerIdx != null && providerIdx in LLM_PROVIDERS.indices) {
+            val selected = LLM_PROVIDERS[providerIdx]
+            providerUrl = selected.baseUrl
+            defaultAlias = selected.alias
+        } else {
+            printer("Interrupted.")
+            return
+        }
+        printer("LLM API key:")
+        val llmApiKey = (readLineOrExit() ?: return).trim()
+
+        // Validate key (if URL and key are safe to inject into shell command)
+        val validationResponse = validateApiKey(providerUrl, llmApiKey)
+
+        // Fetch models or fall back to text input
+        val modelId = selectModel(validationResponse, defaultAlias)
+        if (modelId == null) {
+            printer("Interrupted.")
+            return
+        }
+
+        phase(4, "Telegram setup")
+        printer("Configure Telegram bot? [Y/n]:")
+        val telegramAnswer = readLineOrExit() ?: return
+        val configureTelegram = telegramAnswer.trim().lowercase() != "n"
+        val telegramToken: String
+        val chatIds: List<String>
+        if (configureTelegram) {
+            printer("Telegram bot token:")
+            telegramToken = (readLineOrExit() ?: return).trim()
+            printer("Allowed chat IDs (comma-separated, empty = allow all):")
+            val rawChatIds = readLineOrExit()?.trim().orEmpty()
+            chatIds =
+                if (rawChatIds.isBlank()) {
+                    emptyList()
+                } else {
+                    rawChatIds.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                }
+        } else {
+            telegramToken = ""
+            chatIds = emptyList()
+        }
+
+        phase(5, "WebSocket chat setup")
+        printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
+        val enableConsole = readLineOrExit()?.trim()?.lowercase() == "y"
+        var consolePort = 37474
+        if (enableConsole) {
+            printer("Gateway WebSocket port [37474]:")
+            consolePort = readLineOrExit()?.trim()?.toIntOrNull() ?: 37474
+            success("WebSocket chat enabled on port $consolePort")
+        } else {
+            printer("WebSocket chat disabled (can be enabled later in gateway.yaml)")
+        }
+
+        phase(6, "Identity Q&A")
+        printer("Agent name [Klaw]:")
+        val agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
+        printer("Personality traits (e.g. curious, analytical, warm):")
+        val personality = readLineOrExit()?.trim().orEmpty()
+        printer("Primary role (e.g. personal assistant, coding helper):")
+        val role = readLineOrExit()?.trim().orEmpty()
+        printer("Tell me about the user who will work with this agent:")
+        val userInfo = readLineOrExit()?.trim().orEmpty()
+        printer("Specialized domains or expertise (optional):")
+        val domain = readLineOrExit()?.trim().orEmpty()
+
+        // ── Action phases (7–10): create directories, write configs, start services ──
+
+        val composeFilePath =
+            when (resolvedMode) {
+                DeployMode.HYBRID -> "$configDir/docker-compose.yml"
+                DeployMode.DOCKER -> "/app/docker-compose.yml"
+                DeployMode.NATIVE -> ""
+            }
+
+        phase(7, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
             dataDir = dataDir,
@@ -79,71 +221,65 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
-        success("Directories created")
-
-        phase(3, "LLM provider setup")
-        printer("LLM provider base URL [https://open.bigmodel.cn/api/paas/v4]:")
-        val providerUrl = readLine()?.trim().orEmpty().ifBlank { "https://open.bigmodel.cn/api/paas/v4" }
-        printer("LLM API key:")
-        val llmApiKey = readLine()?.trim().orEmpty()
-        printer("Model ID [glm/glm-4-plus]:")
-        val modelId = readLine()?.trim().orEmpty().ifBlank { "glm/glm-4-plus" }
-
-        phase(4, "Telegram setup")
-        printer("Telegram bot token:")
-        val telegramToken = readLine()?.trim().orEmpty()
-        printer("Allowed chat IDs (comma-separated, empty = allow all):")
-        val rawChatIds = readLine()?.trim().orEmpty()
-        val chatIds =
-            if (rawChatIds.isBlank()) {
-                emptyList()
-            } else {
-                rawChatIds.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            }
-
-        phase(5, "WebSocket chat setup")
-        printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
-        val enableConsole = readLine()?.trim()?.lowercase() == "y"
-        var consolePort = 37474
-        if (enableConsole) {
-            printer("Gateway WebSocket port [37474]:")
-            consolePort = readLine()?.trim()?.toIntOrNull() ?: 37474
-            success("WebSocket chat enabled on port $consolePort")
-        } else {
-            printer("WebSocket chat disabled (can be enabled later in gateway.yaml)")
-        }
-
-        phase(6, "Config generation")
         writeFileText("$configDir/engine.yaml", ConfigTemplates.engineYaml(providerUrl, modelId))
-        writeFileText("$configDir/gateway.yaml", ConfigTemplates.gatewayYaml(chatIds, enableConsole, consolePort))
+        writeFileText(
+            "$configDir/gateway.yaml",
+            ConfigTemplates.gatewayYaml(
+                telegramEnabled = configureTelegram,
+                allowedChatIds = chatIds,
+                enableConsole = enableConsole,
+                consolePort = consolePort,
+            ),
+        )
+        val apiKeyEnvVar = ConfigTemplates.apiKeyEnvVar(defaultAlias)
         EnvWriter.write(
             "$configDir/.env",
             mapOf(
-                "KLAW_LLM_API_KEY" to llmApiKey,
+                apiKeyEnvVar to llmApiKey,
                 "KLAW_TELEGRAM_TOKEN" to telegramToken,
             ),
         )
-        success("Configuration written")
+        writeDeployConf(configDir, DeployConfig(resolvedMode, dockerTag))
+        if (resolvedMode == DeployMode.HYBRID) {
+            writeFileText(
+                "$configDir/docker-compose.yml",
+                ConfigTemplates.dockerComposeHybrid(stateDir, dataDir, configDir, workspaceDir, dockerTag),
+            )
+        }
+        success("Directories and configuration written")
 
-        phase(7, "Engine auto-start")
+        phase(8, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
-        val engineStarter = engineStarterFactory { spinner.tick() }
+        val startCommand =
+            when (resolvedMode) {
+                DeployMode.HYBRID, DeployMode.DOCKER -> {
+                    require("'" !in composeFilePath) {
+                        "composeFilePath must not contain single-quote characters"
+                    }
+                    "docker compose -f '$composeFilePath' up -d engine"
+                }
+
+                DeployMode.NATIVE -> {
+                    null
+                }
+            }
+        val engineStarter = engineStarterFactory({ spinner.tick() }, startCommand)
         val engineStarted = engineStarter.startAndWait()
         if (!engineStarted) {
             printer("${AnsiColors.YELLOW}⚠ Engine did not start automatically.${AnsiColors.RESET}")
             val manualStartCmd =
-                when {
-                    isDockerEnv -> {
-                        "docker compose up -d klaw-engine"
+                when (resolvedMode) {
+                    DeployMode.DOCKER, DeployMode.HYBRID -> {
+                        "docker compose up -d engine"
                     }
 
-                    Platform.osFamily == OsFamily.MACOSX -> {
-                        val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-                        "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
-                    }
-
-                    else -> {
-                        "systemctl --user start klaw-engine"
+                    DeployMode.NATIVE -> {
+                        if (Platform.osFamily == OsFamily.MACOSX) {
+                            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+                            "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
+                        } else {
+                            "systemctl --user start klaw-engine"
+                        }
                     }
                 }
             printer("  Start it manually: $manualStartCmd")
@@ -152,19 +288,49 @@ internal class InitWizard(
             spinner.done("Engine started")
         }
 
-        phase(8, "Identity Q&A")
-        printer("Agent name [Klaw]:")
-        val agentName = readLine()?.trim().orEmpty().ifBlank { "Klaw" }
-        printer("Personality traits (e.g. curious, analytical, warm):")
-        val personality = readLine()?.trim().orEmpty()
-        printer("Primary role (e.g. personal assistant, coding helper):")
-        val role = readLine()?.trim().orEmpty()
-        printer("Tell me about the user who will work with this agent:")
-        val userInfo = readLine()?.trim().orEmpty()
-        printer("Specialized domains or expertise (optional):")
-        val domain = readLine()?.trim().orEmpty()
+        when (resolvedMode) {
+            DeployMode.DOCKER -> {
+                phase(9, "Container startup")
+                val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
+                if (!dockerInstaller.installServices()) {
+                    printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
+                    printer("  Start manually: docker compose up -d engine gateway")
+                } else {
+                    success("Engine and Gateway containers started")
+                }
+            }
 
-        phase(9, "Identity generation")
+            DeployMode.HYBRID -> {
+                phase(9, "Container startup")
+                val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
+                if (!dockerInstaller.installServices()) {
+                    printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
+                    printer("  Start manually: docker compose -f '$composeFilePath' up -d engine gateway")
+                } else {
+                    success("Engine and Gateway containers started")
+                }
+            }
+
+            DeployMode.NATIVE -> {
+                phase(9, "Service setup")
+                val envFile = "$configDir/.env"
+                val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+                val engineBin = "$home/.local/bin/klaw-engine"
+                val gatewayBin = "$home/.local/bin/klaw-gateway"
+                val serviceInstaller =
+                    ServiceInstaller(
+                        outputDir = serviceOutputDir,
+                        commandRunner = { cmd ->
+                            commandRunner(cmd)
+                            Unit
+                        },
+                    )
+                serviceInstaller.install(engineBin, gatewayBin, envFile)
+                success("Service files written")
+            }
+        }
+
+        phase(10, "Identity generation")
         val identitySpinner = Spinner("Generating identity files...")
         val identityJson =
             runBlocking {
@@ -205,34 +371,116 @@ internal class InitWizard(
         writeFileText("$workspaceDir/AGENTS.md", agents)
         writeFileText("$workspaceDir/USER.md", user)
 
-        if (isDockerEnv) {
-            phase(10, "Container startup")
-            val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
-            if (!dockerInstaller.installServices()) {
-                printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
-                printer("  Start manually: docker compose up -d klaw-engine klaw-gateway")
+        printSummary(agentName, modelId, resolvedMode, dockerTag)
+    }
+
+    /**
+     * Reads a line using the injected [readLine] callback.
+     * Returns null on EOF (null from readLine) or ESC prefix — caller should return early.
+     */
+    private fun readLineOrExit(): String? {
+        val line = readLine() ?: return null
+        if (line.startsWith('\u001B')) {
+            printer("Interrupted.")
+            return null
+        }
+        return line
+    }
+
+    /**
+     * Validates the LLM API key via a curl request to {providerUrl}/models.
+     * Returns the raw JSON response if the key appears valid ("data" key present), else null.
+     * Skips validation if the URL or key contain single-quote characters (injection prevention).
+     */
+    private fun validateApiKey(
+        providerUrl: String,
+        llmApiKey: String,
+    ): String? {
+        if ("'" in providerUrl || "'" in llmApiKey) {
+            printer("${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}")
+            return null
+        }
+        val url = "${providerUrl.trimEnd('/')}/models"
+        val cmd = "curl -s -m $MODELS_FETCH_TIMEOUT -H 'Authorization: Bearer $llmApiKey' '$url'"
+        val response = commandOutput(cmd) ?: return null
+        return if (response.contains("\"data\"")) {
+            printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
+            response
+        } else {
+            printer("${AnsiColors.YELLOW}⚠ Could not validate API key (continuing anyway).${AnsiColors.RESET}")
+            null
+        }
+    }
+
+    /**
+     * Attempts to select a model via radio selector (if models were fetched) or text input fallback.
+     * Returns null only if the user interrupts (ESC or EOF) during text input.
+     */
+    private fun selectModel(
+        validationResponse: String?,
+        providerAlias: String,
+    ): String? {
+        val models = parseModels(validationResponse)
+        return if (models.isNotEmpty()) {
+            val selectedIdx = radioSelector(models, "Select model:")
+            if (selectedIdx != null) {
+                "$providerAlias/${models[selectedIdx]}"
             } else {
-                success("Engine and Gateway containers started")
+                // Radio cancelled — fall back to text prompt
+                promptModelText()
             }
         } else {
-            phase(10, "Service setup")
-            val envFile = "$configDir/.env"
-            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-            val engineBin = "$home/.local/bin/klaw-engine"
-            val gatewayBin = "$home/.local/bin/klaw-gateway"
-            val serviceInstaller =
-                ServiceInstaller(
-                    outputDir = serviceOutputDir,
-                    commandRunner = { cmd ->
-                        commandRunner(cmd)
-                        Unit
-                    },
-                )
-            serviceInstaller.install(engineBin, gatewayBin, envFile)
-            success("Service files written")
+            promptModelText()
         }
+    }
 
-        printSummary(agentName, modelId)
+    private fun promptModelText(): String? {
+        printer("Model ID (provider/model) [$DEFAULT_MODEL]:")
+        return (readLineOrExit() ?: return null).trim().ifBlank { DEFAULT_MODEL }
+    }
+
+    /**
+     * Parses model IDs from an OpenAI-compatible /models response JSON.
+     * Returns empty list if json is null or malformed.
+     *
+     * Example: `{"data":[{"id":"glm-5"},{"id":"glm-4-plus"}]}` → `["glm-5", "glm-4-plus"]`
+     */
+    private fun parseModels(json: String?): List<String> {
+        if (json == null) return emptyList()
+        val dataStart = json.indexOf("\"data\"")
+        if (dataStart < 0) return emptyList()
+        val arrayStart = json.indexOf('[', dataStart)
+        if (arrayStart < 0) return emptyList()
+        val arrayEnd = json.indexOf(']', arrayStart)
+        if (arrayEnd < 0) return emptyList()
+        val arrayContent = json.substring(arrayStart + 1, arrayEnd)
+
+        val result = mutableListOf<String>()
+        var searchFrom = 0
+        while (true) {
+            val idKey = arrayContent.indexOf("\"id\"", searchFrom)
+            if (idKey < 0) break
+            var i = idKey + 4
+            while (i < arrayContent.length && (arrayContent[i] == ':' || arrayContent[i] == ' ')) i++
+            if (i >= arrayContent.length || arrayContent[i] != '"') break
+            i++ // skip opening quote
+            val sb = StringBuilder()
+            while (i < arrayContent.length) {
+                val c = arrayContent[i]
+                if (c == '\\' && i + 1 < arrayContent.length && arrayContent[i + 1] == '"') {
+                    sb.append('"')
+                    i += 2
+                } else if (c == '"') {
+                    break
+                } else {
+                    sb.append(c)
+                    i++
+                }
+            }
+            if (sb.isNotEmpty()) result += sb.toString()
+            searchFrom = i + 1
+        }
+        return result
     }
 
     private fun phase(
@@ -246,9 +494,12 @@ internal class InitWizard(
         printer("${AnsiColors.GREEN}✓ $message${AnsiColors.RESET}")
     }
 
+    @Suppress("LongParameterList")
     private fun printSummary(
         agentName: String,
         modelId: String,
+        resolvedMode: DeployMode,
+        dockerTag: String,
     ) {
         printer("")
         printer("${AnsiColors.BOLD}─── Setup complete ───${AnsiColors.RESET}")
@@ -256,19 +507,31 @@ internal class InitWizard(
         printer("  ${AnsiColors.CYAN}Workspace${AnsiColors.RESET}: $workspaceDir")
         printer("  ${AnsiColors.CYAN}Agent${AnsiColors.RESET}: $agentName")
         printer("  ${AnsiColors.CYAN}Model${AnsiColors.RESET}: $modelId")
-        if (isDockerEnv) {
-            printer("")
-            printer("  To run klaw commands:")
-            printer("    docker run -it --rm \\")
-            printer("      -v /var/run/docker.sock:/var/run/docker.sock \\")
-            printer("      -v klaw-config:/root/.config/klaw \\")
-            printer("      -v klaw-state:/root/.local/state/klaw \\")
-            printer("      -v klaw-data:/root/.local/share/klaw \\")
-            printer("      -v klaw-workspace:/workspace \\")
-            printer("      ghcr.io/sickfar/klaw-cli:latest [command]")
-            printer("")
-            printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
-            printer("    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install")
+        when (resolvedMode) {
+            DeployMode.DOCKER -> {
+                printer("")
+                printer("  To run klaw commands:")
+                printer("    docker run -it --rm \\")
+                printer("      -v /var/run/docker.sock:/var/run/docker.sock \\")
+                printer("      -v klaw-config:/root/.config/klaw \\")
+                printer("      -v klaw-state:/root/.local/state/klaw \\")
+                printer("      -v klaw-data:/root/.local/share/klaw \\")
+                printer("      -v klaw-workspace:/workspace \\")
+                printer("      ghcr.io/sickfar/klaw-cli:$dockerTag [command]")
+                printer("")
+                printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
+                printer("    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install")
+            }
+
+            DeployMode.HYBRID -> {
+                printer("")
+                printer("  ${AnsiColors.CYAN}Compose${AnsiColors.RESET}: $configDir/docker-compose.yml")
+                printer("  Engine and Gateway run in Docker; CLI runs natively.")
+            }
+
+            DeployMode.NATIVE -> {
+                // No additional summary for native mode
+            }
         }
     }
 

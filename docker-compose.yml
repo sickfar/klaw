@@ -1,40 +1,49 @@
 services:
   engine:
+    image: ghcr.io/sickfar/klaw-engine:${KLAW_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/engine/Dockerfile
+    env_file: ~/.config/klaw/.env
     environment:
       - KLAW_WORKSPACE=/workspace
     volumes:
       - klaw-state:/root/.local/state/klaw
-      - klaw-data:/root/.local/share/klaw
-      - klaw-workspace:/workspace
-      - ./config:/root/.config/klaw:ro
+      - ~/.local/share/klaw:/root/.local/share/klaw
+      - ~/workspace:/workspace
+      - ~/.config/klaw:/root/.config/klaw:ro
     restart: unless-stopped
 
   gateway:
+    image: ghcr.io/sickfar/klaw-gateway:${KLAW_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/gateway/Dockerfile
+    env_file: ~/.config/klaw/.env
     depends_on:
       - engine
+    ports:
+      - "37474:37474"
     volumes:
       - klaw-state:/root/.local/state/klaw
-      - klaw-data:/root/.local/share/klaw
-      - ./config:/root/.config/klaw:ro
+      - ~/.local/share/klaw:/root/.local/share/klaw
+      - ~/.config/klaw:/root/.config/klaw:ro
     restart: unless-stopped
 
   cli:
+    image: ghcr.io/sickfar/klaw-cli:${KLAW_IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: docker/cli/Dockerfile
+    env_file: ~/.config/klaw/.env
     environment:
       - KLAW_WORKSPACE=/workspace
+      - KLAW_IMAGE_TAG=${KLAW_IMAGE_TAG:-latest}
     volumes:
       - klaw-state:/root/.local/state/klaw
-      - klaw-data:/root/.local/share/klaw
-      - klaw-workspace:/workspace
-      - ./config:/root/.config/klaw
+      - ~/.local/share/klaw:/root/.local/share/klaw
+      - ~/workspace:/workspace
+      - ~/.config/klaw:/root/.config/klaw
       - /var/run/docker.sock:/var/run/docker.sock
       - ./docker-compose.yml:/app/docker-compose.yml:ro
     profiles:
@@ -45,9 +54,3 @@ services:
 volumes:
   klaw-state:
     name: klaw-state
-  klaw-data:
-    name: klaw-data
-  klaw-workspace:
-    name: klaw-workspace
-  klaw-config:
-    name: klaw-config

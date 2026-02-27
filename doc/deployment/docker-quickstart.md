@@ -48,18 +48,19 @@ klaw init
 
 ## What `klaw init` will ask
 
-1. **LLM provider base URL** — default: `https://open.bigmodel.cn/api/paas/v4` (GLM)
-2. **LLM API key**
-3. **Model ID** — default: `glm/glm-4-plus`
-4. **Telegram bot token**
-5. **Allowed chat IDs** — comma-separated, or leave blank to allow all
-6. **Agent name** — default: `Klaw`
-7. **Personality traits** — e.g. "curious, analytical, warm"
-8. **Primary role** — e.g. "personal assistant"
-9. **User description** — tell the agent about yourself
-10. **Specialized domains** — optional
+1. **Docker image tag** — default: `latest` (Docker mode is auto-detected; no mode selection prompt)
+2. **LLM provider base URL** — default: `https://api.z.ai/api/paas/v4` (GLM)
+3. **LLM API key**
+4. **Model ID** — default: `glm/glm-4-plus`
+5. **Telegram bot token**
+6. **Allowed chat IDs** — comma-separated, or leave blank to allow all
+7. **Agent name** — default: `Klaw`
+8. **Personality traits** — e.g. "curious, analytical, warm"
+9. **Primary role** — e.g. "personal assistant"
+10. **User description** — tell the agent about yourself
+11. **Specialized domains** — optional
 
-After answering, it writes config files to the `klaw-config` volume, starts the engine, generates identity files, then starts both containers.
+After answering, it writes config files (including `deploy.conf`) to the `klaw-config` volume, starts the engine, generates identity files, then starts both containers.
 
 ---
 

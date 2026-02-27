@@ -1,10 +1,12 @@
 package io.github.klaw.gateway.channel
 
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
-import io.micronaut.websocket.WebSocketSession
-import io.mockk.every
+import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,9 +23,9 @@ class ConsoleChannelTest {
 
     private fun makeChannel(): ConsoleChannel = ConsoleChannel(ConversationJsonlWriter(tempDir.absolutePath))
 
-    private fun mockSession(): WebSocketSession =
+    private fun mockSession(): DefaultWebSocketServerSession =
         mockk(relaxed = true) {
-            every { id } returns "test-session-id"
+            coEvery { send(any<Frame>()) } returns Unit
         }
 
     @Test
@@ -85,10 +87,13 @@ class ConsoleChannelTest {
             // Now send a response
             channel.send("console_default", OutgoingMessage("AI response"))
 
-            // Verify sendSync was called with a JSON containing type=assistant
-            verify {
-                session.sendSync(
-                    match<String> { it.contains("\"type\":\"assistant\"") && it.contains("AI response") },
+            // Verify send was called with a Frame.Text containing type=assistant
+            coVerify {
+                session.send(
+                    match<Frame.Text> {
+                        val text = it.readText()
+                        text.contains("\"type\":\"assistant\"") && text.contains("AI response")
+                    },
                 )
             }
 

@@ -11,6 +11,6 @@ internal class DockerComposeInstaller(
 
     fun installServices(): Boolean {
         printer("  Starting Engine and Gateway containers via Docker Compose...")
-        return commandRunner("docker compose -f '$composeFile' up -d klaw-engine klaw-gateway") == 0
+        return commandRunner("docker compose -f '$composeFile' up -d engine gateway") == 0
     }
 }

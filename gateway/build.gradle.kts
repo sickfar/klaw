@@ -20,12 +20,15 @@ dependencies {
     implementation(libs.kaml)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
-    implementation("io.micronaut:micronaut-websocket")
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.websockets)
     implementation(libs.kotlin.logging)
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")
     "kaptTest"("io.micronaut:micronaut-inject-java:$micronautVersion")
 
+    testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.ktor.client.websockets)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation("io.micronaut.test:micronaut-test-junit5")

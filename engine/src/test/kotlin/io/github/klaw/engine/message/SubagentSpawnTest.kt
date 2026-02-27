@@ -32,6 +32,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
+import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
@@ -105,7 +106,7 @@ class SubagentSpawnTest {
         toolRegistry: ToolRegistry = mockk(relaxed = true),
         llmRouter: LlmRouter = mockk(relaxed = true),
         toolExecutor: ToolExecutor = mockk(relaxed = true),
-        socketServer: EngineSocketServer = mockk(relaxed = true),
+        socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
         commandHandler: CommandHandler = mockk(relaxed = true),
         messageEmbeddingService: MessageEmbeddingService = mockk(relaxed = true),
     ): MessageProcessor =
@@ -116,7 +117,7 @@ class SubagentSpawnTest {
             toolRegistry = toolRegistry,
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
-            socketServer = socketServer,
+            socketServerProvider = socketServerProvider,
             commandHandler = commandHandler,
             config = config,
             messageEmbeddingService = messageEmbeddingService,
@@ -151,7 +152,7 @@ class SubagentSpawnTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    socketServer = socketServer,
+                    socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
                 )
 
@@ -205,7 +206,7 @@ class SubagentSpawnTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    socketServer = socketServer,
+                    socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
                 )
 
@@ -248,7 +249,7 @@ class SubagentSpawnTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    socketServer = socketServer,
+                    socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
                 )
 
@@ -286,7 +287,7 @@ class SubagentSpawnTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    socketServer = socketServer,
+                    socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
                 )
 

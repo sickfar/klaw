@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 class UtilityToolsTest {
     private val socketServer = mockk<EngineSocketServer>()
-    private val tools = UtilityTools(socketServer)
+    private val tools = UtilityTools { socketServer }
 
     @Test
     fun `currentTime returns date and timezone`() =
