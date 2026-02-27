@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
@@ -74,4 +76,32 @@ ktlint {
     filter {
         exclude("**/build/generated/**")
     }
+}
+
+val generateDocsIndex by tasks.registering {
+    val docDir = rootProject.file("doc")
+    val indexFile =
+        layout.buildDirectory
+            .file("generated/klaw-docs/doc-index.txt")
+            .get()
+            .asFile
+    inputs.dir(docDir)
+    outputs.file(indexFile)
+    doLast {
+        val paths =
+            docDir
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "md" }
+                .map { it.relativeTo(docDir).path.replace(File.separatorChar, '/') }
+                .sorted()
+                .toList()
+        indexFile.parentFile.mkdirs()
+        indexFile.writeText(paths.joinToString("\n"))
+    }
+}
+
+tasks.named<ProcessResources>("processResources") {
+    dependsOn(generateDocsIndex)
+    from(rootProject.file("doc")) { into("klaw-docs") }
+    from(layout.buildDirectory.dir("generated/klaw-docs")) { into("klaw-docs") }
 }

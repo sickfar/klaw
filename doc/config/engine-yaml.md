@@ -104,7 +104,18 @@ codeExecution:
 
 files:
   maxFileSizeBytes: 10485760  # 10 MB
+
+docs:
+  enabled: true
 ```
+
+## docs
+
+Controls the built-in documentation service. Documentation is embedded in the engine JAR and indexed at startup.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | Enable or disable the docs service. When `false`, `docs_search`, `docs_read`, and `docs_list` tools return a disabled message. |
 
 ## Notes
 

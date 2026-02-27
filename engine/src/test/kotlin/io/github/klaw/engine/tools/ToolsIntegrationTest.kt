@@ -1,5 +1,21 @@
 package io.github.klaw.engine.tools
 
+import io.github.klaw.common.config.AutoRagConfig
+import io.github.klaw.common.config.ChunkingConfig
+import io.github.klaw.common.config.CodeExecutionConfig
+import io.github.klaw.common.config.CompatibilityConfig
+import io.github.klaw.common.config.ContextConfig
+import io.github.klaw.common.config.DocsConfig
+import io.github.klaw.common.config.EmbeddingConfig
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.LoggingConfig
+import io.github.klaw.common.config.MemoryConfig
+import io.github.klaw.common.config.ProcessingConfig
+import io.github.klaw.common.config.RoutingConfig
+import io.github.klaw.common.config.SearchConfig
+import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.engine.context.ToolRegistry
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -18,6 +34,35 @@ import org.junit.jupiter.api.Test
  * without the full DI graph.
  */
 class ToolsIntegrationTest {
+    @Suppress("LongMethod")
+    private fun testEngineConfig() =
+        EngineConfig(
+            providers = emptyMap(),
+            models = emptyMap(),
+            routing =
+                RoutingConfig(
+                    default = "test/model",
+                    fallback = emptyList(),
+                    tasks = TaskRoutingConfig("test/model", "test/model"),
+                ),
+            memory =
+                MemoryConfig(
+                    embedding = EmbeddingConfig("onnx", "model"),
+                    chunking = ChunkingConfig(512, 64),
+                    search = SearchConfig(10),
+                ),
+            context = ContextConfig(8000, 20, 5),
+            processing = ProcessingConfig(100, 2, 5),
+            llm = LlmRetryConfig(1, 5000, 100, 2.0),
+            logging = LoggingConfig(false),
+            codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
+            files = FilesConfig(1048576),
+            commands = emptyList(),
+            compatibility = CompatibilityConfig(),
+            autoRag = AutoRagConfig(),
+            docs = DocsConfig(enabled = true),
+        )
+
     private val registry: ToolRegistryImpl =
         ToolRegistryImpl(
             fileTools = mockk(),
@@ -27,6 +72,7 @@ class ToolsIntegrationTest {
             scheduleTools = mockk(),
             subagentTools = mockk(),
             utilityTools = mockk(),
+            config = testEngineConfig(),
         )
 
     @Test

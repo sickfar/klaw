@@ -21,3 +21,6 @@ SELECT * FROM doc_chunks ORDER BY id;
 
 lastInsertRowId:
 SELECT last_insert_rowid();
+
+deleteAll:
+DELETE FROM doc_chunks;

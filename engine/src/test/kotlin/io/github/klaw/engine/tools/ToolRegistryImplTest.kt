@@ -1,11 +1,28 @@
 package io.github.klaw.engine.tools
 
+import io.github.klaw.common.config.AutoRagConfig
+import io.github.klaw.common.config.ChunkingConfig
+import io.github.klaw.common.config.CodeExecutionConfig
+import io.github.klaw.common.config.CompatibilityConfig
+import io.github.klaw.common.config.ContextConfig
+import io.github.klaw.common.config.DocsConfig
+import io.github.klaw.common.config.EmbeddingConfig
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.LoggingConfig
+import io.github.klaw.common.config.MemoryConfig
+import io.github.klaw.common.config.ProcessingConfig
+import io.github.klaw.common.config.RoutingConfig
+import io.github.klaw.common.config.SearchConfig
+import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.ToolCall
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -18,6 +35,35 @@ class ToolRegistryImplTest {
     private val subagentTools = mockk<SubagentTools>()
     private val utilityTools = mockk<UtilityTools>()
 
+    @Suppress("LongMethod")
+    private fun testEngineConfig(docsEnabled: Boolean = true) =
+        EngineConfig(
+            providers = emptyMap(),
+            models = emptyMap(),
+            routing =
+                RoutingConfig(
+                    default = "test/model",
+                    fallback = emptyList(),
+                    tasks = TaskRoutingConfig("test/model", "test/model"),
+                ),
+            memory =
+                MemoryConfig(
+                    embedding = EmbeddingConfig("onnx", "model"),
+                    chunking = ChunkingConfig(512, 64),
+                    search = SearchConfig(10),
+                ),
+            context = ContextConfig(8000, 20, 5),
+            processing = ProcessingConfig(100, 2, 5),
+            llm = LlmRetryConfig(1, 5000, 100, 2.0),
+            logging = LoggingConfig(false),
+            codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
+            files = FilesConfig(1048576),
+            commands = emptyList(),
+            compatibility = CompatibilityConfig(),
+            autoRag = AutoRagConfig(),
+            docs = DocsConfig(enabled = docsEnabled),
+        )
+
     private val registry =
         ToolRegistryImpl(
             fileTools,
@@ -27,6 +73,7 @@ class ToolRegistryImplTest {
             scheduleTools,
             subagentTools,
             utilityTools,
+            testEngineConfig(docsEnabled = true),
         )
 
     @Test
@@ -155,6 +202,28 @@ class ToolRegistryImplTest {
                     ToolCall(id = "1", name = "file_read", arguments = "{}"),
                 )
             assertTrue(result.content.startsWith("Error"))
+        }
+
+    @Test
+    fun `docs tools excluded from listTools when docs disabled`() =
+        runTest {
+            val disabledRegistry =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    testEngineConfig(docsEnabled = false),
+                )
+            val tools = disabledRegistry.listTools()
+            val names = tools.map { it.name }.toSet()
+            assertEquals(16, tools.size)
+            assertFalse("docs_search" in names)
+            assertFalse("docs_read" in names)
+            assertFalse("docs_list" in names)
         }
 
     @Test

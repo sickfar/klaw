@@ -18,6 +18,7 @@ data class EngineConfig(
     val commands: List<CommandConfig> = emptyList(),
     val compatibility: CompatibilityConfig? = null,
     val autoRag: AutoRagConfig = AutoRagConfig(),
+    val docs: DocsConfig = DocsConfig(),
 )
 
 @Serializable
@@ -193,6 +194,11 @@ data class OpenClawSync(
     val memoryMd: Boolean = false,
     val dailyLogs: Boolean = false,
     val userMd: Boolean = false,
+)
+
+@Serializable
+data class DocsConfig(
+    val enabled: Boolean = true,
 )
 
 @Serializable

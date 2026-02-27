@@ -57,3 +57,6 @@ codeExecution:
 
 files:
   maxFileSizeBytes: 10485760
+
+docs:
+  enabled: true

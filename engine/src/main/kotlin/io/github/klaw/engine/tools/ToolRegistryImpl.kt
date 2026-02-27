@@ -1,5 +1,6 @@
 package io.github.klaw.engine.tools
 
+import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
@@ -25,8 +26,14 @@ class ToolRegistryImpl(
     private val scheduleTools: ScheduleTools,
     private val subagentTools: SubagentTools,
     private val utilityTools: UtilityTools,
+    private val config: EngineConfig,
 ) : ToolRegistry {
-    override suspend fun listTools(): List<ToolDef> = toolDefs
+    override suspend fun listTools(): List<ToolDef> =
+        if (config.docs.enabled) {
+            toolDefs
+        } else {
+            toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
+        }
 
     @Suppress("TooGenericExceptionCaught")
     suspend fun execute(call: ToolCall): ToolResult {
@@ -168,6 +175,7 @@ class ToolRegistryImpl(
     companion object {
         private const val DEFAULT_MEMORY_TOP_K = 10
         private const val DEFAULT_DOCS_TOP_K = 5
+        private val DOCS_TOOL_NAMES = setOf("docs_search", "docs_read", "docs_list")
 
         private val toolDefs =
             listOf(

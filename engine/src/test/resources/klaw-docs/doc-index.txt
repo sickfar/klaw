@@ -1,0 +1,2 @@
+test-guide.md
+commands/test-cmd.md
