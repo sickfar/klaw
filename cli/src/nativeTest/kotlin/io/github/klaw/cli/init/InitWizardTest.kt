@@ -60,6 +60,12 @@ class InitWizardTest {
                     commandRunner = commandRunner,
                     pollIntervalMs = 10L,
                     timeoutMs = 50L,
+                    startCommand =
+                        if (isDockerEnv) {
+                            "docker compose -f '/app/docker-compose.yml' up -d klaw-engine"
+                        } else {
+                            null
+                        },
                 )
             },
         )
