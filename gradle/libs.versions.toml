@@ -13,6 +13,7 @@ onnxruntime = "1.24.2"
 djl-tokenizers = "0.36.0"
 tgbotapi = "22.0.0"
 clikt = "5.1.0"
+ktor = "3.0.2"
 mockk = "1.14.9"
 wiremock = "3.13.2"
 testcontainers = "2.0.3"
@@ -34,6 +35,9 @@ onnxruntime = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = 
 djl-tokenizers = { module = "ai.djl.huggingface:tokenizers", version.ref = "djl-tokenizers" }
 tgbotapi = { module = "dev.inmo:tgbotapi", version.ref = "tgbotapi" }
 clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }

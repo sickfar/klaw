@@ -42,4 +42,32 @@ class ConfigTemplatesTest {
         val yaml = ConfigTemplates.gatewayYaml(emptyList())
         assertTrue(yaml.contains("KLAW_TELEGRAM_TOKEN"), "Expected env var reference in:\n$yaml")
     }
+
+    @Test
+    fun `gatewayYaml with enableConsole=true includes console section with enabled and port`() {
+        val yaml = ConfigTemplates.gatewayYaml(enableConsole = true)
+        assertTrue(yaml.contains("console:"), "Expected 'console:' in:\n$yaml")
+        assertTrue(yaml.contains("enabled: true"), "Expected 'enabled: true' in:\n$yaml")
+        assertTrue(yaml.contains("port: 37474"), "Expected default port in:\n$yaml")
+    }
+
+    @Test
+    fun `gatewayYaml with enableConsole=false omits console section`() {
+        val yaml = ConfigTemplates.gatewayYaml(enableConsole = false)
+        assertTrue(!yaml.contains("console:"), "Expected no 'console:' section in:\n$yaml")
+    }
+
+    @Test
+    fun `gatewayYaml with enableConsole=true and custom port uses correct port`() {
+        val yaml = ConfigTemplates.gatewayYaml(enableConsole = true, consolePort = 9090)
+        assertTrue(yaml.contains("port: 9090"), "Expected custom port in:\n$yaml")
+    }
+
+    @Test
+    fun `gatewayYaml with chatIds and enableConsole=true includes both sections`() {
+        val yaml = ConfigTemplates.gatewayYaml(listOf("123456"), enableConsole = true, consolePort = 8080)
+        assertTrue(yaml.contains("123456"), "Expected chatId in:\n$yaml")
+        assertTrue(yaml.contains("console:"), "Expected console section in:\n$yaml")
+        assertTrue(yaml.contains("port: 8080"), "Expected custom port in:\n$yaml")
+    }
 }

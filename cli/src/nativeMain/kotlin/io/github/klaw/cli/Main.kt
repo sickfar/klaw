@@ -3,6 +3,7 @@ package io.github.klaw.cli
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
+import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.DoctorCommand
 import io.github.klaw.cli.command.EngineCommand
@@ -40,6 +41,7 @@ class KlawCli(
     init {
         subcommands(
             InitCommand(requestFn),
+            ChatCommand(configDir),
             StatusCommand(requestFn),
             SessionsCommand(requestFn),
             ReindexCommand(requestFn),

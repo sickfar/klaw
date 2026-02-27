@@ -55,12 +55,18 @@ class GatewayOutboundHandler(
         channel: String,
         isReply: Boolean,
     ): Boolean {
+        // Console channel: only console_default chatId is allowed
+        if (channel == "console") return chatId == "console_default"
         // Unknown channels are always blocked — even with implicit allow
         val whitelist =
             when (channel) {
                 "telegram" -> config.channels.telegram?.allowedChatIds
                 else -> null
-            } ?: return false
-        return (isReply && chatId in implicitAllow) || chatId in whitelist
+            }
+        return if (whitelist == null) {
+            false
+        } else {
+            (isReply && chatId in implicitAllow) || chatId in whitelist
+        }
     }
 }

@@ -12,6 +12,13 @@ data class GatewayConfig(
 data class ChannelsConfig(
     val telegram: TelegramConfig? = null,
     val discord: DiscordConfig? = null,
+    val console: ConsoleConfig? = null,
+)
+
+@Serializable
+data class ConsoleConfig(
+    val enabled: Boolean = false,
+    val port: Int = 37474,
 )
 
 @Serializable

@@ -20,6 +20,7 @@ dependencies {
     implementation(libs.kaml)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
+    implementation("io.micronaut:micronaut-websocket")
     implementation(libs.kotlin.logging)
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")

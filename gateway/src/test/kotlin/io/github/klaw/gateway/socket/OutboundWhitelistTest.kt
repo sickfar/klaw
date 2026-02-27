@@ -1,6 +1,7 @@
 package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.TelegramConfig
 import io.github.klaw.common.protocol.OutboundSocketMessage
@@ -85,6 +86,40 @@ class OutboundWhitelistTest {
             handler.addImplicitAllow("telegram_456")
             handler.handleOutbound(outboundMsg("telegram_456", replyTo = "msg-id-1"))
             coVerify(exactly = 1) { channel.send("telegram_456", any()) }
+        }
+
+    @Test
+    fun `isAllowed returns true for channel=console chatId=console_default`() =
+        runBlocking {
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "console"
+            val handler =
+                GatewayOutboundHandler(
+                    channels = listOf(channel),
+                    config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true))),
+                    jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                )
+            handler.handleOutbound(
+                OutboundSocketMessage(channel = "console", chatId = "console_default", content = "hi", replyTo = null),
+            )
+            coVerify(exactly = 1) { channel.send("console_default", any()) }
+        }
+
+    @Test
+    fun `isAllowed returns false for channel=console with non-console chatId`() =
+        runBlocking {
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "console"
+            val handler =
+                GatewayOutboundHandler(
+                    channels = listOf(channel),
+                    config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true))),
+                    jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                )
+            handler.handleOutbound(
+                OutboundSocketMessage(channel = "console", chatId = "other_chat", content = "hi", replyTo = null),
+            )
+            coVerify(exactly = 0) { channel.send(any(), any()) }
         }
 
     @Test

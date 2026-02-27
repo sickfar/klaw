@@ -230,6 +230,55 @@ commands:
     }
 
     @Test
+    fun `GatewayConfig with console section enabled=true and port=9090 parses correctly`() {
+        val yaml =
+            """
+            channels:
+              telegram:
+                token: "bot-token"
+                allowedChatIds: []
+              console:
+                enabled: true
+                port: 9090
+            """.trimIndent()
+        val config = parseGatewayConfig(yaml)
+        val console = assertNotNull(config.channels.console)
+        assertTrue(console.enabled)
+        assertEquals(9090, console.port)
+    }
+
+    @Test
+    fun `GatewayConfig with console section enabled=false parses correctly`() {
+        val yaml =
+            """
+            channels:
+              telegram:
+                token: "bot-token"
+                allowedChatIds: []
+              console:
+                enabled: false
+                port: 37474
+            """.trimIndent()
+        val config = parseGatewayConfig(yaml)
+        val console = assertNotNull(config.channels.console)
+        assertFalse(console.enabled)
+        assertEquals(37474, console.port)
+    }
+
+    @Test
+    fun `GatewayConfig without console section uses null default`() {
+        val yaml =
+            """
+            channels:
+              telegram:
+                token: "bot-token"
+                allowedChatIds: []
+            """.trimIndent()
+        val config = parseGatewayConfig(yaml)
+        assertNull(config.channels.console)
+    }
+
+    @Test
     fun `parse engine yaml - optional fields absent from YAML parse to null or default`() {
         val minimalYaml =
             """

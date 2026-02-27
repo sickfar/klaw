@@ -97,6 +97,7 @@ class InitWizardTest {
                 "test/model", // model ID
                 "bot-token-123", // telegram token
                 "", // allowed chat IDs (empty = allow all)
+                "n", // Phase 5: disable console
                 "TestAgent", // agent name
                 "curious, helpful", // personality
                 "personal assistant", // role
@@ -134,6 +135,7 @@ class InitWizardTest {
                 "test/model",
                 "telegram-bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -170,6 +172,7 @@ class InitWizardTest {
                 "test/model",
                 "my-token",
                 "",
+                "n", // Phase 5: disable console
                 "MyBot",
                 "analytical",
                 "coding helper",
@@ -203,6 +206,7 @@ class InitWizardTest {
                 "test/model",
                 "my-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -237,6 +241,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -280,6 +285,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -320,6 +326,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -362,6 +369,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -396,6 +404,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -429,6 +438,7 @@ class InitWizardTest {
                 "test/model",
                 "bot-token",
                 "",
+                "n", // Phase 5: disable console
                 "Klaw",
                 "helpful",
                 "assistant",
@@ -457,6 +467,105 @@ class InitWizardTest {
                     content?.contains(".local/bin/klaw-gateway") == true
             }
         assertTrue(anyFileContainsLocalBin, "Expected .local/bin paths in service files, got files: $serviceFiles")
+    }
+
+    @Test
+    fun `phase 5 with console enabled writes console section with enabled=true and port to gateway yaml`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token-123",
+                "", // allowed chat IDs
+                "y", // Phase 5: enable console
+                "37474", // Phase 5: port
+                "Klaw",
+                "curious, helpful",
+                "personal assistant",
+                "developer",
+                "",
+            )
+
+        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        val gatewayYaml = readFileText("$configDir/gateway.yaml")
+        assertNotNull(gatewayYaml)
+        assertTrue(gatewayYaml.contains("enabled: true"), "Expected 'enabled: true' in gateway.yaml:\n$gatewayYaml")
+        assertTrue(gatewayYaml.contains("port: 37474"), "Expected 'port: 37474' in gateway.yaml:\n$gatewayYaml")
+    }
+
+    @Test
+    fun `phase 5 with console disabled omits console section from gateway yaml`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token-123",
+                "", // allowed chat IDs
+                "n", // Phase 5: do not enable console
+                "Klaw",
+                "curious, helpful",
+                "personal assistant",
+                "developer",
+                "",
+            )
+
+        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        val gatewayYaml = readFileText("$configDir/gateway.yaml")
+        assertNotNull(gatewayYaml)
+        assertTrue(!gatewayYaml.contains("console:"), "Expected no console section in gateway.yaml:\n$gatewayYaml")
+    }
+
+    @Test
+    fun `phase 5 with console enabled and custom port 9090 uses port 9090 in gateway yaml`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token-123",
+                "", // allowed chat IDs
+                "y", // Phase 5: enable console
+                "9090", // Phase 5: custom port
+                "Klaw",
+                "curious, helpful",
+                "personal assistant",
+                "developer",
+                "",
+            )
+
+        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        val gatewayYaml = readFileText("$configDir/gateway.yaml")
+        assertNotNull(gatewayYaml)
+        assertTrue(gatewayYaml.contains("port: 9090"), "Expected 'port: 9090' in gateway.yaml:\n$gatewayYaml")
     }
 
     @OptIn(ExperimentalForeignApi::class)

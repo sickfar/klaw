@@ -18,7 +18,7 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
-private const val TOTAL_PHASES = 9
+private const val TOTAL_PHASES = 10
 
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 @Suppress("LongParameterList")
@@ -101,9 +101,21 @@ internal class InitWizard(
                 rawChatIds.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             }
 
-        phase(5, "Config generation")
+        phase(5, "WebSocket chat setup")
+        printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
+        val enableConsole = readLine()?.trim()?.lowercase() == "y"
+        var consolePort = 37474
+        if (enableConsole) {
+            printer("Gateway WebSocket port [37474]:")
+            consolePort = readLine()?.trim()?.toIntOrNull() ?: 37474
+            success("WebSocket chat enabled on port $consolePort")
+        } else {
+            printer("WebSocket chat disabled (can be enabled later in gateway.yaml)")
+        }
+
+        phase(6, "Config generation")
         writeFileText("$configDir/engine.yaml", ConfigTemplates.engineYaml(providerUrl, modelId))
-        writeFileText("$configDir/gateway.yaml", ConfigTemplates.gatewayYaml(chatIds))
+        writeFileText("$configDir/gateway.yaml", ConfigTemplates.gatewayYaml(chatIds, enableConsole, consolePort))
         EnvWriter.write(
             "$configDir/.env",
             mapOf(
@@ -113,7 +125,7 @@ internal class InitWizard(
         )
         success("Configuration written")
 
-        phase(6, "Engine auto-start")
+        phase(7, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val engineStarter = engineStarterFactory { spinner.tick() }
         val engineStarted = engineStarter.startAndWait()
@@ -140,7 +152,7 @@ internal class InitWizard(
             spinner.done("Engine started")
         }
 
-        phase(7, "Identity Q&A")
+        phase(8, "Identity Q&A")
         printer("Agent name [Klaw]:")
         val agentName = readLine()?.trim().orEmpty().ifBlank { "Klaw" }
         printer("Personality traits (e.g. curious, analytical, warm):")
@@ -152,7 +164,7 @@ internal class InitWizard(
         printer("Specialized domains or expertise (optional):")
         val domain = readLine()?.trim().orEmpty()
 
-        phase(8, "Identity generation")
+        phase(9, "Identity generation")
         val identitySpinner = Spinner("Generating identity files...")
         val identityJson =
             runBlocking {
@@ -194,7 +206,7 @@ internal class InitWizard(
         writeFileText("$workspaceDir/USER.md", user)
 
         if (isDockerEnv) {
-            phase(9, "Container startup")
+            phase(10, "Container startup")
             val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
             if (!dockerInstaller.installServices()) {
                 printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
@@ -203,7 +215,7 @@ internal class InitWizard(
                 success("Engine and Gateway containers started")
             }
         } else {
-            phase(9, "Service setup")
+            phase(10, "Service setup")
             val envFile = "$configDir/.env"
             val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
             val engineBin = "$home/.local/bin/klaw-engine"

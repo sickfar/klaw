@@ -41,6 +41,10 @@ kotlin {
         nativeMain.dependencies {
             implementation(project(":common"))
             implementation(libs.clikt)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.cio)
+            implementation(libs.ktor.client.websockets)
         }
         nativeTest.dependencies {
             implementation(kotlin("test"))

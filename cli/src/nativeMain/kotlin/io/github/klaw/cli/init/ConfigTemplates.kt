@@ -45,13 +45,26 @@ memory:
             """.trimIndent()
     }
 
-    fun gatewayYaml(allowedChatIds: List<String> = emptyList()): String {
+    fun gatewayYaml(
+        allowedChatIds: List<String> = emptyList(),
+        enableConsole: Boolean = false,
+        consolePort: Int = 37474,
+    ): String {
         val chatIdsYaml = if (allowedChatIds.isEmpty()) "" else allowedChatIds.joinToString(", ")
+        val consoleSection =
+            if (enableConsole) {
+                """
+  console:
+    enabled: true
+    port: $consolePort"""
+            } else {
+                ""
+            }
         return """
 channels:
   telegram:
     token: "${'$'}{KLAW_TELEGRAM_TOKEN}"
-    allowedChatIds: [$chatIdsYaml]
+    allowedChatIds: [$chatIdsYaml]$consoleSection
             """.trimIndent()
     }
 }
