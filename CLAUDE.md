@@ -11,6 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Run all JVM tests (matches CI)
 ./gradlew :common:jvmTest :gateway:test :engine:test
 
+# Run CLI native tests (macOS dev machine)
+./gradlew :cli:macosArm64Test
+
 # Run a single test class
 ./gradlew :common:jvmTest --tests io.github.klaw.common.config.ConfigParsingTest
 ./gradlew :engine:test --tests io.github.klaw.engine.llm.LlmRouterTest
@@ -20,6 +23,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Compile Native targets (no cross-compiler needed for check)
 ./gradlew :cli:compileKotlinLinuxX64 :common:compileKotlinLinuxX64
+
+# Assemble distribution artifacts (JARs + native CLI binaries)
+./gradlew assembleDist          # full build for current OS
+./gradlew assembleCliMacos      # macOS CLI binaries only (for macOS CI)
 ```
 
 ## Project Architecture
@@ -33,7 +40,7 @@ Klaw is a two-process AI agent for Raspberry Pi 5 with Chinese LLM support:
 
 Gateway ↔ Engine communicate via Unix domain socket (`engine.sock`) using JSONL framing. The scheduler is an in-process module inside Engine (not a separate service).
 
-Design document: `impl-doc/design/klaw-design-v0_4.md`. Task files: `impl-doc/tasks/TASK-001` through `TASK-012`.
+Design document: `impl-doc/design/klaw-design-v0_4.md`. Task files: `impl-doc/tasks/TASK-001` through `TASK-012`. User-facing docs: `doc/` (commands, config, deployment, tools, memory, etc.).
 
 ## Module & Source Set Layout
 
@@ -46,8 +53,27 @@ common/src/
 └── jvmTest/      # YAML config parsing, JVM token counting tests
 
 engine/src/main/kotlin/io/github/klaw/engine/
-├── llm/          # LlmClient interface, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
+├── llm/          # LlmClient, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
+├── context/      # ContextBuilder, SubagentHistoryLoader, CoreMemoryService, SkillRegistry, WorkspaceLoader
+├── message/      # MessageProcessor, DebounceBuffer, ToolCallLoopRunner, MessageRepository, MessageEmbeddingService
+├── memory/       # MemoryService, AutoRagService, EmbeddingService (ONNX + Ollama), MarkdownChunker, RrfMerge
+├── tools/        # ToolExecutor, FileTools, MemoryTools, ScheduleTools, SkillTools, SubagentTools, DocsTools
+├── scheduler/    # KlawScheduler, KlawSchedulerImpl, MicronautJobFactory (Quartz + SQLiteDelegate)
+├── workspace/    # HeartbeatImporter, HeartbeatParser
+├── db/           # DatabaseFactory, SqliteVecLoader, VirtualTableSetup
+├── docs/         # DocsService
+├── init/         # InitCliHandler
+├── maintenance/  # ReindexService
 └── util/         # VirtualThreadDispatcher (JDK 21 virtual threads, Dispatchers.VT)
+
+cli/src/nativeMain/kotlin/io/github/klaw/cli/
+├── command/      # StatusCommand, StopCommand, LogsCommand, MemoryCommand, ScheduleCommand, SessionsCommand,
+│                 #   ConfigCommand, DoctorCommand, EngineCommand, GatewayCommand, IdentityCommand,
+│                 #   InitCommand, ReindexCommand
+├── init/         # InitWizard, WorkspaceInitializer, ServiceInstaller, ServiceManager, DockerComposeInstaller,
+│                 #   DockerEnvironment, EngineStarter, EnvWriter, ConfigTemplates, PlatformIO (expect/actual)
+├── socket/       # EngineSocketClient, SockAddrBuilder (expect/actual for Linux/macOS)
+└── ui/           # AnsiColors, Spinner
 ```
 
 ## Key Implementation Details
@@ -81,6 +107,16 @@ engine/src/main/kotlin/io/github/klaw/engine/
 - TelegramBotAPI InsanusMokrassar (gateway)
 
 **Not used:** Spring Boot, LangChain4j, Spring AI, external vector DBs (pgvector, Letta).
+
+## Docker Compose Deployment
+
+`docker-compose.yml` at the repo root defines three services: `engine`, `gateway`, `cli` (cli has `profiles: [cli]`). The `klaw` shell script at repo root wraps `docker compose run --rm cli`.
+
+Shared volumes: `klaw-state` (`~/.local/state/klaw`), `klaw-data` (`~/.local/share/klaw`), `klaw-workspace`. Config is bind-mounted read-only from `./config/`. Dockerfiles are in `docker/{engine,gateway,cli}/`.
+
+The `klaw init` command (CLI) runs an interactive wizard that detects Docker vs. native environment and sets up workspace, config, and service installation accordingly.
+
+Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`, `install.sh`, `install-klaw.sh`, `get-klaw.sh` (curl-install). Systemd unit files in `deploy/`.
 
 ## Hard Constraints
 
