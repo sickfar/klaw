@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class IdentityCommandTest {
-    private val tmpDir = "/private/tmp/klaw-identity-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-identity-test-${getpid()}"
 
     @BeforeTest
     fun setup() {

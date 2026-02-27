@@ -12,7 +12,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ConfigCommandTest {
-    private val tmpDir = "/private/tmp/klaw-config-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-config-test-${getpid()}"
 
     @BeforeTest
     fun setup() {

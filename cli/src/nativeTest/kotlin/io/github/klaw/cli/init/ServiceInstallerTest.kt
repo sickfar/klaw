@@ -10,7 +10,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ServiceInstallerTest {
-    private val tmpDir = "/private/tmp/klaw-svc-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-svc-test-${getpid()}"
 
     @BeforeTest
     fun setup() {

@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalForeignApi::class)
 class EnvWriterTest {
-    private val tmpDir = "/private/tmp/klaw-env-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-env-test-${getpid()}"
     private val envPath = "$tmpDir/.env"
 
     @BeforeTest

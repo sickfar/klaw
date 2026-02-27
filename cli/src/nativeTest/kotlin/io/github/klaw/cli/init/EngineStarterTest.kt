@@ -8,7 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class EngineStarterTest {
-    private val tmpDir = "/private/tmp/klaw-starter-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-starter-test-${getpid()}"
     private val socketPath = "$tmpDir/engine.sock"
 
     @BeforeTest

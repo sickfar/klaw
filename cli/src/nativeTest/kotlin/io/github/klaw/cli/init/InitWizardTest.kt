@@ -15,7 +15,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class InitWizardTest {
-    private val tmpDir = "/private/tmp/klaw-wizard-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-wizard-test-${getpid()}"
     private val configDir = "$tmpDir/config"
     private val workspaceDir = "$tmpDir/workspace"
 

@@ -8,7 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DockerEnvironmentTest {
-    private val tmpDir = "/private/tmp/klaw-docker-env-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-docker-env-test-${getpid()}"
     private val fakeDockerEnvPath = "$tmpDir/.dockerenv"
 
     @BeforeTest

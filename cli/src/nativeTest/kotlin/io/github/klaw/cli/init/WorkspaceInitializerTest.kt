@@ -11,7 +11,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class WorkspaceInitializerTest {
-    private val tmpDir = "/private/tmp/klaw-ws-test-${getpid()}"
+    private val tmpDir = "/tmp/klaw-ws-test-${getpid()}"
 
     @BeforeTest
     fun setup() {
