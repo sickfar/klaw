@@ -12,11 +12,13 @@ Interactive first-time setup wizard. Guides through:
 1. Directory creation (XDG-compliant paths)
 2. LLM provider configuration (base URL, API key, model ID)
 3. Telegram bot setup (token, allowed chat IDs)
-4. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`)
-5. Engine auto-start
-6. Identity Q&A (agent name, personality, role, user description, domain)
-7. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
-8. Service setup
+4. Engine configuration
+5. WebSocket chat setup (enable `klaw chat`, port selection)
+6. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`)
+7. Engine auto-start
+8. Identity Q&A (agent name, personality, role, user description, domain)
+9. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
+10. Service setup
 
 ```
 klaw init
@@ -82,6 +84,42 @@ Opens `SOUL.md` and `IDENTITY.md` from the workspace in your `$EDITOR` (falls ba
 ```
 klaw identity edit
 ```
+
+---
+
+## Chat
+
+### `klaw chat`
+
+Opens an interactive split-screen TUI for chatting with the agent directly from the terminal.
+Messages are routed through the Gateway's `/chat` WebSocket endpoint using the persistent `console_default` session — the same path as Telegram, giving console conversations full JSONL logging and memory integration.
+
+```
+klaw chat
+klaw chat --url ws://sickfar-pi.local:37474/chat
+```
+
+Options:
+- `--url URL` — connect to a specific gateway WebSocket URL, bypassing the `enabled` check in `gateway.yaml`
+
+**Requirements:** The console channel must be enabled in `gateway.yaml`. If it is not, `klaw chat` prints an actionable error with instructions.
+
+**Enabling:** Run `klaw init` and answer `y` at the WebSocket chat setup phase, or add to `gateway.yaml`:
+
+```yaml
+channels:
+  console:
+    enabled: true
+    port: 37474
+```
+
+Then restart the gateway:
+
+```
+klaw gateway restart
+```
+
+**Quit:** Press `Ctrl+C` or type `/exit` and press Enter.
 
 ---
 

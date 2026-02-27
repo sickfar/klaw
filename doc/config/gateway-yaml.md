@@ -15,6 +15,9 @@ channels:
     allowedChatIds:
       - "telegram_123456789"
       - "telegram_987654321"
+  console:
+    enabled: true
+    port: 37474
   discord:
     enabled: false
     token: null
@@ -63,6 +66,34 @@ Use this exact format in:
 ### What to do when send_message is blocked
 
 If the agent reports `"chatId not in allowedChatIds"`, the target chat must be added to `gateway.yaml` by the operator. The agent cannot modify this file.
+
+---
+
+## channels.console
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable the terminal console channel (`klaw chat`) |
+| `port` | integer | `37474` | Port the Gateway WebSocket server listens on |
+
+The console channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's `/chat` WebSocket endpoint at `ws://localhost:<port>/chat`.
+
+**Disabled by default.** The Gateway always registers the `/chat` endpoint, but rejects all connections unless `enabled: true`.
+
+**Session:** All console messages use the fixed chatId `console_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
+
+**Allow policy:** `console_default` is implicitly allowed for outbound delivery — no entry in `allowedChatIds` is needed. Other chatIds are blocked on the console channel.
+
+To enable via `klaw init`, answer `y` at the "WebSocket chat setup" phase. To enable manually:
+
+```yaml
+channels:
+  console:
+    enabled: true
+    port: 37474   # default; change if port is already in use
+```
+
+Then restart the gateway: `klaw gateway restart`
 
 ---
 
