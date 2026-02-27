@@ -1,6 +1,16 @@
 # Local Development with Docker
 
-## Overview
+## Which path is right for you?
+
+| Goal | Go to |
+|------|-------|
+| **Use Klaw (no git, no JDK)** | [Docker Quick Start](docker-quickstart.md) |
+| **Use Klaw (Java 21+, no Docker)** | [Native Quick Start](native-quickstart.md) |
+| **Develop Klaw (build from source)** | Continue reading below |
+
+---
+
+## Developing Klaw from source
 
 `docker compose up` runs Engine + Gateway locally. Both communicate over a shared Docker volume (`klaw-state`) that holds `engine.sock`, mirroring the production Pi setup.
 

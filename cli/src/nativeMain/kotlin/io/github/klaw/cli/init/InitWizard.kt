@@ -205,8 +205,9 @@ internal class InitWizard(
         } else {
             phase(9, "Service setup")
             val envFile = "$configDir/.env"
-            val engineBin = "/usr/local/bin/klaw-engine"
-            val gatewayBin = "/usr/local/bin/klaw-gateway"
+            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+            val engineBin = "$home/.local/bin/klaw-engine"
+            val gatewayBin = "$home/.local/bin/klaw-gateway"
             val serviceInstaller =
                 ServiceInstaller(
                     outputDir = serviceOutputDir,
@@ -243,6 +244,20 @@ internal class InitWizard(
         printer("  ${AnsiColors.CYAN}Workspace${AnsiColors.RESET}: $workspaceDir")
         printer("  ${AnsiColors.CYAN}Agent${AnsiColors.RESET}: $agentName")
         printer("  ${AnsiColors.CYAN}Model${AnsiColors.RESET}: $modelId")
+        if (isDockerEnv) {
+            printer("")
+            printer("  To run klaw commands:")
+            printer("    docker run -it --rm \\")
+            printer("      -v /var/run/docker.sock:/var/run/docker.sock \\")
+            printer("      -v klaw-config:/root/.config/klaw \\")
+            printer("      -v klaw-state:/root/.local/state/klaw \\")
+            printer("      -v klaw-data:/root/.local/share/klaw \\")
+            printer("      -v klaw-workspace:/workspace \\")
+            printer("      ghcr.io/sickfar/klaw-cli:latest [command]")
+            printer("")
+            printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
+            printer("    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install")
+        }
     }
 
     private fun extractJsonField(

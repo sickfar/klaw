@@ -22,9 +22,25 @@ The GitHub Actions release workflow (`.github/workflows/release.yml`) runs autom
 
 The Linux runner cross-compiles `klaw-linuxArm64` for Raspberry Pi 5 (Kotlin/Native ships its own LLVM toolchain that supports arm64 cross-compilation from x86-64).
 
-### Publish job
+### Docker publish job
 
-After both build jobs succeed:
+After `build-linux` succeeds, `publish-docker` runs in parallel with `build-macos`:
+
+1. Downloads Linux artifacts (JARs + `klaw-linuxX64`)
+2. Logs in to GHCR using `GITHUB_TOKEN`
+3. Builds and pushes three Docker images:
+
+| Image | Tags |
+|-------|------|
+| `ghcr.io/sickfar/klaw-engine` | `:latest`, `:{version}` |
+| `ghcr.io/sickfar/klaw-gateway` | `:latest`, `:{version}` |
+| `ghcr.io/sickfar/klaw-cli` | `:latest`, `:{version}` |
+
+The `klaw-cli` image contains the `klaw-linuxX64` binary and the production compose file baked in at `/app/docker-compose.yml`.
+
+### Publish GitHub Release job
+
+After `build-linux`, `build-macos`, and `publish-docker` all succeed:
 1. Downloads all artifacts from both build jobs into `release-dist/`
 2. Creates a GitHub Release named after the tag
 3. Uploads all artifacts to the release

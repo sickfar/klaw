@@ -24,10 +24,12 @@ Natural language queries work well. Example: `docs_search "how do I schedule a t
 
 ## Deployment docs (for setup and maintenance questions)
 
+- `doc/deployment/docker-quickstart.md` — first-time Docker setup (no JDK needed)
+- `doc/deployment/native-quickstart.md` — first-time native setup (Java 21+, no Docker)
 - `doc/deployment/building.md` — how to build artifacts (`assembleDist`, `scripts/build.sh`)
 - `doc/deployment/deploying.md` — deploy to Raspberry Pi, systemd services, `scripts/deploy.sh`
 - `doc/deployment/local-dev.md` — Docker Compose local dev, `./klaw` wrapper, config setup
-- `doc/deployment/releasing.md` — cut a release via git tags, GitHub Actions workflow
+- `doc/deployment/releasing.md` — cut a release via git tags, GitHub Actions workflow, Docker image publishing
 
 ## When to consult docs
 

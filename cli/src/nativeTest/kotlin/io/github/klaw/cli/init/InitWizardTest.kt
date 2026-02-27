@@ -1,6 +1,8 @@
 package io.github.klaw.cli.init
 
 import io.github.klaw.cli.util.fileExists
+import io.github.klaw.cli.util.isDirectory
+import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -293,7 +295,7 @@ class InitWizardTest {
 
         // In docker env mode, no systemd unit files should be written to serviceOutputDir
         val unitFiles =
-            io.github.klaw.cli.util.listDirectory("$tmpDir/service").filter {
+            listDirectory("$tmpDir/service").filter {
                 it.endsWith(".service") || it.endsWith(".plist")
             }
         assertTrue(
@@ -345,6 +347,112 @@ class InitWizardTest {
         )
     }
 
+    @Test
+    fun `docker env printSummary includes docker run command`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                isDockerEnv = true,
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("docker run"), "Expected 'docker run' in summary, got:\n$outputText")
+        assertTrue(outputText.contains("klaw-cli"), "Expected 'klaw-cli' in summary, got:\n$outputText")
+    }
+
+    @Test
+    fun `native printSummary does not include docker run`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                isDockerEnv = false,
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(!outputText.contains("docker run"), "Expected no 'docker run' in native summary, got:\n$outputText")
+    }
+
+    @Test
+    fun `native mode service installer receives user-local bin paths`() {
+        val inputs =
+            listOf(
+                "https://api.example.com",
+                "my-api-key",
+                "test/model",
+                "bot-token",
+                "",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "developer",
+                "",
+            )
+        val engineResponse =
+            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/service", 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                isDockerEnv = false,
+            )
+        wizard.run()
+
+        // Verify service files reference .local/bin paths, not /usr/local/bin
+        val serviceFiles = listDirectory("$tmpDir/service")
+        val anyFileContainsLocalBin =
+            serviceFiles.any { file ->
+                val content = readFileText("$tmpDir/service/$file")
+                content?.contains(".local/bin/klaw-engine") == true ||
+                    content?.contains(".local/bin/klaw-gateway") == true
+            }
+        assertTrue(anyFileContainsLocalBin, "Expected .local/bin paths in service files, got files: $serviceFiles")
+    }
+
     @OptIn(ExperimentalForeignApi::class)
     private fun writeFile(
         path: String,
@@ -359,14 +467,10 @@ class InitWizardTest {
     }
 
     private fun deleteDir(path: String) {
-        val entries =
-            io.github.klaw.cli.util
-                .listDirectory(path)
+        val entries = listDirectory(path)
         for (entry in entries) {
             val entryPath = "$path/$entry"
-            if (io.github.klaw.cli.util
-                    .isDirectory(entryPath)
-            ) {
+            if (isDirectory(entryPath)) {
                 deleteDir(entryPath)
             } else {
                 platform.posix.unlink(entryPath)

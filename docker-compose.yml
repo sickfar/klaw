@@ -44,5 +44,10 @@ services:
 
 volumes:
   klaw-state:
+    name: klaw-state
   klaw-data:
+    name: klaw-data
   klaw-workspace:
+    name: klaw-workspace
+  klaw-config:
+    name: klaw-config

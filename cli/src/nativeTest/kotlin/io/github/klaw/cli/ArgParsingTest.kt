@@ -96,4 +96,116 @@ class ArgParsingTest {
         val result = cli.test("unknown_command_xyz")
         assertEquals(1, result.statusCode)
     }
+
+    @Test
+    fun `klaw engine start is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("engine start")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw engine stop is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("engine stop")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw engine restart is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("engine restart")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw gateway start is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("gateway start")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw gateway stop is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("gateway stop")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw gateway restart is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("gateway restart")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw stop is a valid command`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                coreMemoryPath = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                commandRunner = { 0 },
+            )
+        val result = cli.test("stop")
+        assertEquals(0, result.statusCode)
+    }
 }

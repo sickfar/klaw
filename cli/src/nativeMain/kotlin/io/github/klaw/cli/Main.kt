@@ -5,6 +5,8 @@ import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.DoctorCommand
+import io.github.klaw.cli.command.EngineCommand
+import io.github.klaw.cli.command.GatewayCommand
 import io.github.klaw.cli.command.IdentityCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
@@ -13,6 +15,7 @@ import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
+import io.github.klaw.cli.command.StopCommand
 import io.github.klaw.cli.socket.EngineSocketClient
 import io.github.klaw.common.paths.KlawPaths
 
@@ -46,6 +49,9 @@ class KlawCli(
             DoctorCommand(configDir, engineSocketPath, modelsDir),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),
+            EngineCommand(commandRunner),
+            GatewayCommand(commandRunner),
+            StopCommand(commandRunner),
         )
     }
 

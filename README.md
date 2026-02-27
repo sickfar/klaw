@@ -4,20 +4,39 @@ Lightweight AI agent for Raspberry Pi 5, with Chinese LLM support (GLM, DeepSeek
 
 Two-process architecture: **Gateway** handles Telegram/Discord messaging; **Engine** handles LLM orchestration, memory, scheduling, and tool execution.
 
-## Build
+---
+
+## Quick Start
+
+### Docker (no git, no JDK)
 
 ```bash
-# Compile (skips tests)
-./gradlew build -x test
-
-# Run all tests
-./gradlew :common:jvmTest :gateway:test :engine:test
-
-# Code quality
-./gradlew ktlintCheck detekt
+docker run -it --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v klaw-config:/root/.config/klaw \
+  -v klaw-state:/root/.local/state/klaw \
+  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-workspace:/workspace \
+  ghcr.io/sickfar/klaw-cli:latest init
 ```
 
-**Build requirements:** JDK 21+, Gradle 8.14.4 (via wrapper)
+Or use the one-liner to install a `klaw` wrapper in `~/.local/bin`:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install
+```
+
+→ See [Docker Quick Start](doc/deployment/docker-quickstart.md)
+
+### Native (requires Java 21+, no Docker)
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/install-klaw.sh)
+```
+
+Downloads JARs + CLI binary from GitHub Releases, sets up systemd/launchd services, and runs `klaw init`.
+
+→ See [Native Quick Start](doc/deployment/native-quickstart.md)
 
 ---
 
@@ -107,6 +126,23 @@ docker compose restart engine       # restart engine only
 
 ---
 
+## Build
+
+```bash
+# Compile (skips tests)
+./gradlew build -x test
+
+# Run all tests
+./gradlew :common:jvmTest :gateway:test :engine:test
+
+# Code quality
+./gradlew ktlintCheck detekt
+```
+
+**Build requirements:** JDK 21+, Gradle 8.14.4 (via wrapper)
+
+---
+
 ## Releasing
 
 Push a version tag to trigger a GitHub Actions release:
@@ -119,6 +155,7 @@ git push origin v0.1.0
 The release workflow builds:
 - Linux: fat JARs + `klaw-linuxX64` + `klaw-linuxArm64` (on ubuntu-latest)
 - macOS: `klaw-macosArm64` + `klaw-macosX64` (on macos-latest)
+- Docker images: `klaw-engine`, `klaw-gateway`, `klaw-cli` published to GHCR
 
 Artifacts are uploaded to a GitHub Release automatically with generated release notes.
 

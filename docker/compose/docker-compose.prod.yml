@@ -1,0 +1,31 @@
+services:
+  engine:
+    image: ghcr.io/sickfar/klaw-engine:latest
+    environment:
+      - KLAW_WORKSPACE=/workspace
+    volumes:
+      - klaw-state:/root/.local/state/klaw
+      - klaw-data:/root/.local/share/klaw
+      - klaw-workspace:/workspace
+      - klaw-config:/root/.config/klaw:ro
+    restart: unless-stopped
+
+  gateway:
+    image: ghcr.io/sickfar/klaw-gateway:latest
+    depends_on:
+      - engine
+    volumes:
+      - klaw-state:/root/.local/state/klaw
+      - klaw-data:/root/.local/share/klaw
+      - klaw-config:/root/.config/klaw:ro
+    restart: unless-stopped
+
+volumes:
+  klaw-state:
+    name: klaw-state
+  klaw-data:
+    name: klaw-data
+  klaw-workspace:
+    name: klaw-workspace
+  klaw-config:
+    name: klaw-config

@@ -1,0 +1,170 @@
+# Docker Quick Start
+
+Run Klaw with Docker — no git, no JDK, no Gradle needed. Just Docker.
+
+## Prerequisites
+
+- Docker Desktop (or Docker Engine on Linux)
+- A Telegram bot token — create one via [@BotFather](https://t.me/BotFather)
+- An LLM API key (GLM-4, DeepSeek, Qwen, or any OpenAI-compatible provider)
+
+---
+
+## Option 1: One-liner setup (recommended)
+
+```bash
+docker run -it --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v klaw-config:/root/.config/klaw \
+  -v klaw-state:/root/.local/state/klaw \
+  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-workspace:/workspace \
+  ghcr.io/sickfar/klaw-cli:latest init
+```
+
+The wizard asks for your API keys and agent identity, then starts the engine and gateway containers automatically.
+
+## Option 2: Install the `klaw` wrapper
+
+Add `klaw` to your PATH so you don't need the full `docker run` command every time:
+
+```bash
+bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install
+```
+
+This creates `~/.local/bin/klaw` — a thin shell wrapper around the `docker run` command. Make sure `~/.local/bin` is in your PATH:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then run:
+
+```bash
+klaw init
+```
+
+---
+
+## What `klaw init` will ask
+
+1. **LLM provider base URL** — default: `https://open.bigmodel.cn/api/paas/v4` (GLM)
+2. **LLM API key**
+3. **Model ID** — default: `glm/glm-4-plus`
+4. **Telegram bot token**
+5. **Allowed chat IDs** — comma-separated, or leave blank to allow all
+6. **Agent name** — default: `Klaw`
+7. **Personality traits** — e.g. "curious, analytical, warm"
+8. **Primary role** — e.g. "personal assistant"
+9. **User description** — tell the agent about yourself
+10. **Specialized domains** — optional
+
+After answering, it writes config files to the `klaw-config` volume, starts the engine, generates identity files, then starts both containers.
+
+---
+
+## Volume layout
+
+| Volume | Mount path | Contents |
+|--------|-----------|----------|
+| `klaw-config` | `/root/.config/klaw` | `engine.yaml`, `gateway.yaml`, `.env` (API keys) |
+| `klaw-state` | `/root/.local/state/klaw` | `engine.sock`, `gateway-buffer.jsonl` |
+| `klaw-data` | `/root/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
+| `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `skills/` |
+
+Volumes persist across container restarts. Data is never lost when stopping or upgrading.
+
+---
+
+## Daily commands
+
+After setup, use the `klaw` wrapper (or the full `docker run` command):
+
+```bash
+klaw status              # check engine status
+klaw doctor              # diagnose installation issues
+klaw logs                # recent conversation messages
+klaw logs --follow       # stream messages live
+klaw engine restart      # restart the engine container
+klaw gateway restart     # restart the gateway container
+klaw stop                # stop both engine and gateway
+klaw memory show         # show core memory
+klaw sessions            # list active sessions
+```
+
+---
+
+## Service restart behavior
+
+Both engine and gateway containers have `restart: unless-stopped`. They restart automatically after:
+- Docker daemon restart
+- Host reboot (if Docker is configured to start on boot)
+
+To disable auto-restart for a service:
+
+```bash
+docker update --restart=no klaw-engine
+```
+
+---
+
+## Updating
+
+```bash
+# Pull latest images
+docker pull ghcr.io/sickfar/klaw-engine:latest
+docker pull ghcr.io/sickfar/klaw-gateway:latest
+docker pull ghcr.io/sickfar/klaw-cli:latest
+
+# Restart services to use new images
+klaw engine restart
+klaw gateway restart
+```
+
+Or stop and let Docker Compose recreate the containers:
+
+```bash
+klaw stop
+klaw engine start
+```
+
+---
+
+## Troubleshooting
+
+**Engine doesn't start:**
+
+```bash
+docker logs klaw-engine
+```
+
+**Gateway can't reach engine:**
+
+The gateway has a reconnect loop — it retries automatically. Check:
+
+```bash
+docker logs klaw-gateway
+```
+
+**`klaw` command not found:**
+
+Ensure `~/.local/bin` is in your PATH. Add to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**Config files need updating:**
+
+Edit files inside the volume by running a temporary container:
+
+```bash
+docker run -it --rm -v klaw-config:/config alpine sh
+# then edit /config/engine.yaml
+```
+
+Or use `klaw config set KEY VALUE` for individual changes:
+
+```bash
+klaw config set routing.default glm/glm-5
+```

@@ -41,6 +41,40 @@ klaw config set maxTokens 4096
 Prints a reminder to restart the Engine after changes:
 > Updated routing.default. Restart Engine to apply changes.
 
+### `klaw engine start / stop / restart`
+
+Starts, stops, or restarts the engine service.
+
+```
+klaw engine start
+klaw engine stop
+klaw engine restart
+```
+
+In Docker environments, uses `docker compose up -d` / `stop` / `restart`.
+On Linux, delegates to `systemctl --user`.
+On macOS, delegates to `launchctl`.
+
+### `klaw gateway start / stop / restart`
+
+Starts, stops, or restarts the gateway service.
+
+```
+klaw gateway start
+klaw gateway stop
+klaw gateway restart
+```
+
+### `klaw stop`
+
+Stops both gateway and engine (gateway first, then engine).
+
+```
+klaw stop
+```
+
+---
+
 ### `klaw identity edit`
 
 Opens `SOUL.md` and `IDENTITY.md` from the workspace in your `$EDITOR` (falls back to `vi`).
