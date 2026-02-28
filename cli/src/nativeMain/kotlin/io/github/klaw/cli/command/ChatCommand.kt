@@ -70,12 +70,17 @@ internal class ChatCommand(
                     } catch (e: Exception) {
                         val msg =
                             when (e::class.simpleName) {
-                                "ConnectException", "IOException" ->
+                                "ConnectException", "IOException" -> {
                                     "Cannot connect to gateway at $wsUrl — is the gateway running?"
-                                "WebSocketException" ->
+                                }
+
+                                "WebSocketException" -> {
                                     "WebSocket connection failed — gateway may not have console chat enabled"
-                                else ->
+                                }
+
+                                else -> {
                                     "Connection error: ${e::class.simpleName}"
+                                }
                             }
                         events.trySend(ChatEvent.MessageReceived(msg))
                     }
@@ -95,7 +100,7 @@ internal class ChatCommand(
                                 escState = 0 // consume direction byte (A/B/C/D), ignore
                             }
 
-                            else ->
+                            else -> {
                                 when (byte) {
                                     0x1B -> escState = 1
 
@@ -115,6 +120,7 @@ internal class ChatCommand(
 
                                     else -> if (byte >= 32) events.send(ChatEvent.KeyPressed(byte.toChar()))
                                 }
+                            }
                         }
                     }
                 }

@@ -101,7 +101,7 @@ class AutoRagServiceTest {
         }
 
     @Test
-    fun `ftsSearch scoped to chatId — excludes other chatIds`() =
+    fun `ftsSearch scoped to chatId - excludes other chatIds`() =
         runBlocking {
             insertMessage(
                 id = "m1",
@@ -124,7 +124,7 @@ class AutoRagServiceTest {
         }
 
     @Test
-    fun `ftsSearch scoped to segmentStart — excludes earlier messages`() =
+    fun `ftsSearch scoped to segmentStart - excludes earlier messages`() =
         runBlocking {
             insertMessage(
                 id = "m1",
