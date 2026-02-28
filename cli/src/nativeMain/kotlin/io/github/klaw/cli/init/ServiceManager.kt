@@ -106,3 +106,19 @@ internal class ServiceManager(
         }
     }
 }
+
+@OptIn(ExperimentalNativeApi::class)
+internal fun createServiceManager(
+    printer: (String) -> Unit,
+    commandRunner: (String) -> Int,
+    configDir: String,
+): ServiceManager {
+    val deployConfig = readDeployConf(configDir)
+    val composeFile =
+        when (deployConfig.mode) {
+            DeployMode.DOCKER -> "/app/docker-compose.json"
+            DeployMode.HYBRID -> "$configDir/docker-compose.json"
+            DeployMode.NATIVE -> ""
+        }
+    return ServiceManager(printer, commandRunner, deployConfig.mode, composeFile)
+}

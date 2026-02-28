@@ -53,9 +53,9 @@ class KlawCli(
             DoctorCommand(configDir, engineSocketPath, modelsDir, workspaceDir, doctorCommandOutput),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),
-            EngineCommand(commandRunner),
-            GatewayCommand(commandRunner),
-            StopCommand(commandRunner),
+            EngineCommand(commandRunner, configDir),
+            GatewayCommand(commandRunner, configDir),
+            StopCommand(commandRunner, configDir),
         )
     }
 
