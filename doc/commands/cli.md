@@ -261,9 +261,18 @@ klaw reindex
 
 ---
 
+## Global Options
+
+| Flag | Description |
+|------|-------------|
+| `-v`, `--verbose` | Enable DEBUG-level CLI logging (default: INFO). Logs are written to `~/.local/state/klaw/logs/cli.log`. Falls back to `/tmp/klaw/cli.log` if the logs directory does not yet exist. |
+
+---
+
 ## Notes
 
 - Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.
+- CLI logs are written to `~/.local/state/klaw/logs/cli.log`. Use `-v` for verbose (DEBUG) output.

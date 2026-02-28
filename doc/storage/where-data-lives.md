@@ -90,12 +90,21 @@ klaw-engine
 
 **Path:** `~/.local/state/klaw/logs/`
 
+| File | Description |
+|------|-------------|
+| `engine.log` | Engine (JVM) — rolling file, DEBUG level for `io.github.klaw`, INFO for root |
+| `gateway.log` | Gateway (JVM) — same configuration as Engine |
+| `cli.log` | CLI (Native) — append-only file log. INFO by default, DEBUG with `klaw -v`. Falls back to `/tmp/klaw/cli.log` if the logs directory does not yet exist (e.g. before `klaw init`). |
+
 ```bash
 # View recent Engine logs
 tail -f ~/.local/state/klaw/logs/engine.log
 
 # View recent Gateway logs
 tail -f ~/.local/state/klaw/logs/gateway.log
+
+# View recent CLI logs
+tail -f ~/.local/state/klaw/logs/cli.log
 ```
 
 ---
