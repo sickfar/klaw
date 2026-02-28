@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.socket.EngineNotRunningException
+import io.github.klaw.cli.util.CliLogger
 
 internal class ScheduleCommand(
     requestFn: EngineRequest,
@@ -25,9 +26,11 @@ internal class ScheduleListCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "list") {
     override fun run() {
+        CliLogger.debug { "schedule list" }
         try {
             echo(requestFn("schedule_list", emptyMap()))
         } catch (_: EngineNotRunningException) {
+            CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
         }
     }
@@ -43,6 +46,7 @@ internal class ScheduleAddCommand(
     private val injectInto by option("--inject-into")
 
     override fun run() {
+        CliLogger.debug { "schedule add name=$name" }
         try {
             val params =
                 buildMap {
@@ -54,6 +58,7 @@ internal class ScheduleAddCommand(
                 }
             echo(requestFn("schedule_add", params))
         } catch (_: EngineNotRunningException) {
+            CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
         }
     }
@@ -65,9 +70,11 @@ internal class ScheduleRemoveCommand(
     private val name by argument()
 
     override fun run() {
+        CliLogger.debug { "schedule remove name=$name" }
         try {
             echo(requestFn("schedule_remove", mapOf("name" to name)))
         } catch (_: EngineNotRunningException) {
+            CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
         }
     }

@@ -3,6 +3,7 @@ package io.github.klaw.cli.command
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
@@ -27,13 +28,16 @@ internal class ConfigSetCommand(
     private val value by argument()
 
     override fun run() {
+        CliLogger.debug { "config set key=$key" }
         val configPath = "$configDir/engine.json"
         if (!fileExists(configPath)) {
+            CliLogger.warn { "config not found at $configPath" }
             echo("Config not found — run: klaw init")
             return
         }
         val content =
             readFileText(configPath) ?: run {
+                CliLogger.error { "could not read $configPath" }
                 echo("Error: could not read $configPath")
                 return
             }
@@ -41,15 +45,18 @@ internal class ConfigSetCommand(
             try {
                 parseEngineConfig(content)
             } catch (e: Exception) {
+                CliLogger.error { "config parse error: ${e::class.simpleName}" }
                 echo("Error: could not parse $configPath — ${e::class.simpleName}")
                 return
             }
         val updated = updateConfigValue(config, key, value)
         if (updated == null) {
+            CliLogger.warn { "unknown config key: $key" }
             echo("Unknown config key: $key")
             return
         }
         writeFileText(configPath, encodeEngineConfig(updated))
+        CliLogger.info { "config updated key=$key" }
         echo("Updated $key. Restart Engine to apply changes.")
     }
 

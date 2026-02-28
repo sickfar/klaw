@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -38,12 +39,17 @@ internal class EngineStarter(
                 }
         commandRunner(startCmd)
 
+        CliLogger.debug { "polling for socket at $engineSocketPath" }
         val deadline = Clock.System.now().toEpochMilliseconds() + timeoutMs
         while (Clock.System.now().toEpochMilliseconds() < deadline) {
-            if (fileExists(engineSocketPath)) return true
+            if (fileExists(engineSocketPath)) {
+                CliLogger.info { "engine started, socket found" }
+                return true
+            }
             onTick()
             sleepMs(pollIntervalMs)
         }
+        CliLogger.warn { "engine start timed out after ${timeoutMs}ms" }
         return fileExists(engineSocketPath)
     }
 

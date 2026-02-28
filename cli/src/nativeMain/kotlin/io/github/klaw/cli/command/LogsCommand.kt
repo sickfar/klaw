@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
@@ -37,7 +38,11 @@ internal class LogsCommand(
         if (!fileExists(conversationsDir) || !isDirectory(conversationsDir)) return
 
         val chatDirs = resolveChatDirs()
-        if (chatDirs.isEmpty()) return
+        if (chatDirs.isEmpty()) {
+            CliLogger.warn { "no conversation directories found" }
+            return
+        }
+        CliLogger.debug { "resolved ${chatDirs.size} chat dir(s), follow=$follow" }
 
         showRecentLogs(chatDirs, limit)
 

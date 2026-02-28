@@ -2,6 +2,7 @@ package io.github.klaw.cli.command
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -27,7 +28,9 @@ internal class IdentityEditCommand(
     override fun run() {
         val editor = getenv("EDITOR")?.toKString() ?: "vi"
         val identityPath = "$workspaceDir/IDENTITY.md"
+        CliLogger.debug { "opening editor=$editor for $identityPath" }
         if (!fileExists(identityPath)) {
+            CliLogger.warn { "workspace not found at $workspaceDir" }
             echo("Workspace identity files not found — run: klaw init")
             return
         }

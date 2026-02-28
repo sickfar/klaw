@@ -4,6 +4,7 @@ import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
@@ -102,10 +103,12 @@ internal class InitWizard(
 
         phase(1, "Pre-check")
         if (fileExists("$configDir/engine.json")) {
+            CliLogger.info { "already initialized, skipping" }
             printer("Already initialized. Use: klaw config set to modify settings.")
             return
         }
 
+        CliLogger.info { "phase 2: deployment mode" }
         phase(2, "Deployment mode")
         val resolvedMode: DeployMode
         val dockerTag: String
@@ -129,6 +132,8 @@ internal class InitWizard(
             }
         }
 
+        CliLogger.info { "phase 3: LLM provider setup" }
+        CliLogger.debug { "resolved deploy mode=${resolvedMode.configName}" }
         phase(3, "LLM provider setup")
         val providerIdx = radioSelector(LLM_PROVIDERS.map { it.label }, "LLM provider:")
         val providerUrl: String
@@ -154,6 +159,7 @@ internal class InitWizard(
             return
         }
 
+        CliLogger.info { "phase 4: Telegram setup" }
         phase(4, "Telegram setup")
         printer("Configure Telegram bot? [Y/n]:")
         val telegramAnswer = readLineOrExit() ?: return
@@ -176,6 +182,7 @@ internal class InitWizard(
             chatIds = emptyList()
         }
 
+        CliLogger.info { "phase 5: WebSocket chat setup" }
         phase(5, "WebSocket chat setup")
         printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
         val enableConsole = readLineOrExit()?.trim()?.lowercase() == "y"
@@ -197,6 +204,7 @@ internal class InitWizard(
                 DeployMode.NATIVE -> ""
             }
 
+        CliLogger.info { "phase 6: setup" }
         phase(6, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
@@ -217,6 +225,7 @@ internal class InitWizard(
             chmodWorldRwx(dataDir)
             chmodWorldRwx("$stateDir/run")
         }
+        CliLogger.debug { "writing config files to $configDir" }
         writeFileText("$configDir/engine.json", ConfigTemplates.engineJson(providerUrl, modelId))
         writeFileText(
             "$configDir/gateway.json",
@@ -244,6 +253,7 @@ internal class InitWizard(
         }
         success("Directories and configuration written")
 
+        CliLogger.info { "phase 7: engine auto-start" }
         phase(7, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val startCommand =
@@ -262,6 +272,7 @@ internal class InitWizard(
         val engineStarter = engineStarterFactory({ spinner.tick() }, startCommand)
         val engineStarted = engineStarter.startAndWait()
         if (!engineStarted) {
+            CliLogger.warn { "engine did not start within timeout" }
             printer("${AnsiColors.YELLOW}⚠ Engine did not start automatically.${AnsiColors.RESET}")
             val manualStartCmd =
                 when (resolvedMode) {
@@ -284,6 +295,7 @@ internal class InitWizard(
             spinner.done("Engine started")
         }
 
+        CliLogger.info { "phase 8: service/container startup" }
         when (resolvedMode) {
             DeployMode.DOCKER -> {
                 phase(8, "Container startup")
@@ -359,6 +371,7 @@ internal class InitWizard(
                             )
                         }
                     } catch (e: Exception) {
+                        CliLogger.error { "identity generation failed: ${e::class.simpleName}" }
                         """{"error":"${e::class.simpleName}"}"""
                     }
                 spinnerJob.cancel()
@@ -396,6 +409,7 @@ internal class InitWizard(
         llmApiKey: String,
     ): String? {
         if ("'" in providerUrl || "'" in llmApiKey) {
+            CliLogger.warn { "unsafe characters in URL or key, skipping validation" }
             printer("${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}")
             return null
         }
@@ -403,9 +417,11 @@ internal class InitWizard(
         val cmd = "curl -s -m $MODELS_FETCH_TIMEOUT -H 'Authorization: Bearer $llmApiKey' '$url'"
         val response = commandOutput(cmd) ?: return null
         return if (response.contains("\"data\"")) {
+            CliLogger.debug { "API key validation passed" }
             printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
             response
         } else {
+            CliLogger.warn { "API key validation failed" }
             printer("${AnsiColors.YELLOW}⚠ Could not validate API key (continuing anyway).${AnsiColors.RESET}")
             null
         }

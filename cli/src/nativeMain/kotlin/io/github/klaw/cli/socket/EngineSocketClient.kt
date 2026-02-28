@@ -72,6 +72,7 @@ class EngineSocketClient(
             while (sent < lineBytes.size) {
                 val n = send(fd, pinned.addressOf(sent), (lineBytes.size - sent).convert(), 0).toInt()
                 if (n <= 0) {
+                    CliLogger.error { "send failed for $socketPath" }
                     close(fd)
                     throw EngineNotRunningException()
                 }

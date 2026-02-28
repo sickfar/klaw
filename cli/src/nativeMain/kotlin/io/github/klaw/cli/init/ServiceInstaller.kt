@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.writeFileText
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
@@ -17,10 +18,20 @@ internal class ServiceInstaller(
         gatewayBin: String,
         envFile: String,
     ) {
+        CliLogger.info { "installing services to $outputDir" }
         when (Platform.osFamily) {
-            OsFamily.LINUX -> installSystemd(engineBin, gatewayBin, envFile)
-            OsFamily.MACOSX -> installLaunchd(engineBin, gatewayBin)
-            else -> println("Warning: automatic service installation not supported on this OS")
+            OsFamily.LINUX -> {
+                installSystemd(engineBin, gatewayBin, envFile)
+            }
+
+            OsFamily.MACOSX -> {
+                installLaunchd(engineBin, gatewayBin)
+            }
+
+            else -> {
+                CliLogger.warn { "unsupported OS for service installation" }
+                println("Warning: automatic service installation not supported on this OS")
+            }
         }
     }
 
@@ -48,6 +59,7 @@ internal class ServiceInstaller(
         gatewayBin: String,
         envFile: String,
     ) {
+        CliLogger.debug { "writing systemd units to $outputDir" }
         writeSystemdUnits(engineBin, gatewayBin, envFile)
         commandRunner("systemctl --user daemon-reload")
         commandRunner("systemctl --user enable klaw-engine klaw-gateway")
@@ -58,6 +70,7 @@ internal class ServiceInstaller(
         engineBin: String,
         gatewayBin: String,
     ) {
+        CliLogger.debug { "writing launchd plists to $outputDir" }
         writeLaunchdPlists(engineBin, gatewayBin)
         commandRunner("launchctl load -w $outputDir/io.github.klaw.engine.plist")
         commandRunner("launchctl load -w $outputDir/io.github.klaw.gateway.plist")

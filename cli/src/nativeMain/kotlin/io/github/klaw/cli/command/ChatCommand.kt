@@ -10,6 +10,7 @@ import io.github.klaw.cli.chat.ConsoleChatConfig
 import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.chat.readRawByte
 import io.github.klaw.cli.ui.AnsiColors
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,13 +26,17 @@ internal class ChatCommand(
     private val url by option("--url", help = "Override gateway WebSocket URL (bypasses enabled check)")
 
     override fun run() {
+        CliLogger.info { "chat start" }
         val chatConfig = configReader(configDir)
         if (url == null && !chatConfig.enabled) {
+            CliLogger.warn { "console chat not enabled" }
             showConsoleChatDisabledError()
             return
         }
         val resolvedUrl = url ?: chatConfig.wsUrl
+        CliLogger.debug { "connecting to $resolvedUrl" }
         runBlocking { runChat(resolvedUrl) }
+        CliLogger.info { "chat end" }
     }
 
     private fun showConsoleChatDisabledError() {
@@ -65,6 +70,7 @@ internal class ChatCommand(
                             outgoing = sendChannel,
                         )
                     } catch (e: Exception) {
+                        CliLogger.error { "chat connection failed: ${e::class.simpleName}" }
                         val msg =
                             when (e::class.simpleName) {
                                 "ConnectException", "IOException" -> {

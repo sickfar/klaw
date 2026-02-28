@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.util.CliLogger
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
@@ -21,6 +22,7 @@ internal class ServiceManager(
     private val osFamily: OsFamily = Platform.osFamily,
 ) {
     fun start(service: KlawService): Boolean {
+        CliLogger.debug { "service start ${service.dockerName} mode=$deployMode" }
         printer("Starting ${service.dockerName}...")
         val cmd =
             when (deployMode) {
@@ -39,6 +41,7 @@ internal class ServiceManager(
     }
 
     fun stop(service: KlawService): Boolean {
+        CliLogger.debug { "service stop ${service.dockerName} mode=$deployMode" }
         printer("Stopping ${service.dockerName}...")
         val cmd =
             when (deployMode) {
@@ -57,6 +60,7 @@ internal class ServiceManager(
     }
 
     fun restart(service: KlawService): Boolean {
+        CliLogger.debug { "service restart ${service.dockerName} mode=$deployMode" }
         printer("Restarting ${service.dockerName}...")
         return when (deployMode) {
             DeployMode.DOCKER, DeployMode.HYBRID -> {
@@ -82,6 +86,7 @@ internal class ServiceManager(
     }
 
     fun stopAll(): Boolean {
+        CliLogger.debug { "stopping all services mode=$deployMode" }
         printer("Stopping all klaw services...")
         return when (deployMode) {
             DeployMode.DOCKER, DeployMode.HYBRID -> {

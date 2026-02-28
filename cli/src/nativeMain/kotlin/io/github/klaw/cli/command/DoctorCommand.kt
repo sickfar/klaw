@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.init.DeployMode
 import io.github.klaw.cli.init.readDeployConf
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
@@ -32,6 +33,7 @@ internal class DoctorCommand(
     private val dumpSchema by option("--dump-schema")
 
     override fun run() {
+        CliLogger.debug { "running doctor checks" }
         // Handle --dump-schema early exit
         dumpSchema?.let { target ->
             val schema =
@@ -69,8 +71,10 @@ internal class DoctorCommand(
 
         // Engine socket
         if (fileExists(engineSocketPath)) {
+            CliLogger.debug { "engine socket found" }
             echo("✓ Engine: running")
         } else {
+            CliLogger.warn { "engine socket not found at $engineSocketPath" }
             echo("✗ Engine: stopped (socket not found at $engineSocketPath)")
         }
 
@@ -82,15 +86,19 @@ internal class DoctorCommand(
                 emptyList()
             }
         if (onnxFiles.isNotEmpty()) {
+            CliLogger.debug { "ONNX models found: ${onnxFiles.size}" }
             echo("✓ ONNX model: ${onnxFiles.size} .onnx file(s) found in $modelsDir")
         } else {
+            CliLogger.warn { "no ONNX models in $modelsDir" }
             echo("✗ ONNX: no .onnx files in models directory ($modelsDir)")
         }
 
         // Workspace
         if (fileExists(workspaceDir) && isDirectory(workspaceDir)) {
+            CliLogger.debug { "workspace found" }
             echo("✓ Workspace: found")
         } else {
+            CliLogger.warn { "workspace missing at $workspaceDir" }
             echo("✗ Workspace: missing ($workspaceDir)")
         }
 

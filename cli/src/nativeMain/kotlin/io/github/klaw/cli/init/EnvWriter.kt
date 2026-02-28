@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.util.CliLogger
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
@@ -20,6 +21,7 @@ internal object EnvWriter {
         path: String,
         entries: Map<String, String>,
     ) {
+        CliLogger.debug { "writing env file to $path" }
         val content = entries.entries.joinToString("\n") { (k, v) -> "$k=$v" } + "\n"
         val bytes = content.encodeToByteArray()
         val tmpPath = "$path.tmp"

@@ -69,12 +69,19 @@ class KlawCli(
     override fun run() {
         val level = if (verbose) CliLogger.Level.DEBUG else CliLogger.Level.INFO
         CliLogger.init(logDir = logDir, level = level)
+        CliLogger.info { "klaw ${currentContext.invokedSubcommand ?: ""}" }
     }
 }
 
 fun main(args: Array<String>) {
     try {
         KlawCli().main(args)
+    } catch (
+        @Suppress("TooGenericExceptionCaught")
+        e: Exception,
+    ) {
+        CliLogger.error { "command failed: ${e::class.simpleName}" }
+        throw e
     } finally {
         CliLogger.close()
     }

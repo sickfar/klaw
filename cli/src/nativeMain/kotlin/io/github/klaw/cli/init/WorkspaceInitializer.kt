@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
@@ -16,6 +17,7 @@ internal class WorkspaceInitializer(
     private val modelsDir: String = KlawPaths.models,
 ) {
     fun initialize() {
+        CliLogger.debug { "creating workspace directories" }
         mkdirAll(configDir)
         mkdirAll(dataDir)
         mkdirAll(stateDir)
@@ -26,6 +28,7 @@ internal class WorkspaceInitializer(
         mkdirAll(skillsDir)
         mkdirAll(modelsDir)
 
+        CliLogger.debug { "writing stub files to $workspaceDir" }
         writeStubIfAbsent("$workspaceDir/TOOLS.md", TOOLS_STUB)
         writeStubIfAbsent("$workspaceDir/HEARTBEAT.md", HEARTBEAT_STUB)
         writeStubIfAbsent("$workspaceDir/SOUL.md", SOUL_STUB)
