@@ -112,11 +112,13 @@ tail -f ~/.local/state/klaw/logs/gateway.log
 ```bash
 # engine.sock exists while Engine is running:
 ls -la ~/.local/state/klaw/engine.sock
-# Expected: srwx------ (socket file)
+# Expected: srw------- (socket file, permissions 600)
 
 # If socket is missing, engine is not running:
 systemctl --user start klaw-engine
 ```
+
+> **Hybrid mode note:** When running engine and gateway in Docker with a native CLI, the socket is located in `~/.local/state/klaw/run/engine.sock` (the `run/` subdirectory) and uses `666` permissions so all containers can access it.
 
 ## Updating to a new version
 

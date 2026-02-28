@@ -125,8 +125,14 @@ class ConfigTemplatesTest {
                 workspacePath = "/home/pi/workspace",
                 imageTag = "latest",
             )
-        assertTrue(result.contains("/home/pi/.local/state/klaw:"), "Expected bind mount syntax in:\n$result")
-        assertTrue(result.contains("/home/pi/.local/share/klaw:"), "Expected bind mount syntax in:\n$result")
+        assertTrue(
+            result.contains("/home/pi/.local/state/klaw:/home/klaw/.local/state/klaw"),
+            "Expected bind mount syntax in:\n$result",
+        )
+        assertTrue(
+            result.contains("/home/pi/.local/share/klaw:/home/klaw/.local/share/klaw"),
+            "Expected bind mount syntax in:\n$result",
+        )
     }
 
     @Test
@@ -185,6 +191,85 @@ class ConfigTemplatesTest {
             )
         assertTrue(result.contains("klaw-engine:v0.5.0"), "Expected engine tag in:\n$result")
         assertTrue(result.contains("klaw-gateway:v0.5.0"), "Expected gateway tag in:\n$result")
+    }
+
+    @Test
+    fun `dockerComposeHybrid sets HOME env for klaw user`() {
+        val result =
+            ConfigTemplates.dockerComposeHybrid(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        assertTrue(result.contains("HOME: /home/klaw"), "Expected HOME env in:\n$result")
+    }
+
+    @Test
+    fun `dockerComposeHybrid sets KLAW_SOCKET_PATH env`() {
+        val result =
+            ConfigTemplates.dockerComposeHybrid(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        assertTrue(result.contains("KLAW_SOCKET_PATH"), "Expected KLAW_SOCKET_PATH in:\n$result")
+    }
+
+    @Test
+    fun `dockerComposeHybrid sets KLAW_SOCKET_PERMS env`() {
+        val result =
+            ConfigTemplates.dockerComposeHybrid(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        assertTrue(result.contains("rw-rw-rw-"), "Expected rw-rw-rw- perms in:\n$result")
+    }
+
+    @Test
+    fun `dockerComposeHybrid mounts run dir separately`() {
+        val result =
+            ConfigTemplates.dockerComposeHybrid(
+                statePath = "/home/pi/.local/state/klaw",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        assertTrue(
+            result.contains("/home/pi/.local/state/klaw/run:/home/klaw/.local/state/klaw/run"),
+            "Expected run dir mount in:\n$result",
+        )
+    }
+
+    @Test
+    fun `dockerComposeHybrid mounts to klaw home paths`() {
+        val result =
+            ConfigTemplates.dockerComposeHybrid(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        assertTrue(
+            result.contains(":/home/klaw/.local/state/klaw"),
+            "Expected klaw home state mount in:\n$result",
+        )
+        assertTrue(
+            result.contains(":/home/klaw/.local/share/klaw"),
+            "Expected klaw home data mount in:\n$result",
+        )
+        assertTrue(
+            result.contains(":/home/klaw/.config/klaw:ro"),
+            "Expected klaw home config mount in:\n$result",
+        )
     }
 
     // --- deployConf ---

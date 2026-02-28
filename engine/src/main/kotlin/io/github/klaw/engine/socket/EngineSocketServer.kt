@@ -40,6 +40,7 @@ private val logger = KotlinLogging.logger {}
 class EngineSocketServer(
     private val socketPath: String,
     private val messageHandler: SocketMessageHandler,
+    private val socketPerms: String = "rw-------",
 ) {
     companion object {
         const val HANDSHAKE_TIMEOUT_MS = 30_000L
@@ -72,8 +73,7 @@ class EngineSocketServer(
         // is accessible with default umask. Accepted risk: Unix socket is local-only and chmod 600
         // follows immediately. JVM has no umask API without JNI.
         channel.bind(addr)
-        // Restrict permissions to owner read/write only (600)
-        Files.setPosixFilePermissions(Path.of(socketPath), PosixFilePermissions.fromString("rw-------"))
+        Files.setPosixFilePermissions(Path.of(socketPath), PosixFilePermissions.fromString(socketPerms))
         serverChannel = channel
         running = true
         scope.launch { acceptLoop() }
@@ -118,7 +118,7 @@ class EngineSocketServer(
             } catch (_: kotlinx.coroutines.CancellationException) {
                 break
             } catch (e: Exception) {
-                logger.warn { "EngineSocketServer: accept error (continuing): ${e.message}" }
+                logger.warn { "EngineSocketServer: accept error (continuing): ${e::class.simpleName}" }
                 continue
             }
         }

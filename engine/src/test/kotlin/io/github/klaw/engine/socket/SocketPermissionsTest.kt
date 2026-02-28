@@ -3,7 +3,6 @@ package io.github.klaw.engine.socket
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -17,24 +16,33 @@ class SocketPermissionsTest {
     private lateinit var socketPath: String
     private lateinit var server: EngineSocketServer
 
-    @BeforeEach
-    fun setUp() {
+    @AfterEach
+    fun tearDown() {
+        if (::server.isInitialized) {
+            server.stop()
+            Thread.sleep(50)
+        }
+    }
+
+    @Test
+    fun `socket file permissions default to 600`() {
         socketPath = tempDir.resolve("engine.sock").toString()
         val handler = mockk<SocketMessageHandler>(relaxed = true)
         server = EngineSocketServer(socketPath, handler)
         server.start()
         Thread.sleep(100)
-    }
-
-    @AfterEach
-    fun tearDown() {
-        server.stop()
-        Thread.sleep(50)
+        val perms = Files.getPosixFilePermissions(Path.of(socketPath))
+        assertEquals(PosixFilePermissions.fromString("rw-------"), perms)
     }
 
     @Test
-    fun `socket file permissions are 600 after server start`() {
+    fun `socket file permissions configurable via constructor param`() {
+        socketPath = tempDir.resolve("engine2.sock").toString()
+        val handler = mockk<SocketMessageHandler>(relaxed = true)
+        server = EngineSocketServer(socketPath, handler, socketPerms = "rw-rw-rw-")
+        server.start()
+        Thread.sleep(100)
         val perms = Files.getPosixFilePermissions(Path.of(socketPath))
-        assertEquals(PosixFilePermissions.fromString("rw-------"), perms)
+        assertEquals(PosixFilePermissions.fromString("rw-rw-rw-"), perms)
     }
 }

@@ -1,20 +1,26 @@
 package io.github.klaw.engine.command
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.util.VT
 import jakarta.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.nio.file.Files
+import java.nio.file.Path
 
 @Singleton
 class CommandHandler(
     private val sessionManager: SessionManager,
     private val messageRepository: MessageRepository,
-    private val coreMemory: CoreMemoryService,
     private val config: EngineConfig,
 ) {
+    internal var workspacePath: Path = Path.of(KlawPaths.workspace)
+
     suspend fun handle(
         message: CommandSocketMessage,
         session: Session,
@@ -62,7 +68,16 @@ class CommandHandler(
         return "Available models:\n$lines"
     }
 
-    private suspend fun showMemory(): String = coreMemory.load()
+    private suspend fun showMemory(): String {
+        val memoryMd = workspacePath.resolve("MEMORY.md")
+        return withContext(Dispatchers.VT) {
+            if (Files.exists(memoryMd)) {
+                Files.readString(memoryMd).trim()
+            } else {
+                "No MEMORY.md found in workspace."
+            }
+        }
+    }
 
     private fun showStatus(session: Session): String =
         "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}"

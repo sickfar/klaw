@@ -6,8 +6,12 @@ import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import kotlinx.cinterop.usePinned
 import platform.posix.getpid
+import platform.posix.stat
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -1366,6 +1370,82 @@ class InitWizardTest {
             "Expected no 'docker run' in hybrid summary:\n$outputText",
         )
     }
+
+    @Test
+    fun `hybrid mode creates run directory under state dir`() {
+        val inputs =
+            listOf(
+                "latest",
+                "my-key",
+                "test/model",
+                "n",
+                "n",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "user",
+                "",
+            )
+
+        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                modeSelector = { _, _ -> 1 },
+            )
+        wizard.run()
+
+        assertTrue(isDirectory("$tmpDir/state/run"), "Expected run dir to exist at $tmpDir/state/run")
+    }
+
+    @Test
+    fun `hybrid mode sets broad permissions on state and data dirs`() {
+        val inputs =
+            listOf(
+                "latest",
+                "my-key",
+                "test/model",
+                "n",
+                "n",
+                "Klaw",
+                "helpful",
+                "assistant",
+                "user",
+                "",
+            )
+
+        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                modeSelector = { _, _ -> 1 },
+            )
+        wizard.run()
+
+        val stateMode = getFileMode("$tmpDir/state")
+        val dataMode = getFileMode("$tmpDir/data")
+        val runMode = getFileMode("$tmpDir/state/run")
+        assertTrue(stateMode and 0x1FFu == 0x1FFu, "Expected 0777 on state dir, got ${stateMode.toString(8)}")
+        assertTrue(dataMode and 0x1FFu == 0x1FFu, "Expected 0777 on data dir, got ${dataMode.toString(8)}")
+        assertTrue(runMode and 0x1FFu == 0x1FFu, "Expected 0777 on run dir, got ${runMode.toString(8)}")
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun getFileMode(path: String): UInt =
+        memScoped {
+            val statBuf = alloc<stat>()
+            if (stat(path, statBuf.ptr) == 0) {
+                statBuf.st_mode.toUInt()
+            } else {
+                0u
+            }
+        }
 
     @OptIn(ExperimentalForeignApi::class)
     private fun writeFile(

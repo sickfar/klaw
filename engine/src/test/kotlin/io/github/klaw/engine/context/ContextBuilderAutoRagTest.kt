@@ -39,7 +39,6 @@ class ContextBuilderAutoRagTest {
     private lateinit var messageRepository: MessageRepository
 
     private val workspaceLoader = mockk<WorkspaceLoader>()
-    private val coreMemoryService = mockk<CoreMemoryService>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
     private val toolRegistry = mockk<ToolRegistry>()
@@ -117,7 +116,6 @@ class ContextBuilderAutoRagTest {
     private fun buildContextBuilder(config: EngineConfig): ContextBuilder =
         ContextBuilder(
             workspaceLoader = workspaceLoader,
-            coreMemory = coreMemoryService,
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
@@ -135,7 +133,6 @@ class ContextBuilderAutoRagTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { coreMemoryService.load() } returns ""
         coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { toolRegistry.listTools() } returns emptyList()

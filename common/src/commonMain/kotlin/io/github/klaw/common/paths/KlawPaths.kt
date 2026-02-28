@@ -17,7 +17,6 @@ data class KlawPathsSnapshot(
     val conversations: String,
     val summaries: String,
     val memory: String,
-    val coreMemory: String,
     val skills: String,
     val models: String,
     val deployConf: String,
@@ -46,14 +45,13 @@ internal fun buildPaths(
         state = state,
         cache = cache,
         workspace = workspace,
-        engineSocket = "$state/engine.sock",
+        engineSocket = envProvider("KLAW_SOCKET_PATH") ?: "$state/engine.sock",
         gatewayBuffer = "$state/gateway-buffer.jsonl",
         klawDb = "$data/klaw.db",
         schedulerDb = "$data/scheduler.db",
         conversations = "$data/conversations",
         summaries = "$data/summaries",
         memory = "$data/memory",
-        coreMemory = "$data/memory/core_memory.json",
         skills = "$data/skills",
         models = "$cache/models",
         deployConf = "$config/deploy.conf",
@@ -75,7 +73,6 @@ object KlawPaths {
     val conversations: String get() = snapshot.conversations
     val summaries: String get() = snapshot.summaries
     val memory: String get() = snapshot.memory
-    val coreMemory: String get() = snapshot.coreMemory
     val skills: String get() = snapshot.skills
     val models: String get() = snapshot.models
     val deployConf: String get() = snapshot.deployConf

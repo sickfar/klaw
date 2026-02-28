@@ -15,14 +15,15 @@ Run Klaw with Docker — no git, no JDK, no Gradle needed. Just Docker.
 ```bash
 docker run -it --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v klaw-config:/root/.config/klaw \
-  -v klaw-state:/root/.local/state/klaw \
-  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-config:/home/klaw/.config/klaw \
+  -v klaw-state:/home/klaw/.local/state/klaw \
+  -v klaw-run:/home/klaw/.local/state/klaw/run \
+  -v klaw-data:/home/klaw/.local/share/klaw \
   -v klaw-workspace:/workspace \
   ghcr.io/sickfar/klaw-cli:latest init
 ```
 
-The wizard asks for your API keys and agent identity, then starts the engine and gateway containers automatically.
+Containers run as the non-root `klaw` user (UID 10001). The wizard asks for your API keys and agent identity, then starts the engine and gateway containers automatically.
 
 ## Option 2: Install the `klaw` wrapper
 
@@ -68,9 +69,10 @@ After answering, it writes config files (including `deploy.conf`) to the `klaw-c
 
 | Volume | Mount path | Contents |
 |--------|-----------|----------|
-| `klaw-config` | `/root/.config/klaw` | `engine.yaml`, `gateway.yaml`, `.env` (API keys) |
-| `klaw-state` | `/root/.local/state/klaw` | `engine.sock`, `gateway-buffer.jsonl` |
-| `klaw-data` | `/root/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
+| `klaw-config` | `/home/klaw/.config/klaw` | `engine.yaml`, `gateway.yaml`, `.env` (API keys) |
+| `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
+| `klaw-run` | `/home/klaw/.local/state/klaw/run` | `engine.sock` (socket isolation) |
+| `klaw-data` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
 | `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `skills/` |
 
 Volumes persist across container restarts. Data is never lost when stopping or upgrading.
@@ -89,7 +91,7 @@ klaw logs --follow       # stream messages live
 klaw engine restart      # restart the engine container
 klaw gateway restart     # restart the gateway container
 klaw stop                # stop both engine and gateway
-klaw memory show         # show core memory
+klaw memory show         # show MEMORY.md
 klaw sessions            # list active sessions
 ```
 

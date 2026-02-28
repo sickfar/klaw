@@ -1,10 +1,8 @@
 package io.github.klaw.engine.workspace
 
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.KlawWorkspaceLoader
 import io.github.klaw.engine.memory.MemoryService
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,15 +19,12 @@ class WorkspaceLoaderTest {
     lateinit var workspace: Path
 
     private val memoryService = mockk<MemoryService>(relaxed = true)
-    private val coreMemory = mockk<CoreMemoryService>(relaxed = true)
     private lateinit var loader: KlawWorkspaceLoader
 
     @BeforeEach
     fun setup() {
-        coEvery { coreMemory.getJson() } returns """{"user":{},"agent":{}}"""
-        coEvery { coreMemory.update(any(), any(), any()) } returns "OK"
         coEvery { memoryService.save(any(), any()) } returns "OK"
-        loader = KlawWorkspaceLoader(workspace, memoryService, coreMemory)
+        loader = KlawWorkspaceLoader(workspace, memoryService)
     }
 
     @Test
@@ -53,6 +48,16 @@ class WorkspaceLoaderTest {
         }
 
     @Test
+    fun `buildSystemPrompt includes USER_md as About the User`() =
+        runTest {
+            Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(prompt.contains("User likes cats."), "USER content missing from: $prompt")
+            assertTrue(prompt.contains("## About the User"), "## About the User header missing from: $prompt")
+        }
+
+    @Test
     fun `buildSystemPrompt includes AGENTS_md content`() =
         runTest {
             Files.writeString(workspace.resolve("AGENTS.md"), "Always be helpful.")
@@ -71,27 +76,10 @@ class WorkspaceLoaderTest {
         }
 
     @Test
-    fun `initCoreMemoryFromUserMd populates user section when empty`() =
-        runTest {
-            Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
-            loader.initialize()
-            coVerify { coreMemory.update("user", "notes", "User likes cats.") }
-        }
-
-    @Test
-    fun `initCoreMemoryFromUserMd skips when user section already populated`() =
-        runTest {
-            coEvery { coreMemory.getJson() } returns """{"user":{"notes":"existing data"},"agent":{}}"""
-            Files.writeString(workspace.resolve("USER.md"), "User likes cats.")
-            loader.initialize()
-            coVerify(exactly = 0) { coreMemory.update("user", any(), any()) }
-        }
-
-    @Test
     fun `missing workspace dir handled gracefully`() =
         runTest {
             val missing = workspace.resolve("nonexistent")
-            val safeLoader = KlawWorkspaceLoader(missing, memoryService, coreMemory)
+            val safeLoader = KlawWorkspaceLoader(missing, memoryService)
             safeLoader.initialize()
             assertEquals("", safeLoader.loadSystemPrompt())
         }

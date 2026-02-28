@@ -13,7 +13,6 @@ import jakarta.inject.Singleton
 @Suppress("LongParameterList")
 class ContextBuilder(
     private val workspaceLoader: WorkspaceLoader,
-    private val coreMemory: CoreMemoryService,
     private val messageRepository: MessageRepository,
     private val summaryService: SummaryService,
     private val skillRegistry: SkillRegistry,
@@ -34,7 +33,6 @@ class ContextBuilder(
         taskName: String? = null,
     ): List<LlmMessage> {
         val systemPrompt = workspaceLoader.loadSystemPrompt()
-        val memory = coreMemory.load()
         val summary = summaryService.getLastSummary(session.chatId) ?: ""
         val tools = toolRegistry.listTools()
         val skills = skillRegistry.listSkillDescriptions()
@@ -48,7 +46,7 @@ class ContextBuilder(
                 }
             }
 
-        val systemContent = buildSystemContent(systemPrompt, memory, summary, toolDescriptions)
+        val systemContent = buildSystemContent(systemPrompt, summary, toolDescriptions)
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
@@ -160,13 +158,11 @@ class ContextBuilder(
 
     private fun buildSystemContent(
         systemPrompt: String,
-        coreMemory: String,
         summary: String,
         toolDescriptions: String,
     ): String {
         val parts = mutableListOf<String>()
         if (systemPrompt.isNotBlank()) parts.add(systemPrompt)
-        if (coreMemory.isNotBlank()) parts.add("## Core Memory\n" + coreMemory)
         if (summary.isNotBlank()) parts.add("## Last Summary\n" + summary)
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         return parts.joinToString("\n\n")

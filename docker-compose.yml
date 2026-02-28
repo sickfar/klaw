@@ -6,12 +6,16 @@ services:
       dockerfile: docker/engine/Dockerfile
     env_file: ~/.config/klaw/.env
     environment:
+      - HOME=/home/klaw
       - KLAW_WORKSPACE=/workspace
+      - KLAW_SOCKET_PATH=/home/klaw/.local/state/klaw/run/engine.sock
+      - KLAW_SOCKET_PERMS=rw-rw-rw-
     volumes:
-      - klaw-state:/root/.local/state/klaw
-      - ~/.local/share/klaw:/root/.local/share/klaw
+      - ~/.local/state/klaw:/home/klaw/.local/state/klaw
+      - klaw-run:/home/klaw/.local/state/klaw/run
+      - ~/.local/share/klaw:/home/klaw/.local/share/klaw
       - ~/workspace:/workspace
-      - ~/.config/klaw:/root/.config/klaw:ro
+      - ~/.config/klaw:/home/klaw/.config/klaw:ro
     restart: unless-stopped
 
   gateway:
@@ -22,12 +26,16 @@ services:
     env_file: ~/.config/klaw/.env
     depends_on:
       - engine
+    environment:
+      - HOME=/home/klaw
+      - KLAW_SOCKET_PATH=/home/klaw/.local/state/klaw/run/engine.sock
     ports:
       - "37474:37474"
     volumes:
-      - klaw-state:/root/.local/state/klaw
-      - ~/.local/share/klaw:/root/.local/share/klaw
-      - ~/.config/klaw:/root/.config/klaw:ro
+      - ~/.local/state/klaw:/home/klaw/.local/state/klaw
+      - klaw-run:/home/klaw/.local/state/klaw/run
+      - ~/.local/share/klaw:/home/klaw/.local/share/klaw
+      - ~/.config/klaw:/home/klaw/.config/klaw:ro
     restart: unless-stopped
 
   cli:
@@ -37,13 +45,16 @@ services:
       dockerfile: docker/cli/Dockerfile
     env_file: ~/.config/klaw/.env
     environment:
+      - HOME=/home/klaw
       - KLAW_WORKSPACE=/workspace
+      - KLAW_SOCKET_PATH=/home/klaw/.local/state/klaw/run/engine.sock
       - KLAW_IMAGE_TAG=${KLAW_IMAGE_TAG:-latest}
     volumes:
-      - klaw-state:/root/.local/state/klaw
-      - ~/.local/share/klaw:/root/.local/share/klaw
+      - ~/.local/state/klaw:/home/klaw/.local/state/klaw
+      - klaw-run:/home/klaw/.local/state/klaw/run
+      - ~/.local/share/klaw:/home/klaw/.local/share/klaw
       - ~/workspace:/workspace
-      - ~/.config/klaw:/root/.config/klaw
+      - ~/.config/klaw:/home/klaw/.config/klaw
       - /var/run/docker.sock:/var/run/docker.sock
       - ./docker-compose.yml:/app/docker-compose.yml:ro
     profiles:
@@ -51,6 +62,8 @@ services:
     stdin_open: true
     tty: true
 
+# Named volume for socket — bind-mounts don't support Unix sockets on macOS Docker Desktop (virtiofs).
+# On Linux (Pi) hybrid mode, ConfigTemplates uses a bind-mount instead (Linux filesystems support sockets).
 volumes:
-  klaw-state:
-    name: klaw-state
+  klaw-run:
+    name: klaw-run

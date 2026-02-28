@@ -151,7 +151,7 @@ klaw logs --follow       # stream messages live
 klaw engine restart      # restart the engine
 klaw gateway restart     # restart the gateway
 klaw stop                # stop both
-klaw memory show         # show core memory
+klaw memory show         # show MEMORY.md
 klaw sessions            # list active sessions
 ```
 

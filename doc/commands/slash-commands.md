@@ -8,7 +8,7 @@ Slash commands arrive as `type: "command"` messages from the Gateway. The Engine
 
 Resets the sliding window and last summary. Starts a new conversation segment.
 
-What is preserved: core memory, archival memory, the current model, and the full conversation log on disk.  
+What is preserved: archival memory, the current model, and the full conversation log on disk.
 What changes: the segment boundary moves to now; the LLM no longer sees messages before this point.
 
 ## /model
@@ -24,7 +24,7 @@ Lists all models configured in `engine.yaml` with their `contextBudget` values. 
 
 ## /memory
 
-Displays `core_memory.json` to the user. The agent can also read core memory programmatically with `memory_core_get`.
+Displays the contents of `MEMORY.md` from the workspace.
 
 ## /status
 

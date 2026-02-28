@@ -87,19 +87,16 @@ class ToolsIntegrationTest {
     }
 
     @Test
-    fun `all 19 tools are registered`() =
+    fun `all 16 tools are registered`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(19, tools.size)
+            assertEquals(16, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue("file_read" in names)
             assertTrue("file_write" in names)
             assertTrue("file_list" in names)
             assertTrue("memory_search" in names)
             assertTrue("memory_save" in names)
-            assertTrue("memory_core_get" in names)
-            assertTrue("memory_core_update" in names)
-            assertTrue("memory_core_delete" in names)
             assertTrue("docs_search" in names)
             assertTrue("docs_read" in names)
             assertTrue("docs_list" in names)

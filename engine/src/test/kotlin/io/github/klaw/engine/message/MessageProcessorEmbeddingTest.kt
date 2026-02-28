@@ -27,7 +27,6 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SummaryService
 import io.github.klaw.engine.context.ToolRegistry
@@ -157,7 +156,6 @@ class MessageProcessorEmbeddingTest {
         val messageRepository = MessageRepository(db)
 
         val workspaceLoader = mockk<WorkspaceLoader> { coEvery { loadSystemPrompt() } returns "" }
-        val coreMemory = mockk<CoreMemoryService> { coEvery { load() } returns "" }
         val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
         val skillRegistry = mockk<SkillRegistry> { coEvery { listSkillDescriptions() } returns emptyList() }
         val toolRegistry = mockk<ToolRegistry> { coEvery { listTools() } returns emptyList() }
@@ -167,12 +165,11 @@ class MessageProcessorEmbeddingTest {
             io.github.klaw.engine.context
                 .SubagentHistoryLoader()
         val toolExecutor = mockk<ToolExecutor> { coEvery { executeAll(any()) } returns emptyList() }
-        val commandHandler = CommandHandler(sessionManager, messageRepository, coreMemory, config)
+        val commandHandler = CommandHandler(sessionManager, messageRepository, config)
 
         val builder =
             contextBuilder ?: io.github.klaw.engine.context.ContextBuilder(
                 workspaceLoader = workspaceLoader,
-                coreMemory = coreMemory,
                 messageRepository = messageRepository,
                 summaryService = summaryService,
                 skillRegistry = skillRegistry,

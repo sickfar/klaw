@@ -41,17 +41,6 @@ Configuration files are read-only from the agent's perspective. The user must ed
 
 ---
 
-## Core Memory
-
-**Path:** `$XDG_DATA_HOME/klaw/memory/core_memory.json`
-(typically `~/.local/share/klaw/memory/core_memory.json`)
-
-- Structured JSON; read and written via memory tools
-- Can be hand-edited when Engine is stopped
-- Contains persistent facts the agent maintains across sessions
-
----
-
 ## Skills
 
 **System skills path:** `$XDG_DATA_HOME/klaw/skills/`
@@ -82,8 +71,10 @@ Both databases are caches/indexes only. The source of truth is the JSONL files. 
 
 | File | Description |
 |------|-------------|
-| `~/.local/state/klaw/engine.sock` | Unix domain socket; exists only while Engine is running; permissions `600` |
+| `~/.local/state/klaw/engine.sock` | Unix domain socket; exists only while Engine is running; permissions `600` (native) |
 | `~/.local/state/klaw/gateway-buffer.jsonl` | Messages buffered by Gateway when Engine was unavailable; drained automatically on reconnect |
+
+In Docker containers, the socket path is overridden via the `KLAW_SOCKET_PATH` environment variable to `$stateDir/run/engine.sock`. The `run/` subdirectory is mounted as a separate volume shared between engine, gateway, and CLI containers for socket isolation. Socket permissions in containers are set to `666` via the `KLAW_SOCKET_PERMS` environment variable so that all container processes (running as the non-root `klaw` user, UID 10001) can access the socket. In native mode, the default permissions remain `600`.
 
 If `engine.sock` does not exist, Engine is not running. Start it with:
 

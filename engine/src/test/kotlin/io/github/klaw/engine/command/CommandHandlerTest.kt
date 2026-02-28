@@ -16,7 +16,6 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -25,12 +24,17 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.time.Clock
 
 class CommandHandlerTest {
+    @TempDir
+    lateinit var workspace: Path
+
     private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val messageRepository = mockk<MessageRepository>(relaxed = true)
-    private val coreMemory = mockk<CoreMemoryService>()
 
     private val defaultModels = mapOf("test/model" to ModelConfig(contextBudget = 4096))
 
@@ -82,6 +86,13 @@ class CommandHandlerTest {
             createdAt = Clock.System.now(),
         )
 
+    private fun makeHandler(models: Map<String, ModelConfig> = defaultModels) =
+        CommandHandler(
+            sessionManager,
+            messageRepository,
+            makeConfig(models),
+        ).also { it.workspacePath = workspace }
+
     private fun makeCmd(
         command: String,
         args: String? = null,
@@ -95,7 +106,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_new resets segment and returns confirmation`() =
         runTest {
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
+            val handler = makeHandler()
             val session = makeSession()
 
             val result = handler.handle(makeCmd("new"), session)
@@ -108,7 +119,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_model without args shows current model`() =
         runTest {
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
+            val handler = makeHandler()
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("model"), session)
@@ -124,7 +135,7 @@ class CommandHandlerTest {
                     "test/model" to ModelConfig(contextBudget = 4096),
                     "other/model" to ModelConfig(contextBudget = 8192),
                 )
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig(models))
+            val handler = makeHandler(models)
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("model", "other/model"), session)
@@ -137,7 +148,7 @@ class CommandHandlerTest {
     @Test
     fun `slash_model with invalid model returns error`() =
         runTest {
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
+            val handler = makeHandler()
             val session = makeSession()
 
             val result = handler.handle(makeCmd("model", "nonexistent/model"), session)
@@ -157,7 +168,7 @@ class CommandHandlerTest {
                     "glm/glm-5" to ModelConfig(contextBudget = 8192),
                     "deepseek/deepseek-chat" to ModelConfig(contextBudget = 32768),
                 )
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig(models))
+            val handler = makeHandler(models)
             val session = makeSession()
 
             val result = handler.handle(makeCmd("models"), session)
@@ -172,12 +183,38 @@ class CommandHandlerTest {
     @Test
     fun `slash_status returns session info`() =
         runTest {
-            val handler = CommandHandler(sessionManager, messageRepository, coreMemory, makeConfig())
+            val handler = makeHandler()
             val session = makeSession(model = "test/model")
 
             val result = handler.handle(makeCmd("status"), session)
 
             assertTrue(result.contains("chat-1"), "Response should contain chatId, got: $result")
             assertTrue(result.contains("test/model"), "Response should contain model name, got: $result")
+        }
+
+    @Test
+    fun `slash_memory shows MEMORY_md content`() =
+        runTest {
+            Files.writeString(workspace.resolve("MEMORY.md"), "Important facts about user.")
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("memory"), session)
+
+            assertTrue(
+                result.contains("Important facts about user."),
+                "Response should contain MEMORY.md content, got: $result",
+            )
+        }
+
+    @Test
+    fun `slash_memory returns message when MEMORY_md missing`() =
+        runTest {
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("memory"), session)
+
+            assertTrue(result.contains("No MEMORY.md"), "Response should indicate missing file, got: $result")
         }
 }

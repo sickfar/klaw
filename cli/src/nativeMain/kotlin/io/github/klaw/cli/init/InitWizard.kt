@@ -221,6 +221,14 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
+        // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
+        // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
+        if (resolvedMode == DeployMode.HYBRID || resolvedMode == DeployMode.DOCKER) {
+            mkdirMode755("$stateDir/run")
+            chmodWorldRwx(stateDir)
+            chmodWorldRwx(dataDir)
+            chmodWorldRwx("$stateDir/run")
+        }
         writeFileText("$configDir/engine.yaml", ConfigTemplates.engineYaml(providerUrl, modelId))
         writeFileText(
             "$configDir/gateway.yaml",

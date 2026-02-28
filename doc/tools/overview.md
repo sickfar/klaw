@@ -1,17 +1,14 @@
 # Built-in Tools Overview
 
-Klaw Engine provides 19 built-in tools that LLM agents can invoke during conversations. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides 16 built-in tools that LLM agents can invoke during conversations. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
-### Memory Tools (5)
+### Memory Tools (2)
 | Tool | Description |
 |------|-------------|
 | `memory_search` | Hybrid search over long-term memory (vector + FTS5) |
 | `memory_save` | Save information to long-term memory |
-| `memory_core_get` | Retrieve core memory (user/agent sections) |
-| `memory_core_update` | Update a key in core memory |
-| `memory_core_delete` | Delete a key from core memory |
 
 See [memory.md](memory.md) for details.
 
@@ -72,6 +69,6 @@ Engine enforces a `maxToolCallRounds` limit (configured in `engine.yaml` under `
 ## Architecture
 
 - `ToolRegistry` interface (in `engine/context/`) lists available tool definitions.
-- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 19 `ToolDef` entries and dispatches execution to the appropriate tool class.
+- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 16 `ToolDef` entries and dispatches execution to the appropriate tool class.
 - `DispatchingToolExecutor` executes tool calls concurrently via `coroutineScope { async {} }`.
 - Dependency services (memory, docs, scheduler) are injected as interfaces with stub implementations replaced by real ones in later phases.

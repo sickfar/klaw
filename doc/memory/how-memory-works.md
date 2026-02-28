@@ -1,8 +1,6 @@
 # How Memory Works
 
-## Three memory tiers
-
-**Core Memory** — always in context. Structured JSON stored in `core_memory.json`. Updated with `memory_core_set`. Limited to ~500 tokens. Use for facts that must always be available (user name, preferences, current projects).
+## Two memory tiers
 
 **Archival Memory** — on-demand. Semantic chunks indexed in sqlite-vec. Retrieved with `memory_search`. Use for facts, summaries, and notes that don't need to be in every context window.
 
@@ -10,13 +8,12 @@
 
 ## Context assembly for every LLM call
 
-Five layers are assembled in this order:
+Four layers are assembled in this order:
 
-1. System prompt (~500 tokens)
-2. Core memory (~500 tokens)
-3. Last summary (~500 tokens)
-4. Sliding window — last N messages (~3000 tokens)
-5. Tool descriptions (~500 tokens)
+1. System prompt (~1000 tokens) — workspace identity files (SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md)
+2. Last summary (~500 tokens)
+3. Sliding window — last N messages (~3000 tokens)
+4. Tool descriptions (~500 tokens) — available tools and loaded skills
 
 Default total: approximately 5000 tokens.
 

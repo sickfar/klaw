@@ -41,7 +41,6 @@ class ContextBuilderTest {
     private lateinit var messageRepository: MessageRepository
 
     private val workspaceLoader = mockk<WorkspaceLoader>()
-    private val coreMemoryService = mockk<CoreMemoryService>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
     private val toolRegistry = mockk<ToolRegistry>()
@@ -121,7 +120,6 @@ class ContextBuilderTest {
     private fun buildContextBuilder(config: EngineConfig): ContextBuilder =
         ContextBuilder(
             workspaceLoader = workspaceLoader,
-            coreMemory = coreMemoryService,
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
@@ -139,7 +137,6 @@ class ContextBuilderTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { coreMemoryService.load() } returns ""
         coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { toolRegistry.listTools() } returns emptyList()
@@ -148,10 +145,9 @@ class ContextBuilderTest {
     }
 
     @Test
-    fun `context includes system prompt and core memory`() =
+    fun `context includes system prompt from workspace`() =
         runTest {
             coEvery { workspaceLoader.loadSystemPrompt() } returns "You are a helpful assistant."
-            coEvery { coreMemoryService.load() } returns "User prefers concise answers."
 
             val contextBuilder = buildContextBuilder(buildConfig())
             val session = buildSession()
@@ -162,8 +158,6 @@ class ContextBuilderTest {
             val systemMessage = messages[0]
             assertEquals("system", systemMessage.role)
             assertTrue(systemMessage.content!!.contains("You are a helpful assistant."))
-            assertTrue(systemMessage.content!!.contains("Core Memory"))
-            assertTrue(systemMessage.content!!.contains("User prefers concise answers."))
         }
 
     @Test

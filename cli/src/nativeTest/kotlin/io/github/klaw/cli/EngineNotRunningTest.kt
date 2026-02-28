@@ -13,7 +13,6 @@ class EngineNotRunningTest {
         KlawCli(
             requestFn = engineDownRequest(),
             conversationsDir = "/nonexistent",
-            coreMemoryPath = "/nonexistent",
             engineSocketPath = "/nonexistent/engine.sock",
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",

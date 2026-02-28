@@ -30,7 +30,7 @@ class SchemaTest {
     @Test
     fun `memory_chunks insert and getById round-trips`() {
         db.memoryChunksQueries.insert(
-            source = "core_memory",
+            source = "workspace",
             chat_id = "chat1",
             content = "Hello world",
             created_at = "2025-01-01T00:00:00Z",
@@ -39,7 +39,7 @@ class SchemaTest {
         val rowId = db.memoryChunksQueries.lastInsertRowId().executeAsOne()
         val chunk = db.memoryChunksQueries.getById(rowId).executeAsOneOrNull()
         assertNotNull(chunk)
-        assertEquals("core_memory", chunk!!.source)
+        assertEquals("workspace", chunk!!.source)
         assertEquals("chat1", chunk.chat_id)
         assertEquals("Hello world", chunk.content)
         assertEquals("2025-01-01T00:00:00Z", chunk.created_at)

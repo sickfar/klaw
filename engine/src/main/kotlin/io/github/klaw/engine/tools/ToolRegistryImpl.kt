@@ -82,22 +82,6 @@ class ToolRegistryImpl(
                 memoryTools.save(args.str("content"), args.strOrNull("source") ?: "manual")
             }
 
-            "memory_core_get" -> {
-                memoryTools.coreGet()
-            }
-
-            "memory_core_update" -> {
-                memoryTools.coreUpdate(
-                    args.str("section"),
-                    args.str("key"),
-                    args.str("value"),
-                )
-            }
-
-            "memory_core_delete" -> {
-                memoryTools.coreDelete(args.str("section"), args.str("key"))
-            }
-
             "docs_search" -> {
                 docsTools.search(args.str("query"), args.intOrNull("topK") ?: DEFAULT_DOCS_TOP_K)
             }
@@ -233,34 +217,6 @@ class ToolRegistryImpl(
                         mapOf(
                             "content" to stringProp("Текст для сохранения"),
                             "source" to stringProp("Источник информации (по умолчанию manual)"),
-                        ),
-                    ),
-                ),
-                ToolDef(
-                    "memory_core_get",
-                    "Получить текущее содержимое основной памяти (user/agent)",
-                    toolParams(emptyList(), emptyMap()),
-                ),
-                ToolDef(
-                    "memory_core_update",
-                    "Обновить ключ в основной памяти (user/agent секция)",
-                    toolParams(
-                        listOf("section", "key", "value"),
-                        mapOf(
-                            "section" to stringProp("Секция: user или agent"),
-                            "key" to stringProp("Ключ"),
-                            "value" to stringProp("Значение"),
-                        ),
-                    ),
-                ),
-                ToolDef(
-                    "memory_core_delete",
-                    "Удалить ключ из основной памяти",
-                    toolParams(
-                        listOf("section", "key"),
-                        mapOf(
-                            "section" to stringProp("Секция: user или agent"),
-                            "key" to stringProp("Ключ для удаления"),
                         ),
                     ),
                 ),

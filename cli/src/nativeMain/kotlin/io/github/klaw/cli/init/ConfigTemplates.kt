@@ -93,11 +93,15 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      HOME: /home/klaw
       KLAW_WORKSPACE: /workspace
+      KLAW_SOCKET_PATH: /home/klaw/.local/state/klaw/run/engine.sock
+      KLAW_SOCKET_PERMS: rw-rw-rw-
     volumes:
-      - $statePath:/root/.local/state/klaw
-      - $dataPath:/root/.local/share/klaw
-      - $configPath:/root/.config/klaw:ro
+      - $statePath:/home/klaw/.local/state/klaw
+      - $statePath/run:/home/klaw/.local/state/klaw/run
+      - $dataPath:/home/klaw/.local/share/klaw
+      - $configPath:/home/klaw/.config/klaw:ro
       - $workspacePath:/workspace
   gateway:
     image: ghcr.io/sickfar/klaw-gateway:$imageTag
@@ -105,10 +109,14 @@ services:
     env_file: .env
     depends_on:
       - engine
+    environment:
+      HOME: /home/klaw
+      KLAW_SOCKET_PATH: /home/klaw/.local/state/klaw/run/engine.sock
     volumes:
-      - $statePath:/root/.local/state/klaw
-      - $dataPath:/root/.local/share/klaw
-      - $configPath:/root/.config/klaw:ro
+      - $statePath:/home/klaw/.local/state/klaw
+      - $statePath/run:/home/klaw/.local/state/klaw/run
+      - $dataPath:/home/klaw/.local/share/klaw
+      - $configPath:/home/klaw/.config/klaw:ro
         """.trimIndent().trimEnd()
 
     fun deployConf(

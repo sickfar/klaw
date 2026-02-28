@@ -24,39 +24,6 @@ Save a piece of information to long-term memory.
 
 **Returns:** Confirmation message.
 
-## memory_core_get
-
-Retrieve the full contents of core memory, which includes `user` and `agent` sections stored as key-value pairs.
-
-**Parameters:** None.
-
-**Returns:** YAML-formatted core memory contents.
-
-## memory_core_update
-
-Update or create a key-value entry in core memory.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `section` | string | yes | Section name: `user` or `agent` |
-| `key` | string | yes | Key to update |
-| `value` | string | yes | New value |
-
-**Returns:** Confirmation message.
-
-## memory_core_delete
-
-Delete a key from core memory.
-
-**Parameters:**
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| `section` | string | yes | Section name: `user` or `agent` |
-| `key` | string | yes | Key to delete |
-
-**Returns:** Confirmation message.
-
 ## Hybrid Search Internals
 
 `memory_search` combines two retrieval strategies and merges results:
@@ -80,6 +47,5 @@ Input to `memory_save` is split by `MarkdownChunker`:
 
 ## Usage Guidance
 
-- Use `memory_core_*` for persistent user preferences and agent self-knowledge that should survive across sessions.
-- Use `memory_save` for episodic facts learned during conversation.
+- Edit workspace files (USER.md, IDENTITY.md) for persistent identity and preferences. Use `memory_save` for episodic facts learned during conversation.
 - Use `memory_search` before answering questions that may require recalled context.

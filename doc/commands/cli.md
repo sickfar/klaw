@@ -187,7 +187,7 @@ klaw schedule remove daily
 
 ### `klaw memory show`
 
-Prints the contents of `core_memory.json`.
+Prints the contents of `MEMORY.md` from the workspace.
 
 ```
 klaw memory show
@@ -195,7 +195,7 @@ klaw memory show
 
 ### `klaw memory edit`
 
-Opens `core_memory.json` in `$EDITOR`.
+Opens `MEMORY.md` from the workspace in `$EDITOR`.
 
 ```
 klaw memory edit

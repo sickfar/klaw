@@ -117,13 +117,6 @@ class KlawPathsTest {
     }
 
     @Test
-    fun `coreMemory is in data dir`() {
-        val paths = buildTestPaths(home = "/home/alice")
-        assertTrue(paths.coreMemory.startsWith(paths.data))
-        assertTrue(paths.coreMemory.endsWith("core_memory.json"))
-    }
-
-    @Test
     fun `skills is in data dir`() {
         val paths = buildTestPaths(home = "/home/alice")
         assertTrue(paths.skills.startsWith(paths.data))
@@ -135,6 +128,24 @@ class KlawPathsTest {
         val paths = buildTestPaths(home = "/home/alice")
         assertTrue(paths.models.startsWith(paths.cache))
         assertTrue(paths.models.endsWith("models"))
+    }
+
+    @Test
+    fun `KLAW_SOCKET_PATH env var overrides default engine socket path`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_SOCKET_PATH" to "/run/klaw/engine.sock"))
+        assertEquals("/run/klaw/engine.sock", paths.engineSocket)
+    }
+
+    @Test
+    fun `KLAW_SOCKET_PATH unset uses default state-based path`() {
+        val paths = buildTestPaths(home = "/home/alice")
+        assertEquals("/home/alice/.local/state/klaw/engine.sock", paths.engineSocket)
+    }
+
+    @Test
+    fun `KLAW_SOCKET_PATH does not affect gatewayBuffer path`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_SOCKET_PATH" to "/run/klaw/engine.sock"), home = "/home/alice")
+        assertEquals("/home/alice/.local/state/klaw/gateway-buffer.jsonl", paths.gatewayBuffer)
     }
 
     @Test

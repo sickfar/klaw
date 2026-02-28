@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalForeignApi::class)
 class MemoryShowCommandTest {
     private val tmpDir = "/tmp/klaw-memory-test-${platform.posix.getpid()}"
-    private val coreMemoryPath = "$tmpDir/core_memory.json"
+    private val memoryMdPath = "$tmpDir/MEMORY.md"
 
     @BeforeTest
     fun setup() {
@@ -23,7 +23,7 @@ class MemoryShowCommandTest {
 
     @AfterTest
     fun teardown() {
-        remove(coreMemoryPath)
+        remove(memoryMdPath)
         rmdir(tmpDir)
     }
 
@@ -42,22 +42,22 @@ class MemoryShowCommandTest {
         KlawCli(
             requestFn = { _, _ -> "{}" },
             conversationsDir = "/nonexistent",
-            coreMemoryPath = coreMemoryPath,
             engineSocketPath = "/nonexistent",
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
+            workspaceDir = tmpDir,
         )
 
     @Test
-    fun `memory show prints core_memory_json contents`() {
-        writeFile(coreMemoryPath, """{"persona":"Helpful assistant","human":"Alice"}""")
+    fun `memory show prints MEMORY_md contents`() {
+        writeFile(memoryMdPath, "Important facts about user preferences.")
         val result = cli().test("memory show")
-        assertContains(result.output, "Helpful assistant")
+        assertContains(result.output, "Important facts about user preferences.")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `memory show handles missing core_memory_json`() {
+    fun `memory show handles missing MEMORY_md`() {
         val result = cli().test("memory show")
         assertContains(result.output, "not found")
         assertEquals(0, result.statusCode)

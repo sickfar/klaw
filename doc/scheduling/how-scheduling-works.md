@@ -32,7 +32,7 @@ The call is **in-process** — no IPC, no socket, no network hop.
 
 A scheduled subagent receives:
 - Shared system prompt (same as main agent)
-- Shared core memory (read-only)
+- Shared system prompt (including USER.md)
 - Last 5 messages from its own scheduler channel log
 
 A scheduled subagent does **not** see:

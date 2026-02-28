@@ -160,7 +160,7 @@ internal class ChatTui(
                     "${AnsiColors.GREEN}$agentName:${AnsiColors.RESET}"
                 }
             val labelVisible = if (msg.role == "user") "You:" else "$agentName:"
-            val prefixVisible = " ${labelVisible} "
+            val prefixVisible = " $labelVisible "
             val contentWidth = innerWidth - prefixVisible.length
             val prefix = " $label "
             val contentLines = wrapText(msg.content, contentWidth)
@@ -181,7 +181,10 @@ internal class ChatTui(
         return lines
     }
 
-    private fun wrapText(text: String, width: Int): List<String> {
+    private fun wrapText(
+        text: String,
+        width: Int,
+    ): List<String> {
         if (width <= 0) return listOf(text)
         val result = mutableListOf<String>()
         for (paragraph in text.split('\n')) {
@@ -202,8 +205,10 @@ internal class ChatTui(
     }
 
     /** Position cursor at (row, col=1) and write line content, clearing the rest of the row. */
-    private fun StringBuilder.posLine(row: Int, content: String): StringBuilder =
-        append("\u001B[${row};1H\u001B[2K$content")
+    private fun StringBuilder.posLine(
+        row: Int,
+        content: String,
+    ): StringBuilder = append("\u001B[$row;1H\u001B[2K$content")
 
     /** Write directly to stdout fd, bypassing Kotlin buffered print. */
     private fun rawWrite(s: String) {

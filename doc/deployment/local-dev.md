@@ -13,7 +13,7 @@
 
 ## Developing Klaw from source
 
-`docker compose up` runs Engine + Gateway locally. Both communicate over a shared Docker volume (`klaw-state`) that holds `engine.sock`, mirroring the production Pi setup.
+`docker compose up` runs Engine + Gateway locally. Both communicate over a shared bind-mount that holds the `run/` subdirectory with `engine.sock`, mirroring the production Pi setup. Containers run as the non-root `klaw` user (UID 10001).
 
 ## Setup
 
@@ -64,13 +64,14 @@ The `./klaw` wrapper runs `docker compose run --rm cli "$@"` — each invocation
 
 `engine` uses Ubuntu Jammy (glibc) because ONNX Runtime and DJL HuggingFace Tokenizers require glibc. `gateway` uses Alpine (musl is fine for pure JVM). `cli` uses Debian bookworm-slim because Kotlin/Native `linuxX64` binaries link against glibc.
 
-## Named volumes
+## Bind-mount layout
 
-| Volume | Mount path | Contents |
-|--------|-----------|----------|
-| `klaw-state` | `/root/.local/state/klaw` | `engine.sock`, `gateway-buffer.jsonl` |
-| `klaw-data` | `/root/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
-| `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `memory/`, `skills/` |
+| Host path | Container path | Contents |
+|-----------|---------------|----------|
+| `~/.local/state/klaw` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
+| `~/.local/state/klaw/run` | `/home/klaw/.local/state/klaw/run` | `engine.sock` (socket isolation) |
+| `~/.local/share/klaw` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
+| `~/workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `memory/`, `skills/` |
 
 Config (`./config/`) is bind-mounted read-only for engine and gateway; writable for cli (so `klaw init` can write templates).
 
@@ -101,8 +102,8 @@ docker compose restart engine
 
 ```bash
 # After ~10s from startup, engine.sock should exist:
-docker compose exec gateway ls /root/.local/state/klaw/
-# Expected: engine.sock  gateway-buffer.jsonl
+docker compose exec gateway ls /home/klaw/.local/state/klaw/run/
+# Expected: engine.sock
 ```
 
 ## klaw init in Docker
@@ -133,5 +134,5 @@ After `klaw init` completes, both containers will be running and the Telegram ga
 | CLI binary | `klaw-linuxX64` (x86-64 container) | `klaw-linuxArm64` (native) |
 | Services | `docker compose up/down` | `systemctl --user start/stop` |
 | Config | `./config/*.yaml` (bind-mount) | `~/.config/klaw/*.yaml` |
-| Data | Docker named volumes | `~/.local/share/klaw/` |
+| Data | Bind-mounts (`./state/`, `./data/`) | `~/.local/share/klaw/` |
 | Logs | `docker compose logs` | journald + log files |

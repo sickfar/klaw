@@ -13,3 +13,8 @@ internal actual fun mkdirMode755(path: String) {
 internal actual fun chmodReadWrite(path: String) {
     chmod(path, 0x180u.toUShort()) // 0600 as UShort (mode_t on macOS)
 }
+
+@OptIn(ExperimentalForeignApi::class)
+internal actual fun chmodWorldRwx(path: String) {
+    chmod(path, 0x1FFu.toUShort()) // 0777 as UShort (mode_t on macOS)
+}

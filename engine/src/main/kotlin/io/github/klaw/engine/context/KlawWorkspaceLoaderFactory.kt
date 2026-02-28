@@ -12,15 +12,11 @@ import java.nio.file.Path
 class KlawWorkspaceLoaderFactory {
     @Singleton
     @Replaces(StubWorkspaceLoader::class)
-    fun klawWorkspaceLoader(
-        memoryService: MemoryService,
-        coreMemory: CoreMemoryService,
-    ): KlawWorkspaceLoader {
+    fun klawWorkspaceLoader(memoryService: MemoryService): KlawWorkspaceLoader {
         val loader =
             KlawWorkspaceLoader(
                 workspacePath = Path.of(KlawPaths.workspace),
                 memoryService = memoryService,
-                coreMemory = coreMemory,
             )
         loader.initialize()
         return loader

@@ -22,6 +22,12 @@ The agent's name, presentation, and tone. Loaded under `## Identity`.
 
 Defines how the agent presents itself: its name, speaking style, and relationship with the user. More specific than SOUL.md.
 
+### `USER.md`
+
+Information about the user. Loaded under `## About the User` in the system prompt, positioned after IDENTITY.md and before AGENTS.md.
+
+Contains user preferences, background, and any context the agent should know about the user.
+
 ### `AGENTS.md`
 
 Operational instructions: priorities, rules, behavioral boundaries, memory usage guidance. Loaded under `## Instructions`.
@@ -34,19 +40,11 @@ Environment notes: SSH host addresses, local service URLs, API quirks, tool-spec
 
 Not for defining tools (tools are built-in). Use this to tell the agent about the specific environment it operates in.
 
-**System prompt order:** `SOUL.md` → `IDENTITY.md` → `AGENTS.md` → `TOOLS.md`
+**System prompt order:** `SOUL.md` → `IDENTITY.md` → `USER.md` → `AGENTS.md` → `TOOLS.md`
 
 ---
 
 ## Memory files
-
-### `USER.md`
-
-Information about the user. On first engine startup, this file populates `core_memory.json["user"]["notes"]`.
-
-**After the first run**, `core_memory.json` is the authoritative source. Runtime updates via `memory_core_update` are stored there, not written back to `USER.md`.
-
-`USER.md` is **not** included in the system prompt. It seeds core memory once.
 
 ### `MEMORY.md`
 
@@ -92,9 +90,9 @@ See `doc/skills/` for skill format documentation.
 |------|-------------|---------|
 | `SOUL.md` | Startup → system prompt | Agent philosophy and values |
 | `IDENTITY.md` | Startup → system prompt | Agent name and tone |
+| `USER.md` | Startup → system prompt | User information |
 | `AGENTS.md` | Startup → system prompt | Operational instructions |
 | `TOOLS.md` | Startup → system prompt | Environment notes |
-| `USER.md` | First startup → core memory | User information seed |
 | `MEMORY.md` | Startup → sqlite-vec | Long-term memory index |
 | `memory/*.md` | Startup → sqlite-vec | Daily memory logs |
 | `HEARTBEAT.md` | Startup → Quartz | Recurring task definitions |

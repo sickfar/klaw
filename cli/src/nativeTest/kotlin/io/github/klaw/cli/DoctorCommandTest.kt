@@ -53,7 +53,6 @@ class DoctorCommandTest {
     ) = KlawCli(
         requestFn = { _, _ -> "{}" },
         conversationsDir = "/nonexistent",
-        coreMemoryPath = "/nonexistent",
         engineSocketPath = engineSocketPath,
         configDir = configDir,
         modelsDir = modelsDir,

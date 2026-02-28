@@ -15,12 +15,12 @@ import platform.posix.system
 
 internal class MemoryCommand(
     requestFn: EngineRequest,
-    coreMemoryPath: String,
+    workspaceDir: String,
 ) : CliktCommand(name = "memory") {
     init {
         subcommands(
-            MemoryShowCommand(coreMemoryPath),
-            MemoryEditCommand(coreMemoryPath),
+            MemoryShowCommand(workspaceDir),
+            MemoryEditCommand(workspaceDir),
             MemorySearchCommand(requestFn),
         )
     }
@@ -29,29 +29,31 @@ internal class MemoryCommand(
 }
 
 internal class MemoryShowCommand(
-    private val coreMemoryPath: String = KlawPaths.coreMemory,
+    private val workspaceDir: String = KlawPaths.workspace,
 ) : CliktCommand(name = "show") {
     override fun run() {
-        if (!fileExists(coreMemoryPath)) {
-            echo("Core memory not found: $coreMemoryPath")
+        val memoryMdPath = "$workspaceDir/MEMORY.md"
+        if (!fileExists(memoryMdPath)) {
+            echo("MEMORY.md not found: $memoryMdPath")
             return
         }
-        val content = readFileText(coreMemoryPath)
+        val content = readFileText(memoryMdPath)
         if (content != null) {
             echo(content)
         } else {
-            echo("Core memory not found: $coreMemoryPath")
+            echo("MEMORY.md not found: $memoryMdPath")
         }
     }
 }
 
 @OptIn(ExperimentalForeignApi::class)
 internal class MemoryEditCommand(
-    private val coreMemoryPath: String = KlawPaths.coreMemory,
+    private val workspaceDir: String = KlawPaths.workspace,
 ) : CliktCommand(name = "edit") {
     override fun run() {
+        val memoryMdPath = "$workspaceDir/MEMORY.md"
         val editor = getenv("EDITOR")?.toKString() ?: "vi"
-        val result = system("$editor \"$coreMemoryPath\"")
+        val result = system("$editor \"$memoryMdPath\"")
         if (result != 0) {
             echo("Editor exited with code $result")
         }

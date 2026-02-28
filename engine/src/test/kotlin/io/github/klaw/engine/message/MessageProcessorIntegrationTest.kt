@@ -27,7 +27,6 @@ import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SubagentHistoryLoader
 import io.github.klaw.engine.context.SummaryService
@@ -155,7 +154,6 @@ class MessageProcessorIntegrationTest {
             mockk<WorkspaceLoader> {
                 coEvery { loadSystemPrompt() } returns "You are a helpful assistant."
             }
-        val coreMemory = mockk<CoreMemoryService> { coEvery { load() } returns "" }
         val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
         val skillRegistry = mockk<SkillRegistry> { coEvery { listSkillDescriptions() } returns emptyList() }
         val toolRegistry = mockk<ToolRegistry> { coEvery { listTools() } returns emptyList() }
@@ -167,7 +165,6 @@ class MessageProcessorIntegrationTest {
         val contextBuilder =
             ContextBuilder(
                 workspaceLoader = workspaceLoader,
-                coreMemory = coreMemory,
                 messageRepository = messageRepository,
                 summaryService = summaryService,
                 skillRegistry = skillRegistry,
@@ -181,7 +178,6 @@ class MessageProcessorIntegrationTest {
             CommandHandler(
                 sessionManager = sessionManager,
                 messageRepository = messageRepository,
-                coreMemory = coreMemory,
                 config = config,
             )
 

@@ -24,7 +24,9 @@ class UtilityTools(
         text: String,
     ): String =
         try {
-            socketServerProvider.get().pushToGateway(OutboundSocketMessage(channel = channel, chatId = chatId, content = text))
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(channel = channel, chatId = chatId, content = text),
+            )
             "OK: message sent to $channel/$chatId"
         } catch (e: Exception) {
             "Error: ${e.message}"

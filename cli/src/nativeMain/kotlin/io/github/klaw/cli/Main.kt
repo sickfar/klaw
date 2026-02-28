@@ -31,7 +31,6 @@ internal fun defaultEngineRequest(): EngineRequest =
 class KlawCli(
     requestFn: EngineRequest = defaultEngineRequest(),
     conversationsDir: String = KlawPaths.conversations,
-    coreMemoryPath: String = KlawPaths.coreMemory,
     engineSocketPath: String = KlawPaths.engineSocket,
     configDir: String = KlawPaths.config,
     modelsDir: String = KlawPaths.models,
@@ -47,7 +46,7 @@ class KlawCli(
             ReindexCommand(requestFn),
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
-            MemoryCommand(requestFn, coreMemoryPath),
+            MemoryCommand(requestFn, workspaceDir),
             DoctorCommand(configDir, engineSocketPath, modelsDir),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),

@@ -13,7 +13,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent/conversations",
-                coreMemoryPath = "/nonexistent/core_memory.json",
                 engineSocketPath = "/nonexistent/engine.sock",
                 configDir = "/nonexistent/config",
                 modelsDir = "/nonexistent/models",
@@ -28,7 +27,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent/conversations",
-                coreMemoryPath = "/nonexistent/core_memory.json",
                 engineSocketPath = "/nonexistent/engine.sock",
                 configDir = "/nonexistent/config",
                 modelsDir = "/nonexistent/models",
@@ -43,7 +41,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("""{"result":"ok"}"""),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -58,7 +55,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("""{"result":"ok"}"""),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -73,7 +69,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent/core_memory.json",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -88,7 +83,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -103,7 +97,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -119,7 +112,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -135,7 +127,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -151,7 +142,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -167,7 +157,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -183,7 +172,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
@@ -199,7 +187,6 @@ class ArgParsingTest {
             KlawCli(
                 requestFn = fakeRequest("{}"),
                 conversationsDir = "/nonexistent",
-                coreMemoryPath = "/nonexistent",
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",

@@ -1,6 +1,5 @@
 package io.github.klaw.engine.workspace
 
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.KlawWorkspaceLoader
 import io.github.klaw.engine.memory.MemoryService
 import io.mockk.coEvery
@@ -18,15 +17,12 @@ class WorkspaceMemoryIndexingTest {
     lateinit var workspace: Path
 
     private val memoryService = mockk<MemoryService>(relaxed = true)
-    private val coreMemory = mockk<CoreMemoryService>(relaxed = true)
     private lateinit var loader: KlawWorkspaceLoader
 
     @BeforeEach
     fun setup() {
-        coEvery { coreMemory.getJson() } returns """{"user":{},"agent":{}}"""
-        coEvery { coreMemory.update(any(), any(), any()) } returns "OK"
         coEvery { memoryService.save(any(), any()) } returns "OK"
-        loader = KlawWorkspaceLoader(workspace, memoryService, coreMemory)
+        loader = KlawWorkspaceLoader(workspace, memoryService)
     }
 
     @Test

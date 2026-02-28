@@ -6,8 +6,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -17,17 +15,14 @@ private val logger = KotlinLogging.logger {}
  * Loads OpenClaw-compatible workspace files into a cached system prompt.
  *
  * On [initialize]:
- * - Builds system prompt from SOUL.md to IDENTITY.md to AGENTS.md to TOOLS.md
- * - Populates core memory user section from USER.md on first run (when empty)
+ * - Builds system prompt from SOUL.md → IDENTITY.md → USER.md → AGENTS.md → TOOLS.md
  * - Indexes MEMORY.md + daily memory logs into sqlite-vec via [MemoryService.save]
  *
- * USER.md is NOT included in the system prompt — it populates core_memory.json once.
  * System prompt is cached after initialize; not re-read per message.
  */
 class KlawWorkspaceLoader(
     private val workspacePath: Path,
     private val memoryService: MemoryService,
-    private val coreMemory: CoreMemoryService,
 ) : WorkspaceLoader {
     @Volatile
     private var cachedSystemPrompt: String = ""
@@ -39,7 +34,6 @@ class KlawWorkspaceLoader(
         }
         runBlocking {
             cachedSystemPrompt = buildSystemPrompt()
-            initCoreMemoryFromUserMd()
             indexMemoryFiles()
         }
         logger.info { "Workspace loaded path=$workspacePath" }
@@ -53,6 +47,7 @@ class KlawWorkspaceLoader(
                 listOf(
                     "SOUL.md" to "## Soul",
                     "IDENTITY.md" to "## Identity",
+                    "USER.md" to "## About the User",
                     "AGENTS.md" to "## Instructions",
                     "TOOLS.md" to "## Environment Notes",
                 )
@@ -68,26 +63,6 @@ class KlawWorkspaceLoader(
             }
             parts.joinToString("\n\n")
         }
-
-    @Suppress("ReturnCount")
-    private suspend fun initCoreMemoryFromUserMd() {
-        val userMd = workspacePath.resolve("USER.md")
-        if (!Files.exists(userMd)) return
-        val json = coreMemory.getJson()
-        val userSection =
-            runCatching {
-                Json.parseToJsonElement(json).jsonObject["user"]?.jsonObject
-            }.getOrNull() ?: return
-        if (userSection.isNotEmpty()) {
-            logger.debug { "Core memory user section already populated — skipping USER.md init" }
-            return
-        }
-        val content = withContext(Dispatchers.VT) { Files.readString(userMd).trim() }
-        if (content.isNotEmpty()) {
-            coreMemory.update("user", "notes", content)
-            logger.debug { "Core memory user section initialized from USER.md" }
-        }
-    }
 
     private suspend fun indexMemoryFiles() {
         val memoryMd = workspacePath.resolve("MEMORY.md")

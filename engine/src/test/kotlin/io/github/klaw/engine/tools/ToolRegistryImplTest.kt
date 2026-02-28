@@ -77,19 +77,19 @@ class ToolRegistryImplTest {
         )
 
     @Test
-    fun `listTools returns all 19 tool definitions`() =
+    fun `listTools returns all 16 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(19, tools.size)
+            assertEquals(16, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
             assertTrue(names.contains("file_list"))
             assertTrue(names.contains("memory_search"))
             assertTrue(names.contains("memory_save"))
-            assertTrue(names.contains("memory_core_get"))
-            assertTrue(names.contains("memory_core_update"))
-            assertTrue(names.contains("memory_core_delete"))
+            assertFalse(names.contains("memory_core_get"))
+            assertFalse(names.contains("memory_core_update"))
+            assertFalse(names.contains("memory_core_delete"))
             assertTrue(names.contains("docs_search"))
             assertTrue(names.contains("docs_read"))
             assertTrue(names.contains("docs_list"))
@@ -163,22 +163,6 @@ class ToolRegistryImplTest {
         }
 
     @Test
-    fun `execute dispatches memory_core_update`() =
-        runTest {
-            coEvery { memoryTools.coreUpdate("user", "name", "Alice") } returns "OK"
-
-            val result =
-                registry.execute(
-                    ToolCall(
-                        id = "2",
-                        name = "memory_core_update",
-                        arguments = """{"section":"user","key":"name","value":"Alice"}""",
-                    ),
-                )
-            assertEquals("OK", result.content)
-        }
-
-    @Test
     fun `execute dispatches subagent_spawn`() =
         runTest {
             coEvery { subagentTools.spawn("agent", "do it", null, null) } returns "OK"
@@ -220,7 +204,7 @@ class ToolRegistryImplTest {
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(16, tools.size)
+            assertEquals(13, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -229,11 +213,11 @@ class ToolRegistryImplTest {
     @Test
     fun `no-arg tools work with empty arguments`() =
         runTest {
-            coEvery { memoryTools.coreGet() } returns "{}"
+            coEvery { utilityTools.currentTime() } returns "2025-01-01T00:00:00Z"
             val result =
                 registry.execute(
-                    ToolCall(id = "1", name = "memory_core_get", arguments = ""),
+                    ToolCall(id = "1", name = "current_time", arguments = ""),
                 )
-            assertEquals("{}", result.content)
+            assertEquals("2025-01-01T00:00:00Z", result.content)
         }
 }

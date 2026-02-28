@@ -54,7 +54,7 @@ common/src/
 
 engine/src/main/kotlin/io/github/klaw/engine/
 ├── llm/          # LlmClient, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
-├── context/      # ContextBuilder, SubagentHistoryLoader, CoreMemoryService, SkillRegistry, WorkspaceLoader
+├── context/      # ContextBuilder, SubagentHistoryLoader, SkillRegistry, WorkspaceLoader
 ├── message/      # MessageProcessor, DebounceBuffer, ToolCallLoopRunner, MessageRepository, MessageEmbeddingService
 ├── memory/       # MemoryService, AutoRagService, EmbeddingService (ONNX + Ollama), MarkdownChunker, RrfMerge
 ├── tools/        # ToolExecutor, FileTools, MemoryTools, ScheduleTools, SkillTools, SubagentTools, DocsTools
@@ -112,9 +112,18 @@ cli/src/nativeMain/kotlin/io/github/klaw/cli/
 
 `docker-compose.yml` at the repo root defines three services: `engine`, `gateway`, `cli` (cli has `profiles: [cli]`). The `klaw` shell script at repo root wraps `docker compose run --rm cli`.
 
-Shared volumes: `klaw-state` (`~/.local/state/klaw`), `klaw-data` (`~/.local/share/klaw`), `klaw-workspace`. Config is bind-mounted read-only from `./config/`. Dockerfiles are in `docker/{engine,gateway,cli}/`.
+Containers run as non-root `klaw` user (UID 10001, GID 10001). All mount paths use `/home/klaw/...` inside containers. Host dirs need `o+rwx` (set by `klaw init` for hybrid/docker mode) so the container user can write.
 
-The `klaw init` command (CLI) runs an interactive wizard that detects Docker vs. native environment and sets up workspace, config, and service installation accordingly.
+**Environment variables for containers:**
+- `HOME=/home/klaw` — so `KlawPaths` resolves XDG dirs correctly inside containers
+- `KLAW_SOCKET_PATH=/home/klaw/.local/state/klaw/run/engine.sock` — socket in separate `run/` mount
+- `KLAW_SOCKET_PERMS=rw-rw-rw-` (engine only) — 666 perms so host CLI can connect to container socket
+
+Socket is isolated in `$stateDir/run/` (mounted separately from state dir) with 666 permissions. Native mode is unchanged: socket at `$state/engine.sock` with 600 permissions.
+
+Config is bind-mounted read-only from `./config/`. Dockerfiles are in `docker/{engine,gateway,cli}/`.
+
+The `klaw init` command (CLI) runs an interactive wizard that detects Docker vs. native environment and sets up workspace, config, and service installation accordingly. For hybrid/docker mode, it creates `$stateDir/run/` and sets 0777 on state/data dirs.
 
 Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`, `install.sh`, `install-klaw.sh`, `get-klaw.sh` (curl-install). Systemd unit files in `deploy/`.
 

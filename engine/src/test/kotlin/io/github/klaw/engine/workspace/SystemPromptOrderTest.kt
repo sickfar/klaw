@@ -1,12 +1,10 @@
 package io.github.klaw.engine.workspace
 
-import io.github.klaw.engine.context.CoreMemoryService
 import io.github.klaw.engine.context.KlawWorkspaceLoader
 import io.github.klaw.engine.memory.MemoryService
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -19,21 +17,19 @@ class SystemPromptOrderTest {
     lateinit var workspace: Path
 
     private val memoryService = mockk<MemoryService>(relaxed = true)
-    private val coreMemory = mockk<CoreMemoryService>(relaxed = true)
     private lateinit var loader: KlawWorkspaceLoader
 
     @BeforeEach
     fun setup() {
-        coEvery { coreMemory.getJson() } returns """{"user":{},"agent":{}}"""
-        coEvery { coreMemory.update(any(), any(), any()) } returns "OK"
         coEvery { memoryService.save(any(), any()) } returns "OK"
 
         Files.writeString(workspace.resolve("SOUL.md"), "SOUL_CONTENT")
         Files.writeString(workspace.resolve("IDENTITY.md"), "IDENTITY_CONTENT")
+        Files.writeString(workspace.resolve("USER.md"), "USER_CONTENT")
         Files.writeString(workspace.resolve("AGENTS.md"), "AGENTS_CONTENT")
         Files.writeString(workspace.resolve("TOOLS.md"), "TOOLS_CONTENT")
 
-        loader = KlawWorkspaceLoader(workspace, memoryService, coreMemory)
+        loader = KlawWorkspaceLoader(workspace, memoryService)
     }
 
     @Test
@@ -48,13 +44,24 @@ class SystemPromptOrderTest {
         }
 
     @Test
-    fun `IDENTITY appears before AGENTS`() =
+    fun `IDENTITY appears before USER`() =
         runTest {
             loader.initialize()
             val prompt = loader.loadSystemPrompt()
             assertTrue(
-                prompt.indexOf("IDENTITY_CONTENT") < prompt.indexOf("AGENTS_CONTENT"),
-                "IDENTITY must precede AGENTS in: $prompt",
+                prompt.indexOf("IDENTITY_CONTENT") < prompt.indexOf("USER_CONTENT"),
+                "IDENTITY must precede USER in: $prompt",
+            )
+        }
+
+    @Test
+    fun `USER appears before AGENTS`() =
+        runTest {
+            loader.initialize()
+            val prompt = loader.loadSystemPrompt()
+            assertTrue(
+                prompt.indexOf("USER_CONTENT") < prompt.indexOf("AGENTS_CONTENT"),
+                "USER must precede AGENTS in: $prompt",
             )
         }
 
@@ -70,11 +77,11 @@ class SystemPromptOrderTest {
         }
 
     @Test
-    fun `USER_md does not appear in system prompt`() =
+    fun `USER_md appears in system prompt as About the User`() =
         runTest {
-            Files.writeString(workspace.resolve("USER.md"), "USER_CONTENT_UNIQUE")
             loader.initialize()
             val prompt = loader.loadSystemPrompt()
-            assertFalse(prompt.contains("## User"), "USER section should not be in system prompt")
+            assertTrue(prompt.contains("## About the User"), "## About the User should be in system prompt")
+            assertTrue(prompt.contains("USER_CONTENT"), "USER_CONTENT should be in system prompt")
         }
 }
