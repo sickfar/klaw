@@ -46,6 +46,7 @@ class MemoryShowCommandTest {
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
             workspaceDir = tmpDir,
+            logDir = "/nonexistent/logs",
         )
 
     @Test

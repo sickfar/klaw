@@ -64,6 +64,7 @@ class DoctorCommandTest {
         configDir = configDir,
         modelsDir = modelsDir,
         workspaceDir = workspace,
+        logDir = "/nonexistent/logs",
         doctorCommandOutput = commandOutput,
     )
 

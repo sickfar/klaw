@@ -33,6 +33,7 @@ class IdentityCommandTest {
             KlawCli(
                 requestFn = { _, _ -> "{}" },
                 workspaceDir = tmpDir,
+                logDir = "/nonexistent/logs",
                 commandRunner = { cmd ->
                     commands += cmd
                     0
@@ -50,6 +51,7 @@ class IdentityCommandTest {
             KlawCli(
                 requestFn = { _, _ -> "{}" },
                 workspaceDir = "/nonexistent/workspace",
+                logDir = "/nonexistent/logs",
                 commandRunner = { _ -> 0 },
             )
         val result = cli.test("identity edit")

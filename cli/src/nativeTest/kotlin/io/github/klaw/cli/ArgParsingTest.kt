@@ -16,6 +16,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent/engine.sock",
                 configDir = "/nonexistent/config",
                 modelsDir = "/nonexistent/models",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("logs --follow")
         assertEquals(0, result.statusCode)
@@ -30,6 +31,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent/engine.sock",
                 configDir = "/nonexistent/config",
                 modelsDir = "/nonexistent/models",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("logs --chat telegram_123456")
         assertEquals(0, result.statusCode)
@@ -44,6 +46,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("schedule add daily \"0 9 * * *\" \"Good morning\"")
         assertEquals(0, result.statusCode)
@@ -58,6 +61,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("schedule add daily \"0 9 * * *\" \"Hello\" --model glm/glm-4-plus")
         assertEquals(0, result.statusCode)
@@ -72,6 +76,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("memory show")
         assertEquals(0, result.statusCode)
@@ -86,6 +91,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("unknown_command_xyz")
         assertEquals(1, result.statusCode)
@@ -100,6 +106,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("engine start")
@@ -115,6 +122,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("engine stop")
@@ -130,6 +138,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("engine restart")
@@ -145,6 +154,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("gateway start")
@@ -160,6 +170,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("gateway stop")
@@ -175,6 +186,7 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("gateway restart")
@@ -190,9 +202,25 @@ class ArgParsingTest {
                 engineSocketPath = "/nonexistent",
                 configDir = "/nonexistent",
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
         val result = cli.test("stop")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw --verbose flag is accepted`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                engineSocketPath = "/nonexistent",
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
+            )
+        val result = cli.test("--verbose status")
         assertEquals(0, result.statusCode)
     }
 }

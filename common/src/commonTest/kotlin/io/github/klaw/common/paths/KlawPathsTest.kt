@@ -149,6 +149,12 @@ class KlawPathsTest {
     }
 
     @Test
+    fun `logs is in state dir`() {
+        val paths = buildTestPaths(home = "/home/alice")
+        assertEquals("/home/alice/.local/state/klaw/logs", paths.logs)
+    }
+
+    @Test
     fun `all XDG vars set simultaneously`() {
         val paths =
             buildTestPaths(

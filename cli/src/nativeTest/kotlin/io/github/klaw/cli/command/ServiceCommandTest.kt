@@ -37,6 +37,7 @@ class ServiceCommandTest {
         KlawCli(
             requestFn = { _, _ -> "{}" },
             configDir = tmpDir,
+            logDir = "/nonexistent/logs",
             commandRunner = runner,
         )
 

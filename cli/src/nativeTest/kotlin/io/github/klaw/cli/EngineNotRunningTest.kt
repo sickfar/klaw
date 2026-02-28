@@ -16,6 +16,7 @@ class EngineNotRunningTest {
             engineSocketPath = "/nonexistent/engine.sock",
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
+            logDir = "/nonexistent/logs",
         )
 
     @Test

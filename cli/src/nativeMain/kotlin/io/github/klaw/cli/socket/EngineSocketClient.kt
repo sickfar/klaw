@@ -1,5 +1,6 @@
 package io.github.klaw.cli.socket
 
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CliRequestMessage
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -39,8 +40,12 @@ class EngineSocketClient(
         command: String,
         params: Map<String, String> = emptyMap(),
     ): String {
+        CliLogger.debug { "connecting to $socketPath" }
         val fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        if (fd < 0) throw EngineNotRunningException()
+        if (fd < 0) {
+            CliLogger.error { "socket creation failed" }
+            throw EngineNotRunningException()
+        }
 
         val pathBytes = socketPath.encodeToByteArray()
         val addrBytes = buildSockAddrBytes(pathBytes)
@@ -49,6 +54,7 @@ class EngineSocketClient(
                 platform.posix.connect(fd, pinned.addressOf(0).reinterpret<sockaddr>(), addrBytes.size.convert())
             }
         if (connectResult < 0) {
+            CliLogger.error { "connect failed for $socketPath" }
             close(fd)
             throw EngineNotRunningException()
         }
@@ -85,6 +91,7 @@ class EngineSocketClient(
         }
 
         close(fd)
+        CliLogger.debug { "response received, length=${sb.length}" }
         return sb.toString().trim()
     }
 }

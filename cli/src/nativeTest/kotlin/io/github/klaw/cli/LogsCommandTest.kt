@@ -63,6 +63,7 @@ class LogsCommandTest {
             engineSocketPath = "/nonexistent",
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
+            logDir = "/nonexistent/logs",
         )
 
     @Test

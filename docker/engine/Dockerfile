@@ -11,4 +11,4 @@ RUN mkdir -p /home/klaw/.local/state/klaw/run \
 WORKDIR /app
 COPY build/dist/klaw-engine-*.jar klaw-engine.jar
 USER klaw
-ENTRYPOINT ["java", "-Xms64m", "-Xmx512m", "-jar", "/app/klaw-engine.jar"]
+ENTRYPOINT ["java", "-Xms64m", "-Xmx512m", "-Dlogback.configurationFile=logback-docker.xml", "-jar", "/app/klaw-engine.jar"]

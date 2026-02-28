@@ -47,6 +47,7 @@ class ConfigCommandTest {
                 requestFn = { _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("config set default new/model")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
@@ -63,6 +64,7 @@ class ConfigCommandTest {
                 requestFn = { _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("config set default new/model")
         assertEquals(0, result.statusCode)
@@ -76,6 +78,7 @@ class ConfigCommandTest {
                 requestFn = { _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
             )
         val result = cli.test("config set default new/model")
         assertEquals(0, result.statusCode, "Should not crash on missing file")

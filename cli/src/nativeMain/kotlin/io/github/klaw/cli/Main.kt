@@ -3,6 +3,8 @@ package io.github.klaw.cli
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.DoctorCommand
@@ -18,6 +20,7 @@ import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
 import io.github.klaw.cli.socket.EngineSocketClient
+import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.runCommandOutput
 import io.github.klaw.common.paths.KlawPaths
 
@@ -39,7 +42,11 @@ class KlawCli(
     workspaceDir: String = KlawPaths.workspace,
     commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
     doctorCommandOutput: (String) -> String? = ::runCommandOutput,
+    private val logDir: String = KlawPaths.logs,
 ) : CliktCommand(name = "klaw") {
+    private val verbose by option("-v", "--verbose", help = "Enable debug logging")
+        .flag(default = false)
+
     init {
         subcommands(
             InitCommand(requestFn),
@@ -59,7 +66,16 @@ class KlawCli(
         )
     }
 
-    override fun run() = Unit
+    override fun run() {
+        val level = if (verbose) CliLogger.Level.DEBUG else CliLogger.Level.INFO
+        CliLogger.init(logDir = logDir, level = level)
+    }
 }
 
-fun main(args: Array<String>) = KlawCli().main(args)
+fun main(args: Array<String>) {
+    try {
+        KlawCli().main(args)
+    } finally {
+        CliLogger.close()
+    }
+}
