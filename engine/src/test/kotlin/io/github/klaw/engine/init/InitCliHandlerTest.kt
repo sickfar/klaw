@@ -38,10 +38,10 @@ class InitCliHandlerTest {
     }
 
     @Test
-    fun `klaw_init_generate_identity calls LLM and returns 4 sections`() =
+    fun `klaw_init_generate_identity calls LLM and returns 2 sections`() =
         runTest {
             val jsonResponse =
-                """{"soul":"I am helpful","identity":"Klaw","agents":"Do tasks","user":"Developer"}"""
+                """{"identity":"Klaw","user":"Developer"}"""
             coEvery { llmRouter.chat(any(), any()) } returns
                 LlmResponse(
                     content = jsonResponse,
@@ -54,15 +54,15 @@ class InitCliHandlerTest {
                 handler.handleGenerateIdentity(
                     mapOf(
                         "name" to "Klaw",
-                        "personality" to "helpful, analytical",
                         "role" to "personal assistant",
                         "user_info" to "Developer working on AI projects",
-                        "domain" to "software engineering",
                     ),
                 )
 
-            assertTrue(result.contains("soul"), "Expected 'soul' in: $result")
             assertTrue(result.contains("identity"), "Expected 'identity' in: $result")
+            assertTrue(result.contains("user"), "Expected 'user' in: $result")
+            assertTrue(!result.contains("soul"), "Should NOT contain 'soul' in: $result")
+            assertTrue(!result.contains("agents"), "Should NOT contain 'agents' in: $result")
         }
 
     @Test

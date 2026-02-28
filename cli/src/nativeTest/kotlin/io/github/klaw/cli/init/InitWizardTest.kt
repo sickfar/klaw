@@ -145,13 +145,11 @@ class InitWizardTest {
                 // NO telegram token or chat IDs prompts
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"user"}"""
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -178,13 +176,11 @@ class InitWizardTest {
                 "n", // skip telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"user"}"""
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -216,13 +212,11 @@ class InitWizardTest {
                 "", // chat IDs
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"user"}"""
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -249,13 +243,11 @@ class InitWizardTest {
                 "",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"user"}"""
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -282,10 +274,8 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
         val wizard =
             buildWizard(
@@ -293,7 +283,7 @@ class InitWizardTest {
                 output = output,
                 commandOutput = { """{"data":[{"id":"model-1"}]}""" },
                 radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -312,17 +302,15 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
         val wizard =
             buildWizard(
                 inputs = inputs,
                 output = output,
                 commandOutput = { """{"error":"unauthorized"}""" },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -340,16 +328,14 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
         val wizard =
             buildWizard(
                 inputs = inputs,
                 commandOutput = { null },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -367,10 +353,8 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
         val commandOutputCalled = mutableListOf<String>()
         val wizard =
@@ -381,7 +365,7 @@ class InitWizardTest {
                     commandOutputCalled += cmd
                     null
                 },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -405,10 +389,8 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
         val wizard =
@@ -419,7 +401,7 @@ class InitWizardTest {
                     if (!prompt.contains("LLM")) capturedModels += items
                     0 // select first item (provider or model)
                 },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -444,10 +426,8 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
         val wizard =
@@ -455,7 +435,7 @@ class InitWizardTest {
                 inputs = inputs,
                 commandOutput = { modelsJson },
                 radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -476,10 +456,8 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
         val wizard =
@@ -490,7 +468,7 @@ class InitWizardTest {
                     if (!prompt.contains("LLM")) modelRadioSelectorCalled += true
                     0
                 },
-                engineResponses = mapOf("klaw_init_generate_identity" to """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""),
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
@@ -515,14 +493,12 @@ class InitWizardTest {
                 "", // allowed chat IDs (empty = allow all)
                 "n", // Phase 5: disable console
                 "TestAgent", // agent name
-                "curious, helpful", // personality
                 "personal assistant", // role
                 "developer", // user info
-                "coding", // domain
             )
 
         val engineResponse =
-            """{"soul":"Be helpful","identity":"TestAgent","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"TestAgent","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -552,14 +528,12 @@ class InitWizardTest {
                 "",
                 "n", // Phase 5: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
 
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -589,14 +563,12 @@ class InitWizardTest {
                 "",
                 "n", // Phase 5: disable console
                 "MyBot",
-                "analytical",
                 "coding helper",
                 "engineer",
-                "Kotlin",
             )
 
         val engineResponse =
-            """{"soul":"I value clarity","identity":"MyBot assistant","agents":"Help with code","user":"An engineer"}"""
+            """{"identity":"MyBot assistant","user":"An engineer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -606,10 +578,34 @@ class InitWizardTest {
             )
         wizard.run()
 
-        assertTrue(fileExists("$workspaceDir/SOUL.md"), "SOUL.md should be created")
-        assertTrue(fileExists("$workspaceDir/IDENTITY.md"), "IDENTITY.md should be created")
-        assertTrue(fileExists("$workspaceDir/AGENTS.md"), "AGENTS.md should be created")
-        assertTrue(fileExists("$workspaceDir/USER.md"), "USER.md should be created")
+        // SOUL.md and AGENTS.md are predefined stubs written by WorkspaceInitializer (Phase 6),
+        // NOT by identity generation (Phase 10). They should NOT contain LLM fallback text.
+        assertTrue(fileExists("$workspaceDir/SOUL.md"), "SOUL.md should be created by WorkspaceInitializer")
+        assertTrue(fileExists("$workspaceDir/AGENTS.md"), "AGENTS.md should be created by WorkspaceInitializer")
+        val soulContent = readFileText("$workspaceDir/SOUL.md")
+        assertNotNull(soulContent, "SOUL.md should be readable")
+        assertTrue(soulContent.contains("# Soul"), "SOUL.md should contain stub header")
+        assertTrue(
+            !soulContent.contains("Be helpful and curious"),
+            "SOUL.md should be a predefined stub, not LLM fallback: $soulContent",
+        )
+        val agentsContent = readFileText("$workspaceDir/AGENTS.md")
+        assertNotNull(agentsContent, "AGENTS.md should be readable")
+        assertTrue(agentsContent.contains("# Agents"), "AGENTS.md should contain stub header")
+        assertTrue(
+            !agentsContent.contains("Help the user effectively"),
+            "AGENTS.md should be a predefined stub, not LLM fallback: $agentsContent",
+        )
+
+        // IDENTITY.md and USER.md are generated by LLM (Phase 10)
+        assertTrue(fileExists("$workspaceDir/IDENTITY.md"), "IDENTITY.md should be created by identity generation")
+        assertTrue(fileExists("$workspaceDir/USER.md"), "USER.md should be created by identity generation")
+        val identityContent = readFileText("$workspaceDir/IDENTITY.md")
+        assertNotNull(identityContent, "IDENTITY.md should be readable")
+        assertTrue(identityContent.contains("MyBot"), "IDENTITY.md should contain LLM-generated content")
+        val userContent = readFileText("$workspaceDir/USER.md")
+        assertNotNull(userContent, "USER.md should be readable")
+        assertTrue(userContent.contains("engineer"), "USER.md should contain LLM-generated content")
     }
 
     @Test
@@ -623,14 +619,12 @@ class InitWizardTest {
                 "",
                 "n", // Phase 5: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"user"}"""
+            """{"identity":"Klaw","user":"user"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/service", 0x1EDu)
 
@@ -657,13 +651,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 6: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -702,13 +694,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 6: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/service", 0x1EDu)
 
@@ -743,13 +733,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 6: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -787,13 +775,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 6: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val output = mutableListOf<String>()
@@ -822,13 +808,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 5: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val output = mutableListOf<String>()
@@ -856,13 +840,11 @@ class InitWizardTest {
                 "",
                 "n", // Phase 5: disable console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "developer",
-                "",
             )
         val engineResponse =
-            """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+            """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/service", 0x1EDu)
 
@@ -896,13 +878,11 @@ class InitWizardTest {
                 "y", // Phase 5: enable console
                 "37474", // Phase 5: port
                 "Klaw",
-                "curious, helpful",
                 "personal assistant",
                 "developer",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -929,13 +909,11 @@ class InitWizardTest {
                 "", // allowed chat IDs
                 "n", // Phase 5: do not enable console
                 "Klaw",
-                "curious, helpful",
                 "personal assistant",
                 "developer",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -962,13 +940,11 @@ class InitWizardTest {
                 "y", // Phase 5: enable console
                 "9090", // Phase 5: custom port
                 "Klaw",
-                "curious, helpful",
                 "personal assistant",
                 "developer",
-                "",
             )
 
-        val engineResponse = """{"soul":"Be helpful","identity":"Klaw","agents":"Do tasks","user":"developer"}"""
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -996,13 +972,11 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1028,13 +1002,11 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1066,13 +1038,11 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1099,13 +1069,11 @@ class InitWizardTest {
                 "n", // telegram
                 "n", // console
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1130,13 +1098,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1165,13 +1131,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1212,13 +1176,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/service", 0x1EDu)
 
@@ -1250,13 +1212,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1287,13 +1247,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1342,13 +1300,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1381,13 +1337,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =
@@ -1411,13 +1365,11 @@ class InitWizardTest {
                 "n",
                 "n",
                 "Klaw",
-                "helpful",
                 "assistant",
                 "user",
-                "",
             )
 
-        val engineResponse = """{"soul":"x","identity":"Klaw","agents":"x","user":"x"}"""
+        val engineResponse = """{"identity":"Klaw","user":"x"}"""
         platform.posix.mkdir(configDir, 0x1EDu)
 
         val wizard =

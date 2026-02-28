@@ -25,7 +25,7 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
-private const val TOTAL_PHASES = 10
+private const val TOTAL_PHASES = 8
 private const val DEFAULT_MODEL = "zai/glm-5"
 private const val MODELS_FETCH_TIMEOUT = 10
 
@@ -326,21 +326,16 @@ internal class InitWizard(
             }
         }
 
-        // ── Identity phases (9–10): collect Q&A and generate via engine ──
+        // ── Identity: collect Q&A and generate via engine ──
 
-        phase(9, "Identity Q&A")
+        printer("")
         printer("Agent name [Klaw]:")
         val agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
-        printer("Personality traits (e.g. curious, analytical, warm):")
-        val personality = readLineOrExit()?.trim().orEmpty()
         printer("Primary role (e.g. personal assistant, coding helper):")
         val role = readLineOrExit()?.trim().orEmpty()
         printer("Tell me about the user who will work with this agent:")
         val userInfo = readLineOrExit()?.trim().orEmpty()
-        printer("Specialized domains or expertise (optional):")
-        val domain = readLineOrExit()?.trim().orEmpty()
 
-        phase(10, "Identity generation")
         val identitySpinner = Spinner("Generating identity files...")
         val identityJson =
             runBlocking {
@@ -358,10 +353,8 @@ internal class InitWizard(
                                 "klaw_init_generate_identity",
                                 mapOf(
                                     "name" to agentName,
-                                    "personality" to personality,
                                     "role" to role,
                                     "user_info" to userInfo,
-                                    "domain" to domain,
                                 ),
                             )
                         }
@@ -372,13 +365,9 @@ internal class InitWizard(
                 result
             }
         identitySpinner.done("Identity generated")
-        val soul = extractJsonField(identityJson, "soul") ?: "# Soul\n\nBe helpful and curious."
         val identity = extractJsonField(identityJson, "identity") ?: "# Identity\n\n$agentName"
-        val agents = extractJsonField(identityJson, "agents") ?: "# Agents\n\nHelp the user effectively."
         val user = extractJsonField(identityJson, "user") ?: "# User\n\n$userInfo"
-        writeFileText("$workspaceDir/SOUL.md", soul)
         writeFileText("$workspaceDir/IDENTITY.md", identity)
-        writeFileText("$workspaceDir/AGENTS.md", agents)
         writeFileText("$workspaceDir/USER.md", user)
 
         printSummary(agentName, modelId, resolvedMode, dockerTag)

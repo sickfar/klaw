@@ -26,13 +26,11 @@ internal class IdentityEditCommand(
 ) : CliktCommand(name = "edit") {
     override fun run() {
         val editor = getenv("EDITOR")?.toKString() ?: "vi"
-        val soulPath = "$workspaceDir/SOUL.md"
         val identityPath = "$workspaceDir/IDENTITY.md"
-        if (!fileExists(soulPath) && !fileExists(identityPath)) {
+        if (!fileExists(identityPath)) {
             echo("Workspace identity files not found — run: klaw init")
             return
         }
-        if (fileExists(soulPath)) commandRunner("$editor $soulPath")
-        if (fileExists(identityPath)) commandRunner("$editor $identityPath")
+        commandRunner("$editor $identityPath")
     }
 }

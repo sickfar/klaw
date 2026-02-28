@@ -69,6 +69,32 @@ class WorkspaceInitializerTest {
     }
 
     @Test
+    fun `creates stub SOUL_md and AGENTS_md`() {
+        val initializer =
+            WorkspaceInitializer(
+                configDir = "$tmpDir/config",
+                dataDir = "$tmpDir/data",
+                stateDir = "$tmpDir/state",
+                cacheDir = "$tmpDir/cache",
+                workspaceDir = "$tmpDir/workspace",
+                conversationsDir = "$tmpDir/conversations",
+                memoryDir = "$tmpDir/memory",
+                skillsDir = "$tmpDir/skills",
+                modelsDir = "$tmpDir/models",
+            )
+        initializer.initialize()
+
+        assertTrue(fileExists("$tmpDir/workspace/SOUL.md"), "SOUL.md missing")
+        assertTrue(fileExists("$tmpDir/workspace/AGENTS.md"), "AGENTS.md missing")
+        val soul = readFileText("$tmpDir/workspace/SOUL.md")
+        assertNotNull(soul, "SOUL.md should be readable")
+        assertTrue(soul.contains("# Soul"), "SOUL.md should have stub header")
+        val agents = readFileText("$tmpDir/workspace/AGENTS.md")
+        assertNotNull(agents, "AGENTS.md should be readable")
+        assertTrue(agents.contains("# Agents"), "AGENTS.md should have stub header")
+    }
+
+    @Test
     fun `is idempotent on second call`() {
         val initializer =
             WorkspaceInitializer(

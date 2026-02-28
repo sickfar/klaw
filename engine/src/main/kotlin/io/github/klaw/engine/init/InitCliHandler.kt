@@ -10,13 +10,11 @@ import jakarta.inject.Singleton
 private val logger = KotlinLogging.logger {}
 
 private const val IDENTITY_SYSTEM_PROMPT = """You are a configuration assistant generating workspace files for an AI agent.
-Generate four markdown files as a JSON object with keys: soul, identity, agents, user.
-soul: agent's values and philosophy.
-identity: name, personality, communication style.
-agents: operational instructions and priorities.
+Generate two markdown files as a JSON object with keys: identity, user.
+identity: name, role, and personality of the agent.
 user: information about the user from their description.
 
-Respond ONLY with valid JSON: {"soul": "...", "identity": "...", "agents": "...", "user": "..."}"""
+Respond ONLY with valid JSON: {"identity": "...", "user": "..."}"""
 
 @Singleton
 class InitCliHandler(
@@ -28,12 +26,10 @@ class InitCliHandler(
 
     suspend fun handleGenerateIdentity(params: Map<String, String>): String {
         val name = params["name"] ?: "Klaw"
-        val personality = params["personality"] ?: ""
         val role = params["role"] ?: ""
         val userInfo = params["user_info"] ?: ""
-        val domain = params["domain"] ?: ""
 
-        val userPrompt = "Name: $name. Personality: $personality. Role: $role. User info: $userInfo. Domain: $domain."
+        val userPrompt = "Name: $name. Role: $role. User info: $userInfo."
 
         return try {
             val request =

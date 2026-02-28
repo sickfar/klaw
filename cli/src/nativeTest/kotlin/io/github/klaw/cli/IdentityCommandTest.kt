@@ -40,7 +40,7 @@ class IdentityCommandTest {
             )
         val result = cli.test("identity edit")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
-        assertTrue(commands.any { it.contains("SOUL.md") }, "Expected SOUL.md in commands: $commands")
+        assertTrue(commands.none { it.contains("SOUL.md") }, "SOUL.md should NOT be opened by identity edit: $commands")
         assertTrue(commands.any { it.contains("IDENTITY.md") }, "Expected IDENTITY.md in commands: $commands")
     }
 
