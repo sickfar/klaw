@@ -73,11 +73,11 @@ After answering, it writes config files to `~/.config/klaw/` (including `deploy.
 └── klaw-gateway.jar
 
 ~/.config/klaw/
-├── engine.yaml         # engine config (LLM settings, memory, etc.)
-├── gateway.yaml        # gateway config (Telegram token, allowed chats)
+├── engine.json         # engine config (LLM settings, memory, etc.)
+├── gateway.json        # gateway config (Telegram token, allowed chats)
 ├── .env                # API keys (0600 permissions)
 ├── deploy.conf         # deployment mode and docker tag
-└── docker-compose.yml  # (hybrid mode only) compose file with bind mounts
+└── docker-compose.json  # (hybrid mode only) compose file with bind mounts
 
 ~/.local/state/klaw/
 ├── engine.sock     # Unix socket for CLI ↔ engine communication
@@ -129,11 +129,11 @@ Plist files are in `~/Library/LaunchAgents/` — they load automatically on logi
 
 ### Hybrid mode (Docker services)
 
-If you chose "Docker services" during `klaw init`, the same `klaw engine start/stop/restart` commands route through Docker Compose using `~/.config/klaw/docker-compose.yml`:
+If you chose "Docker services" during `klaw init`, the same `klaw engine start/stop/restart` commands route through Docker Compose using `~/.config/klaw/docker-compose.json`:
 
 ```bash
-klaw engine start    # docker compose -f ~/.config/klaw/docker-compose.yml up -d engine
-klaw engine stop     # docker compose -f ~/.config/klaw/docker-compose.yml stop engine
+klaw engine start    # docker compose -f ~/.config/klaw/docker-compose.json up -d engine
+klaw engine stop     # docker compose -f ~/.config/klaw/docker-compose.json stop engine
 klaw stop            # stops both engine and gateway containers
 ```
 
@@ -212,7 +212,7 @@ brew install openjdk@21
 ```bash
 klaw config set routing.default glm/glm-5
 # or edit directly:
-$EDITOR ~/.config/klaw/engine.yaml
+$EDITOR ~/.config/klaw/engine.json
 ```
 
 Restart engine after config changes:

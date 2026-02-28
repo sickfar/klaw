@@ -21,7 +21,6 @@ kotlin {
         }
         val jvmMain by getting {
             dependencies {
-                implementation(libs.kaml)
                 implementation(libs.jtokkit)
             }
         }

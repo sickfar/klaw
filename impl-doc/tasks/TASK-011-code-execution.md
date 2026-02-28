@@ -34,7 +34,7 @@
 
 9. `host_exec` tool: `command: string` — выполнение команды на хосте
 10. Четырёхступенчатый каскад approval: allowList → notifyList → LLM pre-validation → ask user
-11. Конфигурация в `engine.yaml`: `hostExecution.enabled`, `allowList`, `notifyList`, `preValidation`, `askTimeoutMin`
+11. Конфигурация в `engine.json`: `hostExecution.enabled`, `allowList`, `notifyList`, `preValidation`, `askTimeoutMin`
 12. Approval протокол через Engine↔Gateway socket (`approval_request`/`approval_response`)
 13. Fallback: если LLM недоступен или таймаут pre-validation — всегда ask
 
@@ -239,7 +239,7 @@ fun formatForLlm(output: SandboxExecOutput): String {
 ### Конфигурация
 
 ```yaml
-# engine.yaml
+# engine.json
 hostExecution:
   enabled: true
   allowList:
@@ -543,7 +543,7 @@ All documentation in **English only**.
 ### `doc/tools/sandbox-exec.md`
 
 - **sandbox_exec** — params: `language` (`"python"` or `"bash"`), `code` (string), `timeout` (int, optional, default 30 seconds); executes code in an isolated Docker container; returns combined stdout and stderr; non-zero exit codes are reported in the output
-- **Sandbox constraints** — memory: 256 MB; CPU: 1.0 core; read-only root filesystem; network: bridge by default (`allowNetwork: true` in `engine.yaml`), can be disabled; no privileged access; no access to host filesystem except allowed mounts
+- **Sandbox constraints** — memory: 256 MB; CPU: 1.0 core; read-only root filesystem; network: bridge by default (`allowNetwork: true` in `engine.json`), can be disabled; no privileged access; no access to host filesystem except allowed mounts
 - **What is available in the sandbox** — Python 3.12, bash, curl; entire workspace mounted read-write at `/workspace`; write temporary output to `/tmp/klaw-sandbox` (writable)
 - **Performance on Pi 5** — keep-alive mode (default, `keepAlive: true`): ~100 ms per call via `docker exec` on a persistent container; one-shot mode (`keepAlive: false`): 2–5 seconds per call via `docker run --rm`; prefer multiple small calls over one large blocking script
 - **Container lifecycle** — keep-alive container is automatically recreated after 50 executions or 10 minutes of inactivity; state (variables, installed packages, temp files) does NOT persist between recreations; store results via `memory_save` or `file_write` if needed across calls

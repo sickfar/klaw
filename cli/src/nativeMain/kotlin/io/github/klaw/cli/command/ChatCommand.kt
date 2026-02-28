@@ -37,11 +37,8 @@ internal class ChatCommand(
     private fun showConsoleChatDisabledError() {
         echo("${AnsiColors.RED}✗ WebSocket chat is not enabled.${AnsiColors.RESET}")
         echo("")
-        echo("To enable it, add to $configDir/gateway.yaml:")
-        echo("  channels:")
-        echo("    console:")
-        echo("      enabled: true")
-        echo("      port: 37474")
+        echo("To enable it, add to $configDir/gateway.json:")
+        echo("  \"channels\": { \"console\": { \"enabled\": true, \"port\": 37474 } }")
         echo("")
         echo("Then restart the gateway: klaw gateway restart")
         echo("")

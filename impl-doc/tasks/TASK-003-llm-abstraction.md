@@ -122,7 +122,7 @@ class LlmRouter(
 }
 ```
 
-**Fallback chain** (из `engine.yaml`):
+**Fallback chain** (из `engine.json`):
 ```yaml
 routing:
   default: glm/glm-5
@@ -133,7 +133,7 @@ routing:
 ### Retry Logic
 
 ```kotlin
-// Configurable через engine.yaml:
+// Configurable через engine.json:
 // llm.maxRetries: 2
 // llm.requestTimeoutMs: 60000
 // llm.initialBackoffMs: 1000
@@ -257,17 +257,17 @@ class ChineseLlmFunctionCallingTest {
 
 **File to create**: `doc/config/engine-yaml.md`
 
-Document the LLM-related sections of `engine.yaml` that the agent needs to understand: which models are available, how routing works, and what the retry/timeout settings mean. The agent uses this to recommend model switches, understand fallback behavior, and know its own resource constraints.
+Document the LLM-related sections of `engine.json` that the agent needs to understand: which models are available, how routing works, and what the retry/timeout settings mean. The agent uses this to recommend model switches, understand fallback behavior, and know its own resource constraints.
 
 **Sections to write** (English only):
 
-- **Location** — `~/.config/klaw/engine.yaml`; read with `file_read` using the absolute path; the agent cannot write to this file (outside workspace)
+- **Location** — `~/.config/klaw/engine.json`; read with `file_read` using the absolute path; the agent cannot write to this file (outside workspace)
 - **providers** — name, type (`openai-compatible` / `anthropic` / `gemini`), endpoint, apiKey (env variable reference); one entry per LLM provider (glm, deepseek, ollama, anthropic)
 - **models** — maps `provider/model-id` → `maxTokens` and `contextBudget`; `contextBudget` is the working limit, not the model's maximum window; lower budget = faster, cheaper, more predictable latency on Pi 5
 - **routing** — `default` (model for new sessions), `fallback` (ordered list tried on primary failure), `tasks.subagent` (default for scheduled tasks), `tasks.summarization` (model for background summarization)
 - **llm** — `maxRetries`, `requestTimeoutMs`, `initialBackoffMs`, `backoffMultiplier`; retry applies to 429/502/503/504; NOT retried on 400/401 or `context_length_exceeded`
 - **How to check current model** — use `/model` slash command (returns current session model) or `/models` (lists all configured models with context budgets)
-- **Switching model at runtime** — use `/model provider/model-id` slash command; the model must exist under `models:` in engine.yaml; the switch persists for the current session
+- **Switching model at runtime** — use `/model provider/model-id` slash command; the model must exist under `models:` in engine.json; the switch persists for the current session
 
 ---
 

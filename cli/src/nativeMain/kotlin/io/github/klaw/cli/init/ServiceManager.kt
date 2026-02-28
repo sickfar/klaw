@@ -17,7 +17,7 @@ internal class ServiceManager(
     private val printer: (String) -> Unit,
     private val commandRunner: (String) -> Int,
     private val deployMode: DeployMode = DeployMode.NATIVE,
-    private val composeFile: String = "/app/docker-compose.yml",
+    private val composeFile: String = "/app/docker-compose.json",
     private val osFamily: OsFamily = Platform.osFamily,
 ) {
     fun start(service: KlawService): Boolean {

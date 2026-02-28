@@ -378,11 +378,11 @@ All documentation in **English only**.
 
 - **How commands arrive** — slash commands arrive as `type: "command"` messages; the Engine handles them directly without LLM; the agent does not respond to commands — the Engine already replied; the agent only sees the resulting state change (e.g. new session segment after `/new`)
 - **/new** — resets sliding window and last summary; starts a new segment; core memory, archival memory, current model, and the full conversation log are preserved; session log is append-only and never erased
-- **/model** — without argument: shows current session model; with argument `provider/model-id` (e.g. `/model deepseek/deepseek-chat`): switches model for this session; model must be defined in `engine.yaml` under `models:`
-- **/models** — lists all models configured in `engine.yaml` with their `contextBudget` values; useful before recommending a model switch to the user
+- **/model** — without argument: shows current session model; with argument `provider/model-id` (e.g. `/model deepseek/deepseek-chat`): switches model for this session; model must be defined in `engine.json` under `models:`
+- **/models** — lists all models configured in `engine.json` with their `contextBudget` values; useful before recommending a model switch to the user
 - **/memory** — displays `core_memory.json` to the user; agent can also call `memory_core_get` programmatically
 - **/status** — shows uptime, current chat model, segment start, and LLM queue depth
-- **/help** — lists all available commands as configured in `engine.yaml` under `commands:`
+- **/help** — lists all available commands as configured in `engine.json` under `commands:`
 
 ---
 
@@ -390,7 +390,7 @@ All documentation in **English only**.
 
 - **Three memory tiers** — Core Memory (always in context, structured JSON), Archival Memory (on-demand via `memory_search`, semantic chunks in sqlite-vec), Recall Memory (automatic sliding window of recent messages)
 - **Context assembly for every LLM call** — five layers in order: system prompt (~500 tokens), core memory (~500 tokens), last summary (~500 tokens), sliding window last N messages (~3000 tokens), tool descriptions (~500 tokens); total ~5000 tokens with default settings
-- **Context budget** — each model has `contextBudget` in `engine.yaml`; Engine uses 90% of budget (safety margin for approximate token counting); sliding window shrinks to fit remaining budget after fixed layers are placed
+- **Context budget** — each model has `contextBudget` in `engine.json`; Engine uses 90% of budget (safety margin for approximate token counting); sliding window shrinks to fit remaining budget after fixed layers are placed
 - **Why archival memory is on-demand** — pre-loading all archival results every call costs ~1000 extra tokens even for irrelevant queries; the agent calls `memory_search` only when needed, leaving more space for recent messages
 - **Segments and /new** — a segment is the conversation portion since the last `/new`; sliding window shows only messages from the current segment; `memory_search` can still retrieve facts from any segment
 
@@ -398,7 +398,7 @@ All documentation in **English only**.
 
 ### `doc/memory/recall-memory.md`
 
-- **What recall memory is** — the last N messages from the current segment, automatically included in every context; N is `slidingWindow` from `engine.yaml` (default: 20 messages)
+- **What recall memory is** — the last N messages from the current segment, automatically included in every context; N is `slidingWindow` from `engine.json` (default: 20 messages)
 - **Segment boundary** — only messages since the last `/new` command are in the sliding window; messages before `/new` are in the JSONL log but not in context
 - **What counts as a message** — user messages, assistant responses, tool calls, and tool results all count as individual messages; a single tool call + result pair uses two window slots
 - **When the window shrinks** — if 20 messages exceed the remaining context budget after fixed sections, the window shrinks silently to fit; no notification is sent to the user

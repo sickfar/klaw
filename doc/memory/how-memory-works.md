@@ -19,7 +19,7 @@ Default total: approximately 5000 tokens.
 
 ## Context budget
 
-Each model has a `contextBudget` in `engine.yaml`. The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
+Each model has a `contextBudget` in `engine.json`. The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
 
 ## Why archival memory is on-demand
 

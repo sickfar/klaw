@@ -33,7 +33,7 @@ Adds a new persistent cron task.
 | `name` | string | yes | Unique task name. Duplicate names return an error. |
 | `cron` | string | yes | Quartz 7-field cron expression. See `doc/scheduling/cron-format.md`. |
 | `message` | string | yes | Instruction sent to the subagent when the task fires. |
-| `model` | string | no | LLM model to use. Defaults to `routing.tasks.subagent` from `engine.yaml`. |
+| `model` | string | no | LLM model to use. Defaults to `routing.tasks.subagent` from `engine.json`. |
 | `injectInto` | string | no | chatId (e.g. `"telegram_123456"`). If set, delivers result to the user via Gateway. |
 
 **Returns:** `"OK: 'name' scheduled with cron 'expression'"` on success, or an error message.
@@ -74,7 +74,7 @@ Check email and report urgent messages. If nothing requires attention, respond w
 
 ## Model selection
 
-If `model` is omitted, the task uses `routing.tasks.subagent` from `engine.yaml` (default: `glm/glm-4-plus`).
+If `model` is omitted, the task uses `routing.tasks.subagent` from `engine.json` (default: `glm/glm-4-plus`).
 
 Recommendations:
 - **Heavy analysis** (weekly reports, complex summaries): `glm/glm-4-plus` or `deepseek-chat`

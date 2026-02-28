@@ -2,7 +2,7 @@
 
 ## What recall memory is
 
-Recall memory is the last N messages from the current segment, automatically included in every context assembly. N is `slidingWindow` from `engine.yaml` (default: 20 messages).
+Recall memory is the last N messages from the current segment, automatically included in every context assembly. N is `slidingWindow` from `engine.json` (default: 20 messages).
 
 ## Segment boundary
 

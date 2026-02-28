@@ -18,6 +18,7 @@ import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
 import io.github.klaw.cli.socket.EngineSocketClient
+import io.github.klaw.cli.util.runCommandOutput
 import io.github.klaw.common.paths.KlawPaths
 
 /** Type alias for delegated engine commands — (command, params) → JSON response */
@@ -28,6 +29,7 @@ internal fun defaultEngineRequest(): EngineRequest =
         EngineSocketClient().request(cmd, params)
     }
 
+@Suppress("LongParameterList")
 class KlawCli(
     requestFn: EngineRequest = defaultEngineRequest(),
     conversationsDir: String = KlawPaths.conversations,
@@ -36,6 +38,7 @@ class KlawCli(
     modelsDir: String = KlawPaths.models,
     workspaceDir: String = KlawPaths.workspace,
     commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
+    doctorCommandOutput: (String) -> String? = ::runCommandOutput,
 ) : CliktCommand(name = "klaw") {
     init {
         subcommands(
@@ -47,7 +50,7 @@ class KlawCli(
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
             MemoryCommand(requestFn, workspaceDir),
-            DoctorCommand(configDir, engineSocketPath, modelsDir),
+            DoctorCommand(configDir, engineSocketPath, modelsDir, workspaceDir, doctorCommandOutput),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),
             EngineCommand(commandRunner),

@@ -55,7 +55,7 @@ internal fun buildPaths(
         skills = "$data/skills",
         models = "$cache/models",
         deployConf = "$config/deploy.conf",
-        hybridDockerCompose = "$config/docker-compose.yml",
+        hybridDockerCompose = "$config/docker-compose.json",
     )
 }
 

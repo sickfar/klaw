@@ -16,7 +16,7 @@ class ServiceManagerTest {
                 0
             },
             deployMode = DeployMode.DOCKER,
-            composeFile = "/app/docker-compose.yml",
+            composeFile = "/app/docker-compose.json",
         )
 
     private fun buildNativeLinuxManager(commands: MutableList<String> = mutableListOf()): ServiceManager =
@@ -32,7 +32,7 @@ class ServiceManagerTest {
 
     private fun buildHybridManager(
         commands: MutableList<String> = mutableListOf(),
-        composeFile: String = "/home/user/.config/klaw/docker-compose.yml",
+        composeFile: String = "/home/user/.config/klaw/docker-compose.json",
     ): ServiceManager =
         ServiceManager(
             printer = {},
@@ -148,7 +148,7 @@ class ServiceManagerTest {
         assertTrue(
             commands.any {
                 it.contains("docker compose") && it.contains("up -d") &&
-                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.yml")
+                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.json")
             },
             "Expected docker compose up -d with hybrid compose file path, got: $commands",
         )
@@ -162,7 +162,7 @@ class ServiceManagerTest {
         assertTrue(
             commands.any {
                 it.contains("docker compose") && it.contains("stop") &&
-                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.yml")
+                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.json")
             },
             "Expected docker compose stop with hybrid compose file path, got: $commands",
         )
@@ -176,7 +176,7 @@ class ServiceManagerTest {
         assertTrue(
             commands.any {
                 it.contains("docker compose") && it.contains("restart") &&
-                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.yml")
+                    it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.json")
             },
             "Expected docker compose restart with hybrid compose file path, got: $commands",
         )
@@ -191,7 +191,7 @@ class ServiceManagerTest {
             commands.any {
                 it.contains("docker compose") && it.contains("stop") &&
                     it.contains("gateway") && it.contains("engine") &&
-                    it.contains("/home/user/.config/klaw/docker-compose.yml")
+                    it.contains("/home/user/.config/klaw/docker-compose.json")
             },
             "Expected docker compose stop with hybrid compose file path, got: $commands",
         )

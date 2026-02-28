@@ -81,9 +81,9 @@ class InitWizardTest {
 
     @Test
     fun `phase 1 aborts when engine yaml already exists`() {
-        // Pre-create engine.yaml to simulate already-initialized state
+        // Pre-create engine.json to simulate already-initialized state
         platform.posix.mkdir(configDir, 0x1EDu)
-        writeFile("$configDir/engine.yaml", "# existing config")
+        writeFile("$configDir/engine.json", "# existing config")
 
         val output = mutableListOf<String>()
         val wizard = buildWizard(output = output)
@@ -91,9 +91,9 @@ class InitWizardTest {
 
         val outputText = output.joinToString("\n")
         assertTrue(outputText.contains("Already"), "Expected 'Already' in output: $outputText")
-        // engine.yaml should not be overwritten
-        val content = readFileText("$configDir/engine.yaml")
-        assertTrue(content?.contains("existing config") == true, "engine.yaml should not be overwritten")
+        // engine.json should not be overwritten
+        val content = readFileText("$configDir/engine.json")
+        assertTrue(content?.contains("existing config") == true, "engine.json should not be overwritten")
     }
 
     // --- Exit / EOF handling ---
@@ -104,8 +104,8 @@ class InitWizardTest {
         val wizard = buildWizard(readLineOverride = { null })
         wizard.run()
 
-        assertTrue(!fileExists("$configDir/engine.yaml"), "engine.yaml should not be created on EOF")
-        assertTrue(!fileExists("$configDir/gateway.yaml"), "gateway.yaml should not be created on EOF")
+        assertTrue(!fileExists("$configDir/engine.json"), "engine.json should not be created on EOF")
+        assertTrue(!fileExists("$configDir/gateway.json"), "gateway.json should not be created on EOF")
     }
 
     @Test
@@ -114,8 +114,8 @@ class InitWizardTest {
         val wizard = buildWizard(readLineOverride = { "\u001B" })
         wizard.run()
 
-        assertTrue(!fileExists("$configDir/engine.yaml"), "engine.yaml should not be created on ESC")
-        assertTrue(!fileExists("$configDir/gateway.yaml"), "gateway.yaml should not be created on ESC")
+        assertTrue(!fileExists("$configDir/engine.json"), "engine.json should not be created on ESC")
+        assertTrue(!fileExists("$configDir/gateway.json"), "gateway.json should not be created on ESC")
     }
 
     @Test
@@ -129,8 +129,8 @@ class InitWizardTest {
             })
         wizard.run()
 
-        assertTrue(!fileExists("$configDir/engine.yaml"), "engine.yaml should not be created on EOF at telegram prompt")
-        assertTrue(!fileExists("$configDir/gateway.yaml"), "gateway.yaml should not be created on EOF at telegram prompt")
+        assertTrue(!fileExists("$configDir/engine.json"), "engine.json should not be created on EOF at telegram prompt")
+        assertTrue(!fileExists("$configDir/gateway.json"), "gateway.json should not be created on EOF at telegram prompt")
     }
 
     // --- Skip Telegram ---
@@ -161,11 +161,11 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
         assertTrue(
-            !gatewayYaml.contains("telegram:"),
-            "Expected no telegram section when skipped:\n$gatewayYaml",
+            !gatewayJson.contains("telegram"),
+            "Expected no telegram section when skipped:\n$gatewayJson",
         )
     }
 
@@ -232,10 +232,10 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
-        assertTrue(gatewayYaml.contains("telegram"), "Expected telegram section:\n$gatewayYaml")
-        assertTrue(gatewayYaml.contains("KLAW_TELEGRAM_TOKEN"), "Expected token env var:\n$gatewayYaml")
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        assertTrue(gatewayJson.contains("telegram"), "Expected telegram section:\n$gatewayJson")
+        assertTrue(gatewayJson.contains("KLAW_TELEGRAM_TOKEN"), "Expected token env var:\n$gatewayJson")
     }
 
     @Test
@@ -265,9 +265,9 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
-        assertTrue(gatewayYaml.contains("telegram"), "Expected telegram section on blank answer:\n$gatewayYaml")
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        assertTrue(gatewayJson.contains("telegram"), "Expected telegram section on blank answer:\n$gatewayJson")
     }
 
     // --- API key validation ---
@@ -354,7 +354,7 @@ class InitWizardTest {
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
-        assertTrue(fileExists("$configDir/engine.yaml"), "Wizard should complete even with null commandOutput")
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete even with null commandOutput")
     }
 
     @Test
@@ -427,9 +427,9 @@ class InitWizardTest {
         assertTrue(capturedModels.isNotEmpty(), "RadioSelector should have been called with model names")
         assertTrue(capturedModels.contains("glm-5"), "Expected 'glm-5' in model list: $capturedModels")
 
-        val engineYaml = readFileText("$configDir/engine.yaml")
-        assertNotNull(engineYaml)
-        assertTrue(engineYaml.contains("zai/glm-5"), "Expected 'zai/glm-5' in engine.yaml:\n$engineYaml")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("zai/glm-5"), "Expected 'zai/glm-5' in engine.json:\n$engineJson")
     }
 
     @Test
@@ -460,9 +460,9 @@ class InitWizardTest {
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
-        val engineYaml = readFileText("$configDir/engine.yaml")
-        assertNotNull(engineYaml)
-        assertTrue(engineYaml.contains("my/custom-model"), "Expected manual model in engine.yaml:\n$engineYaml")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("my/custom-model"), "Expected manual model in engine.json:\n$engineJson")
     }
 
     @Test
@@ -497,9 +497,9 @@ class InitWizardTest {
 
         assertTrue(modelRadioSelectorCalled.isEmpty(), "RadioSelector should not be called for model when no models fetched")
 
-        val engineYaml = readFileText("$configDir/engine.yaml")
-        assertNotNull(engineYaml)
-        assertTrue(engineYaml.contains("zai/glm-5"), "Expected typed model in engine.yaml:\n$engineYaml")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("zai/glm-5"), "Expected typed model in engine.json:\n$engineJson")
     }
 
     // --- Existing tests (updated inputs to include telegram? prompt) ---
@@ -532,13 +532,13 @@ class InitWizardTest {
             )
         wizard.run()
 
-        assertTrue(fileExists("$configDir/engine.yaml"), "engine.yaml should be created")
-        assertTrue(fileExists("$configDir/gateway.yaml"), "gateway.yaml should be created")
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should be created")
+        assertTrue(fileExists("$configDir/gateway.json"), "gateway.json should be created")
 
-        val engineYaml = readFileText("$configDir/engine.yaml")
-        assertNotNull(engineYaml)
-        assertTrue(engineYaml.contains("api.z.ai"), "provider URL in engine.yaml")
-        assertTrue(engineYaml.contains("test/model"), "model in engine.yaml")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("api.z.ai"), "provider URL in engine.json")
+        assertTrue(engineJson.contains("test/model"), "model in engine.json")
     }
 
     @Test
@@ -912,10 +912,10 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
-        assertTrue(gatewayYaml.contains("enabled: true"), "Expected 'enabled: true' in gateway.yaml:\n$gatewayYaml")
-        assertTrue(gatewayYaml.contains("port: 37474"), "Expected 'port: 37474' in gateway.yaml:\n$gatewayYaml")
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        assertTrue(gatewayJson.contains("\"enabled\": true"), "Expected 'enabled: true' in gateway.json:\n$gatewayJson")
+        assertTrue(gatewayJson.contains("37474"), "Expected 'port: 37474' in gateway.json:\n$gatewayJson")
     }
 
     @Test
@@ -945,9 +945,9 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
-        assertTrue(!gatewayYaml.contains("console:"), "Expected no console section in gateway.yaml:\n$gatewayYaml")
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        assertTrue(!gatewayJson.contains("console"), "Expected no console section in gateway.json:\n$gatewayJson")
     }
 
     @Test
@@ -978,9 +978,9 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val gatewayYaml = readFileText("$configDir/gateway.yaml")
-        assertNotNull(gatewayYaml)
-        assertTrue(gatewayYaml.contains("port: 9090"), "Expected 'port: 9090' in gateway.yaml:\n$gatewayYaml")
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        assertTrue(gatewayJson.contains("9090"), "Expected 'port: 9090' in gateway.json:\n$gatewayJson")
     }
 
     // --- Hybrid mode tests ---
@@ -1046,10 +1046,10 @@ class InitWizardTest {
         wizard.run()
 
         assertTrue(
-            fileExists("$configDir/docker-compose.yml"),
-            "docker-compose.yml should be written for hybrid mode",
+            fileExists("$configDir/docker-compose.json"),
+            "docker-compose.json should be written for hybrid mode",
         )
-        val compose = readFileText("$configDir/docker-compose.yml")
+        val compose = readFileText("$configDir/docker-compose.json")
         assertNotNull(compose)
         assertTrue(compose.contains("klaw-engine"), "Compose should contain engine service")
         assertTrue(compose.contains("klaw-gateway"), "Compose should contain gateway service")
@@ -1147,7 +1147,7 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val compose = readFileText("$configDir/docker-compose.yml")
+        val compose = readFileText("$configDir/docker-compose.json")
         assertNotNull(compose)
         // Should contain the actual tmpDir paths (bind mounts), not "klaw-state" etc.
         assertTrue(compose.contains("$tmpDir/state:"), "Expected bind mount with state path:\n$compose")
@@ -1195,7 +1195,7 @@ class InitWizardTest {
             composeUpCalls.isNotEmpty(),
             "Expected docker compose up for both services in hybrid mode, got: $commandsRun",
         )
-        // Should use config dir compose file, not /app/docker-compose.yml
+        // Should use config dir compose file, not /app/docker-compose.json
         assertTrue(
             composeUpCalls.any { it.contains(configDir) },
             "Expected config dir path in compose command, got: $composeUpCalls",
@@ -1328,7 +1328,7 @@ class InitWizardTest {
 
         val outputText = output.joinToString("\n")
         assertTrue(outputText.contains("Interrupted"), "Expected 'Interrupted' in output:\n$outputText")
-        assertTrue(!fileExists("$configDir/engine.yaml"), "engine.yaml should not be created when mode cancelled")
+        assertTrue(!fileExists("$configDir/engine.json"), "engine.json should not be created when mode cancelled")
     }
 
     @Test
@@ -1362,7 +1362,7 @@ class InitWizardTest {
 
         val outputText = output.joinToString("\n")
         assertTrue(
-            outputText.contains("docker-compose.yml"),
+            outputText.contains("docker-compose.json"),
             "Expected compose file path in hybrid summary:\n$outputText",
         )
         assertTrue(

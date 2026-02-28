@@ -7,19 +7,18 @@ It communicates with the Engine via Unix domain socket (`engine.sock`).
 
 ### `klaw init`
 
-Interactive first-time setup wizard. Guides through 11 phases:
+Interactive first-time setup wizard. Guides through 10 phases:
 
-1. Pre-check (aborts if `engine.yaml` already exists)
+1. Pre-check (aborts if `engine.json` already exists)
 2. Deployment mode selection (native or Docker services — skipped inside Docker containers)
-3. Directory creation (XDG-compliant paths)
-4. LLM provider configuration (base URL, API key, model ID)
-5. Telegram bot setup (token, allowed chat IDs)
-6. WebSocket chat setup (enable `klaw chat`, port selection)
-7. Config file generation (`engine.yaml`, `gateway.yaml`, `.env`, `deploy.conf`, and `docker-compose.yml` for hybrid mode)
-8. Engine auto-start
+3. LLM provider configuration (base URL, API key, model ID)
+4. Telegram bot setup (token, allowed chat IDs)
+5. WebSocket chat setup (enable `klaw chat`, port selection)
+6. Setup (directory creation, config file generation: `engine.json`, `gateway.json`, `.env`, `deploy.conf`, `docker-compose.json` for hybrid mode)
+7. Engine auto-start
+8. Service/container startup
 9. Identity Q&A (agent name, personality, role, user description, domain)
 10. Identity file generation (SOUL.md, IDENTITY.md, AGENTS.md, USER.md via LLM)
-11. Service setup
 
 ```
 klaw init
@@ -29,8 +28,8 @@ klaw init
 
 Phase 2 presents a mode selector with two options when running on the host (not inside Docker):
 
-- **Fully native (systemd/launchd)** — Engine and Gateway run as native services. Phase 11 writes systemd unit files (Linux) or launchd plists (macOS).
-- **Docker services** (hybrid) — CLI stays native on the host; Engine and Gateway run in Docker containers with bind mounts to host XDG directories. Phase 7 generates `~/.config/klaw/docker-compose.yml` with host-path bind mounts. Phase 11 runs `docker compose up -d`.
+- **Fully native (systemd/launchd)** — Engine and Gateway run as native services. Phase 8 writes systemd unit files (Linux) or launchd plists (macOS).
+- **Docker services** (hybrid) — CLI stays native on the host; Engine and Gateway run in Docker containers with bind mounts to host XDG directories. Phase 6 generates `~/.config/klaw/docker-compose.json` with host-path bind mounts. Phase 8 runs `docker compose up -d`.
 
 When running inside a Docker container (detected via `/.dockerenv`), mode is auto-set to **Docker** and Phase 2 is skipped. See [klaw init in Docker](../deployment/local-dev.md#klaw-init-in-docker) for details.
 
@@ -40,7 +39,7 @@ The chosen mode and tag are persisted to `~/.config/klaw/deploy.conf` so subsequ
 
 ### `klaw config set KEY VALUE`
 
-Updates a single key in `engine.yaml` without a full re-init.
+Updates a single key in `engine.json` without a full re-init.
 Performs a line-level replacement of the YAML key's value.
 
 ```
@@ -108,11 +107,11 @@ klaw chat --url ws://sickfar-pi.local:37474/chat
 ```
 
 Options:
-- `--url URL` — connect to a specific gateway WebSocket URL, bypassing the `enabled` check in `gateway.yaml`
+- `--url URL` — connect to a specific gateway WebSocket URL, bypassing the `enabled` check in `gateway.json`
 
-**Requirements:** The console channel must be enabled in `gateway.yaml`. If it is not, `klaw chat` prints an actionable error with instructions.
+**Requirements:** The console channel must be enabled in `gateway.json`. If it is not, `klaw chat` prints an actionable error with instructions.
 
-**Enabling:** Run `klaw init` and answer `y` at the WebSocket chat setup phase, or add to `gateway.yaml`:
+**Enabling:** Run `klaw init` and answer `y` at the WebSocket chat setup phase, or add to `gateway.json`:
 
 ```yaml
 channels:
@@ -237,8 +236,8 @@ Options:
 
 Checks the Klaw installation for common issues:
 
-- `engine.yaml` exists
-- `gateway.yaml` exists
+- `engine.json` exists
+- `gateway.json` exists
 - Workspace directory exists
 - Engine socket present (Engine running/stopped)
 - ONNX embedding model present

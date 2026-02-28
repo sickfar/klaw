@@ -11,17 +11,17 @@ import java.io.File
 class GatewayConfigFactory {
     @Singleton
     fun gatewayConfig(): GatewayConfig {
-        val configFile = File("${KlawPaths.config}/gateway.yaml")
-        val yamlContent =
+        val configFile = File("${KlawPaths.config}/gateway.json")
+        val jsonContent =
             if (configFile.exists()) {
                 configFile.readText()
             } else {
                 GatewayConfigFactory::class.java
-                    .getResourceAsStream("/gateway.yaml")
+                    .getResourceAsStream("/gateway.json")
                     ?.bufferedReader()
                     ?.readText()
-                    ?: error("gateway.yaml not found at ${configFile.absolutePath} or on classpath")
+                    ?: error("gateway.json not found at ${configFile.absolutePath} or on classpath")
             }
-        return parseGatewayConfig(yamlContent)
+        return parseGatewayConfig(jsonContent)
     }
 }

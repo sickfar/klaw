@@ -12,6 +12,6 @@ The engine handles LLM orchestration, memory, and tool execution. The gateway ha
 
 ## Configuration
 
-Configuration is done via YAML files in the config directory. The engine reads engine.yaml and the gateway reads gateway.yaml.
+Configuration is done via YAML files in the config directory. The engine reads engine.json and the gateway reads gateway.json.
 
 Each config file supports hot-reloading so changes take effect without restart.

@@ -325,7 +325,7 @@ All documentation in **English only**.
 - **schedule_add** — params: `name` (string, unique), `cron` (string, Quartz 7-field format), `message` (string, instruction sent to the subagent), `model` (string, optional), `injectInto` (string, optional, chatId); tasks persist across engine restarts; duplicate names return an error; see `doc/scheduling/cron-format.md` for cron syntax
 - **schedule_remove** — params: `name` (string); permanently removes the task from Quartz
 - **inject_into explained** — if set to a chatId (e.g. `"telegram_123456"`), the subagent result is sent to that user via Gateway; if the result JSON contains `{"silent": true}`, it is logged but NOT sent; if `injectInto` is null, the result is only logged
-- **Model selection** — if `model` is omitted, the task uses `routing.tasks.subagent` from `engine.yaml` (default: `glm/glm-4-plus`); use cheaper or local models (e.g. `ollama/qwen3:8b`) for routine checks to save cost
+- **Model selection** — if `model` is omitted, the task uses `routing.tasks.subagent` from `engine.json` (default: `glm/glm-4-plus`); use cheaper or local models (e.g. `ollama/qwen3:8b`) for routine checks to save cost
 
 ---
 

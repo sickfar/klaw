@@ -31,8 +31,8 @@ class ChatCommandTest {
                 sessionFactory = { _ -> error("Should not connect") },
             )
         val result = command.test("")
-        assertTrue(result.output.contains("console:"), "Expected 'console:' in: ${result.output}")
-        assertTrue(result.output.contains("enabled: true"), "Expected 'enabled: true' in: ${result.output}")
+        assertTrue(result.output.contains("console"), "Expected 'console' in: ${result.output}")
+        assertTrue(result.output.contains("gateway.json"), "Expected 'gateway.json' in: ${result.output}")
     }
 
     @Test

@@ -49,12 +49,12 @@ klaw init
 
 ```bash
 # Templates are created by klaw init, or copy manually:
-cp ~/.config/klaw/engine.yaml.example ~/.config/klaw/engine.yaml
-cp ~/.config/klaw/gateway.yaml.example ~/.config/klaw/gateway.yaml
+cp ~/.config/klaw/engine.json.example ~/.config/klaw/engine.json
+cp ~/.config/klaw/gateway.json.example ~/.config/klaw/gateway.json
 
 # Edit with your LLM provider and Telegram credentials:
-nano ~/.config/klaw/engine.yaml
-nano ~/.config/klaw/gateway.yaml
+nano ~/.config/klaw/engine.json
+nano ~/.config/klaw/gateway.json
 ```
 
 ## Start services

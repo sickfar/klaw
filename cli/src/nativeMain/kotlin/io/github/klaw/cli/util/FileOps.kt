@@ -56,6 +56,22 @@ internal fun writeFileText(
 }
 
 @OptIn(ExperimentalForeignApi::class)
+internal fun runCommandOutput(command: String): String? {
+    val pipe = platform.posix.popen(command, "r") ?: return null
+    val sb = StringBuilder()
+    val buf = ByteArray(4096)
+    buf.usePinned { pinned ->
+        while (true) {
+            val n = fread(pinned.addressOf(0), 1.convert(), buf.size.convert(), pipe).toInt()
+            if (n <= 0) break
+            sb.append(buf.decodeToString(0, n))
+        }
+    }
+    val exitCode = platform.posix.pclose(pipe)
+    return if (exitCode == 0) sb.toString().trimEnd() else null
+}
+
+@OptIn(ExperimentalForeignApi::class)
 internal fun listDirectory(path: String): List<String> {
     val dir = opendir(path) ?: return emptyList()
     val names = mutableListOf<String>()

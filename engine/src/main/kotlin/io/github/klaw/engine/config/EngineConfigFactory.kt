@@ -11,18 +11,18 @@ import java.io.File
 class EngineConfigFactory {
     @Singleton
     fun engineConfig(): EngineConfig {
-        val configFile = File("${KlawPaths.config}/engine.yaml")
-        val yamlContent =
+        val configFile = File("${KlawPaths.config}/engine.json")
+        val jsonContent =
             if (configFile.exists()) {
                 configFile.readText()
             } else {
                 // Fallback to classpath resource for development
                 EngineConfigFactory::class.java
-                    .getResourceAsStream("/engine.yaml")
+                    .getResourceAsStream("/engine.json")
                     ?.bufferedReader()
                     ?.readText()
-                    ?: error("engine.yaml not found at ${configFile.absolutePath} or on classpath")
+                    ?: error("engine.json not found at ${configFile.absolutePath} or on classpath")
             }
-        return parseEngineConfig(yamlContent)
+        return parseEngineConfig(jsonContent)
     }
 }

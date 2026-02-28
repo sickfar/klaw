@@ -12,7 +12,7 @@ class DockerComposeInstallerTest {
         val commandsRun = mutableListOf<String>()
         val installer =
             DockerComposeInstaller(
-                composeFile = "/app/docker-compose.yml",
+                composeFile = "/app/docker-compose.json",
                 printer = {},
                 commandRunner = { cmd ->
                     commandsRun += cmd
@@ -34,7 +34,7 @@ class DockerComposeInstallerTest {
     fun `installServices returns false when command fails`() {
         val installer =
             DockerComposeInstaller(
-                composeFile = "/app/docker-compose.yml",
+                composeFile = "/app/docker-compose.json",
                 printer = {},
                 commandRunner = { _ -> 127 },
             )
@@ -48,7 +48,7 @@ class DockerComposeInstallerTest {
     fun `constructor rejects compose file path with single quote`() {
         assertFails("Expected IllegalArgumentException for path with single-quote") {
             DockerComposeInstaller(
-                composeFile = "/app/docker'-compose.yml",
+                composeFile = "/app/docker'-compose.json",
                 printer = {},
                 commandRunner = { _ -> 0 },
             )

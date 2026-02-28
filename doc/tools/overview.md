@@ -64,7 +64,7 @@ See [utils.md](utils.md).
 
 ## Tool Call Loop Protection
 
-Engine enforces a `maxToolCallRounds` limit (configured in `engine.yaml` under `engine.llm.maxToolCallRounds`). After this many consecutive rounds of tool calls without a final text response, the engine injects a stop signal to prevent infinite loops.
+Engine enforces a `maxToolCallRounds` limit (configured in `engine.json` under `engine.llm.maxToolCallRounds`). After this many consecutive rounds of tool calls without a final text response, the engine injects a stop signal to prevent infinite loops.
 
 ## Architecture
 

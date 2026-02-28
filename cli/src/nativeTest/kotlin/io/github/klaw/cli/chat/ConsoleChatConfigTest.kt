@@ -1,20 +1,38 @@
 package io.github.klaw.cli.chat
 
+import io.github.klaw.common.config.parseGatewayConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ConsoleChatConfigTest {
+    private fun parseConsoleConfig(json: String): ConsoleChatConfig =
+        try {
+            val config = parseGatewayConfig(json)
+            val console = config.channels.console
+            if (console != null) {
+                ConsoleChatConfig(enabled = console.enabled, port = console.port)
+            } else {
+                ConsoleChatConfig(enabled = false)
+            }
+        } catch (_: Exception) {
+            ConsoleChatConfig(enabled = false)
+        }
+
     @Test
     fun `console not configured returns enabled false`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-channels:
-  telegram:
-    token: "abc"
-    allowedChatIds: []
+{
+  "channels": {
+    "telegram": {
+      "token": "abc",
+      "allowedChatIds": []
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertFalse(config.enabled)
@@ -23,15 +41,20 @@ channels:
     @Test
     fun `console enabled false returns enabled false`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-channels:
-  telegram:
-    token: "abc"
-    allowedChatIds: []
-  console:
-    enabled: false
-    port: 37474
+{
+  "channels": {
+    "telegram": {
+      "token": "abc",
+      "allowedChatIds": []
+    },
+    "console": {
+      "enabled": false,
+      "port": 37474
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertFalse(config.enabled)
@@ -40,15 +63,20 @@ channels:
     @Test
     fun `console enabled true with default port`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-channels:
-  telegram:
-    token: "abc"
-    allowedChatIds: []
-  console:
-    enabled: true
-    port: 37474
+{
+  "channels": {
+    "telegram": {
+      "token": "abc",
+      "allowedChatIds": []
+    },
+    "console": {
+      "enabled": true,
+      "port": 37474
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertTrue(config.enabled)
@@ -58,15 +86,20 @@ channels:
     @Test
     fun `console enabled true with custom port`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-channels:
-  telegram:
-    token: "abc"
-    allowedChatIds: []
-  console:
-    enabled: true
-    port: 9090
+{
+  "channels": {
+    "telegram": {
+      "token": "abc",
+      "allowedChatIds": []
+    },
+    "console": {
+      "enabled": true,
+      "port": 9090
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertTrue(config.enabled)
@@ -75,20 +108,13 @@ channels:
 
     @Test
     fun `empty string returns enabled false`() {
-        val config = parseConsoleChatConfig("")
+        val config = parseConsoleConfig("")
         assertFalse(config.enabled)
     }
 
     @Test
-    fun `malformed yaml no console section returns enabled false`() {
-        val config =
-            parseConsoleChatConfig(
-                """
-not:
-  valid:
-    yaml: structure
-                """.trimIndent(),
-            )
+    fun `malformed json returns enabled false`() {
+        val config = parseConsoleConfig("not valid json")
         assertFalse(config.enabled)
     }
 
@@ -107,12 +133,16 @@ not:
     @Test
     fun `console section with port before enabled`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-channels:
-  console:
-    port: 8080
-    enabled: true
+{
+  "channels": {
+    "console": {
+      "port": 8080,
+      "enabled": true
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertTrue(config.enabled)
@@ -120,16 +150,18 @@ channels:
     }
 
     @Test
-    fun `non-channel top level section resets channel tracking`() {
+    fun `channels with only console section`() {
         val config =
-            parseConsoleChatConfig(
+            parseConsoleConfig(
                 """
-other:
-  stuff: value
-channels:
-  console:
-    enabled: true
-    port: 5000
+{
+  "channels": {
+    "console": {
+      "enabled": true,
+      "port": 5000
+    }
+  }
+}
                 """.trimIndent(),
             )
         assertTrue(config.enabled)

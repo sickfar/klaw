@@ -1,7 +1,7 @@
 package io.github.klaw.cli.init
 
 internal class DockerComposeInstaller(
-    private val composeFile: String = "/app/docker-compose.yml",
+    private val composeFile: String = "/app/docker-compose.json",
     private val printer: (String) -> Unit,
     private val commandRunner: (String) -> Int,
 ) {

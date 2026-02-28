@@ -101,7 +101,7 @@ internal class InitWizard(
         // ── Collection phases (1–6): gather all user input before touching disk ──
 
         phase(1, "Pre-check")
-        if (fileExists("$configDir/engine.yaml")) {
+        if (fileExists("$configDir/engine.json")) {
             printer("Already initialized. Use: klaw config set to modify settings.")
             return
         }
@@ -185,31 +185,19 @@ internal class InitWizard(
             consolePort = readLineOrExit()?.trim()?.toIntOrNull() ?: 37474
             success("WebSocket chat enabled on port $consolePort")
         } else {
-            printer("WebSocket chat disabled (can be enabled later in gateway.yaml)")
+            printer("WebSocket chat disabled (can be enabled later in gateway.json)")
         }
 
-        phase(6, "Identity Q&A")
-        printer("Agent name [Klaw]:")
-        val agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
-        printer("Personality traits (e.g. curious, analytical, warm):")
-        val personality = readLineOrExit()?.trim().orEmpty()
-        printer("Primary role (e.g. personal assistant, coding helper):")
-        val role = readLineOrExit()?.trim().orEmpty()
-        printer("Tell me about the user who will work with this agent:")
-        val userInfo = readLineOrExit()?.trim().orEmpty()
-        printer("Specialized domains or expertise (optional):")
-        val domain = readLineOrExit()?.trim().orEmpty()
-
-        // ── Action phases (7–10): create directories, write configs, start services ──
+        // ── Action phases (6–8): create directories, write configs, start services ──
 
         val composeFilePath =
             when (resolvedMode) {
-                DeployMode.HYBRID -> "$configDir/docker-compose.yml"
-                DeployMode.DOCKER -> "/app/docker-compose.yml"
+                DeployMode.HYBRID -> "$configDir/docker-compose.json"
+                DeployMode.DOCKER -> "/app/docker-compose.json"
                 DeployMode.NATIVE -> ""
             }
 
-        phase(7, "Setup")
+        phase(6, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
             dataDir = dataDir,
@@ -229,10 +217,10 @@ internal class InitWizard(
             chmodWorldRwx(dataDir)
             chmodWorldRwx("$stateDir/run")
         }
-        writeFileText("$configDir/engine.yaml", ConfigTemplates.engineYaml(providerUrl, modelId))
+        writeFileText("$configDir/engine.json", ConfigTemplates.engineJson(providerUrl, modelId))
         writeFileText(
-            "$configDir/gateway.yaml",
-            ConfigTemplates.gatewayYaml(
+            "$configDir/gateway.json",
+            ConfigTemplates.gatewayJson(
                 telegramEnabled = configureTelegram,
                 allowedChatIds = chatIds,
                 enableConsole = enableConsole,
@@ -250,13 +238,13 @@ internal class InitWizard(
         writeDeployConf(configDir, DeployConfig(resolvedMode, dockerTag))
         if (resolvedMode == DeployMode.HYBRID) {
             writeFileText(
-                "$configDir/docker-compose.yml",
-                ConfigTemplates.dockerComposeHybrid(stateDir, dataDir, configDir, workspaceDir, dockerTag),
+                "$configDir/docker-compose.json",
+                ConfigTemplates.dockerComposeJson(stateDir, dataDir, configDir, workspaceDir, dockerTag),
             )
         }
         success("Directories and configuration written")
 
-        phase(8, "Engine auto-start")
+        phase(7, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val startCommand =
             when (resolvedMode) {
@@ -298,7 +286,7 @@ internal class InitWizard(
 
         when (resolvedMode) {
             DeployMode.DOCKER -> {
-                phase(9, "Container startup")
+                phase(8, "Container startup")
                 val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
                 if (!dockerInstaller.installServices()) {
                     printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
@@ -309,7 +297,7 @@ internal class InitWizard(
             }
 
             DeployMode.HYBRID -> {
-                phase(9, "Container startup")
+                phase(8, "Container startup")
                 val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
                 if (!dockerInstaller.installServices()) {
                     printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
@@ -320,7 +308,7 @@ internal class InitWizard(
             }
 
             DeployMode.NATIVE -> {
-                phase(9, "Service setup")
+                phase(8, "Service setup")
                 val envFile = "$configDir/.env"
                 val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
                 val engineBin = "$home/.local/bin/klaw-engine"
@@ -337,6 +325,20 @@ internal class InitWizard(
                 success("Service files written")
             }
         }
+
+        // ── Identity phases (9–10): collect Q&A and generate via engine ──
+
+        phase(9, "Identity Q&A")
+        printer("Agent name [Klaw]:")
+        val agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
+        printer("Personality traits (e.g. curious, analytical, warm):")
+        val personality = readLineOrExit()?.trim().orEmpty()
+        printer("Primary role (e.g. personal assistant, coding helper):")
+        val role = readLineOrExit()?.trim().orEmpty()
+        printer("Tell me about the user who will work with this agent:")
+        val userInfo = readLineOrExit()?.trim().orEmpty()
+        printer("Specialized domains or expertise (optional):")
+        val domain = readLineOrExit()?.trim().orEmpty()
 
         phase(10, "Identity generation")
         val identitySpinner = Spinner("Generating identity files...")
@@ -533,7 +535,7 @@ internal class InitWizard(
 
             DeployMode.HYBRID -> {
                 printer("")
-                printer("  ${AnsiColors.CYAN}Compose${AnsiColors.RESET}: $configDir/docker-compose.yml")
+                printer("  ${AnsiColors.CYAN}Compose${AnsiColors.RESET}: $configDir/docker-compose.json")
                 printer("  Engine and Gateway run in Docker; CLI runs natively.")
             }
 

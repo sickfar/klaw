@@ -83,7 +83,7 @@ data class EngineConfig(
 
 **Cascading changes required after rename:**
 - All engine source files using `config.context.subagentWindow` → `config.context.subagentHistory`
-- Engine test `engine.yaml` (`engine/src/test/resources/engine.yaml`): rename field
+- Engine test `engine.json` (`engine/src/test/resources/engine.json`): rename field
 - `ConfigParsingTest` YAML fixture: rename field
 - Any other references found via `grep -r subagentWindow`
 

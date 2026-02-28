@@ -36,7 +36,7 @@ After `build-linux` succeeds, `publish-docker` runs in parallel with `build-maco
 | `ghcr.io/sickfar/klaw-gateway` | `:latest`, `:{version}` |
 | `ghcr.io/sickfar/klaw-cli` | `:latest`, `:{version}` |
 
-The `klaw-cli` image contains the `klaw-linuxX64` binary and the production compose file baked in at `/app/docker-compose.yml`.
+The `klaw-cli` image contains the `klaw-linuxX64` binary and the production compose file baked in at `/app/docker-compose.json`.
 
 ### Publish GitHub Release job
 

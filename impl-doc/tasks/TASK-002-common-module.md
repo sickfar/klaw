@@ -18,7 +18,7 @@
 
 1. Модели данных LLM (в commonMain)
 2. Модели JSONL-протокола (socket IPC)
-3. Конфигурационные модели (`gateway.yaml`, `engine.yaml`)
+3. Конфигурационные модели (`gateway.json`, `engine.json`)
 4. Модели данных БД (для SqlDelight schemas)
 5. JSONL сериализация/десериализация
 6. YAML парсинг (kaml)
@@ -258,8 +258,8 @@ fun approximateTokenCount(text: String): Int
    - Null-safety: nullable поля правильно обрабатываются
 
 2. **Config YAML parsing tests**:
-   - `gateway.yaml` с Telegram-конфигом парсится в `GatewayConfig`
-   - `engine.yaml` полный конфиг парсится в `EngineConfig`
+   - `gateway.json` с Telegram-конфигом парсится в `GatewayConfig`
+   - `engine.json` полный конфиг парсится в `EngineConfig`
    - Edge cases: опциональные поля, env variable substitution
 
 3. **XDG Paths tests**:
@@ -291,7 +291,7 @@ common/src/commonTest/kotlin/io/github/klaw/common/
 ## Acceptance Criteria
 
 - [ ] Все модели сериализуются/десериализуются через kotlinx.serialization
-- [ ] `gateway.yaml` и `engine.yaml` примеры из design doc парсятся без ошибок
+- [ ] `gateway.json` и `engine.json` примеры из design doc парсятся без ошибок
 - [ ] JSONL формат из design doc §5.2 полностью покрыт
 - [ ] Socket protocol из design doc §2.3 полностью покрыт
 - [ ] XDG пути корректны для Linux (Pi 5 target)

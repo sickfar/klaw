@@ -46,11 +46,11 @@ Design document: `impl-doc/design/klaw-design-v0_4.md`. Task files: `impl-doc/ta
 
 ```
 common/src/
-├── commonMain/   # Models, protocol, config schemas, KlawPaths, TokenCounter (expect)
-├── jvmMain/      # kaml YAML parsing, JTokkit token counting
+├── commonMain/   # Models, protocol, config schemas, ConfigParser (JSON), KlawPaths, TokenCounter (expect)
+├── jvmMain/      # JTokkit token counting
 ├── nativeMain/   # TokenCounter (actual, native stub)
 ├── commonTest/   # Protocol, error, model, config, path tests
-└── jvmTest/      # YAML config parsing, JVM token counting tests
+└── jvmTest/      # JVM token counting tests
 
 engine/src/main/kotlin/io/github/klaw/engine/
 ├── llm/          # LlmClient, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
@@ -82,7 +82,7 @@ cli/src/nativeMain/kotlin/io/github/klaw/cli/
 
 **Serialization:** `SocketMessage` sealed class uses `@JsonClassDiscriminator("type")` + `@SerialName`. Do NOT add `override val type: String` to subclasses (duplicate field conflict). `CliRequestMessage` is intentionally NOT a `SocketMessage` subclass.
 
-**kaml (YAML):** JVM-only — must NOT be added to `commonMain`. Always set `strictMode = false` to allow unknown keys for forward compatibility.
+**Config parsing:** `ConfigParser.kt` in `commonMain` uses `kotlinx-serialization-json` (all targets). Config files are `engine.json` / `gateway.json`. `ignoreUnknownKeys = true` for forward compatibility.
 
 **KMP token counter:** `TokenCounter.kt` in `commonMain` holds only `expect fun`. Logic lives in `TokenCounterHelpers.kt` (avoids JVM class name duplication). JTokkit `countTokensOrdinary` does not include special tokens.
 
@@ -99,7 +99,7 @@ cli/src/nativeMain/kotlin/io/github/klaw/cli/
 ## Technology Stack
 
 - Kotlin 2.3.10, Micronaut 4.10.7, Java 21
-- kotlinx-serialization (JSONL), kaml (YAML, JVM only), kotlinx-datetime, kotlinx-coroutines
+- kotlinx-serialization (JSONL + JSON config), kotlinx-datetime, kotlinx-coroutines
 - SqlDelight 2.x (KMP SQLite), sqlite-vec (native C extension, engine only)
 - ONNX Runtime + DJL HuggingFace Tokenizers (engine embeddings)
 - Quartz 2.x (scheduler, engine only — custom `SQLiteDelegate`)
@@ -110,7 +110,7 @@ cli/src/nativeMain/kotlin/io/github/klaw/cli/
 
 ## Docker Compose Deployment
 
-`docker-compose.yml` at the repo root defines three services: `engine`, `gateway`, `cli` (cli has `profiles: [cli]`). The `klaw` shell script at repo root wraps `docker compose run --rm cli`.
+`klaw init` generates a `docker-compose.json` in the config directory (`~/.config/klaw/`) for hybrid mode, or uses `/app/docker-compose.json` inside Docker containers. Dockerfiles are in `docker/{engine,gateway,cli}/`.
 
 Containers run as non-root `klaw` user (UID 10001, GID 10001). All mount paths use `/home/klaw/...` inside containers. Host dirs need `o+rwx` (set by `klaw init` for hybrid/docker mode) so the container user can write.
 

@@ -63,7 +63,7 @@
 ### Конфигурация
 
 ```yaml
-# engine.yaml
+# engine.json
 hostExecution:
   enabled: true
   allowList:

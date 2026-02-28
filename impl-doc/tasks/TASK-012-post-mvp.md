@@ -20,7 +20,7 @@
 
 - Добавить `DiscordChannel` реализацию `Channel` interface
 - Библиотека: `Kord` (Kotlin WebSocket Discord клиент)
-- Конфиг: `gateway.yaml channels.discord.enabled = true`
+- Конфиг: `gateway.json channels.discord.enabled = true`
 - Нормализация Discord сообщений в unified format
 - Тесты: Discord message mock
 

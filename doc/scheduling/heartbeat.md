@@ -26,7 +26,7 @@ Each task is a level-2 Markdown heading followed by bullet-point fields:
 |-------|----------|-------------|
 | `Cron` | yes | Quartz 7-field cron expression. See `doc/scheduling/cron-format.md`. |
 | `Message` | yes | Instruction sent to the subagent when the task fires. |
-| `Model` | no | LLM model. Defaults to `routing.tasks.subagent` from `engine.yaml`. |
+| `Model` | no | LLM model. Defaults to `routing.tasks.subagent` from `engine.json`. |
 | `InjectInto` | no | chatId for delivering results to a user (e.g. `telegram_123456`). |
 
 Tasks missing `Cron` or `Message` are silently skipped.

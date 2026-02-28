@@ -104,7 +104,7 @@ systemctl --user status klaw-engine klaw-gateway
 ./klaw init
 ```
 
-`./klaw init` runs interactively: it asks for your LLM API key, Telegram bot token, and agent identity, writes `config/engine.yaml` and `config/gateway.yaml`, then starts the engine and gateway containers automatically.
+`./klaw init` runs interactively: it asks for your LLM API key, Telegram bot token, and agent identity, writes `config/engine.json` and `config/gateway.json`, then starts the engine and gateway containers automatically.
 
 `config/` is gitignored — real API keys are never committed.
 

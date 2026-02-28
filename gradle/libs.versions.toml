@@ -6,7 +6,6 @@ kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.7.1"
 micronaut-platform = "4.10.7"
 micronaut-gradle-plugin = "4.6.2"
-kaml = "0.65.0"
 sqldelight = "2.2.1"
 quartz = "2.5.2"
 onnxruntime = "1.24.2"
@@ -27,7 +26,6 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
-kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 quartz = { module = "org.quartz-scheduler:quartz", version.ref = "quartz" }

@@ -69,7 +69,7 @@ After answering, it writes config files (including `deploy.conf`) to the `klaw-c
 
 | Volume | Mount path | Contents |
 |--------|-----------|----------|
-| `klaw-config` | `/home/klaw/.config/klaw` | `engine.yaml`, `gateway.yaml`, `.env` (API keys) |
+| `klaw-config` | `/home/klaw/.config/klaw` | `engine.json`, `gateway.json`, `.env` (API keys) |
 | `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
 | `klaw-run` | `/home/klaw/.local/state/klaw/run` | `engine.sock` (socket isolation) |
 | `klaw-data` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
@@ -163,7 +163,7 @@ Edit files inside the volume by running a temporary container:
 
 ```bash
 docker run -it --rm -v klaw-config:/config alpine sh
-# then edit /config/engine.yaml
+# then edit /config/engine.json
 ```
 
 Or use `klaw config set KEY VALUE` for individual changes:

@@ -317,7 +317,7 @@ class ToolRegistryTest {
 ## Constraints
 
 - **Безопасность файлов**: path traversal защита — КРИТИЧНА. Агент не должен читать произвольные файлы хоста
-- `file_write` максимум `maxFileSizeBytes` (1MB) из `engine.yaml`
+- `file_write` максимум `maxFileSizeBytes` (1MB) из `engine.json`
 - `memory_search` и `docs_search` делегируют в Memory System (TASK-007) — в этой задаче только tool interface
 - `schedule_add` делегирует в Scheduler (TASK-008) — в этой задаче только tool interface
 - `subagent_spawn` не блокирует — сразу возвращает подтверждение запуска

@@ -98,8 +98,8 @@ class MemoryEditCommand : CliktCommand(name = "edit") {
 class DoctorCommand : CliktCommand(name = "doctor") {
     override fun run() {
         // Проверяет:
-        // - gateway.yaml существует и парсится
-        // - engine.yaml существует и парсится
+        // - gateway.json существует и парсится
+        // - engine.json существует и парсится
         // - $KLAW_WORKSPACE директория существует
         // - engine.sock: есть / нет (Engine запущен или нет)
         // - ONNX модель скачана ($XDG_CACHE_HOME/klaw/models/)

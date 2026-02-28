@@ -10,7 +10,7 @@ RUN mkdir -p /home/klaw/.local/state/klaw/run \
              /home/klaw/.config/klaw \
     && chown -R klaw:klaw /home/klaw
 
-COPY docker/compose/docker-compose.prod.yml /app/docker-compose.yml
+COPY docker/compose/docker-compose.prod.json /app/docker-compose.json
 COPY build/dist/klaw-linuxX64 /usr/local/bin/klaw
 RUN chmod +x /usr/local/bin/klaw
 USER klaw

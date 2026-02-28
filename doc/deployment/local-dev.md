@@ -29,8 +29,8 @@ The Dockerfiles COPY from `build/dist/` — artifacts must exist before building
 ### 2. Create config
 
 ```bash
-cp config/engine.yaml.example config/engine.yaml
-cp config/gateway.yaml.example config/gateway.yaml
+cp config/engine.json.example config/engine.json
+cp config/gateway.json.example config/gateway.json
 # Fill in API keys in both files
 ```
 
@@ -117,11 +117,11 @@ docker compose exec gateway ls /home/klaw/.local/state/klaw/run/
 **What happens in Docker mode:**
 
 - **Phase 2 (Deployment mode):** auto-set to Docker; prompts for docker image tag only
-- **Phase 7 (Config generation):** writes `deploy.conf` with `mode=docker` and the chosen tag
-- **Phase 8 (Engine auto-start):** runs `docker compose -f /app/docker-compose.yml up -d engine` then polls `engine.sock` as usual
-- **Phase 11 (Service setup):** runs `docker compose -f /app/docker-compose.yml up -d engine gateway` — no systemd unit files are written
+- **Phase 6 (Setup):** writes `deploy.conf` with `mode=docker` and the chosen tag
+- **Phase 7 (Engine auto-start):** runs `docker compose -f /app/docker-compose.json up -d engine` then polls `engine.sock` as usual
+- **Phase 8 (Container startup):** runs `docker compose -f /app/docker-compose.json up -d engine gateway` — no systemd unit files are written
 
-The compose file is mounted read-only into the CLI container at `/app/docker-compose.yml` (see `docker-compose.yml` → cli volumes). The Docker socket `/var/run/docker.sock` is also mounted so the CLI can issue compose commands to the host daemon.
+The compose file is mounted read-only into the CLI container at `/app/docker-compose.json`. The Docker socket `/var/run/docker.sock` is also mounted so the CLI can issue compose commands to the host daemon.
 
 After `klaw init` completes, both containers will be running and the Telegram gateway will be connected.
 

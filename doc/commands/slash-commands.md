@@ -16,11 +16,11 @@ What changes: the segment boundary moves to now; the LLM no longer sees messages
 - Without argument: shows the current session model
 - With argument `provider/model-id` (e.g. `/model deepseek/deepseek-chat`): switches the model for this session
 
-The model must be defined in `engine.yaml` under `models:`. Use `/models` to list available options.
+The model must be defined in `engine.json` under `models:`. Use `/models` to list available options.
 
 ## /models
 
-Lists all models configured in `engine.yaml` with their `contextBudget` values. Useful before recommending a model switch.
+Lists all models configured in `engine.json` with their `contextBudget` values. Useful before recommending a model switch.
 
 ## /memory
 
@@ -32,4 +32,4 @@ Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
 
 ## /help
 
-Lists all configured commands with descriptions, as defined in `engine.yaml` under `commands:`.
+Lists all configured commands with descriptions, as defined in `engine.json` under `commands:`.
