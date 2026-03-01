@@ -5,6 +5,7 @@ import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
 import io.github.klaw.cli.util.CliLogger
+import io.github.klaw.cli.util.deleteRecursively
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
@@ -98,6 +99,7 @@ internal class InitWizard(
                 startCommand = startCommand,
             )
         },
+    private val force: Boolean = false,
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun run() {
@@ -105,9 +107,12 @@ internal class InitWizard(
 
         phase(1, "Pre-check")
         if (fileExists("$configDir/engine.json")) {
-            CliLogger.info { "already initialized, skipping" }
-            printer("Already initialized. Use: klaw config set to modify settings.")
-            return
+            if (!force) {
+                CliLogger.info { "already initialized, skipping" }
+                printer("Already initialized. Use: klaw config set to modify settings.")
+                return
+            }
+            if (!cleanupExistingInstallation()) return
         }
 
         CliLogger.info { "phase 2: deployment mode" }
@@ -397,6 +402,49 @@ internal class InitWizard(
             return null
         }
         return line
+    }
+
+    /**
+     * Tears down an existing installation: stops services, removes containers (if Docker/Hybrid),
+     * and deletes XDG directories (config, data, state, cache). Workspace is preserved.
+     * Returns true to proceed with init, false if user declined.
+     */
+    private fun cleanupExistingInstallation(): Boolean {
+        printer("This will stop all services, remove configuration, and reinitialize.")
+        printer("Workspace ($workspaceDir) will be preserved.")
+        printer("Continue? [y/N]:")
+        val answer = readLine()?.trim()?.lowercase()
+        if (answer != "y") {
+            CliLogger.info { "force reinit declined by user" }
+            printer("Aborted.")
+            return false
+        }
+
+        CliLogger.info { "force reinit: cleaning up existing installation" }
+        val deployConfig = readDeployConf(configDir)
+        val composeFilePath =
+            when (deployConfig.mode) {
+                DeployMode.DOCKER -> "/app/docker-compose.json"
+                DeployMode.HYBRID -> "$configDir/docker-compose.json"
+                DeployMode.NATIVE -> ""
+            }
+        val serviceManager = ServiceManager(printer, commandRunner, deployConfig.mode, composeFilePath)
+        if (!serviceManager.stopAll()) {
+            CliLogger.warn { "failed to stop services during force reinit" }
+        }
+        if (deployConfig.mode != DeployMode.NATIVE) {
+            if (!serviceManager.composeDown()) {
+                CliLogger.warn { "failed to run docker compose down during force reinit" }
+            }
+        }
+
+        for (dir in listOf(configDir, dataDir, stateDir, cacheDir)) {
+            if (!deleteRecursively(dir)) {
+                CliLogger.warn { "failed to delete directory during force reinit" }
+            }
+        }
+        success("Existing installation removed")
+        return true
     }
 
     /**

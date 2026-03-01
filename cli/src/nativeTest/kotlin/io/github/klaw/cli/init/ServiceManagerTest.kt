@@ -196,4 +196,42 @@ class ServiceManagerTest {
             "Expected docker compose stop with hybrid compose file path, got: $commands",
         )
     }
+
+    @Test
+    fun `hybrid mode composeDown issues docker compose down with config-dir path`() {
+        val commands = mutableListOf<String>()
+        val manager = buildHybridManager(commands)
+        val result = manager.composeDown()
+        assertTrue(result)
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("down") &&
+                    it.contains("/home/user/.config/klaw/docker-compose.json")
+            },
+            "Expected docker compose down with hybrid compose file path, got: $commands",
+        )
+    }
+
+    @Test
+    fun `docker mode composeDown issues docker compose down`() {
+        val commands = mutableListOf<String>()
+        val manager = buildDockerManager(commands)
+        val result = manager.composeDown()
+        assertTrue(result)
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("down")
+            },
+            "Expected docker compose down, got: $commands",
+        )
+    }
+
+    @Test
+    fun `native mode composeDown returns false and runs no commands`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeLinuxManager(commands)
+        val result = manager.composeDown()
+        assertFalse(result, "Native mode composeDown should return false")
+        assertTrue(commands.isEmpty(), "No commands should run for native composeDown, got: $commands")
+    }
 }

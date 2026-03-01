@@ -44,6 +44,7 @@ class InitWizardTest {
         modeSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         isDockerEnv: Boolean = false,
         readLineOverride: (() -> String?)? = null,
+        force: Boolean = false,
     ): InitWizard {
         val inputQueue = ArrayDeque(inputs)
         return InitWizard(
@@ -75,6 +76,7 @@ class InitWizardTest {
                     timeoutMs = 50L,
                 )
             },
+            force = force,
         )
     }
 
@@ -1357,6 +1359,150 @@ class InitWizardTest {
         val dataMode = getFileMode("$tmpDir/data")
         assertTrue(stateMode and 0x1FFu == 0x1FFu, "Expected 0777 on state dir, got ${stateMode.toString(8)}")
         assertTrue(dataMode and 0x1FFu == 0x1FFu, "Expected 0777 on data dir, got ${dataMode.toString(8)}")
+    }
+
+    // --- Force reinit tests ---
+
+    @Test
+    fun `force flag with user declining confirmation exits and preserves files`() {
+        platform.posix.mkdir(configDir, 0x1EDu)
+        writeFile("$configDir/engine.json", "existing")
+        writeFile("$configDir/gateway.json", "existing-gw")
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                output = output,
+                readLineOverride = { "n" }, // decline confirmation
+                force = true,
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("Aborted"), "Expected 'Aborted' in output: $outputText")
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should be preserved")
+        assertTrue(fileExists("$configDir/gateway.json"), "gateway.json should be preserved")
+    }
+
+    @Test
+    fun `force flag with user confirming native mode deletes xdg dirs and runs normal init`() {
+        // Pre-create dirs to simulate existing installation
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        writeFile("$configDir/engine.json", "old-config")
+        writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
+
+        val commands = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "y", // confirm reinit
+                "my-key", // API key
+                "test/model", // model
+                "n", // skip telegram
+                "n", // skip console
+                "Klaw", // agent name
+                "assistant", // role
+                "user", // user info
+            )
+        val engineResponse = """{"identity":"# Klaw","user":"# User"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandRunner = { cmd ->
+                    commands += cmd
+                    0
+                },
+                force = true,
+            )
+        wizard.run()
+
+        // XDG dirs should have been deleted and then recreated by normal init
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should be recreated by init wizard")
+        val newConfig = readFileText("$configDir/engine.json")
+        assertTrue(
+            newConfig?.contains("old-config") != true,
+            "engine.json should contain new config, not old",
+        )
+    }
+
+    @Test
+    fun `force flag with hybrid mode issues docker compose down`() {
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        writeFile("$configDir/engine.json", "old")
+        writeDeployConf(configDir, DeployConfig(DeployMode.HYBRID))
+
+        val commands = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "y", // confirm reinit
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip console
+                "Klaw",
+                "assistant",
+                "user",
+            )
+        val engineResponse = """{"identity":"# Klaw","user":"# User"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandRunner = { cmd ->
+                    commands += cmd
+                    0
+                },
+                force = true,
+            )
+        wizard.run()
+
+        assertTrue(
+            commands.any { it.contains("docker compose") && it.contains("down") },
+            "Expected docker compose down for hybrid mode, got: $commands",
+        )
+    }
+
+    @Test
+    fun `force flag when not initialized skips cleanup and runs normal init`() {
+        // Do NOT create engine.json — not initialized
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip console
+                "Klaw",
+                "assistant",
+                "user",
+            )
+        val engineResponse = """{"identity":"# Klaw","user":"# User"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                force = true,
+            )
+        wizard.run()
+
+        // Should not contain cleanup messages
+        val outputText = output.joinToString("\n")
+        assertTrue(!outputText.contains("Aborted"), "Should not have aborted")
+        assertTrue(!outputText.contains("Existing installation removed"), "Should not have cleaned up")
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should be created by normal init")
     }
 
     @OptIn(ExperimentalForeignApi::class)

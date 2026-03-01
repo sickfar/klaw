@@ -85,6 +85,21 @@ internal class ServiceManager(
         }
     }
 
+    fun composeDown(): Boolean {
+        CliLogger.debug { "compose down mode=$deployMode" }
+        return when (deployMode) {
+            DeployMode.DOCKER, DeployMode.HYBRID -> {
+                printer("Removing containers and networks...")
+                val cmd = "docker compose -f '$composeFile' down"
+                commandRunner(cmd) == 0
+            }
+
+            DeployMode.NATIVE -> {
+                false
+            }
+        }
+    }
+
     fun stopAll(): Boolean {
         CliLogger.debug { "stopping all services mode=$deployMode" }
         printer("Stopping all klaw services...")
