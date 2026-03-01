@@ -67,5 +67,8 @@
   },
   "docs": {
     "enabled": true
+  },
+  "skills": {
+    "maxInlineSkills": 5
   }
 }

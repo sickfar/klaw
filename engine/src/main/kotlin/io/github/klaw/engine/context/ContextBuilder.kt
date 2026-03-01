@@ -8,6 +8,14 @@ import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import jakarta.inject.Singleton
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+data class ContextResult(
+    val messages: List<LlmMessage>,
+    val includeSkillList: Boolean,
+    val includeSkillLoad: Boolean,
+)
 
 @Singleton
 @Suppress("LongParameterList")
@@ -31,27 +39,45 @@ class ContextBuilder(
         pendingMessages: List<String>,
         isSubagent: Boolean,
         taskName: String? = null,
-    ): List<LlmMessage> {
+    ): ContextResult {
+        skillRegistry.discover()
         val systemPrompt = workspaceLoader.loadSystemPrompt()
         val summary = summaryService.getLastSummary(session.chatId) ?: ""
-        val tools = toolRegistry.listTools()
-        val skills = skillRegistry.listSkillDescriptions()
+
+        val allSkills = skillRegistry.listAll()
+        val skillCount = allSkills.size
+        val inlineSkills = skillCount in 1..config.skills.maxInlineSkills
+        val includeSkillList = skillCount > config.skills.maxInlineSkills
+        val includeSkillLoad = skillCount > 0
+
+        val tools =
+            toolRegistry.listTools(
+                includeSkillList = includeSkillList,
+                includeSkillLoad = includeSkillLoad,
+            )
 
         val toolDescriptions =
             buildString {
                 if (tools.isNotEmpty()) append(tools.joinToString("\n") { it.description })
-                if (skills.isNotEmpty()) {
-                    if (isNotEmpty()) append("\n")
-                    append(skills.joinToString("\n"))
-                }
             }
 
-        val systemContent = buildSystemContent(systemPrompt, summary, toolDescriptions)
+        val inlineSkillSection =
+            if (inlineSkills) {
+                allSkills.joinToString("\n") { "- ${it.name}: ${it.description}" }
+            } else {
+                ""
+            }
+
+        val systemContent = buildSystemContent(systemPrompt, summary, toolDescriptions, inlineSkillSection)
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
             val historyMessages = subagentHistoryLoader.loadHistory(taskName, config.context.subagentHistory)
-            return buildSubagentContext(systemContent, historyMessages, pendingMessages)
+            return ContextResult(
+                buildSubagentContext(systemContent, historyMessages, pendingMessages),
+                includeSkillList = includeSkillList,
+                includeSkillLoad = includeSkillLoad,
+            )
         }
 
         val contextBudget =
@@ -123,7 +149,11 @@ class ContextBuilder(
             messages.add(LlmMessage(role = "user", content = content))
         }
 
-        return messages
+        return ContextResult(
+            messages = messages,
+            includeSkillList = includeSkillList,
+            includeSkillLoad = includeSkillLoad,
+        )
     }
 
     private fun buildSubagentContext(
@@ -160,11 +190,16 @@ class ContextBuilder(
         systemPrompt: String,
         summary: String,
         toolDescriptions: String,
+        inlineSkillSection: String = "",
     ): String {
         val parts = mutableListOf<String>()
         if (systemPrompt.isNotBlank()) parts.add(systemPrompt)
+        val now = ZonedDateTime.now()
+        val formatted = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"))
+        parts.add("## Current Time\n$formatted")
         if (summary.isNotBlank()) parts.add("## Last Summary\n" + summary)
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
+        if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
     }
 }

@@ -6,6 +6,10 @@ import jakarta.inject.Singleton
 
 @Singleton
 class StubSkillRegistry : SkillRegistry {
+    override fun discover() {
+        // No-op: stub has no skills to discover
+    }
+
     override suspend fun listSkillDescriptions(): List<String> = emptyList()
 
     override suspend fun listAll(): List<SkillMeta> = emptyList()

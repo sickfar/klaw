@@ -104,13 +104,17 @@ class MessageProcessor(
                         sessionManager.updateModel(chatId, message.model)
                     }
 
-                    val tools = toolRegistry.listTools()
-                    val context =
+                    val contextResult =
                         contextBuilder.buildContext(
                             session,
                             listOf(message.message),
                             isSubagent = true,
                             taskName = message.name,
+                        )
+                    val tools =
+                        toolRegistry.listTools(
+                            includeSkillList = contextResult.includeSkillList,
+                            includeSkillLoad = contextResult.includeSkillLoad,
                         )
 
                     // Persist scheduled user message before LLM call
@@ -141,7 +145,7 @@ class MessageProcessor(
                             config.processing.maxToolCallRounds,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
                         )
-                    val response = runner.run(context.toMutableList(), session, tools)
+                    val response = runner.run(contextResult.messages.toMutableList(), session, tools)
                     val content = response.content ?: ""
 
                     // Persist assistant response
@@ -193,7 +197,6 @@ class MessageProcessor(
         llmLimiter.withInteractivePermit {
             try {
                 val session = sessionManager.getOrCreate(chatId, config.routing.default)
-                val tools: List<ToolDef> = toolRegistry.listTools()
                 val pendingTexts = messages.map { it.content }
 
                 // Persist user messages before building context so countInSegment is accurate
@@ -217,7 +220,12 @@ class MessageProcessor(
                     )
                 }
 
-                val context = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
+                val contextResult = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
+                val tools: List<ToolDef> =
+                    toolRegistry.listTools(
+                        includeSkillList = contextResult.includeSkillList,
+                        includeSkillLoad = contextResult.includeSkillLoad,
+                    )
 
                 val contextBudget =
                     config.models[session.model]?.contextBudget
@@ -233,7 +241,7 @@ class MessageProcessor(
                         contextBudgetTokens = contextBudget,
                         maxToolOutputChars = config.processing.maxToolOutputChars,
                     )
-                val response = runner.run(context.toMutableList(), session, tools)
+                val response = runner.run(contextResult.messages.toMutableList(), session, tools)
 
                 // Persist assistant response to DB
                 val content = response.content ?: ""

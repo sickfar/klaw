@@ -6,5 +6,8 @@ import jakarta.inject.Singleton
 
 @Singleton
 class StubToolRegistry : ToolRegistry {
-    override suspend fun listTools(): List<ToolDef> = emptyList()
+    override suspend fun listTools(
+        includeSkillList: Boolean,
+        includeSkillLoad: Boolean,
+    ): List<ToolDef> = emptyList()
 }

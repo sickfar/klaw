@@ -218,4 +218,81 @@ class FileToolsTest {
                 Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxrwxrwx"))
             }
         }
+
+    // --- file_patch tests ---
+
+    @Test
+    fun `file_patch single occurrence replaced correctly`() =
+        runTest {
+            Files.writeString(workspace.resolve("hello.txt"), "hello world")
+            val result = tools().patch("hello.txt", "world", "earth")
+            assertTrue(result.startsWith("OK"), "Expected OK but got: $result")
+            assertEquals("hello earth", Files.readString(workspace.resolve("hello.txt")))
+        }
+
+    @Test
+    fun `file_patch old_string not found returns error`() =
+        runTest {
+            Files.writeString(workspace.resolve("hello.txt"), "hello world")
+            val result = tools().patch("hello.txt", "missing", "replacement")
+            assertTrue(result.contains("not found"), "Expected 'not found' error but got: $result")
+        }
+
+    @Test
+    fun `file_patch multiple occurrences without force_first returns error with count`() =
+        runTest {
+            Files.writeString(workspace.resolve("multi.txt"), "aaa bbb aaa")
+            val result = tools().patch("multi.txt", "aaa", "ccc")
+            assertTrue(result.contains("2"), "Expected count in error but got: $result")
+            assertTrue(result.contains("force_first"), "Expected force_first hint but got: $result")
+        }
+
+    @Test
+    fun `file_patch multiple occurrences with force_first replaces first only`() =
+        runTest {
+            Files.writeString(workspace.resolve("multi.txt"), "aaa bbb aaa")
+            val result = tools().patch("multi.txt", "aaa", "ccc", forceFirst = true)
+            assertTrue(result.startsWith("OK"), "Expected OK but got: $result")
+            assertEquals("ccc bbb aaa", Files.readString(workspace.resolve("multi.txt")))
+        }
+
+    @Test
+    fun `file_patch empty old_string returns error`() =
+        runTest {
+            Files.writeString(workspace.resolve("hello.txt"), "hello world")
+            val result = tools().patch("hello.txt", "", "something")
+            assertTrue(result.contains("empty"), "Expected empty error but got: $result")
+        }
+
+    @Test
+    fun `file_patch old_string equals new_string returns error`() =
+        runTest {
+            Files.writeString(workspace.resolve("hello.txt"), "hello world")
+            val result = tools().patch("hello.txt", "world", "world")
+            assertTrue(result.contains("identical"), "Expected identical error but got: $result")
+        }
+
+    @Test
+    fun `file_patch file not found returns error`() =
+        runTest {
+            val result = tools().patch("no-such-file.txt", "old", "new")
+            assertTrue(result.contains("not found"), "Expected not found error but got: $result")
+        }
+
+    @Test
+    fun `file_patch path traversal returns access denied`() =
+        runTest {
+            val result = tools().patch("../../etc/passwd", "old", "new")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    @Test
+    fun `file_patch result exceeds max file size returns error`() =
+        runTest {
+            Files.writeString(workspace.resolve("small.txt"), "ab")
+            val result = tools(maxSize = 5).patch("small.txt", "ab", "a".repeat(10))
+            assertTrue(result.contains("exceeds"), "Expected size error but got: $result")
+            // Original file should be unchanged
+            assertEquals("ab", Files.readString(workspace.resolve("small.txt")))
+        }
 }

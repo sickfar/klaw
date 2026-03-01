@@ -157,8 +157,13 @@ class MessageProcessorEmbeddingTest {
 
         val workspaceLoader = mockk<WorkspaceLoader> { coEvery { loadSystemPrompt() } returns "" }
         val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
-        val skillRegistry = mockk<SkillRegistry> { coEvery { listSkillDescriptions() } returns emptyList() }
-        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools() } returns emptyList() }
+        val skillRegistry =
+            mockk<SkillRegistry> {
+                coEvery { listSkillDescriptions() } returns emptyList()
+                coEvery { listAll() } returns emptyList()
+                every { discover() } returns Unit
+            }
+        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any()) } returns emptyList() }
         val autoRagService =
             mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }
         val subagentHistoryLoader =
@@ -343,7 +348,12 @@ class MessageProcessorEmbeddingTest {
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
             contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot))
-        } returns listOf(LlmMessage(role = "system", content = "test"))
+        } returns
+            io.github.klaw.engine.context.ContextResult(
+                messages = listOf(LlmMessage(role = "system", content = "test")),
+                includeSkillList = false,
+                includeSkillLoad = false,
+            )
 
         val config = buildTestConfig(loggingEnabled = false)
         val processor = buildProcessor(config, db, socketServer, embeddingService, contextBuilder)
@@ -378,7 +388,12 @@ class MessageProcessorEmbeddingTest {
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
             contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot))
-        } returns listOf(LlmMessage(role = "system", content = "test"))
+        } returns
+            io.github.klaw.engine.context.ContextResult(
+                messages = listOf(LlmMessage(role = "system", content = "test")),
+                includeSkillList = false,
+                includeSkillLoad = false,
+            )
 
         val config = buildTestConfig()
         val processor = buildProcessor(config, db, socketServer, embeddingService, contextBuilder)

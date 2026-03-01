@@ -95,6 +95,7 @@ class ToolsIntegrationTest {
             assertTrue("file_read" in names)
             assertTrue("file_write" in names)
             assertTrue("file_list" in names)
+            assertTrue("file_patch" in names)
             assertTrue("memory_search" in names)
             assertTrue("memory_save" in names)
             assertTrue("docs_search" in names)
@@ -106,7 +107,6 @@ class ToolsIntegrationTest {
             assertTrue("schedule_add" in names)
             assertTrue("schedule_remove" in names)
             assertTrue("subagent_spawn" in names)
-            assertTrue("current_time" in names)
             assertTrue("send_message" in names)
         }
 

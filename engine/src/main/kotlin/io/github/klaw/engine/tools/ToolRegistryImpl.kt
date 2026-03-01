@@ -28,12 +28,15 @@ class ToolRegistryImpl(
     private val utilityTools: UtilityTools,
     private val config: EngineConfig,
 ) : ToolRegistry {
-    override suspend fun listTools(): List<ToolDef> =
-        if (config.docs.enabled) {
-            toolDefs
-        } else {
-            toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
-        }
+    override suspend fun listTools(
+        includeSkillList: Boolean,
+        includeSkillLoad: Boolean,
+    ): List<ToolDef> {
+        var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
+        if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
+        if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
+        return result
+    }
 
     @Suppress("TooGenericExceptionCaught")
     suspend fun execute(call: ToolCall): ToolResult {
@@ -72,6 +75,15 @@ class ToolRegistryImpl(
 
             "file_list" -> {
                 fileTools.list(args.str("path"), args.boolOrNull("recursive") ?: false)
+            }
+
+            "file_patch" -> {
+                fileTools.patch(
+                    args.str("path"),
+                    args.str("old_string"),
+                    args.str("new_string"),
+                    args.boolOrNull("force_first") ?: false,
+                )
             }
 
             "memory_search" -> {
@@ -129,10 +141,6 @@ class ToolRegistryImpl(
                 )
             }
 
-            "current_time" -> {
-                utilityTools.currentTime()
-            }
-
             "send_message" -> {
                 utilityTools.sendMessage(
                     args.str("channel"),
@@ -160,6 +168,8 @@ class ToolRegistryImpl(
         private const val DEFAULT_MEMORY_TOP_K = 10
         private const val DEFAULT_DOCS_TOP_K = 5
         private val DOCS_TOOL_NAMES = setOf("docs_search", "docs_read", "docs_list")
+        private const val SKILL_LIST_TOOL_NAME = "skill_list"
+        private const val SKILL_LOAD_TOOL_NAME = "skill_load"
 
         private val toolDefs =
             listOf(
@@ -195,6 +205,19 @@ class ToolRegistryImpl(
                         mapOf(
                             "path" to stringProp("Путь к директории относительно workspace"),
                             "recursive" to boolProp("Рекурсивный обход поддиректорий"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "file_patch",
+                    "Заменить фрагмент текста в файле точным совпадением",
+                    toolParams(
+                        listOf("path", "old_string", "new_string"),
+                        mapOf(
+                            "path" to stringProp("Путь к файлу относительно workspace"),
+                            "old_string" to stringProp("Текст для замены (точное совпадение)"),
+                            "new_string" to stringProp("Новый текст"),
+                            "force_first" to boolProp("Заменить первое вхождение при множественных совпадениях"),
                         ),
                     ),
                 ),
@@ -296,11 +319,6 @@ class ToolRegistryImpl(
                             "injectInto" to stringProp("chatId для отправки результата (необязательно)"),
                         ),
                     ),
-                ),
-                ToolDef(
-                    "current_time",
-                    "Получить текущую дату и время",
-                    toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
                     "send_message",

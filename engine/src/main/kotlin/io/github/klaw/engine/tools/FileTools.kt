@@ -113,6 +113,59 @@ class FileTools(
         }
     }
 
+    suspend fun patch(
+        path: String,
+        oldString: String,
+        newString: String,
+        forceFirst: Boolean = false,
+    ): String {
+        if (oldString.isEmpty()) return "Error: old_string must not be empty"
+        if (oldString == newString) return "Error: old_string and new_string are identical"
+        val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
+        return withContext(Dispatchers.VT) {
+            try {
+                if (!Files.exists(safePath)) return@withContext "Error: file not found: $path"
+                val content = Files.readString(safePath)
+                val count = countOccurrences(content, oldString)
+                when {
+                    count == 0 -> {
+                        "Error: old_string not found in $path"
+                    }
+
+                    count > 1 && !forceFirst -> {
+                        "Error: found $count occurrences of old_string in $path, use force_first=true to replace first"
+                    }
+
+                    else -> {
+                        val newContent = content.replaceFirst(oldString, newString)
+                        if (newContent.toByteArray().size > maxFileSizeBytes) {
+                            return@withContext "Error: result exceeds maximum file size of $maxFileSizeBytes bytes"
+                        }
+                        Files.writeString(safePath, newContent)
+                        "OK: patched $path"
+                    }
+                }
+            } catch (e: Exception) {
+                "Error patching file: ${e::class.simpleName}"
+            }
+        }
+    }
+
+    private fun countOccurrences(
+        text: String,
+        substring: String,
+    ): Int {
+        var count = 0
+        var idx = 0
+        while (true) {
+            idx = text.indexOf(substring, idx)
+            if (idx < 0) break
+            count++
+            idx += substring.length
+        }
+        return count
+    }
+
     suspend fun list(
         path: String,
         recursive: Boolean = false,

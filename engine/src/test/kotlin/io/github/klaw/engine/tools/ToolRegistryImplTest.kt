@@ -85,6 +85,7 @@ class ToolRegistryImplTest {
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
             assertTrue(names.contains("file_list"))
+            assertTrue(names.contains("file_patch"))
             assertTrue(names.contains("memory_search"))
             assertTrue(names.contains("memory_save"))
             assertFalse(names.contains("memory_core_get"))
@@ -99,7 +100,7 @@ class ToolRegistryImplTest {
             assertTrue(names.contains("schedule_add"))
             assertTrue(names.contains("schedule_remove"))
             assertTrue(names.contains("subagent_spawn"))
-            assertTrue(names.contains("current_time"))
+            assertFalse(names.contains("current_time"))
             assertTrue(names.contains("send_message"))
         }
 
@@ -211,13 +212,57 @@ class ToolRegistryImplTest {
         }
 
     @Test
-    fun `no-arg tools work with empty arguments`() =
+    fun `execute dispatches file_patch to FileTools`() =
         runTest {
-            coEvery { utilityTools.currentTime() } returns "2025-01-01T00:00:00Z"
+            coEvery { fileTools.patch("test.txt", "old", "new", false) } returns "OK: patched test.txt"
+
+            val result =
+                registry.execute(
+                    ToolCall(
+                        id = "4",
+                        name = "file_patch",
+                        arguments = """{"path":"test.txt","old_string":"old","new_string":"new"}""",
+                    ),
+                )
+            assertEquals("4", result.callId)
+            assertEquals("OK: patched test.txt", result.content)
+        }
+
+    @Test
+    fun `dispatch current_time returns unknown tool error`() =
+        runTest {
             val result =
                 registry.execute(
                     ToolCall(id = "1", name = "current_time", arguments = ""),
                 )
-            assertEquals("2025-01-01T00:00:00Z", result.content)
+            assertTrue(result.content.contains("unknown tool"))
+        }
+
+    @Test
+    fun `listTools with includeSkillList false excludes skill_list keeps skill_load`() =
+        runTest {
+            val tools = registry.listTools(includeSkillList = false, includeSkillLoad = true)
+            val names = tools.map { it.name }.toSet()
+            assertFalse("skill_list" in names, "skill_list should be excluded")
+            assertTrue("skill_load" in names, "skill_load should be kept")
+        }
+
+    @Test
+    fun `listTools with includeSkillLoad false excludes skill_load`() =
+        runTest {
+            val tools = registry.listTools(includeSkillList = true, includeSkillLoad = false)
+            val names = tools.map { it.name }.toSet()
+            assertTrue("skill_list" in names, "skill_list should be kept")
+            assertFalse("skill_load" in names, "skill_load should be excluded")
+        }
+
+    @Test
+    fun `listTools with both false excludes both skill tools`() =
+        runTest {
+            val tools = registry.listTools(includeSkillList = false, includeSkillLoad = false)
+            val names = tools.map { it.name }.toSet()
+            assertFalse("skill_list" in names, "skill_list should be excluded")
+            assertFalse("skill_load" in names, "skill_load should be excluded")
+            assertEquals(14, tools.size, "Should have 16 - 2 = 14 tools")
         }
 }

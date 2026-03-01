@@ -135,7 +135,9 @@ class ContextBuilderAutoRagTest {
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
         coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
-        coEvery { toolRegistry.listTools() } returns emptyList()
+        coEvery { skillRegistry.listAll() } returns emptyList()
+        io.mockk.every { skillRegistry.discover() } returns Unit
+        coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
     }
@@ -209,13 +211,13 @@ class ContextBuilderAutoRagTest {
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("msg-1", "Earlier content", "user", "2024-01-01T00:01:00Z"))
 
-            val messages = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
+            val result = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
 
             // messages[0] = system, messages[1] = auto-RAG system block, rest = history
-            assertTrue(messages.size >= 2)
-            assertEquals("system", messages[0].role)
-            assertEquals("system", messages[1].role)
-            assertTrue(messages[1].content!!.contains("From earlier in this conversation:"))
+            assertTrue(result.messages.size >= 2)
+            assertEquals("system", result.messages[0].role)
+            assertEquals("system", result.messages[1].role)
+            assertTrue(result.messages[1].content!!.contains("From earlier in this conversation:"))
         }
 
     @Test
@@ -226,10 +228,10 @@ class ContextBuilderAutoRagTest {
             insertMessages(session.chatId, 5)
             // autoRagService returns empty (default mock)
 
-            val messages = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
+            val result = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
 
             // Should only have system + history, no extra system auto-RAG block
-            val systemMessages = messages.filter { it.role == "system" }
+            val systemMessages = result.messages.filter { it.role == "system" }
             assertEquals(1, systemMessages.size)
             systemMessages.forEach { msg ->
                 assertFalse(
@@ -265,7 +267,7 @@ class ContextBuilderAutoRagTest {
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("old-msg", longContent, "user", "2024-01-01T00:00:01Z"))
 
-            val messagesWithRag =
+            val resultWithRag =
                 buildContextBuilder(config).buildContext(
                     session,
                     emptyList(),
@@ -274,15 +276,15 @@ class ContextBuilderAutoRagTest {
 
             // Now test without RAG (disabled)
             val configNoRag = buildConfig(slidingWindow = 10, autoRagEnabled = false)
-            val messagesNoRag =
+            val resultNoRag =
                 buildContextBuilder(configNoRag).buildContext(
                     session,
                     emptyList(),
                     isSubagent = false,
                 )
 
-            val historyWithRag = messagesWithRag.filter { it.role == "user" }
-            val historyNoRag = messagesNoRag.filter { it.role == "user" }
+            val historyWithRag = resultWithRag.messages.filter { it.role == "user" }
+            val historyNoRag = resultNoRag.messages.filter { it.role == "user" }
 
             // With RAG consuming tokens, fewer history messages should fit (or equal at most)
             assertTrue(
@@ -338,9 +340,9 @@ class ContextBuilderAutoRagTest {
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("msg-old", "Earlier relevant content", "assistant", "2024-01-01T00:01:00Z"))
 
-            val messages = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
+            val result = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
 
-            val autoRagMessage = messages.drop(1).firstOrNull { it.role == "system" }
+            val autoRagMessage = result.messages.drop(1).firstOrNull { it.role == "system" }
             assertFalse(autoRagMessage == null, "Expected an auto-RAG system message")
             assertTrue(autoRagMessage!!.content!!.startsWith("From earlier in this conversation:"))
         }
@@ -354,7 +356,7 @@ class ContextBuilderAutoRagTest {
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("old-msg", "Old content", "user", "2024-01-01T00:00:01Z"))
 
-            val messages =
+            val result =
                 buildContextBuilder(config).buildContext(
                     session,
                     listOf("Current pending"),
@@ -362,12 +364,12 @@ class ContextBuilderAutoRagTest {
                 )
 
             // Validate sequence: system, auto-RAG system, history..., pending user
-            assertTrue(messages.size >= 3)
-            assertEquals("system", messages[0].role)
-            assertEquals("system", messages[1].role)
-            assertTrue(messages[1].content!!.contains("From earlier in this conversation:"))
+            assertTrue(result.messages.size >= 3)
+            assertEquals("system", result.messages[0].role)
+            assertEquals("system", result.messages[1].role)
+            assertTrue(result.messages[1].content!!.contains("From earlier in this conversation:"))
             // Last message should be the pending user message
-            assertEquals("user", messages.last().role)
-            assertEquals("Current pending", messages.last().content)
+            assertEquals("user", result.messages.last().role)
+            assertEquals("Current pending", result.messages.last().content)
         }
 }

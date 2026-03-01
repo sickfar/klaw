@@ -19,6 +19,7 @@ data class EngineConfig(
     val compatibility: CompatibilityConfig? = null,
     val autoRag: AutoRagConfig = AutoRagConfig(),
     val docs: DocsConfig = DocsConfig(),
+    val skills: SkillsConfig = SkillsConfig(),
 )
 
 @Serializable
@@ -200,6 +201,15 @@ data class OpenClawSync(
 data class DocsConfig(
     val enabled: Boolean = true,
 )
+
+@Serializable
+data class SkillsConfig(
+    val maxInlineSkills: Int = 5,
+) {
+    init {
+        require(maxInlineSkills > 0) { "maxInlineSkills must be > 0, got $maxInlineSkills" }
+    }
+}
 
 @Serializable
 data class AutoRagConfig(

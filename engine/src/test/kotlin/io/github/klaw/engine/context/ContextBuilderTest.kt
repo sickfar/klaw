@@ -17,6 +17,7 @@ import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
+import io.github.klaw.common.config.SkillsConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.ToolDef
@@ -52,6 +53,7 @@ class ContextBuilderTest {
         slidingWindow: Int = 10,
         subagentHistory: Int = 5,
         modelContextBudget: Int? = null,
+        skills: SkillsConfig = SkillsConfig(),
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
@@ -104,6 +106,7 @@ class ContextBuilderTest {
             commands = emptyList(),
             compatibility = CompatibilityConfig(),
             autoRag = AutoRagConfig(enabled = false),
+            skills = skills,
         )
 
     private fun buildSession(
@@ -139,7 +142,9 @@ class ContextBuilderTest {
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
         coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
-        coEvery { toolRegistry.listTools() } returns emptyList()
+        coEvery { skillRegistry.listAll() } returns emptyList()
+        io.mockk.every { skillRegistry.discover() } returns Unit
+        coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
     }
@@ -152,10 +157,10 @@ class ContextBuilderTest {
             val contextBuilder = buildContextBuilder(buildConfig())
             val session = buildSession()
 
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertEquals(1, messages.size)
-            val systemMessage = messages[0]
+            assertEquals(1, result.messages.size)
+            val systemMessage = result.messages[0]
             assertEquals("system", systemMessage.role)
             assertTrue(systemMessage.content!!.contains("You are a helpful assistant."))
         }
@@ -182,11 +187,11 @@ class ContextBuilderTest {
             }
 
             val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10))
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             // system + up to 10 history messages
             // The DB LIMIT 10 only returns 10, so at most 10 messages from DB
-            val historyMessages = messages.drop(1) // remove system message
+            val historyMessages = result.messages.drop(1) // remove system message
             val maxHistory = 10
             assertTrue(
                 historyMessages.size <= maxHistory,
@@ -245,9 +250,9 @@ class ContextBuilderTest {
             val session = buildSession(chatId = "chat-seg", segmentStart = segmentStart)
             val contextBuilder = buildContextBuilder(buildConfig())
 
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            val historyMessages = messages.drop(1)
+            val historyMessages = result.messages.drop(1)
             assertEquals(2, historyMessages.size, "Should only include 2 messages from new segment")
             assertTrue(historyMessages.any { it.content == "Hello in new segment" })
             assertTrue(historyMessages.any { it.content == "Hi there in new segment" })
@@ -265,10 +270,10 @@ class ContextBuilderTest {
             coEvery { subagentHistoryLoader.loadHistory("my-task", any()) } returns historyFromLoader
 
             val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentHistory = 5))
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "my-task")
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "my-task")
 
             // SubagentHistoryLoader messages appear in context
-            val historyMessages = messages.filter { it.role == "user" || it.role == "assistant" }
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
             assertTrue(historyMessages.any { it.content == "Previous task user" })
             assertTrue(historyMessages.any { it.content == "Previous task assistant" })
         }
@@ -280,9 +285,9 @@ class ContextBuilderTest {
             coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
 
             val contextBuilder = buildContextBuilder(buildConfig())
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "task-x")
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "task-x")
 
-            val systemMessages = messages.filter { it.role == "system" }
+            val systemMessages = result.messages.filter { it.role == "system" }
             assertEquals(1, systemMessages.size, "Subagent should only have one system message")
             systemMessages.forEach { msg ->
                 assertFalse(
@@ -307,7 +312,7 @@ class ContextBuilderTest {
             coEvery { subagentHistoryLoader.loadHistory("scheduled-task", 5) } returns historyFromLoader
 
             val contextBuilder = buildContextBuilder(buildConfig(subagentHistory = 5))
-            val messages =
+            val result =
                 contextBuilder.buildContext(
                     session,
                     listOf("Pending message"),
@@ -316,13 +321,13 @@ class ContextBuilderTest {
                 )
 
             // system + 4 history + 1 pending = 6 messages
-            assertEquals(6, messages.size)
-            assertEquals("system", messages[0].role)
-            assertEquals("Loader user 1", messages[1].content)
-            assertEquals("Loader assistant 1", messages[2].content)
-            assertEquals("Loader user 2", messages[3].content)
-            assertEquals("Loader assistant 2", messages[4].content)
-            assertEquals("Pending message", messages[5].content)
+            assertEquals(6, result.messages.size)
+            assertEquals("system", result.messages[0].role)
+            assertEquals("Loader user 1", result.messages[1].content)
+            assertEquals("Loader assistant 1", result.messages[2].content)
+            assertEquals("Loader user 2", result.messages[3].content)
+            assertEquals("Loader assistant 2", result.messages[4].content)
+            assertEquals("Pending message", result.messages[5].content)
         }
 
     @Test
@@ -332,7 +337,7 @@ class ContextBuilderTest {
             coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
 
             val contextBuilder = buildContextBuilder(buildConfig())
-            val messages =
+            val result =
                 contextBuilder.buildContext(
                     session,
                     listOf("Only pending"),
@@ -340,10 +345,10 @@ class ContextBuilderTest {
                     taskName = "empty-task",
                 )
 
-            assertEquals(2, messages.size)
-            assertEquals("system", messages[0].role)
-            assertEquals("user", messages[1].role)
-            assertEquals("Only pending", messages[1].content)
+            assertEquals(2, result.messages.size)
+            assertEquals("system", result.messages[0].role)
+            assertEquals("user", result.messages[1].role)
+            assertEquals("Only pending", result.messages[1].content)
         }
 
     @Test
@@ -375,9 +380,9 @@ class ContextBuilderTest {
             // Budget of 100 tokens with 10% safety = 90 tokens effective
             // Each big message ~57 tokens means we cannot fit more than 1
             val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            val historyMessages = messages.drop(1)
+            val historyMessages = result.messages.drop(1)
             // With 90 effective tokens and ~57 tokens per message, at most 1 message should fit
             // (system message content is empty since systemPrompt/memory are empty mocks)
             assertTrue(
@@ -429,9 +434,9 @@ class ContextBuilderTest {
 
             // Budget allows ~50 tokens for messages (enough for 2 small but not the big one)
             val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 60))
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            val history = messages.drop(1)
+            val history = result.messages.drop(1)
             val contents = history.map { it.content }
             assertTrue(contents.contains("Small new message"), "Newest small message should be kept")
             // Old message should NOT be included because the large message in between breaks contiguity
@@ -469,16 +474,16 @@ class ContextBuilderTest {
             // Budget = 200 tokens, system ~0, pending ~114 tokens, remaining ~66 tokens
             // History messages are small (~3 tokens each), but budget is tight
             val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 200))
-            val messages = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
+            val result = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
 
             // Verify pending messages are at the end
-            val lastTwo = messages.takeLast(2)
+            val lastTwo = result.messages.takeLast(2)
             assertEquals("user", lastTwo[0].role)
             assertEquals(largePending, lastTwo[0].content)
 
             // Total context should respect budget: system + history + pending all fit within budget
             // The key assertion: history should be reduced because pending tokens are accounted for
-            val historyWithoutSystemAndPending = messages.drop(1).dropLast(2)
+            val historyWithoutSystemAndPending = result.messages.drop(1).dropLast(2)
             assertTrue(
                 historyWithoutSystemAndPending.size < 5,
                 "History should be trimmed when large pending messages consume budget, " +
@@ -494,12 +499,30 @@ class ContextBuilderTest {
             val session = buildSession(chatId = "chat-sum")
             val contextBuilder = buildContextBuilder(buildConfig())
 
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertEquals(1, messages.size)
-            val systemContent = messages[0].content!!
+            assertEquals(1, result.messages.size)
+            val systemContent = result.messages[0].content!!
             assertTrue(systemContent.contains("Last Summary"), "System message should contain summary section")
             assertTrue(systemContent.contains("Previously: User asked about weather."))
+        }
+
+    @Test
+    fun `system prompt contains current date and time`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns "You are a helper."
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val session = buildSession()
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("## Current Time"), "System message should contain Current Time section")
+            assertTrue(
+                systemContent.matches(Regex("(?s).*\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.*")),
+                "System message should contain a date/time pattern yyyy-MM-dd HH:mm:ss",
+            )
         }
 
     @Test
@@ -511,19 +534,113 @@ class ContextBuilderTest {
                     description = "Read a file from the workspace",
                     parameters = buildJsonObject {},
                 )
-            coEvery { toolRegistry.listTools() } returns listOf(toolDef)
-            val skillDesc = "skill: code_review — Review code for issues"
-            coEvery { skillRegistry.listSkillDescriptions() } returns listOf(skillDesc)
+            coEvery { toolRegistry.listTools(any(), any()) } returns listOf(toolDef)
 
             val session = buildSession()
             val contextBuilder = buildContextBuilder(buildConfig())
 
-            val messages = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertEquals(1, messages.size)
-            val systemContent = messages[0].content!!
+            assertEquals(1, result.messages.size)
+            val systemContent = result.messages[0].content!!
             assertTrue(systemContent.contains("Available Tools"), "System message should contain tools section")
             assertTrue(systemContent.contains("Read a file from the workspace"))
-            assertTrue(systemContent.contains("skill: code_review"))
+        }
+
+    @Test
+    fun `skills inlined when count below threshold`() =
+        runTest {
+            val skillsMeta =
+                listOf(
+                    SkillMeta("code_review", "Review code for issues"),
+                    SkillMeta("summarize", "Summarize text"),
+                    SkillMeta("translate", "Translate between languages"),
+                )
+            coEvery { skillRegistry.listAll() } returns skillsMeta
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig(skills = SkillsConfig(maxInlineSkills = 5)))
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertFalse(result.includeSkillList, "skill_list should not be included when skills are inlined")
+            assertTrue(result.includeSkillLoad, "skill_load should be available when skills exist")
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("## Available Skills"), "System prompt should have inline skills section")
+            assertTrue(systemContent.contains("- code_review: Review code for issues"))
+            assertTrue(systemContent.contains("- summarize: Summarize text"))
+            assertTrue(systemContent.contains("- translate: Translate between languages"))
+        }
+
+    @Test
+    fun `skills not inlined when count above threshold`() =
+        runTest {
+            val skillsMeta = (1..7).map { SkillMeta("skill_$it", "Description $it") }
+            coEvery { skillRegistry.listAll() } returns skillsMeta
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig(skills = SkillsConfig(maxInlineSkills = 5)))
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertTrue(result.includeSkillList, "skill_list should be included when skills exceed threshold")
+            assertTrue(result.includeSkillLoad, "skill_load should be available when skills exist")
+
+            val systemContent = result.messages[0].content!!
+            assertFalse(
+                systemContent.contains("## Available Skills"),
+                "System prompt should NOT have inline skills section when above threshold",
+            )
+        }
+
+    @Test
+    fun `skills inlined at exactly threshold`() =
+        runTest {
+            val skillsMeta = (1..5).map { SkillMeta("skill_$it", "Description $it") }
+            coEvery { skillRegistry.listAll() } returns skillsMeta
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig(skills = SkillsConfig(maxInlineSkills = 5)))
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertFalse(result.includeSkillList, "skill_list should not be included at exactly threshold")
+            assertTrue(result.includeSkillLoad, "skill_load should be available")
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("## Available Skills"), "Skills should be inlined at exactly threshold")
+        }
+
+    @Test
+    fun `zero skills no skill tools`() =
+        runTest {
+            coEvery { skillRegistry.listAll() } returns emptyList()
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            assertFalse(result.includeSkillList, "skill_list should not be included with zero skills")
+            assertFalse(result.includeSkillLoad, "skill_load should not be included with zero skills")
+
+            val systemContent = result.messages[0].content!!
+            assertFalse(
+                systemContent.contains("## Available Skills"),
+                "No inline skills section when zero skills",
+            )
+        }
+
+    @Test
+    fun `discover called on every buildContext`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+            contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            io.mockk.verify(exactly = 2) { skillRegistry.discover() }
         }
 }

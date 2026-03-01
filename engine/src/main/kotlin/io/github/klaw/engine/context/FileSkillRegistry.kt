@@ -17,7 +17,7 @@ class FileSkillRegistry(
         val filePath: Path,
     )
 
-    fun discover() {
+    override fun discover() {
         skills.clear()
         scanDir(dataSkillsDir)
         scanDir(workspaceSkillsDir) // workspace overrides data

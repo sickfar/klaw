@@ -6,6 +6,8 @@ data class SkillMeta(
 )
 
 interface SkillRegistry {
+    fun discover()
+
     suspend fun listSkillDescriptions(): List<String>
 
     suspend fun listAll(): List<SkillMeta>

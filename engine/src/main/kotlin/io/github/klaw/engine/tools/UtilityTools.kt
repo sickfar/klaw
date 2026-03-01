@@ -4,19 +4,11 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.socket.EngineSocketServer
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 @Singleton
 class UtilityTools(
     private val socketServerProvider: Provider<EngineSocketServer>,
 ) {
-    suspend fun currentTime(): String {
-        val now = ZonedDateTime.now()
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
-        return now.format(formatter)
-    }
-
     @Suppress("TooGenericExceptionCaught")
     suspend fun sendMessage(
         channel: String,

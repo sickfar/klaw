@@ -155,8 +155,13 @@ class MessageProcessorIntegrationTest {
                 coEvery { loadSystemPrompt() } returns "You are a helpful assistant."
             }
         val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
-        val skillRegistry = mockk<SkillRegistry> { coEvery { listSkillDescriptions() } returns emptyList() }
-        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools() } returns emptyList() }
+        val skillRegistry =
+            mockk<SkillRegistry> {
+                coEvery { listSkillDescriptions() } returns emptyList()
+                coEvery { listAll() } returns emptyList()
+                io.mockk.every { discover() } returns Unit
+            }
+        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any()) } returns emptyList() }
 
         val autoRagService =
             mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }
