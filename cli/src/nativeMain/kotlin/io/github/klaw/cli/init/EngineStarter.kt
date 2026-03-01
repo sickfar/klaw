@@ -1,18 +1,47 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.socket.buildTcpSockAddrBytes
+import io.github.klaw.cli.socket.parseIpv4
 import io.github.klaw.cli.util.CliLogger
-import io.github.klaw.cli.util.fileExists
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.toKString
+import kotlinx.cinterop.usePinned
+import platform.posix.AF_INET
+import platform.posix.SOCK_STREAM
+import platform.posix.close
+import platform.posix.sockaddr
+import platform.posix.socket
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 import kotlin.time.Clock
 
+@OptIn(ExperimentalForeignApi::class)
+internal fun checkTcpPort(
+    host: String,
+    port: Int,
+): Boolean {
+    val fd = socket(AF_INET, SOCK_STREAM, 0)
+    if (fd < 0) return false
+    val ipBytes = parseIpv4(host)
+    val addrBytes = buildTcpSockAddrBytes(port, ipBytes)
+    val result =
+        addrBytes.usePinned { pinned ->
+            platform.posix.connect(fd, pinned.addressOf(0).reinterpret<sockaddr>(), addrBytes.size.convert())
+        }
+    close(fd)
+    return result == 0
+}
+
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 internal class EngineStarter(
-    private val engineSocketPath: String = KlawPaths.engineSocket,
+    private val enginePort: Int = KlawPaths.enginePort,
+    private val engineHost: String = KlawPaths.engineHost,
+    private val portChecker: (String, Int) -> Boolean = ::checkTcpPort,
     private val commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
     private val pollIntervalMs: Long = 500L,
     private val timeoutMs: Long = 30_000L,
@@ -39,18 +68,18 @@ internal class EngineStarter(
                 }
         commandRunner(startCmd)
 
-        CliLogger.debug { "polling for socket at $engineSocketPath" }
+        CliLogger.debug { "polling for engine at $engineHost:$enginePort" }
         val deadline = Clock.System.now().toEpochMilliseconds() + timeoutMs
         while (Clock.System.now().toEpochMilliseconds() < deadline) {
-            if (fileExists(engineSocketPath)) {
-                CliLogger.info { "engine started, socket found" }
+            if (portChecker(engineHost, enginePort)) {
+                CliLogger.info { "engine started, port responsive" }
                 return true
             }
             onTick()
             sleepMs(pollIntervalMs)
         }
         CliLogger.warn { "engine start timed out after ${timeoutMs}ms" }
-        return fileExists(engineSocketPath)
+        return portChecker(engineHost, enginePort)
     }
 
     private fun sleepMs(ms: Long) {

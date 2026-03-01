@@ -54,7 +54,8 @@ internal class InitWizard(
     private val skillsDir: String = KlawPaths.skills,
     private val modelsDir: String = KlawPaths.models,
     private val serviceOutputDir: String = ServiceInstaller.defaultOutputDir(),
-    private val engineSocketPath: String = KlawPaths.engineSocket,
+    private val enginePort: Int = KlawPaths.enginePort,
+    private val engineHost: String = KlawPaths.engineHost,
     private val requestFn: EngineRequest,
     private val readLine: () -> String?,
     private val printer: (String) -> Unit,
@@ -90,7 +91,8 @@ internal class InitWizard(
     private val engineStarterFactory: (onTick: () -> Unit, startCommand: String?) -> EngineStarter =
         { onTick, startCommand ->
             EngineStarter(
-                engineSocketPath = engineSocketPath,
+                enginePort = enginePort,
+                engineHost = engineHost,
                 commandRunner = commandRunner,
                 onTick = onTick,
                 startCommand = startCommand,
@@ -220,10 +222,8 @@ internal class InitWizard(
         // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
         // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
         if (resolvedMode == DeployMode.HYBRID || resolvedMode == DeployMode.DOCKER) {
-            mkdirMode755("$stateDir/run")
             chmodWorldRwx(stateDir)
             chmodWorldRwx(dataDir)
-            chmodWorldRwx("$stateDir/run")
         }
         CliLogger.debug { "writing config files to $configDir" }
         writeFileText("$configDir/engine.json", ConfigTemplates.engineJson(providerUrl, modelId))

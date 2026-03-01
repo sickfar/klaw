@@ -38,7 +38,7 @@ Klaw is a two-process AI agent for Raspberry Pi 5 with Chinese LLM support:
 - **Common** — KMP module (JVM + linuxArm64 + linuxX64 + macosArm64/X64). Shared models, protocol, config schemas, path utilities.
 - **CLI** — Kotlin/Native (linuxArm64 + linuxX64 + macosArm64/X64). Sends commands to Engine via IPC.
 
-Gateway ↔ Engine communicate via Unix domain socket (`engine.sock`) using JSONL framing. The scheduler is an in-process module inside Engine (not a separate service).
+Gateway ↔ Engine communicate via TCP localhost (port `7470`) using JSONL framing. The scheduler is an in-process module inside Engine (not a separate service).
 
 Design document: `impl-doc/design/klaw-design-v0_4.md`. Task files: `impl-doc/tasks/TASK-001` through `TASK-012`. User-facing docs: `doc/` (commands, config, deployment, tools, memory, etc.).
 
@@ -72,7 +72,7 @@ cli/src/nativeMain/kotlin/io/github/klaw/cli/
 │                 #   InitCommand, ReindexCommand
 ├── init/         # InitWizard, WorkspaceInitializer, ServiceInstaller, ServiceManager, DockerComposeInstaller,
 │                 #   DockerEnvironment, EngineStarter, EnvWriter, ConfigTemplates, PlatformIO (expect/actual)
-├── socket/       # EngineSocketClient, SockAddrBuilder (expect/actual for Linux/macOS)
+├── socket/       # EngineSocketClient, SockAddrBuilder (expect/actual for TCP)
 └── ui/           # AnsiColors, Spinner
 ```
 
@@ -116,14 +116,15 @@ Containers run as non-root `klaw` user (UID 10001, GID 10001). All mount paths u
 
 **Environment variables for containers:**
 - `HOME=/home/klaw` — so `KlawPaths` resolves XDG dirs correctly inside containers
-- `KLAW_SOCKET_PATH=/home/klaw/.local/state/klaw/run/engine.sock` — socket in separate `run/` mount
-- `KLAW_SOCKET_PERMS=rw-rw-rw-` (engine only) — 666 perms so host CLI can connect to container socket
+- `KLAW_ENGINE_PORT=7470` — TCP port for IPC (default 7470)
+- `KLAW_ENGINE_HOST=engine` (gateway) — hostname to connect to Engine (Docker service name)
+- `KLAW_ENGINE_BIND=0.0.0.0` (engine) — bind address so gateway container can reach Engine
 
-Socket is isolated in `$stateDir/run/` (mounted separately from state dir) with 666 permissions. Native mode is unchanged: socket at `$state/engine.sock` with 600 permissions.
+In Docker, the engine binds to `0.0.0.0` so other containers on the Docker network can connect. In native mode, the engine binds to `127.0.0.1` (localhost only). The host can reach the engine via `127.0.0.1:7470` (port mapping `127.0.0.1:7470:7470`).
 
 Config is bind-mounted read-only from `./config/`. Dockerfiles are in `docker/{engine,gateway,cli}/`.
 
-The `klaw init` command (CLI) runs an interactive wizard that detects Docker vs. native environment and sets up workspace, config, and service installation accordingly. For hybrid/docker mode, it creates `$stateDir/run/` and sets 0777 on state/data dirs.
+The `klaw init` command (CLI) runs an interactive wizard that detects Docker vs. native environment and sets up workspace, config, and service installation accordingly. For hybrid/docker mode, it sets 0777 on state/data dirs.
 
 Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`, `install.sh`, `install-klaw.sh`, `get-klaw.sh` (curl-install). Systemd unit files in `deploy/`.
 

@@ -42,7 +42,7 @@ class MemoryShowCommandTest {
         KlawCli(
             requestFn = { _, _ -> "{}" },
             conversationsDir = "/nonexistent",
-            engineSocketPath = "/nonexistent",
+            engineChecker = { false },
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
             workspaceDir = tmpDir,

@@ -13,7 +13,7 @@
 
 ## Developing Klaw from source
 
-`docker compose up` runs Engine + Gateway locally. Both communicate over a shared bind-mount that holds the `run/` subdirectory with `engine.sock`, mirroring the production Pi setup. Containers run as the non-root `klaw` user (UID 10001).
+`docker compose up` runs Engine + Gateway locally. Both communicate via TCP (port `7470`) over the Docker network. Containers run as the non-root `klaw` user (UID 10001).
 
 ## Setup
 
@@ -60,7 +60,7 @@ The `./klaw` wrapper runs `docker compose run --rm cli "$@"` — each invocation
 |---------|-----------|---------|
 | `engine` | `eclipse-temurin:21-jre-jammy` | LLM orchestration, memory, tools |
 | `gateway` | `eclipse-temurin:21-jre-alpine` | Telegram/Discord message transport |
-| `cli` | `debian:bookworm-slim` | CLI commands via Unix socket |
+| `cli` | `debian:bookworm-slim` | CLI commands via TCP |
 
 `engine` uses Ubuntu Jammy (glibc) because ONNX Runtime and DJL HuggingFace Tokenizers require glibc. `gateway` uses Alpine (musl is fine for pure JVM). `cli` uses Debian bookworm-slim because Kotlin/Native `linuxX64` binaries link against glibc.
 
@@ -69,7 +69,6 @@ The `./klaw` wrapper runs `docker compose run --rm cli "$@"` — each invocation
 | Host path | Container path | Contents |
 |-----------|---------------|----------|
 | `~/.local/state/klaw` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
-| `~/.local/state/klaw/run` | `/home/klaw/.local/state/klaw/run` | `engine.sock` (socket isolation) |
 | `~/.local/share/klaw` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
 | `~/workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `memory/`, `skills/` |
 
@@ -98,12 +97,13 @@ docker compose down -v
 docker compose restart engine
 ```
 
-## Verifying socket is up
+## Verifying engine is up
 
 ```bash
-# After ~10s from startup, engine.sock should exist:
-docker compose exec gateway ls /home/klaw/.local/state/klaw/run/
-# Expected: engine.sock
+# After ~10s from startup, engine TCP port should be reachable:
+docker compose exec gateway sh -c 'echo | nc engine 7470'
+# Or check from the host:
+curl -s http://127.0.0.1:7470 >/dev/null 2>&1 && echo "Engine is up" || echo "Engine is down"
 ```
 
 ## klaw init in Docker
@@ -118,7 +118,7 @@ docker compose exec gateway ls /home/klaw/.local/state/klaw/run/
 
 - **Phase 2 (Deployment mode):** auto-set to Docker; prompts for docker image tag only
 - **Phase 6 (Setup):** writes `deploy.conf` with `mode=docker` and the chosen tag
-- **Phase 7 (Engine auto-start):** runs `docker compose -f /app/docker-compose.json up -d engine` then polls `engine.sock` as usual
+- **Phase 7 (Engine auto-start):** runs `docker compose -f /app/docker-compose.json up -d engine` then polls TCP port `7470` until reachable
 - **Phase 8 (Container startup):** runs `docker compose -f /app/docker-compose.json up -d engine gateway` — no systemd unit files are written
 
 The compose file is mounted read-only into the CLI container at `/app/docker-compose.json`. The Docker socket `/var/run/docker.sock` is also mounted so the CLI can issue compose commands to the host daemon.

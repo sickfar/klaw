@@ -60,7 +60,7 @@ class LogsCommandTest {
         KlawCli(
             requestFn = { _, _ -> "{}" },
             conversationsDir = conversationsDir,
-            engineSocketPath = "/nonexistent",
+            engineChecker = { false },
             configDir = "/nonexistent",
             modelsDir = "/nonexistent",
             logDir = "/nonexistent/logs",

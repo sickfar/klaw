@@ -13,9 +13,9 @@ Two-process architecture: **Gateway** handles Telegram/Discord messaging; **Engi
 ```bash
 docker run -it --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v klaw-config:/root/.config/klaw \
-  -v klaw-state:/root/.local/state/klaw \
-  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-config:/home/klaw/.config/klaw \
+  -v klaw-state:/home/klaw/.local/state/klaw \
+  -v klaw-data:/home/klaw/.local/share/klaw \
   -v klaw-workspace:/workspace \
   ghcr.io/sickfar/klaw-cli:latest init
 ```
@@ -164,9 +164,9 @@ Artifacts are uploaded to a GitHub Release automatically with generated release 
 ## Architecture
 
 ```
-┌─────────────┐    Unix socket    ┌─────────────┐
+┌─────────────┐   TCP localhost   ┌─────────────┐
 │   Gateway   │◄─────────────────►│   Engine    │
-│  (Telegram) │   engine.sock     │  (LLM, DB)  │
+│  (Telegram) │   port 7470       │  (LLM, DB)  │
 └─────────────┘                   └─────────────┘
        │                                 │
   conversations/                    klaw.db

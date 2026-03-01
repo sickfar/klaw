@@ -13,8 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.net.StandardProtocolFamily
-import java.net.UnixDomainSocketAddress
+import java.net.InetSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
@@ -49,13 +48,9 @@ class EngineSocketClientTest {
             ts = "2024-01-01T00:00:00Z",
         )
 
-    private fun startTestServer(
-        socketPath: String,
-        receivedMessages: CopyOnWriteArrayList<SocketMessage>,
-    ): ServerSocketChannel {
-        val addr = UnixDomainSocketAddress.of(socketPath)
-        val server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
-        server.bind(addr)
+    private fun startTestServer(receivedMessages: CopyOnWriteArrayList<SocketMessage>): ServerSocketChannel {
+        val server = ServerSocketChannel.open()
+        server.bind(InetSocketAddress("127.0.0.1", 0))
         serverRunning.set(true)
         testServer = server
         Thread {
@@ -110,11 +105,10 @@ class EngineSocketClientTest {
     fun `send returns false when engine unavailable and buffers message`(
         @TempDir tempDir: Path,
     ) {
-        val socketPath = tempDir.resolve("engine.sock").toString()
         val bufferPath = tempDir.resolve("buffer.jsonl").toString()
         val buffer = GatewayBuffer(bufferPath)
         val handler = NoOpOutboundMessageHandler()
-        val client = EngineSocketClient(socketPath, buffer, handler)
+        val client = EngineSocketClient(host = "127.0.0.1", port = 1, buffer = buffer, outboundHandler = handler)
         clientUnderTest = client
 
         val result = client.send(sampleInbound())
@@ -127,15 +121,16 @@ class EngineSocketClientTest {
     fun `gateway registers on connect`(
         @TempDir tempDir: Path,
     ) {
-        val socketPath = tempDir.resolve("engine.sock").toString()
         val bufferPath = tempDir.resolve("buffer.jsonl").toString()
         val buffer = GatewayBuffer(bufferPath)
         val handler = NoOpOutboundMessageHandler()
         val receivedMessages = CopyOnWriteArrayList<SocketMessage>()
 
-        startTestServer(socketPath, receivedMessages)
+        val server = startTestServer(receivedMessages)
+        val serverPort = (server.localAddress as InetSocketAddress).port
 
-        val client = EngineSocketClient(socketPath, buffer, handler)
+        val client =
+            EngineSocketClient(host = "127.0.0.1", port = serverPort, buffer = buffer, outboundHandler = handler)
         clientUnderTest = client
         client.start()
 
@@ -151,7 +146,6 @@ class EngineSocketClientTest {
     fun `drains buffer after reconnect`(
         @TempDir tempDir: Path,
     ) {
-        val socketPath = tempDir.resolve("engine.sock").toString()
         val bufferPath = tempDir.resolve("buffer.jsonl").toString()
         val buffer = GatewayBuffer(bufferPath)
         val handler = NoOpOutboundMessageHandler()
@@ -160,9 +154,11 @@ class EngineSocketClientTest {
         // Pre-populate buffer with 1 InboundSocketMessage before any server/client starts
         buffer.append(sampleInbound("buffered-msg"))
 
-        startTestServer(socketPath, receivedMessages)
+        val server = startTestServer(receivedMessages)
+        val serverPort = (server.localAddress as InetSocketAddress).port
 
-        val client = EngineSocketClient(socketPath, buffer, handler)
+        val client =
+            EngineSocketClient(host = "127.0.0.1", port = serverPort, buffer = buffer, outboundHandler = handler)
         clientUnderTest = client
         client.start()
 
@@ -178,11 +174,10 @@ class EngineSocketClientTest {
     fun `send buffers message when writer is null despite connected flag`(
         @TempDir tempDir: Path,
     ) {
-        val socketPath = tempDir.resolve("engine.sock").toString()
         val bufferPath = tempDir.resolve("buffer.jsonl").toString()
         val buffer = GatewayBuffer(bufferPath)
         val handler = NoOpOutboundMessageHandler()
-        val client = EngineSocketClient(socketPath, buffer, handler)
+        val client = EngineSocketClient(host = "127.0.0.1", port = 1, buffer = buffer, outboundHandler = handler)
         clientUnderTest = client
 
         // Use reflection to set connected=true without actually connecting (writer stays null)

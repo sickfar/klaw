@@ -1,7 +1,7 @@
 # klaw CLI Reference
 
 The `klaw` binary is the primary administration interface for the Klaw system.
-It communicates with the Engine via Unix domain socket (`engine.sock`).
+It communicates with the Engine via TCP localhost (port `7470`).
 
 ## Setup
 
@@ -239,7 +239,7 @@ Checks the Klaw installation for common issues:
 - `engine.json` exists
 - `gateway.json` exists
 - Workspace directory exists
-- Engine socket present (Engine running/stopped)
+- Engine TCP port reachable (Engine running/stopped)
 - ONNX embedding model present
 - sqlite-vec extension present
 

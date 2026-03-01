@@ -15,22 +15,16 @@ import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
+import java.net.InetSocketAddress
 import java.net.StandardProtocolFamily
-import java.net.UnixDomainSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
-import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 
 class RegistrationHandshakeTest {
-    @TempDir
-    lateinit var tempDir: Path
-
-    private lateinit var socketPath: String
     private lateinit var server: EngineSocketServer
     private val json =
         Json {
@@ -61,9 +55,8 @@ class RegistrationHandshakeTest {
 
     @BeforeEach
     fun setUp() {
-        socketPath = tempDir.resolve("engine.sock").toString()
         capturingHandler = CapturingHandler()
-        server = EngineSocketServer(socketPath, capturingHandler)
+        server = EngineSocketServer(0, capturingHandler)
         server.start()
         Thread.sleep(100)
     }
@@ -75,8 +68,8 @@ class RegistrationHandshakeTest {
     }
 
     private fun connectClient(): SocketChannel {
-        val addr = UnixDomainSocketAddress.of(socketPath)
-        return SocketChannel.open(StandardProtocolFamily.UNIX).apply { connect(addr) }
+        val addr = InetSocketAddress("127.0.0.1", server.actualPort)
+        return SocketChannel.open(StandardProtocolFamily.INET).apply { connect(addr) }
     }
 
     private fun writerFor(channel: SocketChannel): PrintWriter = PrintWriter(Channels.newOutputStream(channel), true)

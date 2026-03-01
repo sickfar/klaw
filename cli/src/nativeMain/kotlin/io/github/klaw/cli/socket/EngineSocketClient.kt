@@ -14,7 +14,7 @@ import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.usePinned
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import platform.posix.AF_UNIX
+import platform.posix.AF_INET
 import platform.posix.SOCK_STREAM
 import platform.posix.SOL_SOCKET
 import platform.posix.SO_RCVTIMEO
@@ -28,7 +28,8 @@ import platform.posix.timeval
 
 @OptIn(ExperimentalForeignApi::class)
 class EngineSocketClient(
-    private val socketPath: String = KlawPaths.engineSocket,
+    private val host: String = KlawPaths.engineHost,
+    private val port: Int = KlawPaths.enginePort,
 ) {
     private val json =
         Json {
@@ -40,21 +41,21 @@ class EngineSocketClient(
         command: String,
         params: Map<String, String> = emptyMap(),
     ): String {
-        CliLogger.debug { "connecting to $socketPath" }
-        val fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        CliLogger.debug { "connecting to $host:$port" }
+        val fd = socket(AF_INET, SOCK_STREAM, 0)
         if (fd < 0) {
             CliLogger.error { "socket creation failed" }
             throw EngineNotRunningException()
         }
 
-        val pathBytes = socketPath.encodeToByteArray()
-        val addrBytes = buildSockAddrBytes(pathBytes)
+        val ipBytes = parseIpv4(host)
+        val addrBytes = buildTcpSockAddrBytes(port, ipBytes)
         val connectResult =
             addrBytes.usePinned { pinned ->
                 platform.posix.connect(fd, pinned.addressOf(0).reinterpret<sockaddr>(), addrBytes.size.convert())
             }
         if (connectResult < 0) {
-            CliLogger.error { "connect failed for $socketPath" }
+            CliLogger.error { "connect failed for $host:$port" }
             close(fd)
             throw EngineNotRunningException()
         }
@@ -72,7 +73,7 @@ class EngineSocketClient(
             while (sent < lineBytes.size) {
                 val n = send(fd, pinned.addressOf(sent), (lineBytes.size - sent).convert(), 0).toInt()
                 if (n <= 0) {
-                    CliLogger.error { "send failed for $socketPath" }
+                    CliLogger.error { "send failed for $host:$port" }
                     close(fd)
                     throw EngineNotRunningException()
                 }

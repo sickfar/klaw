@@ -14,7 +14,7 @@ class GatewaySocketFactory {
     fun engineSocketClient(
         buffer: GatewayBuffer,
         handler: OutboundMessageHandler,
-    ): EngineSocketClient = EngineSocketClient(KlawPaths.engineSocket, buffer, handler)
+    ): EngineSocketClient = EngineSocketClient(KlawPaths.engineHost, KlawPaths.enginePort, buffer, handler)
 
     @Singleton
     fun conversationJsonlWriter(): ConversationJsonlWriter = ConversationJsonlWriter(KlawPaths.conversations)

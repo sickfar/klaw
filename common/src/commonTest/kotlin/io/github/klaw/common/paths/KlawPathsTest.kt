@@ -75,10 +75,33 @@ class KlawPathsTest {
     }
 
     @Test
-    fun `engineSocket is in state dir`() {
+    fun `default enginePort is 7470`() {
         val paths = buildTestPaths(home = "/home/alice")
-        assertTrue(paths.engineSocket.startsWith(paths.state))
-        assertTrue(paths.engineSocket.endsWith("engine.sock"))
+        assertEquals(7470, paths.enginePort)
+    }
+
+    @Test
+    fun `KLAW_ENGINE_PORT env overrides default port`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_ENGINE_PORT" to "9090"))
+        assertEquals(9090, paths.enginePort)
+    }
+
+    @Test
+    fun `KLAW_ENGINE_PORT invalid value falls back to default`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_ENGINE_PORT" to "notanumber"))
+        assertEquals(7470, paths.enginePort)
+    }
+
+    @Test
+    fun `default engineHost is 127_0_0_1`() {
+        val paths = buildTestPaths(home = "/home/alice")
+        assertEquals("127.0.0.1", paths.engineHost)
+    }
+
+    @Test
+    fun `KLAW_ENGINE_HOST env overrides default host`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_ENGINE_HOST" to "engine"))
+        assertEquals("engine", paths.engineHost)
     }
 
     @Test
@@ -131,20 +154,8 @@ class KlawPathsTest {
     }
 
     @Test
-    fun `KLAW_SOCKET_PATH env var overrides default engine socket path`() {
-        val paths = buildTestPaths(env = mapOf("KLAW_SOCKET_PATH" to "/run/klaw/engine.sock"))
-        assertEquals("/run/klaw/engine.sock", paths.engineSocket)
-    }
-
-    @Test
-    fun `KLAW_SOCKET_PATH unset uses default state-based path`() {
-        val paths = buildTestPaths(home = "/home/alice")
-        assertEquals("/home/alice/.local/state/klaw/engine.sock", paths.engineSocket)
-    }
-
-    @Test
-    fun `KLAW_SOCKET_PATH does not affect gatewayBuffer path`() {
-        val paths = buildTestPaths(env = mapOf("KLAW_SOCKET_PATH" to "/run/klaw/engine.sock"), home = "/home/alice")
+    fun `KLAW_ENGINE_PORT does not affect gatewayBuffer path`() {
+        val paths = buildTestPaths(env = mapOf("KLAW_ENGINE_PORT" to "9090"), home = "/home/alice")
         assertEquals("/home/alice/.local/state/klaw/gateway-buffer.jsonl", paths.gatewayBuffer)
     }
 

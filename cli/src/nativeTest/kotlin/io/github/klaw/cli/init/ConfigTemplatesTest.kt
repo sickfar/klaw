@@ -202,7 +202,7 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `dockerComposeJson contains klaw-run named volume`() {
+    fun `dockerComposeJson has no top-level volumes`() {
         val result =
             ConfigTemplates.dockerComposeJson(
                 statePath = "/state",
@@ -212,13 +212,11 @@ class ConfigTemplatesTest {
                 imageTag = "latest",
             )
         val config = parseComposeConfig(result)
-        val volumes = config.volumes
-        assertNotNull(volumes, "Expected top-level volumes")
-        assertEquals("klaw-run", volumes["klaw-run"]?.name)
+        assertTrue(config.volumes == null, "Expected no top-level volumes")
     }
 
     @Test
-    fun `dockerComposeJson sets HOME KLAW_SOCKET_PATH KLAW_SOCKET_PERMS environment`() {
+    fun `dockerComposeJson sets HOME and KLAW_ENGINE_BIND environment`() {
         val result =
             ConfigTemplates.dockerComposeJson(
                 statePath = "/state",
@@ -231,8 +229,39 @@ class ConfigTemplatesTest {
         val engineEnv = config.services["engine"]?.environment
         assertNotNull(engineEnv)
         assertEquals("/home/klaw", engineEnv["HOME"])
-        assertEquals("/home/klaw/.local/state/klaw/run/engine.sock", engineEnv["KLAW_SOCKET_PATH"])
-        assertEquals("rw-rw-rw-", engineEnv["KLAW_SOCKET_PERMS"])
+        assertEquals("0.0.0.0", engineEnv["KLAW_ENGINE_BIND"])
+    }
+
+    @Test
+    fun `dockerComposeJson engine has port mapping`() {
+        val result =
+            ConfigTemplates.dockerComposeJson(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        val config = parseComposeConfig(result)
+        val ports = config.services["engine"]?.ports
+        assertNotNull(ports, "Expected engine ports")
+        assertTrue(ports.contains("127.0.0.1:7470:7470"), "Expected port mapping in: $ports")
+    }
+
+    @Test
+    fun `dockerComposeJson gateway has KLAW_ENGINE_HOST=engine`() {
+        val result =
+            ConfigTemplates.dockerComposeJson(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/workspace",
+                imageTag = "latest",
+            )
+        val config = parseComposeConfig(result)
+        val gatewayEnv = config.services["gateway"]?.environment
+        assertNotNull(gatewayEnv)
+        assertEquals("engine", gatewayEnv["KLAW_ENGINE_HOST"])
     }
 
     @Test
@@ -266,7 +295,7 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `dockerComposeJson uses named volume for socket run dir`() {
+    fun `dockerComposeJson does not contain klaw-run or socket references`() {
         val result =
             ConfigTemplates.dockerComposeJson(
                 statePath = "/home/pi/.local/state/klaw",
@@ -276,8 +305,12 @@ class ConfigTemplatesTest {
                 imageTag = "latest",
             )
         assertTrue(
-            result.contains("klaw-run:/home/klaw/.local/state/klaw/run"),
-            "Expected named klaw-run volume mount in:\n$result",
+            !result.contains("klaw-run"),
+            "Expected no klaw-run volume reference in:\n$result",
+        )
+        assertTrue(
+            !result.contains("engine.sock"),
+            "Expected no engine.sock reference in:\n$result",
         )
     }
 
@@ -350,14 +383,12 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `dockerComposeProd has no env_file and no KLAW_SOCKET_PERMS`() {
+    fun `dockerComposeProd has no env_file and correct TCP env vars`() {
         val result = ConfigTemplates.dockerComposeProd()
         val config = parseComposeConfig(result)
         assertTrue(config.services["engine"]?.envFile == null, "Expected no env_file in prod")
-        assertTrue(
-            config.services["engine"]?.environment?.containsKey("KLAW_SOCKET_PERMS") != true,
-            "Expected no KLAW_SOCKET_PERMS in prod",
-        )
+        assertEquals("0.0.0.0", config.services["engine"]?.environment?.get("KLAW_ENGINE_BIND"))
+        assertEquals("engine", config.services["gateway"]?.environment?.get("KLAW_ENGINE_HOST"))
     }
 
     // --- deployConf ---

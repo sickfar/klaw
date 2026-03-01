@@ -151,17 +151,16 @@ internal object ConfigTemplates {
                                     mapOf(
                                         "HOME" to "/home/klaw",
                                         "KLAW_WORKSPACE" to "/workspace",
-                                        "KLAW_SOCKET_PATH" to "/home/klaw/.local/state/klaw/run/engine.sock",
-                                        "KLAW_SOCKET_PERMS" to "rw-rw-rw-",
+                                        "KLAW_ENGINE_BIND" to "0.0.0.0",
                                     ),
                                 volumes =
                                     listOf(
                                         "$statePath:/home/klaw/.local/state/klaw",
-                                        "klaw-run:/home/klaw/.local/state/klaw/run",
                                         "$dataPath:/home/klaw/.local/share/klaw",
                                         "$configPath:/home/klaw/.config/klaw:ro",
                                         "$workspacePath:/workspace",
                                     ),
+                                ports = listOf("127.0.0.1:7470:7470"),
                             ),
                         "gateway" to
                             ComposeServiceConfig(
@@ -172,18 +171,16 @@ internal object ConfigTemplates {
                                 environment =
                                     mapOf(
                                         "HOME" to "/home/klaw",
-                                        "KLAW_SOCKET_PATH" to "/home/klaw/.local/state/klaw/run/engine.sock",
+                                        "KLAW_ENGINE_HOST" to "engine",
                                     ),
                                 volumes =
                                     listOf(
                                         "$statePath:/home/klaw/.local/state/klaw",
-                                        "klaw-run:/home/klaw/.local/state/klaw/run",
                                         "$dataPath:/home/klaw/.local/share/klaw",
                                         "$configPath:/home/klaw/.config/klaw:ro",
                                     ),
                             ),
                     ),
-                volumes = mapOf("klaw-run" to ComposeVolumeConfig(name = "klaw-run")),
             )
         return encodeComposeConfig(config)
     }
@@ -197,7 +194,11 @@ internal object ConfigTemplates {
                             ComposeServiceConfig(
                                 image = "ghcr.io/sickfar/klaw-engine:$imageTag",
                                 restart = "unless-stopped",
-                                environment = mapOf("KLAW_WORKSPACE" to "/workspace"),
+                                environment =
+                                    mapOf(
+                                        "KLAW_WORKSPACE" to "/workspace",
+                                        "KLAW_ENGINE_BIND" to "0.0.0.0",
+                                    ),
                                 volumes =
                                     listOf(
                                         "klaw-state:/root/.local/state/klaw",
@@ -211,6 +212,10 @@ internal object ConfigTemplates {
                                 image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
                                 restart = "unless-stopped",
                                 dependsOn = listOf("engine"),
+                                environment =
+                                    mapOf(
+                                        "KLAW_ENGINE_HOST" to "engine",
+                                    ),
                                 volumes =
                                     listOf(
                                         "klaw-state:/root/.local/state/klaw",

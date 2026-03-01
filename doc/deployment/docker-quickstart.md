@@ -17,7 +17,6 @@ docker run -it --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v klaw-config:/home/klaw/.config/klaw \
   -v klaw-state:/home/klaw/.local/state/klaw \
-  -v klaw-run:/home/klaw/.local/state/klaw/run \
   -v klaw-data:/home/klaw/.local/share/klaw \
   -v klaw-workspace:/workspace \
   ghcr.io/sickfar/klaw-cli:latest init
@@ -71,7 +70,6 @@ After answering, it writes config files (including `deploy.conf`) to the `klaw-c
 |--------|-----------|----------|
 | `klaw-config` | `/home/klaw/.config/klaw` | `engine.json`, `gateway.json`, `.env` (API keys) |
 | `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
-| `klaw-run` | `/home/klaw/.local/state/klaw/run` | `engine.sock` (socket isolation) |
 | `klaw-data` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
 | `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `skills/` |
 

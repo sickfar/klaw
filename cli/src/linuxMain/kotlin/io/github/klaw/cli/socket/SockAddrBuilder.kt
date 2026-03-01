@@ -1,12 +1,17 @@
 package io.github.klaw.cli.socket
 
-// Linux sockaddr_un: { uint16_t sun_family (little-endian), char[108] sun_path }
-// AF_UNIX = 1 as uint16_t LE: byte[0]=0x01, byte[1]=0x00
-internal actual fun buildSockAddrBytes(pathBytes: ByteArray): ByteArray {
-    require(pathBytes.size <= 107) { "Socket path too long for Linux (max 107 bytes): ${pathBytes.size}" }
-    val result = ByteArray(110) // fixed size: 2 header + 108 sun_path (includes null terminator)
-    result[0] = 1 // sun_family low byte: AF_UNIX = 1 (little-endian uint16)
-    result[1] = 0 // sun_family high byte
-    pathBytes.copyInto(result, destinationOffset = 2)
+// Linux sockaddr_in: { uint16_t sin_family (LE), uint16_t sin_port (BE), in_addr_t sin_addr (4B), char[8] zero }
+// Total: 16 bytes
+internal actual fun buildTcpSockAddrBytes(
+    port: Int,
+    ipBytes: ByteArray,
+): ByteArray {
+    require(ipBytes.size == 4) { "IPv4 address must be 4 bytes" }
+    val result = ByteArray(16)
+    result[0] = 2 // sin_family low byte: AF_INET = 2 (little-endian uint16)
+    result[1] = 0 // sin_family high byte
+    result[2] = (port shr 8).toByte() // sin_port high byte (big-endian)
+    result[3] = (port and 0xFF).toByte() // sin_port low byte
+    ipBytes.copyInto(result, destinationOffset = 4)
     return result
 }

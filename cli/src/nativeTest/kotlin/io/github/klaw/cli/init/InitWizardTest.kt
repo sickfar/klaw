@@ -57,7 +57,6 @@ class InitWizardTest {
             skillsDir = "$tmpDir/skills",
             modelsDir = "$tmpDir/models",
             serviceOutputDir = "$tmpDir/service",
-            engineSocketPath = "$tmpDir/engine.sock",
             requestFn = { cmd, _ -> engineResponses[cmd] ?: """{"error":"not mocked"}""" },
             readLine = readLineOverride ?: { inputQueue.removeFirstOrNull() },
             printer = { output += it },
@@ -68,7 +67,9 @@ class InitWizardTest {
             isDockerEnv = isDockerEnv,
             engineStarterFactory = { _, _ ->
                 EngineStarter(
-                    engineSocketPath = "$tmpDir/engine.sock",
+                    enginePort = 7470,
+                    engineHost = "127.0.0.1",
+                    portChecker = { _, _ -> true },
                     commandRunner = commandRunner,
                     pollIntervalMs = 10L,
                     timeoutMs = 50L,
@@ -1328,34 +1329,6 @@ class InitWizardTest {
     }
 
     @Test
-    fun `hybrid mode creates run directory under state dir`() {
-        val inputs =
-            listOf(
-                "latest",
-                "my-key",
-                "test/model",
-                "n",
-                "n",
-                "Klaw",
-                "assistant",
-                "user",
-            )
-
-        val engineResponse = """{"identity":"Klaw","user":"x"}"""
-        platform.posix.mkdir(configDir, 0x1EDu)
-
-        val wizard =
-            buildWizard(
-                inputs = inputs,
-                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
-                modeSelector = { _, _ -> 1 },
-            )
-        wizard.run()
-
-        assertTrue(isDirectory("$tmpDir/state/run"), "Expected run dir to exist at $tmpDir/state/run")
-    }
-
-    @Test
     fun `hybrid mode sets broad permissions on state and data dirs`() {
         val inputs =
             listOf(
@@ -1382,10 +1355,8 @@ class InitWizardTest {
 
         val stateMode = getFileMode("$tmpDir/state")
         val dataMode = getFileMode("$tmpDir/data")
-        val runMode = getFileMode("$tmpDir/state/run")
         assertTrue(stateMode and 0x1FFu == 0x1FFu, "Expected 0777 on state dir, got ${stateMode.toString(8)}")
         assertTrue(dataMode and 0x1FFu == 0x1FFu, "Expected 0777 on data dir, got ${dataMode.toString(8)}")
-        assertTrue(runMode and 0x1FFu == 0x1FFu, "Expected 0777 on run dir, got ${runMode.toString(8)}")
     }
 
     @OptIn(ExperimentalForeignApi::class)

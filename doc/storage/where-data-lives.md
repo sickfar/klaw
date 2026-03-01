@@ -67,16 +67,18 @@ Both databases are caches/indexes only. The source of truth is the JSONL files. 
 
 ---
 
-## Sockets and Buffers
+## IPC and Buffers
 
-| File | Description |
+| Item | Description |
 |------|-------------|
-| `~/.local/state/klaw/engine.sock` | Unix domain socket; exists only while Engine is running; permissions `600` (native) |
+| TCP port `7470` on `127.0.0.1` | Engine listens for IPC connections; port is open only while Engine is running |
 | `~/.local/state/klaw/gateway-buffer.jsonl` | Messages buffered by Gateway when Engine was unavailable; drained automatically on reconnect |
 
-In Docker containers, the socket path is overridden via the `KLAW_SOCKET_PATH` environment variable to `$stateDir/run/engine.sock`. The `run/` subdirectory is mounted as a separate volume shared between engine, gateway, and CLI containers for socket isolation. Socket permissions in containers are set to `666` via the `KLAW_SOCKET_PERMS` environment variable so that all container processes (running as the non-root `klaw` user, UID 10001) can access the socket. In native mode, the default permissions remain `600`.
+The engine TCP port is configurable via `KLAW_ENGINE_PORT` (default `7470`). The bind address is configurable via `KLAW_ENGINE_BIND` (default `127.0.0.1`). Clients (gateway, CLI) connect to `KLAW_ENGINE_HOST` (default `127.0.0.1`).
 
-If `engine.sock` does not exist, Engine is not running. Start it with:
+In Docker containers, the engine binds to `0.0.0.0` (`KLAW_ENGINE_BIND=0.0.0.0`) so other containers can reach it via the Docker network. The gateway uses `KLAW_ENGINE_HOST=engine` (Docker service name). The host can reach the engine via port mapping `127.0.0.1:7470:7470`.
+
+If the engine port is not reachable, Engine is not running. Start it with:
 
 ```bash
 systemctl --user start klaw-engine

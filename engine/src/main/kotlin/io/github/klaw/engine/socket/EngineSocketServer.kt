@@ -20,17 +20,14 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
-import java.io.File
 import java.io.InputStreamReader
 import java.io.PrintWriter
+import java.net.InetSocketAddress
 import java.net.StandardProtocolFamily
-import java.net.UnixDomainSocketAddress
+import java.net.StandardSocketOptions
 import java.nio.channels.Channels
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -38,9 +35,9 @@ private val logger = KotlinLogging.logger {}
 
 @Suppress("TooManyFunctions")
 class EngineSocketServer(
-    private val socketPath: String,
+    private val port: Int,
     private val messageHandler: SocketMessageHandler,
-    private val socketPerms: String = "rw-------",
+    private val bindAddress: String = "127.0.0.1",
 ) {
     companion object {
         const val HANDSHAKE_TIMEOUT_MS = 30_000L
@@ -61,23 +58,18 @@ class EngineSocketServer(
 
     @Volatile private var serverChannel: ServerSocketChannel? = null
 
-    fun start() {
-        // Clean up stale socket file if present
-        File(socketPath).let { if (it.exists()) it.delete() }
-        // Ensure parent directories exist
-        File(socketPath).parentFile?.mkdirs()
+    var actualPort: Int = port
+        private set
 
-        val addr = UnixDomainSocketAddress.of(socketPath)
-        val channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
-        // Note: Brief TOCTOU window between bind() and setPosixFilePermissions() where socket
-        // is accessible with default umask. Accepted risk: Unix socket is local-only and chmod 600
-        // follows immediately. JVM has no umask API without JNI.
-        channel.bind(addr)
-        Files.setPosixFilePermissions(Path.of(socketPath), PosixFilePermissions.fromString(socketPerms))
+    fun start() {
+        val channel = ServerSocketChannel.open(StandardProtocolFamily.INET)
+        channel.setOption(StandardSocketOptions.SO_REUSEADDR, true)
+        channel.bind(InetSocketAddress(bindAddress, port))
+        actualPort = (channel.localAddress as InetSocketAddress).port
         serverChannel = channel
         running = true
         scope.launch { acceptLoop() }
-        logger.info { "EngineSocketServer started at $socketPath" }
+        logger.info { "EngineSocketServer started on $bindAddress:$actualPort" }
     }
 
     fun stop() {
@@ -93,7 +85,6 @@ class EngineSocketServer(
             serverChannel?.close()
         } catch (_: Exception) {
         }
-        File(socketPath).delete()
         scope.cancel()
         logger.info { "EngineSocketServer stopped" }
     }
@@ -111,7 +102,7 @@ class EngineSocketServer(
         while (running) {
             try {
                 val client = withContext(Dispatchers.IO) { serverChannel?.accept() } ?: continue
-                logger.trace { "Incoming connection accepted from socket" }
+                logger.trace { "Incoming connection accepted" }
                 scope.launch { handleClient(client) }
             } catch (_: java.nio.channels.ClosedChannelException) {
                 break

@@ -20,8 +20,7 @@ import kotlinx.serialization.json.Json
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
-import java.net.StandardProtocolFamily
-import java.net.UnixDomainSocketAddress
+import java.net.InetSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
 import java.util.concurrent.locks.ReentrantLock
@@ -31,7 +30,8 @@ private val logger = KotlinLogging.logger {}
 
 @Suppress("TooManyFunctions")
 class EngineSocketClient(
-    private val socketPath: String,
+    private val host: String,
+    private val port: Int,
     private val buffer: GatewayBuffer,
     private val outboundHandler: OutboundMessageHandler,
 ) {
@@ -96,7 +96,7 @@ class EngineSocketClient(
         var backoff = INITIAL_BACKOFF_MS
         while (true) {
             try {
-                logger.debug { "Attempting to connect to engine socket at $socketPath" }
+                logger.debug { "Attempting to connect to engine at $host:$port" }
                 connectAndRun()
                 backoff = INITIAL_BACKOFF_MS
             } catch (e: CancellationException) {
@@ -113,10 +113,10 @@ class EngineSocketClient(
     }
 
     private suspend fun connectAndRun() {
-        val addr = UnixDomainSocketAddress.of(socketPath)
+        val addr = InetSocketAddress(host, port)
         val ch =
             withContext(Dispatchers.IO) {
-                SocketChannel.open(StandardProtocolFamily.UNIX).apply { connect(addr) }
+                SocketChannel.open().apply { connect(addr) }
             }
         channel = ch
         val reader = BufferedReader(InputStreamReader(Channels.newInputStream(ch)))

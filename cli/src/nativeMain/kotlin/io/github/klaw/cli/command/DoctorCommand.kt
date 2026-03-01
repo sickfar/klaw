@@ -3,6 +3,7 @@ package io.github.klaw.cli.command
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.init.DeployMode
+import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.init.readDeployConf
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
@@ -25,7 +26,7 @@ import kotlinx.serialization.json.JsonObject
 @Suppress("LongParameterList")
 internal class DoctorCommand(
     private val configDir: String = KlawPaths.config,
-    private val engineSocketPath: String = KlawPaths.engineSocket,
+    private val engineChecker: () -> Boolean = { checkTcpPort(KlawPaths.engineHost, KlawPaths.enginePort) },
     private val modelsDir: String = KlawPaths.models,
     private val workspaceDir: String = KlawPaths.workspace,
     private val commandOutput: (String) -> String? = ::runCommandOutput,
@@ -69,13 +70,13 @@ internal class DoctorCommand(
         checkConfigFile("gateway.json", gatewayJson, gatewayJsonSchema()) { parseGatewayConfig(it) }
         checkConfigFile("engine.json", engineJson, engineJsonSchema()) { parseEngineConfig(it) }
 
-        // Engine socket
-        if (fileExists(engineSocketPath)) {
-            CliLogger.debug { "engine socket found" }
-            echo("✓ Engine: running")
+        // Engine TCP connectivity
+        if (engineChecker()) {
+            CliLogger.debug { "engine port responsive" }
+            echo("\u2713 Engine: running")
         } else {
-            CliLogger.warn { "engine socket not found at $engineSocketPath" }
-            echo("✗ Engine: stopped (socket not found at $engineSocketPath)")
+            CliLogger.warn { "engine not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort}" }
+            echo("\u2717 Engine: stopped (not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort})")
         }
 
         // ONNX models
@@ -87,19 +88,19 @@ internal class DoctorCommand(
             }
         if (onnxFiles.isNotEmpty()) {
             CliLogger.debug { "ONNX models found: ${onnxFiles.size}" }
-            echo("✓ ONNX model: ${onnxFiles.size} .onnx file(s) found in $modelsDir")
+            echo("\u2713 ONNX model: ${onnxFiles.size} .onnx file(s) found in $modelsDir")
         } else {
             CliLogger.warn { "no ONNX models in $modelsDir" }
-            echo("✗ ONNX: no .onnx files in models directory ($modelsDir)")
+            echo("\u2717 ONNX: no .onnx files in models directory ($modelsDir)")
         }
 
         // Workspace
         if (fileExists(workspaceDir) && isDirectory(workspaceDir)) {
             CliLogger.debug { "workspace found" }
-            echo("✓ Workspace: found")
+            echo("\u2713 Workspace: found")
         } else {
             CliLogger.warn { "workspace missing at $workspaceDir" }
-            echo("✗ Workspace: missing ($workspaceDir)")
+            echo("\u2717 Workspace: missing ($workspaceDir)")
         }
 
         // Docker checks (hybrid/docker only)
@@ -115,12 +116,12 @@ internal class DoctorCommand(
         parser: (String) -> Any,
     ) {
         if (!fileExists(path)) {
-            echo("✗ $name: missing ($path)")
+            echo("\u2717 $name: missing ($path)")
             return
         }
         val content = readFileText(path)
         if (content == null) {
-            echo("✗ $name: unreadable ($path)")
+            echo("\u2717 $name: unreadable ($path)")
             return
         }
 
@@ -129,14 +130,14 @@ internal class DoctorCommand(
             try {
                 klawJson.parseToJsonElement(content)
             } catch (e: Exception) {
-                echo("✗ $name: parse error (${e::class.simpleName})")
+                echo("\u2717 $name: parse error (${e::class.simpleName})")
                 return
             }
 
         // Step 2: Schema validation
         val schemaErrors = validateConfig(schema, element)
         if (schemaErrors.isNotEmpty()) {
-            echo("✗ $name: invalid")
+            echo("\u2717 $name: invalid")
             schemaErrors.forEach { error ->
                 echo("  - ${error.path}: ${error.message}")
             }
@@ -146,9 +147,9 @@ internal class DoctorCommand(
         // Step 3: Full deserialization (catches init block require() failures)
         try {
             parser(content)
-            echo("✓ $name: valid")
+            echo("\u2713 $name: valid")
         } catch (e: Exception) {
-            echo("✗ $name: validation error (${e::class.simpleName})")
+            echo("\u2717 $name: validation error (${e::class.simpleName})")
         }
     }
 
@@ -163,7 +164,7 @@ internal class DoctorCommand(
                 "docker compose -f '$composeFile' ps --services --filter status=running",
             )
         if (output == null) {
-            echo("✗ Docker: unavailable (cannot query container status)")
+            echo("\u2717 Docker: unavailable (cannot query container status)")
             return
         }
 
@@ -177,9 +178,9 @@ internal class DoctorCommand(
         runningServices: List<String>,
     ) {
         if (service in runningServices) {
-            echo("✓ Container $service: running")
+            echo("\u2713 Container $service: running")
         } else {
-            echo("✗ Container $service: stopped")
+            echo("\u2717 Container $service: stopped")
         }
     }
 }

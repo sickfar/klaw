@@ -107,18 +107,19 @@ tail -f ~/.local/state/klaw/logs/engine.log
 tail -f ~/.local/state/klaw/logs/gateway.log
 ```
 
-## Verifying the socket
+## Verifying the engine is running
 
 ```bash
-# engine.sock exists while Engine is running:
-ls -la ~/.local/state/klaw/engine.sock
-# Expected: srw------- (socket file, permissions 600)
+# Check if engine TCP port is listening:
+ss -tlnp | grep 7470
+# or:
+curl -s http://127.0.0.1:7470 >/dev/null 2>&1 && echo "Engine is up" || echo "Engine is down"
 
-# If socket is missing, engine is not running:
+# If port is not listening, engine is not running:
 systemctl --user start klaw-engine
 ```
 
-> **Hybrid mode note:** When running engine and gateway in Docker with a native CLI, the socket is located in `~/.local/state/klaw/run/engine.sock` (the `run/` subdirectory) and uses `666` permissions so all containers can access it.
+> **Hybrid mode note:** When running engine and gateway in Docker with a native CLI, the host reaches the engine via port mapping `127.0.0.1:7470:7470`.
 
 ## Updating to a new version
 

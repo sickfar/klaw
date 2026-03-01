@@ -19,6 +19,7 @@ import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
+import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.socket.EngineSocketClient
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.runCommandOutput
@@ -36,7 +37,7 @@ internal fun defaultEngineRequest(): EngineRequest =
 class KlawCli(
     requestFn: EngineRequest = defaultEngineRequest(),
     conversationsDir: String = KlawPaths.conversations,
-    engineSocketPath: String = KlawPaths.engineSocket,
+    engineChecker: () -> Boolean = { checkTcpPort(KlawPaths.engineHost, KlawPaths.enginePort) },
     configDir: String = KlawPaths.config,
     modelsDir: String = KlawPaths.models,
     workspaceDir: String = KlawPaths.workspace,
@@ -57,7 +58,7 @@ class KlawCli(
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
             MemoryCommand(requestFn, workspaceDir),
-            DoctorCommand(configDir, engineSocketPath, modelsDir, workspaceDir, doctorCommandOutput),
+            DoctorCommand(configDir, engineChecker, modelsDir, workspaceDir, doctorCommandOutput),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),
             EngineCommand(commandRunner, configDir),
@@ -73,9 +74,19 @@ class KlawCli(
     }
 }
 
+/** Moves `-v` / `--verbose` to the front so Clikt's parent command sees it regardless of position. */
+internal fun hoistVerboseFlag(args: Array<String>): Array<String> {
+    val hasVerbose = args.any { it == "-v" || it == "--verbose" }
+    if (!hasVerbose) return args
+    val filtered = args.filter { it != "-v" && it != "--verbose" }
+    return (listOf("--verbose") + filtered).toTypedArray()
+}
+
 fun main(args: Array<String>) {
+    // Allow -v/--verbose anywhere (e.g. "klaw init -v" instead of only "klaw -v init")
+    val normalizedArgs = hoistVerboseFlag(args)
     try {
-        KlawCli().main(args)
+        KlawCli().main(normalizedArgs)
     } catch (
         @Suppress("TooGenericExceptionCaught")
         e: Exception,

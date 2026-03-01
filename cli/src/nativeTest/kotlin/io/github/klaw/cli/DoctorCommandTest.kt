@@ -27,7 +27,6 @@ class DoctorCommandTest {
         listOf(
             "$tmpDir/gateway.json",
             "$tmpDir/engine.json",
-            "$tmpDir/engine.sock",
             "$tmpDir/deploy.conf",
             "$tmpDir/docker-compose.json",
             "$tmpDir/models/test.onnx",
@@ -53,14 +52,14 @@ class DoctorCommandTest {
 
     private fun cli(
         configDir: String = tmpDir,
-        engineSocketPath: String = "$tmpDir/engine.sock",
+        engineRunning: Boolean = false,
         modelsDir: String = "$tmpDir/models",
         workspace: String = workspaceDir,
         commandOutput: (String) -> String? = { null },
     ) = KlawCli(
         requestFn = { _, _ -> "{}" },
         conversationsDir = "/nonexistent",
-        engineSocketPath = engineSocketPath,
+        engineChecker = { engineRunning },
         configDir = configDir,
         modelsDir = modelsDir,
         workspaceDir = workspace,
@@ -83,16 +82,15 @@ class DoctorCommandTest {
     }
 
     @Test
-    fun `doctor reports engine stopped when no socket`() {
-        val result = cli().test("doctor")
+    fun `doctor reports engine stopped when not responding`() {
+        val result = cli(engineRunning = false).test("doctor")
         assertContains(result.output, "stopped")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `doctor reports engine running when socket exists`() {
-        writeFile("$tmpDir/engine.sock", "")
-        val result = cli().test("doctor")
+    fun `doctor reports engine running when port responsive`() {
+        val result = cli(engineRunning = true).test("doctor")
         assertContains(result.output, "running")
         assertEquals(0, result.statusCode)
     }
@@ -108,11 +106,10 @@ class DoctorCommandTest {
     fun `doctor reports all OK when setup is correct`() {
         writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
-        writeFile("$tmpDir/engine.sock", "")
         mkdir("$tmpDir/models", 0x1EDu)
         writeFile("$tmpDir/models/embedding.onnx", "")
-        val result = cli().test("doctor")
-        assertContains(result.output, "✓")
+        val result = cli(engineRunning = true).test("doctor")
+        assertContains(result.output, "\u2713")
         assertEquals(0, result.statusCode)
     }
 

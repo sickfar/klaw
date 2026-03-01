@@ -17,6 +17,7 @@ data class ComposeServiceConfig(
     val environment: Map<String, String>? = null,
     @SerialName("depends_on") val dependsOn: List<String>? = null,
     val volumes: List<String>? = null,
+    val ports: List<String>? = null,
 )
 
 @Serializable
