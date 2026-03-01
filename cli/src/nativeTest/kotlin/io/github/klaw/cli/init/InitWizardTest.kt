@@ -66,7 +66,7 @@ class InitWizardTest {
             radioSelector = radioSelector,
             modeSelector = modeSelector,
             isDockerEnv = isDockerEnv,
-            engineStarterFactory = { _, _ ->
+            engineStarterFactory = { _, startCommand ->
                 EngineStarter(
                     enginePort = 7470,
                     engineHost = "127.0.0.1",
@@ -74,6 +74,7 @@ class InitWizardTest {
                     commandRunner = commandRunner,
                     pollIntervalMs = 10L,
                     timeoutMs = 50L,
+                    startCommand = startCommand,
                 )
             },
             force = force,
