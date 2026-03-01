@@ -24,6 +24,11 @@ import io.github.klaw.cli.socket.EngineSocketClient
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.runCommandOutput
 import io.github.klaw.common.paths.KlawPaths
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.staticCFunction
+import platform.posix.SIGINT
+import platform.posix.exit
+import platform.posix.signal
 
 /** Type alias for delegated engine commands — (command, params) → JSON response */
 internal typealias EngineRequest = (command: String, params: Map<String, String>) -> String
@@ -82,7 +87,9 @@ internal fun hoistVerboseFlag(args: Array<String>): Array<String> {
     return (listOf("--verbose") + filtered).toTypedArray()
 }
 
+@OptIn(ExperimentalForeignApi::class)
 fun main(args: Array<String>) {
+    signal(SIGINT, staticCFunction { _ -> exit(130) })
     // Allow -v/--verbose anywhere (e.g. "klaw init -v" instead of only "klaw -v init")
     val normalizedArgs = hoistVerboseFlag(args)
     try {

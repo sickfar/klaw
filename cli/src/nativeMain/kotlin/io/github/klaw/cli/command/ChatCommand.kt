@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import platform.posix.exit
 
 internal class ChatCommand(
     private val configDir: String = KlawPaths.config,
@@ -104,25 +105,18 @@ internal class ChatCommand(
                             }
 
                             else -> {
-                                when (byte) {
-                                    0x1B -> escState = 1
-
-                                    // ESC
-
-                                    3 -> events.send(ChatEvent.Quit)
-
-                                    // Ctrl+C
-
-                                    127 -> events.send(ChatEvent.Backspace)
-
-                                    // Backspace
-
-                                    13, 10 -> events.send(ChatEvent.Enter)
-
-                                    // Enter / newline
-
-                                    else -> if (byte >= 32) events.send(ChatEvent.KeyPressed(byte.toChar()))
-                                }
+                                val event =
+                                    when (byte) {
+                                        0x1B -> {
+                                            escState = 1
+                                            null
+                                        }
+                                        3 -> ChatEvent.Quit
+                                        127 -> ChatEvent.Backspace
+                                        13, 10 -> ChatEvent.Enter
+                                        else -> if (byte >= 32) ChatEvent.KeyPressed(byte.toChar()) else null
+                                    }
+                                if (event != null && events.trySend(event).isFailure) break
                             }
                         }
                     }
@@ -173,6 +167,7 @@ internal class ChatCommand(
             tui.cleanup()
             session.close()
             sendChannel.close()
+            exit(0) // stdinJob is blocked in native read() — force exit after cleanup
         }
     }
 }
