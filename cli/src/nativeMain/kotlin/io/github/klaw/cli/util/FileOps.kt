@@ -2,11 +2,8 @@ package io.github.klaw.cli.util
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.alloc
 import kotlinx.cinterop.convert
-import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
-import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import platform.posix.F_OK
@@ -16,11 +13,9 @@ import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fread
 import platform.posix.fwrite
-import platform.posix.lstat
 import platform.posix.opendir
 import platform.posix.readdir
 import platform.posix.rmdir
-import platform.posix.stat
 import platform.posix.unlink
 
 @OptIn(ExperimentalForeignApi::class)
@@ -94,12 +89,7 @@ internal fun listDirectory(path: String): List<String> {
     return names
 }
 
-@OptIn(ExperimentalForeignApi::class)
-internal fun isSymlink(path: String): Boolean =
-    memScoped {
-        val statBuf = alloc<stat>()
-        lstat(path, statBuf.ptr) == 0 && (statBuf.st_mode.toUInt() and 0xF000u) == 0xA000u
-    }
+internal expect fun isSymlink(path: String): Boolean
 
 @OptIn(ExperimentalForeignApi::class)
 internal fun deleteRecursively(path: String): Boolean {
