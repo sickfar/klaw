@@ -20,6 +20,7 @@ data class EngineConfig(
     val autoRag: AutoRagConfig = AutoRagConfig(),
     val docs: DocsConfig = DocsConfig(),
     val skills: SkillsConfig = SkillsConfig(),
+    val hostExecution: HostExecutionConfig = HostExecutionConfig(),
 )
 
 @Serializable
@@ -226,3 +227,20 @@ data class AutoRagConfig(
         require(minMessageTokens > 0) { "minMessageTokens must be > 0, got $minMessageTokens" }
     }
 }
+
+@Serializable
+data class HostExecutionConfig(
+    val enabled: Boolean = false,
+    val allowList: List<String> = emptyList(),
+    val notifyList: List<String> = emptyList(),
+    val preValidation: PreValidationConfig = PreValidationConfig(),
+    val askTimeoutMin: Int = 5,
+)
+
+@Serializable
+data class PreValidationConfig(
+    val enabled: Boolean = true,
+    val model: String = "",
+    val riskThreshold: Int = 5,
+    val timeoutMs: Long = 5000,
+)

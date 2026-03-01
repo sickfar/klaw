@@ -146,6 +146,61 @@ class SocketProtocolTest {
     }
 
     @Test
+    fun `ApprovalRequestMessage serializes with correct type discriminator`() {
+        val msg =
+            ApprovalRequestMessage(
+                id = "apr_001",
+                chatId = "telegram_123456",
+                command = "apt upgrade -y",
+                riskScore = 8,
+                timeout = 300,
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        assertTrue(encoded.contains(""""type":"approval_request""""), "Expected type=approval_request in: $encoded")
+    }
+
+    @Test
+    fun `ApprovalRequestMessage round-trip`() {
+        val msg =
+            ApprovalRequestMessage(
+                id = "apr_001",
+                chatId = "telegram_123456",
+                command = "apt upgrade -y",
+                riskScore = 8,
+                timeout = 300,
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalRequestMessage>(decoded)
+        assertEquals(msg, decoded)
+    }
+
+    @Test
+    fun `ApprovalResponseMessage serializes with correct type discriminator`() {
+        val msg = ApprovalResponseMessage(id = "apr_001", approved = true)
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        assertTrue(encoded.contains(""""type":"approval_response""""), "Expected type=approval_response in: $encoded")
+    }
+
+    @Test
+    fun `ApprovalResponseMessage round-trip approved`() {
+        val msg = ApprovalResponseMessage(id = "apr_001", approved = true)
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalResponseMessage>(decoded)
+        assertEquals(msg, decoded)
+    }
+
+    @Test
+    fun `ApprovalResponseMessage round-trip denied`() {
+        val msg = ApprovalResponseMessage(id = "apr_001", approved = false)
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalResponseMessage>(decoded)
+        assertEquals(false, decoded.approved)
+    }
+
+    @Test
     fun `type field dispatches to correct subclass`() {
         val inboundJson = """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
         val outboundJson = """{"type":"outbound","channel":"tg","chatId":"123","content":"resp"}"""
@@ -153,11 +208,15 @@ class SocketProtocolTest {
         val registerJson = """{"type":"register","client":"gateway"}"""
 
         val shutdownJson = """{"type":"shutdown"}"""
+        val approvalReqJson = """{"type":"approval_request","id":"apr_1","chatId":"123","command":"ls","riskScore":2,"timeout":60}"""
+        val approvalRespJson = """{"type":"approval_response","id":"apr_1","approved":true}"""
 
         assertIs<InboundSocketMessage>(json.decodeFromString<SocketMessage>(inboundJson))
         assertIs<OutboundSocketMessage>(json.decodeFromString<SocketMessage>(outboundJson))
         assertIs<CommandSocketMessage>(json.decodeFromString<SocketMessage>(commandJson))
         assertIs<RegisterMessage>(json.decodeFromString<SocketMessage>(registerJson))
         assertIs<ShutdownMessage>(json.decodeFromString<SocketMessage>(shutdownJson))
+        assertIs<ApprovalRequestMessage>(json.decodeFromString<SocketMessage>(approvalReqJson))
+        assertIs<ApprovalResponseMessage>(json.decodeFromString<SocketMessage>(approvalRespJson))
     }
 }

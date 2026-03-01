@@ -122,6 +122,7 @@ class SubagentSpawnTest {
             config = config,
             messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = mockk(relaxed = true),
+            approvalService = mockk(relaxed = true),
         )
 
     @Test

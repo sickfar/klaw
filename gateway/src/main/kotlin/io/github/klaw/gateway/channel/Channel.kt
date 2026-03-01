@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.protocol.ApprovalRequestMessage
 import kotlin.time.Instant
 
 interface Channel {
@@ -11,6 +12,15 @@ interface Channel {
         chatId: String,
         response: OutgoingMessage,
     )
+
+    suspend fun sendApproval(
+        chatId: String,
+        request: ApprovalRequestMessage,
+        onResult: suspend (Boolean) -> Unit,
+    ) {
+        // Default: send as text message (channel implementations override for richer UI)
+        send(chatId, OutgoingMessage("Approve command: ${request.command}? (approval not supported on this channel)"))
+    }
 
     suspend fun start()
 

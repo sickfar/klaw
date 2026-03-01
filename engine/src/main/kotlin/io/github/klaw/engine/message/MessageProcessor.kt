@@ -3,6 +3,7 @@ package io.github.klaw.engine.message
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
@@ -15,6 +16,7 @@ import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.CliCommandDispatcher
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
+import io.github.klaw.engine.tools.ApprovalService
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Provider
@@ -50,6 +52,7 @@ class MessageProcessor(
     private val config: EngineConfig,
     private val messageEmbeddingService: MessageEmbeddingService,
     private val cliCommandDispatcher: CliCommandDispatcher,
+    private val approvalService: ApprovalService,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -90,6 +93,10 @@ class MessageProcessor(
     }
 
     override suspend fun handleCliRequest(request: CliRequestMessage): String = cliCommandDispatcher.dispatch(request)
+
+    override fun handleApprovalResponse(message: ApprovalResponseMessage) {
+        approvalService.handleResponse(message)
+    }
 
     @Suppress("TooGenericExceptionCaught", "LongMethod")
     fun handleScheduledMessage(message: ScheduledMessage): Job {

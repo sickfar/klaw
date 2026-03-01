@@ -26,6 +26,8 @@ class ToolRegistryImpl(
     private val scheduleTools: ScheduleTools,
     private val subagentTools: SubagentTools,
     private val utilityTools: UtilityTools,
+    private val sandboxExecTool: SandboxExecTool,
+    private val hostExecTool: HostExecTool,
     private val config: EngineConfig,
 ) : ToolRegistry {
     override suspend fun listTools(
@@ -147,6 +149,19 @@ class ToolRegistryImpl(
                     args.str("chatId"),
                     args.str("text"),
                 )
+            }
+
+            "sandbox_exec" -> {
+                sandboxExecTool.execute(
+                    args.str("language"),
+                    args.str("code"),
+                    args.intOrNull("timeout") ?: config.codeExecution.timeout,
+                )
+            }
+
+            "host_exec" -> {
+                val ctx = kotlin.coroutines.coroutineContext[ChatContext]
+                hostExecTool.execute(args.str("command"), ctx?.chatId ?: "unknown", ctx?.channel ?: "unknown")
             }
 
             else -> {
@@ -317,6 +332,30 @@ class ToolRegistryImpl(
                             "message" to stringProp("Задание для субагента"),
                             "model" to stringProp("Модель LLM (необязательно)"),
                             "injectInto" to stringProp("chatId для отправки результата (необязательно)"),
+                        ),
+                    ),
+                ),
+                @Suppress("MaxLineLength")
+                ToolDef(
+                    "sandbox_exec",
+                    "ПРЕДПОЧТИТЕЛЬНЫЙ ИНСТРУМЕНТ для выполнения кода. Запускает Python или bash в изолированном Docker-контейнере с доступом к рабочей директории ($SANDBOX_WORKSPACE_PATH). Используй для: обработки данных, скачивания файлов (curl/wget), трансформации файлов, вычислений, парсинга, работы с файлами в workspace, тестирования скриптов. Рабочая директория проекта смонтирована в $SANDBOX_WORKSPACE_PATH — код может читать и писать файлы workspace.",
+                    toolParams(
+                        listOf("language", "code"),
+                        mapOf(
+                            "language" to stringProp("Язык: python или bash"),
+                            "code" to stringProp("Код для выполнения"),
+                            "timeout" to intProp("Таймаут в секундах (по умолчанию 30)"),
+                        ),
+                    ),
+                ),
+                @Suppress("MaxLineLength")
+                ToolDef(
+                    "host_exec",
+                    "Выполнить команду НАПРЯМУЮ на хост-системе. ИСПОЛЬЗУЙ ТОЛЬКО когда sandbox_exec невозможен: мониторинг оборудования (sensors, lsblk, smartctl), управление системными сервисами (systemctl), Docker-команды, сетевая диагностика хоста (ip, ss, ping), действия вне workspace. НЕ используй для: обработки данных, скачивания файлов, скриптов, вычислений — для этого есть sandbox_exec.",
+                    toolParams(
+                        listOf("command"),
+                        mapOf(
+                            "command" to stringProp("Shell-команда для выполнения на хосте"),
                         ),
                     ),
                 ),

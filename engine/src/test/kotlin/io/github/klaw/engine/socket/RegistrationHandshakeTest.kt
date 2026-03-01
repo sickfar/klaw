@@ -49,6 +49,8 @@ class RegistrationHandshakeTest {
             cliRequests.add(request)
             return """{"status":"ok"}"""
         }
+
+        override fun handleApprovalResponse(message: io.github.klaw.common.protocol.ApprovalResponseMessage) = Unit
     }
 
     private lateinit var capturingHandler: CapturingHandler

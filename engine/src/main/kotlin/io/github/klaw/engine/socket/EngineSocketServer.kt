@@ -1,5 +1,6 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
@@ -93,6 +94,14 @@ class EngineSocketServer(
         withContext(Dispatchers.IO) {
             writerLock.withLock {
                 gatewayWriter?.println(json.encodeToString<SocketMessage>(message))
+            }
+        }
+    }
+
+    suspend fun pushMessage(message: SocketMessage) {
+        withContext(Dispatchers.IO) {
+            writerLock.withLock {
+                gatewayWriter?.println(json.encodeToString(message))
             }
         }
     }
@@ -207,6 +216,11 @@ class EngineSocketServer(
                 is CommandSocketMessage -> {
                     logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
                     messageHandler.handleCommand(inMsg)
+                }
+
+                is ApprovalResponseMessage -> {
+                    logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
+                    messageHandler.handleApprovalResponse(inMsg)
                 }
 
                 else -> {} // Ignore other SocketMessage types sent by gateway

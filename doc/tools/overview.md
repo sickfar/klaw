@@ -1,6 +1,6 @@
 # Built-in Tools Overview
 
-Klaw Engine provides 16 built-in tools that LLM agents can invoke during conversations. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides 18 built-in tools that LLM agents can invoke during conversations. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
@@ -12,12 +12,13 @@ Klaw Engine provides 16 built-in tools that LLM agents can invoke during convers
 
 See [memory.md](memory.md) for details.
 
-### File Tools (3)
+### File Tools (4)
 | Tool | Description |
 |------|-------------|
 | `file_read` | Read a file from the workspace |
 | `file_write` | Write content to a file |
 | `file_list` | List directory contents |
+| `file_patch` | Replace a text fragment in a file by exact match |
 
 All paths are restricted to `$KLAW_WORKSPACE`. Path traversal attempts are rejected. See [files.md](files.md).
 
@@ -54,10 +55,17 @@ See [schedule.md](schedule.md).
 
 See [subagent.md](subagent.md).
 
-### Utility Tools (2)
+### Code Execution Tools (2)
 | Tool | Description |
 |------|-------------|
-| `current_time` | Get the current date and time |
+| `sandbox_exec` | Execute Python or bash code in an isolated Docker container |
+| `host_exec` | Execute a shell command on the host with access control |
+
+See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
+
+### Utility Tools (1)
+| Tool | Description |
+|------|-------------|
 | `send_message` | Send a message to a specific channel and chat |
 
 See [utils.md](utils.md).
@@ -69,6 +77,6 @@ Engine enforces a `maxToolCallRounds` limit (configured in `engine.json` under `
 ## Architecture
 
 - `ToolRegistry` interface (in `engine/context/`) lists available tool definitions.
-- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 16 `ToolDef` entries and dispatches execution to the appropriate tool class.
+- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 18 `ToolDef` entries and dispatches execution to the appropriate tool class.
 - `DispatchingToolExecutor` executes tool calls concurrently via `coroutineScope { async {} }`.
 - Dependency services (memory, docs, scheduler) are injected as interfaces with stub implementations replaced by real ones in later phases.

@@ -1,0 +1,1 @@
+{"id":"chatcmpl-risk-002","object":"chat.completion","created":1708800000,"model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":"9","tool_calls":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":50,"completion_tokens":1,"total_tokens":51}}

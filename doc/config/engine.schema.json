@@ -331,6 +331,49 @@
                     "type": "boolean"
                 }
             }
+        },
+        "hostExecution": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "allowList": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "notifyList": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "preValidation": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "riskThreshold": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "timeoutMs": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                        }
+                    }
+                },
+                "askTimeoutMin": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            }
         }
     },
     "required": [

@@ -122,6 +122,18 @@ class ConfigParsingTest {
     "keepAliveIdleTimeoutMin": 10,
     "keepAliveMaxExecutions": 50
   },
+  "hostExecution": {
+    "enabled": true,
+    "allowList": ["df -h", "free -m", "systemctl status *"],
+    "notifyList": ["systemctl restart klaw-*"],
+    "preValidation": {
+      "enabled": true,
+      "model": "anthropic/claude-haiku",
+      "riskThreshold": 5,
+      "timeoutMs": 5000
+    },
+    "askTimeoutMin": 5
+  },
   "files": {
     "maxFileSizeBytes": 1048576
   },
@@ -395,6 +407,63 @@ class ConfigParsingTest {
         val encoded = encodeGatewayConfig(config)
         val reparsed = parseGatewayConfig(encoded)
         assertEquals(config, reparsed)
+    }
+
+    @Test
+    fun `parse engine json - hostExecution enabled`() {
+        val config = parseEngineConfig(engineJson)
+        assertTrue(config.hostExecution.enabled)
+    }
+
+    @Test
+    fun `parse engine json - hostExecution allowList`() {
+        val config = parseEngineConfig(engineJson)
+        assertEquals(listOf("df -h", "free -m", "systemctl status *"), config.hostExecution.allowList)
+    }
+
+    @Test
+    fun `parse engine json - hostExecution notifyList`() {
+        val config = parseEngineConfig(engineJson)
+        assertEquals(listOf("systemctl restart klaw-*"), config.hostExecution.notifyList)
+    }
+
+    @Test
+    fun `parse engine json - hostExecution preValidation`() {
+        val config = parseEngineConfig(engineJson)
+        assertTrue(config.hostExecution.preValidation.enabled)
+        assertEquals("anthropic/claude-haiku", config.hostExecution.preValidation.model)
+        assertEquals(5, config.hostExecution.preValidation.riskThreshold)
+        assertEquals(5000L, config.hostExecution.preValidation.timeoutMs)
+    }
+
+    @Test
+    fun `parse engine json - hostExecution askTimeoutMin`() {
+        val config = parseEngineConfig(engineJson)
+        assertEquals(5, config.hostExecution.askTimeoutMin)
+    }
+
+    @Test
+    fun `hostExecution defaults when absent from json`() {
+        val minimalJson =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
+  "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
+  "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+}
+            """.trimIndent()
+        val config = parseEngineConfig(minimalJson)
+        assertFalse(config.hostExecution.enabled)
+        assertTrue(config.hostExecution.allowList.isEmpty())
+        assertTrue(config.hostExecution.notifyList.isEmpty())
+        assertTrue(config.hostExecution.preValidation.enabled)
+        assertEquals("", config.hostExecution.preValidation.model)
+        assertEquals(5, config.hostExecution.preValidation.riskThreshold)
+        assertEquals(5000L, config.hostExecution.preValidation.timeoutMs)
+        assertEquals(5, config.hostExecution.askTimeoutMin)
     }
 
     @Test

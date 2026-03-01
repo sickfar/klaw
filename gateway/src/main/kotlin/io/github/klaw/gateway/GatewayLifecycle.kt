@@ -28,6 +28,7 @@ class GatewayLifecycle(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onApplicationEvent(event: StartupEvent) {
+        outboundHandler.approvalCallback = { msg -> engineClient.send(msg) }
         engineClient.start()
         if (channels.isEmpty()) {
             logger.warn { "GatewayLifecycle starting with no channels — gateway will not process any messages" }

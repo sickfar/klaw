@@ -1,5 +1,6 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
@@ -10,4 +11,6 @@ interface SocketMessageHandler {
     suspend fun handleCommand(message: CommandSocketMessage)
 
     suspend fun handleCliRequest(request: CliRequestMessage): String
+
+    fun handleApprovalResponse(message: ApprovalResponseMessage)
 }

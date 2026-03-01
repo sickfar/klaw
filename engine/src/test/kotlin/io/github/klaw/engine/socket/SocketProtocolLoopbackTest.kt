@@ -51,6 +51,8 @@ class SocketProtocolLoopbackTest {
             cliCount.incrementAndGet()
             return """{"status":"ok","command":"${request.command}"}"""
         }
+
+        override fun handleApprovalResponse(message: io.github.klaw.common.protocol.ApprovalResponseMessage) = Unit
     }
 
     private lateinit var countingHandler: CountingHandler

@@ -72,6 +72,8 @@ class ToolsIntegrationTest {
             scheduleTools = mockk(),
             subagentTools = mockk(),
             utilityTools = mockk(),
+            sandboxExecTool = mockk(),
+            hostExecTool = mockk(),
             config = testEngineConfig(),
         )
 
@@ -87,10 +89,10 @@ class ToolsIntegrationTest {
     }
 
     @Test
-    fun `all 16 tools are registered`() =
+    fun `all 18 tools are registered`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(16, tools.size)
+            assertEquals(18, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue("file_read" in names)
             assertTrue("file_write" in names)
@@ -108,6 +110,8 @@ class ToolsIntegrationTest {
             assertTrue("schedule_remove" in names)
             assertTrue("subagent_spawn" in names)
             assertTrue("send_message" in names)
+            assertTrue("sandbox_exec" in names)
+            assertTrue("host_exec" in names)
         }
 
     @Test

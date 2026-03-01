@@ -34,6 +34,8 @@ class ToolRegistryImplTest {
     private val scheduleTools = mockk<ScheduleTools>()
     private val subagentTools = mockk<SubagentTools>()
     private val utilityTools = mockk<UtilityTools>()
+    private val sandboxExecTool = mockk<SandboxExecTool>()
+    private val hostExecTool = mockk<HostExecTool>()
 
     @Suppress("LongMethod")
     private fun testEngineConfig(docsEnabled: Boolean = true) =
@@ -73,14 +75,16 @@ class ToolRegistryImplTest {
             scheduleTools,
             subagentTools,
             utilityTools,
+            sandboxExecTool,
+            hostExecTool,
             testEngineConfig(docsEnabled = true),
         )
 
     @Test
-    fun `listTools returns all 16 tool definitions`() =
+    fun `listTools returns all 18 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(16, tools.size)
+            assertEquals(18, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -201,11 +205,13 @@ class ToolRegistryImplTest {
                     scheduleTools,
                     subagentTools,
                     utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
                     testEngineConfig(docsEnabled = false),
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(13, tools.size)
+            assertEquals(15, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -263,6 +269,6 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(14, tools.size, "Should have 16 - 2 = 14 tools")
+            assertEquals(16, tools.size, "Should have 18 - 2 = 16 tools")
         }
 }

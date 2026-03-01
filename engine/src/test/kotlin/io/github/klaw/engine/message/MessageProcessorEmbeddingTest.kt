@@ -198,6 +198,7 @@ class MessageProcessorEmbeddingTest {
             config = config,
             messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = cliCommandDispatcher,
+            approvalService = mockk(relaxed = true),
         )
     }
 

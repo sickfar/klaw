@@ -72,6 +72,18 @@ sqldelight {
     }
 }
 
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+}
+
 ktlint {
     filter {
         exclude("**/build/generated/**")

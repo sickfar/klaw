@@ -49,6 +49,23 @@ data class RegisterMessage(
 @SerialName("shutdown")
 data object ShutdownMessage : SocketMessage()
 
+@Serializable
+@SerialName("approval_request")
+data class ApprovalRequestMessage(
+    val id: String,
+    val chatId: String,
+    val command: String,
+    val riskScore: Int,
+    val timeout: Int,
+) : SocketMessage()
+
+@Serializable
+@SerialName("approval_response")
+data class ApprovalResponseMessage(
+    val id: String,
+    val approved: Boolean,
+) : SocketMessage()
+
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
 // It uses a separate framing path for CLI ↔ Engine communication,
 // distinct from the Gateway ↔ Engine socket protocol above.

@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
@@ -150,6 +151,12 @@ class EngineSocketClient(
                 is OutboundSocketMessage -> {
                     logger.trace { "Received engine message: ${msg::class.simpleName}" }
                     outboundHandler.handleOutbound(msg)
+                    false
+                }
+
+                is ApprovalRequestMessage -> {
+                    logger.debug { "Received approval request from engine" }
+                    outboundHandler.handleApprovalRequest(msg)
                     false
                 }
 

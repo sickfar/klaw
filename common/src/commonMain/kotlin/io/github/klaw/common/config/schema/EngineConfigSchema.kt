@@ -218,6 +218,29 @@ fun engineJsonSchema(): JsonObject =
                     ),
             )
 
+        val preValidationSchema =
+            objectSchema(
+                properties =
+                    mapOf(
+                        "enabled" to boolProp(),
+                        "model" to stringProp(),
+                        "riskThreshold" to intProp(minimum = 0),
+                        "timeoutMs" to longProp(exclusiveMinimum = 0),
+                    ),
+            )
+
+        val hostExecutionSchema =
+            objectSchema(
+                properties =
+                    mapOf(
+                        "enabled" to boolProp(),
+                        "allowList" to arraySchema(stringProp()),
+                        "notifyList" to arraySchema(stringProp()),
+                        "preValidation" to preValidationSchema,
+                        "askTimeoutMin" to intProp(exclusiveMinimum = 0),
+                    ),
+            )
+
         put(
             "properties",
             buildJsonObject {
@@ -235,6 +258,7 @@ fun engineJsonSchema(): JsonObject =
                 put("compatibility", compatibilitySchema)
                 put("autoRag", autoRagSchema)
                 put("docs", docsSchema)
+                put("hostExecution", hostExecutionSchema)
             },
         )
 

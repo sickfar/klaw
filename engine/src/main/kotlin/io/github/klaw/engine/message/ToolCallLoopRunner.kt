@@ -10,8 +10,10 @@ import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
+import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -65,7 +67,17 @@ internal class ToolCallLoopRunner(
             @Suppress("TooGenericExceptionCaught")
             val results =
                 try {
-                    toolExecutor.executeAll(toolCalls)
+                    val ctx =
+                        if (chatId != null && channel != null) {
+                            ChatContext(chatId, channel)
+                        } else {
+                            null
+                        }
+                    if (ctx != null) {
+                        withContext(ctx) { toolExecutor.executeAll(toolCalls) }
+                    } else {
+                        toolExecutor.executeAll(toolCalls)
+                    }
                 } catch (e: Exception) {
                     logger.warn { "Tool executor failed, surfacing error as tool results: ${e::class.simpleName}" }
                     toolCalls.map { call ->
