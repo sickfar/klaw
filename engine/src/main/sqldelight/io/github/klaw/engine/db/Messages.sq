@@ -16,11 +16,13 @@ INSERT OR REPLACE INTO messages (id, channel, chat_id, role, type, content, meta
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 getWindowMessages:
-SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at
-FROM messages
-WHERE chat_id = ? AND created_at >= ?
-ORDER BY created_at ASC, rowid ASC
-LIMIT ?;
+SELECT row_id, id, channel, chat_id, role, type, content, metadata, created_at FROM (
+    SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at
+    FROM messages
+    WHERE chat_id = ? AND created_at >= ?
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT ?
+) ORDER BY created_at ASC, row_id ASC;
 
 getLastMessageId:
 SELECT id FROM messages

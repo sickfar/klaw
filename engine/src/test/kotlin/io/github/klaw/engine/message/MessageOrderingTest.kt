@@ -3,11 +3,14 @@ package io.github.klaw.engine.message
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.engine.db.KlawDatabase
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Verifies that messages with identical created_at timestamps are returned
- * in insertion order (rowid ASC tiebreaker) by getWindowMessages.
+ * Verifies ordering behavior of getWindowMessages:
+ * - rowid ASC tiebreaker for identical timestamps
+ * - LIMIT returns newest N messages (not oldest)
+ * - results are in chronological order
  */
 class MessageOrderingTest {
     @Test
@@ -49,6 +52,76 @@ class MessageOrderingTest {
         assertEquals(expectedOrder.size, messages.size)
         expectedOrder.forEachIndexed { i, expectedContent ->
             assertEquals(expectedContent, messages[i].content, "Position $i should be $expectedContent")
+        }
+    }
+
+    @Test
+    fun `getWindowMessages with LIMIT returns newest N messages not oldest`() {
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        val db = KlawDatabase(driver)
+
+        val chatId = "test-newest-window"
+
+        // Insert 20 messages with distinct timestamps
+        for (i in 1..20) {
+            val ts = "2025-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+            db.messagesQueries.insertMessage(
+                "msg-$i",
+                "test",
+                chatId,
+                "user",
+                "text",
+                "Message $i",
+                null,
+                ts,
+            )
+        }
+
+        // Request only 10 messages — should get messages 11-20 (newest), NOT 1-10 (oldest)
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 10).executeAsList()
+
+        assertEquals(10, messages.size, "Should return exactly 10 messages")
+
+        // Verify we got the NEWEST 10 messages
+        for (i in 0 until 10) {
+            val expectedIndex = i + 11
+            assertEquals(
+                "msg-$expectedIndex",
+                messages[i].id,
+                "Position $i should be msg-$expectedIndex (newest 10)",
+            )
+            assertEquals("Message $expectedIndex", messages[i].content)
+        }
+
+        // Verify chronological order (ASC)
+        for (i in 1 until messages.size) {
+            assertTrue(
+                messages[i].created_at >= messages[i - 1].created_at,
+                "Messages should be in chronological order",
+            )
+        }
+    }
+
+    @Test
+    fun `getWindowMessages returns all messages when LIMIT exceeds count`() {
+        val driver = JdbcSqliteDriver("jdbc:sqlite:")
+        KlawDatabase.Schema.create(driver)
+        val db = KlawDatabase(driver)
+
+        val chatId = "test-limit-exceeds"
+
+        for (i in 1..5) {
+            val ts = "2025-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+            db.messagesQueries.insertMessage("msg-$i", "test", chatId, "user", "text", "Message $i", null, ts)
+        }
+
+        // LIMIT 100 but only 5 messages — should return all 5
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 100).executeAsList()
+
+        assertEquals(5, messages.size)
+        for (i in 1..5) {
+            assertEquals("msg-$i", messages[i - 1].id)
         }
     }
 }

@@ -190,12 +190,26 @@ class ContextBuilderTest {
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             // system + up to 10 history messages
-            // The DB LIMIT 10 only returns 10, so at most 10 messages from DB
             val historyMessages = result.messages.drop(1) // remove system message
             val maxHistory = 10
             assertTrue(
                 historyMessages.size <= maxHistory,
                 "Should have at most $maxHistory history messages but got ${historyMessages.size}",
+            )
+
+            // Verify we got the NEWEST 10 messages (6-15), not the oldest (1-10)
+            val contents = historyMessages.map { it.content }
+            assertFalse(
+                contents.any { it == "Message 1" || it == "Message 5" },
+                "Oldest messages (1-5) should NOT be in the sliding window",
+            )
+            assertTrue(
+                contents.contains("Message 15"),
+                "Most recent message (15) should be in the sliding window",
+            )
+            assertTrue(
+                contents.contains("Message 6"),
+                "Message 6 (oldest of newest 10) should be in the sliding window",
             )
         }
 
