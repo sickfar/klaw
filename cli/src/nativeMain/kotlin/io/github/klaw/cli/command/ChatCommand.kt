@@ -111,10 +111,22 @@ internal class ChatCommand(
                                             escState = 1
                                             null
                                         }
-                                        3 -> ChatEvent.Quit
-                                        127 -> ChatEvent.Backspace
-                                        13, 10 -> ChatEvent.Enter
-                                        else -> if (byte >= 32) ChatEvent.KeyPressed(byte.toChar()) else null
+
+                                        3 -> {
+                                            ChatEvent.Quit
+                                        }
+
+                                        127 -> {
+                                            ChatEvent.Backspace
+                                        }
+
+                                        13, 10 -> {
+                                            ChatEvent.Enter
+                                        }
+
+                                        else -> {
+                                            if (byte >= 32) ChatEvent.KeyPressed(byte.toChar()) else null
+                                        }
                                     }
                                 if (event != null && events.trySend(event).isFailure) break
                             }

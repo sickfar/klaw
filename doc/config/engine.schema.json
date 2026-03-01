@@ -1,0 +1,345 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "providers": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "endpoint": {
+                        "type": "string"
+                    },
+                    "apiKey": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "type",
+                    "endpoint"
+                ]
+            }
+        },
+        "models": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "maxTokens": {
+                        "type": "integer"
+                    },
+                    "contextBudget": {
+                        "type": "integer"
+                    },
+                    "temperature": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        "routing": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "type": "string"
+                },
+                "fallback": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tasks": {
+                    "type": "object",
+                    "properties": {
+                        "summarization": {
+                            "type": "string"
+                        },
+                        "subagent": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "summarization",
+                        "subagent"
+                    ]
+                }
+            },
+            "required": [
+                "default",
+                "tasks"
+            ]
+        },
+        "memory": {
+            "type": "object",
+            "properties": {
+                "embedding": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        },
+                        "model": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "model"
+                    ]
+                },
+                "chunking": {
+                    "type": "object",
+                    "properties": {
+                        "size": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                        },
+                        "overlap": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    "required": [
+                        "size",
+                        "overlap"
+                    ]
+                },
+                "search": {
+                    "type": "object",
+                    "properties": {
+                        "topK": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                        }
+                    },
+                    "required": [
+                        "topK"
+                    ]
+                }
+            },
+            "required": [
+                "embedding",
+                "chunking",
+                "search"
+            ]
+        },
+        "context": {
+            "type": "object",
+            "properties": {
+                "defaultBudgetTokens": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "slidingWindow": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "subagentHistory": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "required": [
+                "defaultBudgetTokens",
+                "slidingWindow",
+                "subagentHistory"
+            ]
+        },
+        "processing": {
+            "type": "object",
+            "properties": {
+                "debounceMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "maxConcurrentLlm": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "maxToolCallRounds": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "maxToolOutputChars": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "maxDebounceEntries": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "required": [
+                "debounceMs",
+                "maxConcurrentLlm",
+                "maxToolCallRounds"
+            ]
+        },
+        "llm": {
+            "type": "object",
+            "properties": {
+                "maxRetries": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "requestTimeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "initialBackoffMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "backoffMultiplier": {
+                    "type": "number",
+                    "minimum": 1.0
+                }
+            }
+        },
+        "logging": {
+            "type": "object",
+            "properties": {
+                "subagentConversations": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "codeExecution": {
+            "type": "object",
+            "properties": {
+                "dockerImage": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                },
+                "allowNetwork": {
+                    "type": "boolean"
+                },
+                "maxMemory": {
+                    "type": "string"
+                },
+                "maxCpus": {
+                    "type": "string"
+                },
+                "readOnlyRootfs": {
+                    "type": "boolean"
+                },
+                "keepAlive": {
+                    "type": "boolean"
+                },
+                "keepAliveIdleTimeoutMin": {
+                    "type": "integer"
+                },
+                "keepAliveMaxExecutions": {
+                    "type": "integer"
+                },
+                "volumeMounts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "files": {
+            "type": "object",
+            "properties": {
+                "maxFileSizeBytes": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            }
+        },
+        "commands": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "description"
+                ]
+            }
+        },
+        "compatibility": {
+            "type": "object",
+            "properties": {
+                "openclaw": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "sync": {
+                            "type": "object",
+                            "properties": {
+                                "memoryMd": {
+                                    "type": "boolean"
+                                },
+                                "dailyLogs": {
+                                    "type": "boolean"
+                                },
+                                "userMd": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "autoRag": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "topK": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "maxTokens": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                },
+                "relevanceThreshold": {
+                    "type": "number",
+                    "exclusiveMinimum": 0.0
+                },
+                "minMessageTokens": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            }
+        },
+        "docs": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        }
+    },
+    "required": [
+        "providers",
+        "models",
+        "routing",
+        "memory",
+        "context",
+        "processing"
+    ],
+    "additionalProperties": true
+}

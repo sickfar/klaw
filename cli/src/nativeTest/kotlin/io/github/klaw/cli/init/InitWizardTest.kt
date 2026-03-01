@@ -39,7 +39,7 @@ class InitWizardTest {
         output: MutableList<String> = mutableListOf(),
         engineResponses: Map<String, String> = emptyMap(),
         commandRunner: (String) -> Int = { 0 },
-        commandOutput: (String) -> String? = { null },
+        commandOutput: (String) -> String? = { """{"data":[]}""" },
         radioSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         modeSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         isDockerEnv: Boolean = false,
@@ -296,11 +296,13 @@ class InitWizardTest {
     }
 
     @Test
-    fun `invalid api key response shows warning in output`() {
+    fun `invalid api key re-prompts until valid key provided`() {
         val output = mutableListOf<String>()
+        var curlCallIdx = 0
         val inputs =
             listOf(
                 "bad-key",
+                "good-key",
                 "test/model",
                 "n",
                 "n",
@@ -312,21 +314,30 @@ class InitWizardTest {
             buildWizard(
                 inputs = inputs,
                 output = output,
-                commandOutput = { """{"error":"unauthorized"}""" },
+                commandOutput = { _ ->
+                    curlCallIdx++
+                    if (curlCallIdx == 1) """{"error":"unauthorized"}""" else """{"data":[{"id":"m1"}]}"""
+                },
+                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
         val text = output.joinToString("\n")
-        assertTrue(text.contains("⚠"), "Expected ⚠ in output on invalid key:\n$text")
+        assertTrue(text.contains("⚠"), "Expected warning on first invalid key:\n$text")
+        assertTrue(text.contains("✓"), "Expected success on second valid key:\n$text")
+        assertTrue(curlCallIdx >= 2, "Expected at least 2 validation calls, got $curlCallIdx")
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid key")
     }
 
     @Test
-    fun `null command output continues wizard without crash`() {
+    fun `null command output re-prompts until valid key provided`() {
+        var curlCallIdx = 0
         val inputs =
             listOf(
-                "key",
+                "key1",
+                "key2",
                 "test/model",
                 "n",
                 "n",
@@ -337,21 +348,27 @@ class InitWizardTest {
         val wizard =
             buildWizard(
                 inputs = inputs,
-                commandOutput = { null },
+                commandOutput = { _ ->
+                    curlCallIdx++
+                    if (curlCallIdx == 1) null else """{"data":[{"id":"m1"}]}"""
+                },
+                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
-        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete even with null commandOutput")
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid key on retry")
     }
 
     @Test
-    fun `api key with single quote skips validation and continues`() {
+    fun `api key with single quote re-prompts until safe valid key provided`() {
         val output = mutableListOf<String>()
+        val commandOutputCalled = mutableListOf<String>()
         val inputs =
             listOf(
                 "key'with'quotes",
+                "good-key",
                 "test/model",
                 "n",
                 "n",
@@ -359,21 +376,74 @@ class InitWizardTest {
                 "assistant",
                 "user",
             )
-        val commandOutputCalled = mutableListOf<String>()
         val wizard =
             buildWizard(
                 inputs = inputs,
                 output = output,
                 commandOutput = { cmd ->
                     commandOutputCalled += cmd
-                    null
+                    """{"data":[{"id":"m1"}]}"""
                 },
+                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
-        assertTrue(commandOutputCalled.isEmpty(), "commandOutput should not be called for unsafe key")
+        val text = output.joinToString("\n")
+        assertTrue(text.contains("unsafe"), "Expected unsafe characters warning:\n$text")
+        assertTrue(commandOutputCalled.size == 1, "commandOutput should be called once for the valid key only")
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid key")
+    }
+
+    @Test
+    fun `empty api key re-prompts until valid key provided`() {
+        val output = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "",
+                "  ",
+                "good-key",
+                "test/model",
+                "n",
+                "n",
+                "Klaw",
+                "assistant",
+                "user",
+            )
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                commandOutput = { """{"data":[{"id":"m1"}]}""" },
+                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        val text = output.joinToString("\n")
+        assertTrue(text.contains("cannot be empty"), "Expected empty key warning:\n$text")
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid key")
+    }
+
+    @Test
+    fun `EOF during api key re-prompt aborts wizard`() {
+        val output = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "",
+            )
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        assertTrue(!fileExists("$configDir/engine.json"), "Wizard should abort on EOF during API key re-prompt")
     }
 
     // --- Model selection ---
@@ -466,7 +536,7 @@ class InitWizardTest {
         val wizard =
             buildWizard(
                 inputs = inputs,
-                commandOutput = { null },
+                commandOutput = { """{"data":[]}""" },
                 radioSelector = { _, prompt ->
                     if (!prompt.contains("LLM")) modelRadioSelectorCalled += true
                     0
@@ -1548,6 +1618,182 @@ class InitWizardTest {
         assertTrue(!outputText.contains("Aborted"), "Should not have aborted")
         assertTrue(!outputText.contains("Existing installation removed"), "Should not have cleaned up")
         assertTrue(fileExists("$configDir/engine.json"), "engine.json should be created by normal init")
+    }
+
+    @Test
+    fun `force reinit skips identity hatching when workspace identity files exist`() {
+        // Pre-create existing installation
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        platform.posix.mkdir(workspaceDir, 0x1EDu)
+        writeFile("$configDir/engine.json", "old-config")
+        writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
+
+        // Pre-create identity files in workspace (preserved by --force)
+        val originalIdentity = "# My Custom Identity\n\nI am a unique agent."
+        val originalUser = "# My User\n\nA power user."
+        writeFile("$workspaceDir/IDENTITY.md", originalIdentity)
+        writeFile("$workspaceDir/USER.md", originalUser)
+
+        val engineRequestCmds = mutableListOf<String>()
+        // No identity questions needed — 3 fewer inputs
+        val inputQueue =
+            ArrayDeque(
+                listOf(
+                    "y", // confirm reinit
+                    "my-key", // API key
+                    "test/model", // model
+                    "n", // skip telegram
+                    "n", // skip console
+                ),
+            )
+        val output = mutableListOf<String>()
+        val wizardWithTracking =
+            InitWizard(
+                configDir = configDir,
+                workspaceDir = workspaceDir,
+                dataDir = "$tmpDir/data",
+                stateDir = "$tmpDir/state",
+                cacheDir = "$tmpDir/cache",
+                conversationsDir = "$tmpDir/conversations",
+                memoryDir = "$tmpDir/memory",
+                skillsDir = "$tmpDir/skills",
+                modelsDir = "$tmpDir/models",
+                serviceOutputDir = "$tmpDir/service",
+                requestFn = { cmd, _ ->
+                    engineRequestCmds += cmd
+                    """{"error":"should not be called"}"""
+                },
+                readLine = { inputQueue.removeFirstOrNull() },
+                printer = { output += it },
+                commandRunner = { 0 },
+                commandOutput = { """{"data":[]}""" },
+                radioSelector = { _, _ -> 0 },
+                modeSelector = { _, _ -> 0 },
+                isDockerEnv = false,
+                engineStarterFactory = { _, _ ->
+                    EngineStarter(
+                        enginePort = 7470,
+                        engineHost = "127.0.0.1",
+                        portChecker = { _, _ -> true },
+                        commandRunner = { 0 },
+                        pollIntervalMs = 10L,
+                        timeoutMs = 50L,
+                    )
+                },
+                force = true,
+            )
+        wizardWithTracking.run()
+
+        // Identity files should NOT be overwritten
+        val identityContent = readFileText("$workspaceDir/IDENTITY.md")
+        assertTrue(
+            identityContent == originalIdentity,
+            "IDENTITY.md should be preserved, got: $identityContent",
+        )
+        val userContent = readFileText("$workspaceDir/USER.md")
+        assertTrue(
+            userContent == originalUser,
+            "USER.md should be preserved, got: $userContent",
+        )
+
+        // No engine request for identity generation
+        assertTrue(
+            engineRequestCmds.none { it == "klaw_init_generate_identity" },
+            "Should not have called klaw_init_generate_identity, got: $engineRequestCmds",
+        )
+
+        // Output should contain preservation message
+        val outputText = output.joinToString("\n")
+        assertTrue(
+            outputText.contains("preserved", ignoreCase = true),
+            "Expected 'preserved' in output:\n$outputText",
+        )
+    }
+
+    @Test
+    fun `force reinit runs identity hatching when identity files are missing`() {
+        // Pre-create existing installation but NO workspace identity files
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        writeFile("$configDir/engine.json", "old-config")
+        writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
+
+        val inputs =
+            listOf(
+                "y", // confirm reinit
+                "my-key", // API key
+                "test/model", // model
+                "n", // skip telegram
+                "n", // skip console
+                "Klaw", // agent name (identity hatching runs)
+                "assistant", // role
+                "user", // user info
+            )
+        val engineResponse = """{"identity":"# Klaw","user":"# User"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                force = true,
+            )
+        wizard.run()
+
+        // Identity files should be created
+        assertTrue(fileExists("$workspaceDir/IDENTITY.md"), "IDENTITY.md should be created")
+        assertTrue(fileExists("$workspaceDir/USER.md"), "USER.md should be created")
+        val identityContent = readFileText("$workspaceDir/IDENTITY.md")
+        assertTrue(
+            identityContent?.contains("Klaw") == true,
+            "IDENTITY.md should contain generated content",
+        )
+    }
+
+    @Test
+    fun `fresh init runs identity hatching even when workspace identity files exist`() {
+        // Pre-create workspace with identity files but NO engine.json (fresh init scenario)
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir(workspaceDir, 0x1EDu)
+        writeFile("$workspaceDir/IDENTITY.md", "old identity")
+        writeFile("$workspaceDir/USER.md", "old user")
+
+        val inputs =
+            listOf(
+                "my-key", // API key
+                "test/model", // model
+                "n", // skip telegram
+                "n", // skip console
+                "NewBot", // agent name (hatching runs on fresh init)
+                "helper", // role
+                "dev", // user info
+            )
+        val engineResponse = """{"identity":"# NewBot","user":"# dev"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        // Identity files should be overwritten with new content
+        val identityContent = readFileText("$workspaceDir/IDENTITY.md")
+        assertTrue(
+            identityContent?.contains("NewBot") == true,
+            "IDENTITY.md should be overwritten on fresh init, got: $identityContent",
+        )
+        val userContent = readFileText("$workspaceDir/USER.md")
+        assertTrue(
+            userContent?.contains("dev") == true,
+            "USER.md should be overwritten on fresh init, got: $userContent",
+        )
     }
 
     @OptIn(ExperimentalForeignApi::class)

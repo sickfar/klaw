@@ -153,11 +153,22 @@ internal class InitWizard(
             printer("Interrupted.")
             return
         }
-        printer("LLM API key:")
-        val llmApiKey = (readLineOrExit() ?: return).trim()
-
-        // Validate key (if URL and key are safe to inject into shell command)
-        val validationResponse = validateApiKey(providerUrl, llmApiKey)
+        var llmApiKey: String
+        var validationResponse: String?
+        while (true) {
+            printer("LLM API key:")
+            val rawKey = readLineOrExit() ?: return
+            llmApiKey = rawKey.trim()
+            if (llmApiKey.isEmpty()) {
+                printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
+                continue
+            }
+            validationResponse = validateApiKey(providerUrl, llmApiKey)
+            if (validationResponse != null) {
+                break
+            }
+            printer("Please enter a valid API key or press Ctrl+C to abort.")
+        }
 
         // Fetch models or fall back to text input
         val modelId = selectModel(validationResponse, defaultAlias)
@@ -254,7 +265,13 @@ internal class InitWizard(
             writeFileText(
                 "$configDir/docker-compose.json",
                 ConfigTemplates.dockerComposeJson(
-                    stateDir, dataDir, configDir, workspaceDir, dockerTag, enableConsole, consolePort,
+                    stateDir,
+                    dataDir,
+                    configDir,
+                    workspaceDir,
+                    dockerTag,
+                    enableConsole,
+                    consolePort,
                 ),
             )
         }
@@ -345,57 +362,66 @@ internal class InitWizard(
             }
         }
 
-        // ── Identity: collect Q&A and generate via engine ──
+        // ── Identity: skip hatching if both files exist on --force reinit ──
 
-        printer("")
-        printer("Agent name [Klaw]:")
-        val agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
-        printer("Primary role (e.g. personal assistant, coding helper):")
-        val role = readLineOrExit()?.trim().orEmpty()
-        printer("Tell me about the user who will work with this agent:")
-        val userInfo = readLineOrExit()?.trim().orEmpty()
-
-        val identitySpinner = Spinner("Generating identity files...")
-        val identityJson =
-            runBlocking {
-                val spinnerJob =
-                    launch(Dispatchers.Default) {
-                        while (isActive) {
-                            identitySpinner.tick()
-                            delay(100)
-                        }
-                    }
-                val result =
-                    try {
-                        withContext(Dispatchers.Default) {
-                            requestFn(
-                                "klaw_init_generate_identity",
-                                mapOf(
-                                    "name" to agentName,
-                                    "role" to role,
-                                    "user_info" to userInfo,
-                                ),
-                            )
-                        }
-                    } catch (e: Exception) {
-                        CliLogger.error { "identity generation failed: ${e::class.simpleName}" }
-                        """{"error":"${e::class.simpleName}"}"""
-                    }
-                spinnerJob.cancel()
-                result
-            }
-        val errorMsg = extractJsonField(identityJson, "error")
-        if (errorMsg != null) {
-            identitySpinner.fail("Identity generation failed: $errorMsg")
-            printer("  Stub files written. Run 'klaw identity edit' to update later.")
-            CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
+        val identityExists = fileExists("$workspaceDir/IDENTITY.md")
+        val userExists = fileExists("$workspaceDir/USER.md")
+        val agentName: String
+        if (force && identityExists && userExists) {
+            CliLogger.info { "identity files already exist, skipping hatching" }
+            success("Identity files preserved from previous installation")
+            agentName = "Klaw"
         } else {
-            identitySpinner.done("Identity generated")
+            printer("")
+            printer("Agent name [Klaw]:")
+            agentName = readLineOrExit()?.trim().orEmpty().ifBlank { "Klaw" }
+            printer("Primary role (e.g. personal assistant, coding helper):")
+            val role = readLineOrExit()?.trim().orEmpty()
+            printer("Tell me about the user who will work with this agent:")
+            val userInfo = readLineOrExit()?.trim().orEmpty()
+
+            val identitySpinner = Spinner("Generating identity files...")
+            val identityJson =
+                runBlocking {
+                    val spinnerJob =
+                        launch(Dispatchers.Default) {
+                            while (isActive) {
+                                identitySpinner.tick()
+                                delay(100)
+                            }
+                        }
+                    val result =
+                        try {
+                            withContext(Dispatchers.Default) {
+                                requestFn(
+                                    "klaw_init_generate_identity",
+                                    mapOf(
+                                        "name" to agentName,
+                                        "role" to role,
+                                        "user_info" to userInfo,
+                                    ),
+                                )
+                            }
+                        } catch (e: Exception) {
+                            CliLogger.error { "identity generation failed: ${e::class.simpleName}" }
+                            """{"error":"${e::class.simpleName}"}"""
+                        }
+                    spinnerJob.cancel()
+                    result
+                }
+            val errorMsg = extractJsonField(identityJson, "error")
+            if (errorMsg != null) {
+                identitySpinner.fail("Identity generation failed: $errorMsg")
+                printer("  Stub files written. Run 'klaw identity edit' to update later.")
+                CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
+            } else {
+                identitySpinner.done("Identity generated")
+            }
+            val identity = extractJsonField(identityJson, "identity") ?: "# Identity\n\n$agentName"
+            val user = extractJsonField(identityJson, "user") ?: "# User\n\n$userInfo"
+            writeFileText("$workspaceDir/IDENTITY.md", identity)
+            writeFileText("$workspaceDir/USER.md", user)
         }
-        val identity = extractJsonField(identityJson, "identity") ?: "# Identity\n\n$agentName"
-        val user = extractJsonField(identityJson, "user") ?: "# User\n\n$userInfo"
-        writeFileText("$workspaceDir/IDENTITY.md", identity)
-        writeFileText("$workspaceDir/USER.md", user)
 
         printSummary(agentName, modelId, resolvedMode, dockerTag)
     }
@@ -479,7 +505,7 @@ internal class InitWizard(
             response
         } else {
             CliLogger.warn { "API key validation failed" }
-            printer("${AnsiColors.YELLOW}⚠ Could not validate API key (continuing anyway).${AnsiColors.RESET}")
+            printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
             null
         }
     }

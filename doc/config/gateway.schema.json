@@ -1,0 +1,72 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "channels": {
+            "type": "object",
+            "properties": {
+                "telegram": {
+                    "type": "object",
+                    "properties": {
+                        "token": {
+                            "type": "string"
+                        },
+                        "allowedChatIds": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": [
+                        "token"
+                    ]
+                },
+                "discord": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "token": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "console": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "port": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        },
+        "commands": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "description"
+                ]
+            }
+        }
+    },
+    "required": [
+        "channels"
+    ],
+    "additionalProperties": true
+}

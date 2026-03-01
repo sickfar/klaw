@@ -2,6 +2,7 @@ package io.github.klaw.cli.command
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
+import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.init.DeployMode
 import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.init.readDeployConf
@@ -11,7 +12,6 @@ import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.runCommandOutput
-import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.common.config.klawJson
 import io.github.klaw.common.config.klawPrettyJson
 import io.github.klaw.common.config.parseComposeConfig
