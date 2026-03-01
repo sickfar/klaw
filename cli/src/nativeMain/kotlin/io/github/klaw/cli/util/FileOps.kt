@@ -10,8 +10,6 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import platform.posix.F_OK
-import platform.posix.S_IFLNK
-import platform.posix.S_IFMT
 import platform.posix.access
 import platform.posix.closedir
 import platform.posix.fclose
@@ -100,7 +98,7 @@ internal fun listDirectory(path: String): List<String> {
 internal fun isSymlink(path: String): Boolean =
     memScoped {
         val statBuf = alloc<stat>()
-        lstat(path, statBuf.ptr) == 0 && (statBuf.st_mode.toUInt() and S_IFMT.toUInt()) == S_IFLNK.toUInt()
+        lstat(path, statBuf.ptr) == 0 && (statBuf.st_mode.toUInt() and 0xF000u) == 0xA000u
     }
 
 @OptIn(ExperimentalForeignApi::class)

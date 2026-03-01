@@ -1621,7 +1621,7 @@ class InitWizardTest {
     }
 
     @Test
-    fun `force reinit skips identity hatching when workspace identity files exist`() {
+    fun `force reinit skips identity hatching when workspace is non-empty`() {
         // Pre-create existing installation
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/data", 0x1EDu)
@@ -1714,12 +1714,13 @@ class InitWizardTest {
     }
 
     @Test
-    fun `force reinit runs identity hatching when identity files are missing`() {
-        // Pre-create existing installation but NO workspace identity files
+    fun `force reinit runs identity hatching when workspace is empty`() {
+        // Pre-create existing installation with empty workspace dir
         platform.posix.mkdir(configDir, 0x1EDu)
         platform.posix.mkdir("$tmpDir/data", 0x1EDu)
         platform.posix.mkdir("$tmpDir/state", 0x1EDu)
         platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        platform.posix.mkdir(workspaceDir, 0x1EDu)
         writeFile("$configDir/engine.json", "old-config")
         writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
 
@@ -1752,6 +1753,114 @@ class InitWizardTest {
         assertTrue(
             identityContent?.contains("Klaw") == true,
             "IDENTITY.md should contain generated content",
+        )
+    }
+
+    @Test
+    fun `force reinit runs identity hatching when workspace does not exist`() {
+        // Pre-create existing installation but NO workspace dir
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        writeFile("$configDir/engine.json", "old-config")
+        writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
+
+        val inputs =
+            listOf(
+                "y", // confirm reinit
+                "my-key", // API key
+                "test/model", // model
+                "n", // skip telegram
+                "n", // skip console
+                "Klaw", // agent name (identity hatching runs)
+                "assistant", // role
+                "user", // user info
+            )
+        val engineResponse = """{"identity":"# Klaw","user":"# User"}"""
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                force = true,
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$workspaceDir/IDENTITY.md"), "IDENTITY.md should be created")
+        assertTrue(fileExists("$workspaceDir/USER.md"), "USER.md should be created")
+    }
+
+    @Test
+    fun `force reinit skips identity hatching when workspace has non-identity files`() {
+        // Pre-create existing installation with workspace containing only non-identity files
+        platform.posix.mkdir(configDir, 0x1EDu)
+        platform.posix.mkdir("$tmpDir/data", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/state", 0x1EDu)
+        platform.posix.mkdir("$tmpDir/cache", 0x1EDu)
+        platform.posix.mkdir(workspaceDir, 0x1EDu)
+        writeFile("$configDir/engine.json", "old-config")
+        writeDeployConf(configDir, DeployConfig(DeployMode.NATIVE))
+        writeFile("$workspaceDir/SOUL.md", "custom soul file")
+
+        val engineRequestCmds = mutableListOf<String>()
+        val inputQueue =
+            ArrayDeque(
+                listOf(
+                    "y", // confirm reinit
+                    "my-key", // API key
+                    "test/model", // model
+                    "n", // skip telegram
+                    "n", // skip console
+                ),
+            )
+        val output = mutableListOf<String>()
+        val wizard =
+            InitWizard(
+                configDir = configDir,
+                workspaceDir = workspaceDir,
+                dataDir = "$tmpDir/data",
+                stateDir = "$tmpDir/state",
+                cacheDir = "$tmpDir/cache",
+                conversationsDir = "$tmpDir/conversations",
+                memoryDir = "$tmpDir/memory",
+                skillsDir = "$tmpDir/skills",
+                modelsDir = "$tmpDir/models",
+                serviceOutputDir = "$tmpDir/service",
+                requestFn = { cmd, _ ->
+                    engineRequestCmds += cmd
+                    """{"error":"should not be called"}"""
+                },
+                readLine = { inputQueue.removeFirstOrNull() },
+                printer = { output += it },
+                commandRunner = { 0 },
+                commandOutput = { """{"data":[]}""" },
+                radioSelector = { _, _ -> 0 },
+                modeSelector = { _, _ -> 0 },
+                isDockerEnv = false,
+                engineStarterFactory = { _, _ ->
+                    EngineStarter(
+                        enginePort = 7470,
+                        engineHost = "127.0.0.1",
+                        portChecker = { _, _ -> true },
+                        commandRunner = { 0 },
+                        pollIntervalMs = 10L,
+                        timeoutMs = 50L,
+                    )
+                },
+                force = true,
+            )
+        wizard.run()
+
+        assertTrue(
+            engineRequestCmds.none { it == "klaw_init_generate_identity" },
+            "Should skip identity hatching when workspace is non-empty, got: $engineRequestCmds",
+        )
+        val outputText = output.joinToString("\n")
+        assertTrue(
+            outputText.contains("preserved", ignoreCase = true),
+            "Expected 'preserved' in output:\n$outputText",
         )
     }
 

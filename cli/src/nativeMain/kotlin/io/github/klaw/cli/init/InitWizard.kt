@@ -7,6 +7,8 @@ import io.github.klaw.cli.ui.Spinner
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.deleteRecursively
 import io.github.klaw.cli.util.fileExists
+import io.github.klaw.cli.util.isDirectory
+import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -104,6 +106,9 @@ internal class InitWizard(
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun run() {
         // ── Collection phases (1–6): gather all user input before touching disk ──
+
+        // Snapshot workspace state before any disk operations — used later to decide identity hatching
+        val workspaceExistedWithContent = isDirectory(workspaceDir) && listDirectory(workspaceDir).isNotEmpty()
 
         phase(1, "Pre-check")
         if (fileExists("$configDir/engine.json")) {
@@ -362,14 +367,12 @@ internal class InitWizard(
             }
         }
 
-        // ── Identity: skip hatching if both files exist on --force reinit ──
+        // ── Identity: skip hatching if workspace was non-empty on --force reinit ──
 
-        val identityExists = fileExists("$workspaceDir/IDENTITY.md")
-        val userExists = fileExists("$workspaceDir/USER.md")
         val agentName: String
-        if (force && identityExists && userExists) {
-            CliLogger.info { "identity files already exist, skipping hatching" }
-            success("Identity files preserved from previous installation")
+        if (force && workspaceExistedWithContent) {
+            CliLogger.info { "workspace is non-empty, skipping hatching" }
+            success("Workspace preserved from previous installation")
             agentName = "Klaw"
         } else {
             printer("")
