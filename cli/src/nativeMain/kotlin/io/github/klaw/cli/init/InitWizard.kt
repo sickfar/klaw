@@ -39,7 +39,7 @@ internal data class LlmProvider(
 
 private val LLM_PROVIDERS =
     listOf(
-        LlmProvider("z.ai GLM", "https://api.z.ai/api/paas/v4", "zai"),
+        LlmProvider("z.ai GLM", "https://api.z.ai/api/coding/paas/v4", "zai"),
     )
 
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
@@ -253,7 +253,9 @@ internal class InitWizard(
         if (resolvedMode == DeployMode.HYBRID) {
             writeFileText(
                 "$configDir/docker-compose.json",
-                ConfigTemplates.dockerComposeJson(stateDir, dataDir, configDir, workspaceDir, dockerTag),
+                ConfigTemplates.dockerComposeJson(
+                    stateDir, dataDir, configDir, workspaceDir, dockerTag, enableConsole, consolePort,
+                ),
             )
         }
         success("Directories and configuration written")
@@ -382,7 +384,14 @@ internal class InitWizard(
                 spinnerJob.cancel()
                 result
             }
-        identitySpinner.done("Identity generated")
+        val errorMsg = extractJsonField(identityJson, "error")
+        if (errorMsg != null) {
+            identitySpinner.fail("Identity generation failed: $errorMsg")
+            printer("  Stub files written. Run 'klaw identity edit' to update later.")
+            CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
+        } else {
+            identitySpinner.done("Identity generated")
+        }
         val identity = extractJsonField(identityJson, "identity") ?: "# Identity\n\n$agentName"
         val user = extractJsonField(identityJson, "user") ?: "# User\n\n$userInfo"
         writeFileText("$workspaceDir/IDENTITY.md", identity)

@@ -612,6 +612,51 @@ class InitWizardTest {
     }
 
     @Test
+    fun `identity generation failure shows error and writes stubs`() {
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "", // telegram? Y
+                "my-token",
+                "",
+                "n", // Phase 5: disable console
+                "MyBot",
+                "coding helper",
+                "Roman",
+            )
+
+        val engineResponse = """{"error":"AllProvidersFailedError"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        // Stubs should still be written
+        assertTrue(fileExists("$workspaceDir/IDENTITY.md"), "IDENTITY.md stub should be created")
+        assertTrue(fileExists("$workspaceDir/USER.md"), "USER.md stub should be created")
+        val identityContent = readFileText("$workspaceDir/IDENTITY.md")
+        assertNotNull(identityContent, "IDENTITY.md should be readable")
+        assertTrue(identityContent.contains("MyBot"), "IDENTITY.md stub should contain agent name")
+        val userContent = readFileText("$workspaceDir/USER.md")
+        assertNotNull(userContent, "USER.md should be readable")
+        assertTrue(userContent.contains("Roman"), "USER.md stub should contain user info")
+
+        // Output should contain failure message, not success
+        val joined = output.joinToString("\n")
+        assertTrue(
+            joined.contains("identity edit") || joined.contains("failed"),
+            "Output should mention failure or suggest identity edit: $joined",
+        )
+    }
+
+    @Test
     fun `phase 9 generates service unit files`() {
         val inputs =
             listOf(

@@ -23,4 +23,10 @@ internal class Spinner(
         print("\r")
         println("${AnsiColors.GREEN}✓${AnsiColors.RESET} $successMessage")
     }
+
+    /** Clear the spinner line and print a failure message. */
+    fun fail(failMessage: String) {
+        print("\r")
+        println("${AnsiColors.RED}✗${AnsiColors.RESET} $failMessage")
+    }
 }

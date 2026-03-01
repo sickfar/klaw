@@ -30,7 +30,7 @@ class LlmRouterTest {
 
     private val providers =
         mapOf(
-            "zai" to ProviderConfig("openai-compatible", "https://api.z.ai/api/paas/v4", "key-zai"),
+            "zai" to ProviderConfig("openai-compatible", "https://api.z.ai/api/coding/paas/v4", "key-zai"),
             "deepseek" to ProviderConfig("openai-compatible", "https://api.deepseek.com/v1", "key-ds"),
             "ollama" to ProviderConfig("openai-compatible", "http://localhost:11434/v1", null),
         )
@@ -165,7 +165,7 @@ class LlmRouterTest {
         val (provider, model) = router.resolve("zai/glm-5")
 
         assertEquals("openai-compatible", provider.type)
-        assertEquals("https://api.z.ai/api/paas/v4", provider.endpoint)
+        assertEquals("https://api.z.ai/api/coding/paas/v4", provider.endpoint)
         assertEquals("glm-5", model.modelId)
     }
 

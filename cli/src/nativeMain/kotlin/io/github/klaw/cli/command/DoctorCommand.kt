@@ -11,6 +11,7 @@ import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.runCommandOutput
+import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.common.config.klawJson
 import io.github.klaw.common.config.klawPrettyJson
 import io.github.klaw.common.config.parseComposeConfig
@@ -77,6 +78,21 @@ internal class DoctorCommand(
         } else {
             CliLogger.warn { "engine not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort}" }
             echo("\u2717 Engine: stopped (not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort})")
+        }
+
+        // Gateway WebSocket (console chat)
+        val consoleConfig = readConsoleChatConfig(configDir)
+        if (consoleConfig.enabled) {
+            if (checkTcpPort("127.0.0.1", consoleConfig.port)) {
+                CliLogger.debug { "gateway WebSocket port responsive on ${consoleConfig.port}" }
+                echo("\u2713 Gateway WebSocket: reachable on port ${consoleConfig.port}")
+            } else {
+                CliLogger.warn { "gateway WebSocket not responding on port ${consoleConfig.port}" }
+                echo("\u2717 Gateway WebSocket: not reachable on port ${consoleConfig.port}")
+                if (deployConfig.mode != DeployMode.NATIVE) {
+                    echo("  Hint: check docker-compose.json for gateway port mapping")
+                }
+            }
         }
 
         // ONNX models

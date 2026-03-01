@@ -137,6 +137,8 @@ internal object ConfigTemplates {
         configPath: String,
         workspacePath: String,
         imageTag: String,
+        enableConsole: Boolean = false,
+        consolePort: Int = 37474,
     ): String {
         val config =
             ComposeConfig(
@@ -179,6 +181,12 @@ internal object ConfigTemplates {
                                         "$dataPath:/home/klaw/.local/share/klaw",
                                         "$configPath:/home/klaw/.config/klaw:ro",
                                     ),
+                                ports =
+                                    if (enableConsole) {
+                                        listOf("127.0.0.1:$consolePort:$consolePort")
+                                    } else {
+                                        null
+                                    },
                             ),
                     ),
             )

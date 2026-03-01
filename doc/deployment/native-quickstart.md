@@ -45,7 +45,7 @@ Add the above line to `~/.bashrc` or `~/.zshrc` to make it permanent.
 
 1. **Deployment mode** — "Fully native (systemd/launchd)" or "Docker services" (hybrid). Choose native for a pure systemd/launchd setup; choose Docker services to run Engine and Gateway in Docker containers while keeping the CLI native on the host.
 2. **Docker image tag** (hybrid mode only) — default: `latest`
-3. **LLM provider base URL** — default: `https://api.z.ai/api/paas/v4` (GLM)
+3. **LLM provider base URL** — default: `https://api.z.ai/api/coding/paas/v4` (GLM)
 4. **LLM API key**
 5. **Model ID** — default: `glm/glm-4-plus`
 6. **Telegram bot token**

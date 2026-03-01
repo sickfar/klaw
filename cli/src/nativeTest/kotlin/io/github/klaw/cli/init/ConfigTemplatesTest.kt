@@ -11,13 +11,13 @@ import kotlin.test.assertTrue
 class ConfigTemplatesTest {
     @Test
     fun `engine json template contains provider url`() {
-        val json = ConfigTemplates.engineJson("https://api.z.ai/api/paas/v4", "zai/glm-5")
-        assertTrue(json.contains("https://api.z.ai/api/paas/v4"), "Expected providerUrl in:\n$json")
+        val json = ConfigTemplates.engineJson("https://api.z.ai/api/coding/paas/v4", "zai/glm-5")
+        assertTrue(json.contains("https://api.z.ai/api/coding/paas/v4"), "Expected providerUrl in:\n$json")
     }
 
     @Test
     fun `engine json api key uses per-provider env var`() {
-        val json = ConfigTemplates.engineJson("https://api.z.ai/api/paas/v4", "zai/glm-5")
+        val json = ConfigTemplates.engineJson("https://api.z.ai/api/coding/paas/v4", "zai/glm-5")
         assertTrue(json.contains("ZAI_API_KEY"), "Expected per-provider env var ZAI_API_KEY in:\n$json")
         assertTrue(!json.contains("KLAW_LLM_API_KEY"), "Should not contain generic KLAW_LLM_API_KEY in:\n$json")
     }
