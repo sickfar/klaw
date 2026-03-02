@@ -9,6 +9,7 @@ import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
@@ -38,33 +39,36 @@ class ToolRegistryImplTest {
     private val hostExecTool = mockk<HostExecTool>()
 
     @Suppress("LongMethod")
-    private fun testEngineConfig(docsEnabled: Boolean = true) =
-        EngineConfig(
-            providers = emptyMap(),
-            models = emptyMap(),
-            routing =
-                RoutingConfig(
-                    default = "test/model",
-                    fallback = emptyList(),
-                    tasks = TaskRoutingConfig("test/model", "test/model"),
-                ),
-            memory =
-                MemoryConfig(
-                    embedding = EmbeddingConfig("onnx", "model"),
-                    chunking = ChunkingConfig(512, 64),
-                    search = SearchConfig(10),
-                ),
-            context = ContextConfig(8000, 20, 5),
-            processing = ProcessingConfig(100, 2, 5),
-            llm = LlmRetryConfig(1, 5000, 100, 2.0),
-            logging = LoggingConfig(false),
-            codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
-            files = FilesConfig(1048576),
-            commands = emptyList(),
-            compatibility = CompatibilityConfig(),
-            autoRag = AutoRagConfig(),
-            docs = DocsConfig(enabled = docsEnabled),
-        )
+    private fun testEngineConfig(
+        docsEnabled: Boolean = true,
+        hostExecEnabled: Boolean = false,
+    ) = EngineConfig(
+        providers = emptyMap(),
+        models = emptyMap(),
+        routing =
+            RoutingConfig(
+                default = "test/model",
+                fallback = emptyList(),
+                tasks = TaskRoutingConfig("test/model", "test/model"),
+            ),
+        memory =
+            MemoryConfig(
+                embedding = EmbeddingConfig("onnx", "model"),
+                chunking = ChunkingConfig(512, 64),
+                search = SearchConfig(10),
+            ),
+        context = ContextConfig(8000, 20, 5),
+        processing = ProcessingConfig(100, 2, 5),
+        llm = LlmRetryConfig(1, 5000, 100, 2.0),
+        logging = LoggingConfig(false),
+        codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
+        files = FilesConfig(1048576),
+        commands = emptyList(),
+        compatibility = CompatibilityConfig(),
+        autoRag = AutoRagConfig(),
+        docs = DocsConfig(enabled = docsEnabled),
+        hostExecution = HostExecutionConfig(enabled = hostExecEnabled),
+    )
 
     private val registry =
         ToolRegistryImpl(
@@ -77,7 +81,7 @@ class ToolRegistryImplTest {
             utilityTools,
             sandboxExecTool,
             hostExecTool,
-            testEngineConfig(docsEnabled = true),
+            testEngineConfig(docsEnabled = true, hostExecEnabled = true),
         )
 
     @Test
@@ -207,7 +211,7 @@ class ToolRegistryImplTest {
                     utilityTools,
                     sandboxExecTool,
                     hostExecTool,
-                    testEngineConfig(docsEnabled = false),
+                    testEngineConfig(docsEnabled = false, hostExecEnabled = true),
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
@@ -270,5 +274,49 @@ class ToolRegistryImplTest {
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
             assertEquals(16, tools.size, "Should have 18 - 2 = 16 tools")
+        }
+
+    @Test
+    fun `host_exec excluded from listTools when hostExecution disabled`() =
+        runTest {
+            val disabledRegistry =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    testEngineConfig(hostExecEnabled = false),
+                )
+            val tools = disabledRegistry.listTools()
+            val names = tools.map { it.name }.toSet()
+            assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
+            assertEquals(17, tools.size, "Should have 18 - 1 = 17 tools")
+        }
+
+    @Test
+    fun `host_exec included in listTools when hostExecution enabled`() =
+        runTest {
+            val enabledRegistry =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    testEngineConfig(hostExecEnabled = true),
+                )
+            val tools = enabledRegistry.listTools()
+            val names = tools.map { it.name }.toSet()
+            assertTrue("host_exec" in names, "host_exec should be included when enabled")
+            assertEquals(18, tools.size)
         }
 }

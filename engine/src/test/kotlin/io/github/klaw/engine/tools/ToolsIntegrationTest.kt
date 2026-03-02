@@ -9,6 +9,7 @@ import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
@@ -61,6 +62,7 @@ class ToolsIntegrationTest {
             compatibility = CompatibilityConfig(),
             autoRag = AutoRagConfig(),
             docs = DocsConfig(enabled = true),
+            hostExecution = HostExecutionConfig(enabled = true),
         )
 
     private val registry: ToolRegistryImpl =
