@@ -73,9 +73,9 @@ class ServiceManagerTest {
         manager.restart(KlawService.ENGINE)
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("up -d --force-recreate") && it.contains(" engine")
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") && it.contains(" engine")
             },
-            "Expected docker compose up -d --force-recreate engine, got: $commands",
+            "Expected docker compose up -d --no-deps --force-recreate engine, got: $commands",
         )
     }
 
@@ -177,10 +177,10 @@ class ServiceManagerTest {
         manager.restart(KlawService.ENGINE)
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("up -d --force-recreate") &&
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
                     it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.json")
             },
-            "Expected docker compose up -d --force-recreate with hybrid compose file path, got: $commands",
+            "Expected docker compose up -d --no-deps --force-recreate with hybrid compose file path, got: $commands",
         )
     }
 
