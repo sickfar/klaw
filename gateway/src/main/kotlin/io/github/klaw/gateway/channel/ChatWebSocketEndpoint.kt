@@ -35,9 +35,21 @@ class ChatWebSocketEndpoint(
 
     private suspend fun io.ktor.server.websocket.DefaultWebSocketServerSession.handleFrame(message: String) {
         val chatFrame = decodeFrame(message) ?: return
-        if (chatFrame.type == "user") {
-            logger.trace { "Console WS frame received: ${chatFrame.content.length} chars" }
-            consoleChannel.handleIncoming(chatFrame.content, this)
+        when (chatFrame.type) {
+            "user" -> {
+                logger.trace { "Console WS frame received: ${chatFrame.content.length} chars" }
+                consoleChannel.handleIncoming(chatFrame.content, this)
+            }
+
+            "approval_response" -> {
+                val id = chatFrame.approvalId
+                val approved = chatFrame.approved
+                if (id != null && approved != null) {
+                    consoleChannel.resolveApproval(id, approved)
+                } else {
+                    logger.warn { "Malformed approval_response frame" }
+                }
+            }
         }
     }
 

@@ -35,11 +35,25 @@ internal class ChatTui(
     )
 
     private val history = mutableListOf<Message>()
-    private val inputBuffer = StringBuilder()
+    private val input = InputBuffer()
 
     private var termWidth = 80
     private var termHeight = 24
     private val ansiPattern = Regex("""\u001B\[[0-9;]*m""")
+
+    private var statusText = ""
+    private var spinnerFrame = 0
+
+    private var approvalMode = false
+    private var approvalId: String? = null
+    private var approvalCommand: String? = null
+    private var approvalRiskScore: Int = 0
+    private var approvalTimeout: Int = 0
+
+    companion object {
+        private val SPINNER_FRAMES = arrayOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+        private const val INPUT_PANEL_ROWS = 3
+    }
 
     // --- State management (testable) ---
 
@@ -49,21 +63,87 @@ internal class ChatTui(
 
     fun getHistory(): List<Message> = history.toList()
 
-    fun appendInput(char: Char) {
-        inputBuffer.append(char)
+    fun appendInput(text: String) {
+        input.insertText(text)
     }
 
     fun deleteLastInput() {
-        if (inputBuffer.isNotEmpty()) inputBuffer.deleteAt(inputBuffer.length - 1)
+        input.deleteBack()
     }
 
-    fun submitInput(): String {
-        val text = inputBuffer.toString()
-        inputBuffer.clear()
-        return text
+    fun submitInput(): String = input.submit()
+
+    fun getInput(): String = input.getText()
+
+    fun insertNewline() {
+        input.insertNewline()
     }
 
-    fun getInput(): String = inputBuffer.toString()
+    fun deleteForward() {
+        input.deleteForward()
+    }
+
+    fun moveLeft() {
+        input.moveLeft()
+    }
+
+    fun moveRight() {
+        input.moveRight()
+    }
+
+    fun moveUp() {
+        input.moveUp()
+    }
+
+    fun moveDown() {
+        input.moveDown()
+    }
+
+    fun moveHome() {
+        input.moveHome()
+    }
+
+    fun moveEnd() {
+        input.moveEnd()
+    }
+
+    fun setStatus(text: String) {
+        statusText = text
+    }
+
+    fun getStatus(): String = statusText
+
+    fun tickSpinner() {
+        spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.size
+    }
+
+    fun showApproval(
+        id: String,
+        command: String,
+        riskScore: Int,
+        timeout: Int,
+    ) {
+        approvalMode = true
+        approvalId = id
+        approvalCommand = command
+        approvalRiskScore = riskScore
+        approvalTimeout = timeout
+    }
+
+    fun resolveApproval(approved: Boolean): Pair<String, Boolean>? {
+        if (!approvalMode) return null
+        val id = approvalId ?: return null
+        approvalMode = false
+        approvalId = null
+        approvalCommand = null
+        approvalRiskScore = 0
+        approvalTimeout = 0
+        return Pair(id, approved)
+    }
+
+    fun isApprovalMode(): Boolean = approvalMode
+
+    fun getApprovalId(): String? = approvalId
 
     private fun visibleLength(s: String): Int = s.replace(ansiPattern, "").length
 
@@ -73,7 +153,7 @@ internal class ChatTui(
         queryTerminalSize()
         system("stty raw -echo < /dev/tty > /dev/null 2>&1")
         rawWrite("\u001B[?1049h") // Enter alternate screen buffer
-        rawWrite("\u001B[?25l") // Hide cursor
+        rawWrite("\u001B[?25h") // Show cursor
         redrawFull()
     }
 
@@ -113,8 +193,8 @@ internal class ChatTui(
         val padded = title.padEnd(innerWidth, '═')
         sb.posLine(1, "╔${padded.take(innerWidth)}╗")
 
-        // Rows 2..(termHeight-3): history area
-        val historyHeight = termHeight - 4
+        // Rows 2..(termHeight-5): history area
+        val historyHeight = termHeight - INPUT_PANEL_ROWS - 3 // title + separator + bottom border
         val lines = renderHistoryLines(innerWidth)
         val recentLines = lines.takeLast(historyHeight)
         val emptyCount = historyHeight - recentLines.size
@@ -125,29 +205,116 @@ internal class ChatTui(
             sb.posLine(2 + emptyCount + i, recentLines[i])
         }
 
-        // Row (termHeight-2): separator
-        sb.posLine(termHeight - 2, "╠${"═".repeat(innerWidth)}╣")
+        // Separator row with optional status spinner
+        val separatorRow = termHeight - INPUT_PANEL_ROWS - 1
+        sb.posLine(separatorRow, buildSeparatorLine(innerWidth))
 
-        // Row (termHeight-1): input line
-        val prompt = "> $inputBuffer"
-        val promptTruncated = prompt.take(innerWidth)
-        val promptPad = innerWidth - promptTruncated.length
-        sb.posLine(termHeight - 1, "║${promptTruncated}${" ".repeat(promptPad)}║")
+        // Input panel (3 rows)
+        renderInputPanelTo(sb, innerWidth)
 
-        // Row termHeight: bottom border
+        // Bottom border
         sb.posLine(termHeight, "╚${"═".repeat(innerWidth)}╝")
+
+        // Position terminal cursor in input area
+        sb.append(buildCursorPosition(innerWidth))
 
         rawWrite(sb.toString())
     }
 
-    fun redrawInputLine() {
-        val innerWidth = termWidth - 2
-        val prompt = "> $inputBuffer"
-        val promptTruncated = prompt.take(innerWidth)
-        val promptPad = innerWidth - promptTruncated.length
+    fun redrawInputPanel() {
         val sb = StringBuilder()
-        sb.posLine(termHeight - 1, "║${promptTruncated}${" ".repeat(promptPad)}║")
+        val innerWidth = termWidth - 2
+        renderInputPanelTo(sb, innerWidth)
+        sb.append(buildCursorPosition(innerWidth))
         rawWrite(sb.toString())
+    }
+
+    fun redrawInputLine() {
+        redrawInputPanel()
+    }
+
+    fun redrawSeparator() {
+        val sb = StringBuilder()
+        val innerWidth = termWidth - 2
+        val separatorRow = termHeight - INPUT_PANEL_ROWS - 1
+        sb.posLine(separatorRow, buildSeparatorLine(innerWidth))
+        sb.append(buildCursorPosition(innerWidth))
+        rawWrite(sb.toString())
+    }
+
+    private fun buildSeparatorLine(innerWidth: Int): String =
+        if (statusText.isEmpty()) {
+            "╠${"═".repeat(innerWidth)}╣"
+        } else {
+            val spinner = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.size]
+            val label = " $spinner $statusText "
+            val labelLen = label.length
+            if (labelLen + 2 >= innerWidth) {
+                "╠═${label.take(innerWidth - 2)}╣"
+            } else {
+                val remaining = innerWidth - 1 - labelLen
+                "╠═$label${"═".repeat(remaining)}╣"
+            }
+        }
+
+    private fun renderInputPanelTo(
+        sb: StringBuilder,
+        innerWidth: Int,
+    ) {
+        val inputStartRow = termHeight - INPUT_PANEL_ROWS
+        val contentWidth = innerWidth - 2 // account for "> " or "  " prefix
+
+        if (approvalMode) {
+            val approvalText = "Approve: ${approvalCommand ?: ""}? [Y/n] "
+            val truncated = approvalText.take(innerWidth)
+            val pad = innerWidth - truncated.length
+            sb.posLine(inputStartRow, "║$truncated${" ".repeat(pad)}║")
+            for (i in 1 until INPUT_PANEL_ROWS) {
+                sb.posLine(inputStartRow + i, "║${" ".repeat(innerWidth)}║")
+            }
+            return
+        }
+
+        val inputLines = input.getLines()
+        val (cursorRow, _) = input.getCursorRowCol()
+
+        // Compute viewport so cursor is visible
+        val viewportStart = computeViewportStart(cursorRow)
+
+        for (i in 0 until INPUT_PANEL_ROWS) {
+            val lineIdx = viewportStart + i
+            val prefix = if (lineIdx == 0) "> " else "  "
+            val lineContent = if (lineIdx < inputLines.size) inputLines[lineIdx] else ""
+            val display = "$prefix${lineContent.take(contentWidth)}"
+            val displayPad = innerWidth - display.length
+            sb.posLine(inputStartRow + i, "║$display${" ".repeat(maxOf(0, displayPad))}║")
+        }
+    }
+
+    private fun computeViewportStart(cursorRow: Int): Int {
+        // Keep cursor visible within the 3-row panel
+        return if (cursorRow < INPUT_PANEL_ROWS) {
+            0
+        } else {
+            cursorRow - INPUT_PANEL_ROWS + 1
+        }
+    }
+
+    private fun buildCursorPosition(innerWidth: Int): String {
+        if (approvalMode) {
+            val approvalText = "Approve: ${approvalCommand ?: ""}? [Y/n] "
+            val col = minOf(approvalText.length + 1, innerWidth)
+            val row = termHeight - INPUT_PANEL_ROWS
+            return "\u001B[$row;${col + 1}H"
+        }
+
+        val (cursorRow, cursorCol) = input.getCursorRowCol()
+        val viewportStart = computeViewportStart(cursorRow)
+        val panelRow = cursorRow - viewportStart
+        val prefix = if (cursorRow == 0) "> " else "  "
+        val termRow = termHeight - INPUT_PANEL_ROWS + panelRow
+        val termCol = 2 + prefix.length + cursorCol // +1 for ║ border, +1 for ANSI 1-based indexing
+        return "\u001B[$termRow;${termCol}H"
     }
 
     private fun renderHistoryLines(innerWidth: Int): List<String> {

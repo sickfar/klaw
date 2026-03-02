@@ -7,14 +7,19 @@ import io.github.klaw.cli.chat.ChatSession
 import io.github.klaw.cli.chat.ChatTui
 import io.github.klaw.cli.chat.ChatWebSocketClient
 import io.github.klaw.cli.chat.ConsoleChatConfig
+import io.github.klaw.cli.chat.KeyParser
 import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.chat.readRawByte
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.common.protocol.ChatFrame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import platform.posix.exit
@@ -51,11 +56,13 @@ internal class ChatCommand(
         echo("Or re-run: klaw init")
     }
 
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     private suspend fun CoroutineScope.runChat(wsUrl: String) {
-        val sendChannel = Channel<String>(Channel.UNLIMITED)
+        val sendChannel = Channel<ChatFrame>(Channel.UNLIMITED)
         val events = Channel<ChatEvent>(Channel.UNLIMITED)
         val session = sessionFactory(wsUrl)
         val tui = ChatTui()
+        var spinnerJob: Job? = null
 
         tui.init()
         try {
@@ -64,8 +71,23 @@ internal class ChatCommand(
                     try {
                         session.connect(
                             onFrame = { frame ->
-                                if (frame.type == "assistant") {
-                                    events.send(ChatEvent.MessageReceived(frame.content))
+                                when (frame.type) {
+                                    "assistant" -> {
+                                        events.send(ChatEvent.MessageReceived(frame.content))
+                                    }
+
+                                    "status" -> {
+                                        events.send(ChatEvent.StatusUpdate(frame.content))
+                                    }
+
+                                    "approval_request" -> {
+                                        val id = frame.approvalId ?: return@connect
+                                        val riskScore = frame.riskScore ?: 0
+                                        val timeout = frame.timeout ?: 0
+                                        events.send(
+                                            ChatEvent.ApprovalRequest(id, frame.content, riskScore, timeout),
+                                        )
+                                    }
                                 }
                             },
                             outgoing = sendChannel,
@@ -92,77 +114,58 @@ internal class ChatCommand(
 
             val stdinJob =
                 launch(Dispatchers.Default) {
-                    var escState = 0 // 0=none, 1=got ESC, 2=got ESC+[
+                    val keyParser = KeyParser()
                     while (true) {
                         val byte = readRawByte() ?: break
-                        when (escState) {
-                            1 -> {
-                                escState = if (byte == 0x5B) 2 else 0 // '[' → wait for direction
-                            }
-
-                            2 -> {
-                                escState = 0 // consume direction byte (A/B/C/D), ignore
-                            }
-
-                            else -> {
-                                val event =
-                                    when (byte) {
-                                        0x1B -> {
-                                            escState = 1
-                                            null
-                                        }
-
-                                        3 -> {
-                                            ChatEvent.Quit
-                                        }
-
-                                        127 -> {
-                                            ChatEvent.Backspace
-                                        }
-
-                                        13, 10 -> {
-                                            ChatEvent.Enter
-                                        }
-
-                                        else -> {
-                                            if (byte >= 32) ChatEvent.KeyPressed(byte.toChar()) else null
-                                        }
-                                    }
-                                if (event != null && events.trySend(event).isFailure) break
-                            }
-                        }
+                        val event = keyParser.feed(byte)
+                        if (event != null && events.trySend(event).isFailure) break
                     }
                 }
 
             for (event in events) {
                 when (event) {
                     is ChatEvent.MessageReceived -> {
+                        spinnerJob?.cancel()
+                        spinnerJob = null
+                        tui.setStatus("")
                         tui.addMessage(ChatTui.Message("assistant", event.content))
                         tui.redrawFull()
                     }
 
                     is ChatEvent.KeyPressed -> {
-                        tui.appendInput(event.char)
-                        tui.redrawInputLine()
+                        if (tui.isApprovalMode()) {
+                            handleApprovalKey(event.text, tui, sendChannel)
+                        } else {
+                            tui.appendInput(event.text)
+                            tui.redrawInputPanel()
+                        }
                     }
 
                     ChatEvent.Backspace -> {
-                        tui.deleteLastInput()
-                        tui.redrawInputLine()
+                        if (!tui.isApprovalMode()) {
+                            tui.deleteLastInput()
+                            tui.redrawInputPanel()
+                        }
                     }
 
                     ChatEvent.Enter -> {
-                        val text = tui.submitInput()
-                        if (text.isNotBlank()) {
-                            if (text == "/exit" || text == "/quit") {
-                                events.close()
-                                break
-                            }
-                            tui.addMessage(ChatTui.Message("user", text))
-                            sendChannel.send(text)
-                            tui.redrawFull()
+                        if (tui.isApprovalMode()) {
+                            handleApprovalKey("y", tui, sendChannel)
                         } else {
-                            tui.redrawInputLine()
+                            val text = tui.submitInput()
+                            if (text.isNotBlank()) {
+                                if (text == "/exit" || text == "/quit") {
+                                    events.close()
+                                    break
+                                }
+                                tui.addMessage(ChatTui.Message("user", text))
+                                sendChannel.send(ChatFrame(type = "user", content = text))
+                                tui.setStatus("Thinking...")
+                                spinnerJob = launchSpinner(tui)
+                                tui.redrawFull()
+                            } else {
+                                tui.redrawInputPanel()
+                            }
                         }
                     }
 
@@ -170,9 +173,72 @@ internal class ChatCommand(
                         events.close()
                         break
                     }
+
+                    is ChatEvent.ArrowKey -> {
+                        if (!tui.isApprovalMode()) {
+                            when (event.direction) {
+                                ChatEvent.ArrowKey.Direction.LEFT -> tui.moveLeft()
+                                ChatEvent.ArrowKey.Direction.RIGHT -> tui.moveRight()
+                                ChatEvent.ArrowKey.Direction.UP -> tui.moveUp()
+                                ChatEvent.ArrowKey.Direction.DOWN -> tui.moveDown()
+                            }
+                            tui.redrawInputPanel()
+                        }
+                    }
+
+                    ChatEvent.Delete -> {
+                        if (!tui.isApprovalMode()) {
+                            tui.deleteForward()
+                            tui.redrawInputPanel()
+                        }
+                    }
+
+                    ChatEvent.Home -> {
+                        if (!tui.isApprovalMode()) {
+                            tui.moveHome()
+                            tui.redrawInputPanel()
+                        }
+                    }
+
+                    ChatEvent.End -> {
+                        if (!tui.isApprovalMode()) {
+                            tui.moveEnd()
+                            tui.redrawInputPanel()
+                        }
+                    }
+
+                    ChatEvent.NewLine -> {
+                        if (!tui.isApprovalMode()) {
+                            tui.insertNewline()
+                            tui.redrawInputPanel()
+                        }
+                    }
+
+                    is ChatEvent.StatusUpdate -> {
+                        if (event.status.isNotEmpty()) {
+                            tui.setStatus(event.status)
+                            if (spinnerJob?.isActive != true) {
+                                spinnerJob = launchSpinner(tui)
+                            }
+                        } else {
+                            spinnerJob?.cancel()
+                            spinnerJob = null
+                            tui.setStatus("")
+                        }
+                        tui.redrawFull()
+                    }
+
+                    is ChatEvent.ApprovalRequest -> {
+                        spinnerJob?.cancel()
+                        spinnerJob = null
+                        tui.setStatus("")
+                        tui.showApproval(event.id, event.command, event.riskScore, event.timeout)
+                        tui.redrawFull()
+                    }
                 }
             }
 
+            spinnerJob?.cancel()
             wsJob.cancel()
             stdinJob.cancel()
         } finally {
@@ -181,5 +247,40 @@ internal class ChatCommand(
             sendChannel.close()
             exit(0) // stdinJob is blocked in native read() — force exit after cleanup
         }
+    }
+
+    private suspend fun handleApprovalKey(
+        text: String,
+        tui: ChatTui,
+        sendChannel: Channel<ChatFrame>,
+    ) {
+        val char = text.firstOrNull() ?: return
+        val approved =
+            when (char.lowercaseChar()) {
+                'y' -> true
+                'n' -> false
+                else -> return
+            }
+        val result = tui.resolveApproval(approved)
+        if (result != null) {
+            val (id, wasApproved) = result
+            sendChannel.send(
+                ChatFrame(type = "approval_response", approvalId = id, approved = wasApproved),
+            )
+            tui.redrawFull()
+        }
+    }
+
+    private fun CoroutineScope.launchSpinner(tui: ChatTui): Job =
+        launch {
+            while (isActive) {
+                delay(SPINNER_INTERVAL_MS)
+                tui.tickSpinner()
+                tui.redrawSeparator()
+            }
+        }
+
+    private companion object {
+        const val SPINNER_INTERVAL_MS = 100L
     }
 }

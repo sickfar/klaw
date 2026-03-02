@@ -109,6 +109,18 @@ klaw chat --url ws://sickfar-pi.local:37474/chat
 Options:
 - `--url URL` — connect to a specific gateway WebSocket URL, bypassing the `enabled` check in `gateway.json`
 
+**Input:**
+- **Enter** — send message
+- **Alt+Enter** — insert newline (multi-line input)
+- **Arrow keys** — move cursor within input
+- **Home / End** — jump to start/end of current line
+- **Delete** — forward delete
+- **Backspace** — delete before cursor
+
+**Status indicator:** A spinner appears in the separator bar while the agent is processing your message.
+
+**Tool approval:** When the agent requests tool execution approval, the TUI shows an `Approve: <command>? [Y/n]` prompt. Press `Y` to approve or `N` to reject.
+
 **Requirements:** The console channel must be enabled in `gateway.json`. If it is not, `klaw chat` prints an actionable error with instructions.
 
 **Enabling:** Run `klaw init` and answer `y` at the WebSocket chat setup phase, or add to `gateway.json`:

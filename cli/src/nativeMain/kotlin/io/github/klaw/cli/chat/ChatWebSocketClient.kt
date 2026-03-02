@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 internal interface ChatSession {
     suspend fun connect(
         onFrame: suspend (ChatFrame) -> Unit,
-        outgoing: ReceiveChannel<String>,
+        outgoing: ReceiveChannel<ChatFrame>,
     )
 
     fun close()
@@ -25,18 +25,23 @@ internal interface ChatSession {
 internal class ChatWebSocketClient(
     private val url: String,
 ) : ChatSession {
-    private val client = HttpClient(CIO) { install(WebSockets) }
+    private val client =
+        HttpClient(CIO) {
+            install(WebSockets) {
+                pingIntervalMillis = PING_INTERVAL_MS
+            }
+        }
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun connect(
         onFrame: suspend (ChatFrame) -> Unit,
-        outgoing: ReceiveChannel<String>,
+        outgoing: ReceiveChannel<ChatFrame>,
     ) {
         client.webSocket(url) {
             val sendJob =
                 launch {
-                    for (text in outgoing) {
-                        send(Frame.Text(json.encodeToString(ChatFrame.serializer(), ChatFrame(type = "user", content = text))))
+                    for (chatFrame in outgoing) {
+                        send(Frame.Text(json.encodeToString(ChatFrame.serializer(), chatFrame)))
                     }
                 }
             try {
@@ -54,5 +59,9 @@ internal class ChatWebSocketClient(
 
     override fun close() {
         client.close()
+    }
+
+    private companion object {
+        const val PING_INTERVAL_MS = 30_000L
     }
 }
