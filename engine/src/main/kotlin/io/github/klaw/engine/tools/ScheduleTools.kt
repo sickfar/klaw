@@ -11,11 +11,13 @@ class ScheduleTools(
 
     suspend fun add(
         name: String,
-        cron: String,
+        cron: String?,
+        at: String?,
         message: String,
         model: String? = null,
         injectInto: String? = null,
-    ): String = scheduler.add(name, cron, message, model, injectInto)
+        channel: String? = null,
+    ): String = scheduler.add(name, cron, at, message, model, injectInto, channel)
 
     suspend fun remove(name: String): String = scheduler.remove(name)
 }

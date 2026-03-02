@@ -31,6 +31,7 @@ class ScheduledMessageJob(
                 message = data.getString("message"),
                 model = data.getString("model"),
                 injectInto = data.getString("injectInto"),
+                channel = data.getString("channel"),
             )
         @Suppress("TooGenericExceptionCaught")
         try {

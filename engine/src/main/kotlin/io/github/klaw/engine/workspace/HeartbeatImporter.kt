@@ -47,7 +47,7 @@ class HeartbeatImporter(
         }
         runBlocking {
             tasks.forEach { task ->
-                val result = scheduler.add(task.name, task.cron, task.message, task.model, task.injectInto)
+                val result = scheduler.add(task.name, task.cron, null, task.message, task.model, task.injectInto, null)
                 if (result.startsWith("Error")) {
                     logger.warn { "HeartbeatImporter: failed to import task=${task.name}" }
                 } else {

@@ -80,11 +80,13 @@ class CliCommandDispatcher(
     @Suppress("ReturnCount")
     private suspend fun handleScheduleAdd(params: Map<String, String>): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
-        val cron = params["cron"] ?: return """{"error":"missing cron"}"""
+        val cron = params["cron"]
+        val at = params["at"]
         val message = params["message"] ?: return """{"error":"missing message"}"""
         val model = params["model"]
         val injectInto = params["inject_into"]
-        return klawScheduler.add(name, cron, message, model, injectInto)
+        val channel = params["channel"]
+        return klawScheduler.add(name, cron, at, message, model, injectInto, channel)
     }
 
     private suspend fun handleScheduleRemove(params: Map<String, String>): String {

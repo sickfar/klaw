@@ -19,17 +19,31 @@ class ScheduleToolsTest {
         }
 
     @Test
-    fun `add delegates to scheduler`() =
+    fun `add with cron delegates to scheduler`() =
         runTest {
-            coEvery { scheduler.add("daily", "0 9 * * *", "hello", null, null) } returns "OK: added"
-            assertEquals("OK: added", tools.add("daily", "0 9 * * *", "hello"))
+            coEvery { scheduler.add("daily", "0 9 * * *", null, "hello", null, null, null) } returns "OK: added"
+            assertEquals("OK: added", tools.add("daily", "0 9 * * *", null, "hello"))
         }
 
     @Test
-    fun `add with model and injectInto delegates to scheduler`() =
+    fun `add with at delegates to scheduler`() =
         runTest {
-            coEvery { scheduler.add("daily", "0 9 * * *", "hello", "gpt-4", "chat:123") } returns "OK: added"
-            assertEquals("OK: added", tools.add("daily", "0 9 * * *", "hello", "gpt-4", "chat:123"))
+            coEvery {
+                scheduler.add("once", null, "2026-01-01T09:00:00Z", "hello", null, null, null)
+            } returns "OK: added"
+            assertEquals("OK: added", tools.add("once", null, "2026-01-01T09:00:00Z", "hello"))
+        }
+
+    @Test
+    fun `add with all params delegates to scheduler`() =
+        runTest {
+            coEvery {
+                scheduler.add("daily", "0 9 * * *", null, "hello", "gpt-4", "chat:123", "telegram")
+            } returns "OK: added"
+            assertEquals(
+                "OK: added",
+                tools.add("daily", "0 9 * * *", null, "hello", "gpt-4", "chat:123", "telegram"),
+            )
         }
 
     @Test

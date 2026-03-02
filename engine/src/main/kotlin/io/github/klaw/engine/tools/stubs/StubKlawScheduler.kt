@@ -9,10 +9,12 @@ class StubKlawScheduler : KlawScheduler {
 
     override suspend fun add(
         name: String,
-        cron: String,
+        cron: String?,
+        at: String?,
         message: String,
         model: String?,
         injectInto: String?,
+        channel: String?,
     ): String = "Scheduler not yet implemented"
 
     override suspend fun remove(name: String): String = "Scheduler not yet implemented"
