@@ -1,0 +1,106 @@
+package io.github.klaw.cli.update
+
+import io.github.klaw.cli.init.DeployMode
+import io.github.klaw.cli.init.KlawService
+import io.github.klaw.cli.init.ServiceManager
+import io.github.klaw.cli.init.chmodExecutable
+import kotlin.experimental.ExperimentalNativeApi
+
+@Suppress("LongParameterList")
+internal class UpdateExecutor(
+    private val configDir: String,
+    private val mode: DeployMode,
+    private val release: GitHubRelease,
+    private val printer: (String) -> Unit,
+    private val commandRunner: (String) -> Int,
+    private val readLine: () -> String?,
+    private val binaryPath: String = "/usr/local/bin/klaw",
+    private val jarDir: String = "/usr/local/lib/klaw",
+) {
+    private val downloader = Downloader(commandRunner)
+
+    fun execute() {
+        when (mode) {
+            DeployMode.DOCKER -> executeDocker()
+            DeployMode.HYBRID -> executeHybrid()
+            DeployMode.NATIVE -> executeNative()
+        }
+    }
+
+    private fun executeDocker() {
+        val composeFile = "/app/docker-compose.json"
+        printer("Pulling Docker images...")
+        commandRunner("docker compose -f '$composeFile' pull")
+        if (promptRestart()) {
+            commandRunner("docker compose -f '$composeFile' up -d")
+        }
+    }
+
+    private fun executeHybrid() {
+        val composeFile = "$configDir/docker-compose.json"
+        printer("Pulling Docker images...")
+        commandRunner("docker compose -f '$composeFile' pull")
+        downloadCliBinary()
+        if (promptRestart()) {
+            commandRunner("docker compose -f '$composeFile' up -d")
+        }
+    }
+
+    private fun executeNative() {
+        downloadCliBinary()
+        downloadJars()
+        if (promptRestart()) {
+            restartNativeServices()
+        }
+    }
+
+    private fun downloadCliBinary() {
+        val assetName = cliAssetName()
+        val asset = release.assets.firstOrNull { it.name == assetName }
+        if (asset == null) {
+            printer("CLI binary asset '$assetName' not found in release")
+            return
+        }
+        printer("Downloading CLI binary...")
+        if (downloader.downloadAndReplace(asset.browserDownloadUrl, binaryPath)) {
+            chmodExecutable(binaryPath)
+            printer("CLI binary updated")
+        } else {
+            printer("Failed to download CLI binary")
+        }
+    }
+
+    private fun downloadJars() {
+        downloadJar("engine")
+        downloadJar("gateway")
+    }
+
+    private fun downloadJar(component: String) {
+        val prefix = jarAssetPrefix(component)
+        val asset = release.assets.firstOrNull { it.name.startsWith(prefix) }
+        if (asset == null) {
+            printer("JAR asset for '$component' not found in release")
+            return
+        }
+        printer("Downloading $component JAR...")
+        val destPath = "$jarDir/${asset.name}"
+        if (downloader.downloadAndReplace(asset.browserDownloadUrl, destPath)) {
+            printer("$component JAR updated")
+        } else {
+            printer("Failed to download $component JAR")
+        }
+    }
+
+    @OptIn(ExperimentalNativeApi::class)
+    private fun restartNativeServices() {
+        val serviceManager = ServiceManager(printer, commandRunner, mode)
+        serviceManager.restart(KlawService.ENGINE)
+        serviceManager.restart(KlawService.GATEWAY)
+    }
+
+    private fun promptRestart(): Boolean {
+        printer("Restart services now? [y/N]: ")
+        val answer = readLine()?.trim() ?: return false
+        return answer.equals("y", ignoreCase = true) || answer.equals("yes", ignoreCase = true)
+    }
+}

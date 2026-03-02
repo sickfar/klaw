@@ -223,7 +223,10 @@ class ArgParsingTest {
             )
         val result = cli.test("--version")
         assertEquals(0, result.statusCode)
-        assertTrue(result.output.contains("0.1.0"), "Output should contain version string, got: ${result.output}")
+        assertTrue(
+            result.output.contains(BuildConfig.VERSION),
+            "Output should contain version string, got: ${result.output}",
+        )
     }
 
     @Test

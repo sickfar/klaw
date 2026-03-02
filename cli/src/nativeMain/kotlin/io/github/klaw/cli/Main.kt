@@ -20,8 +20,11 @@ import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
+import io.github.klaw.cli.command.UpdateCommand
 import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.socket.EngineSocketClient
+import io.github.klaw.cli.update.GitHubReleaseClient
+import io.github.klaw.cli.update.GitHubReleaseClientImpl
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.runCommandOutput
 import io.github.klaw.common.paths.KlawPaths
@@ -40,7 +43,7 @@ internal fun defaultEngineRequest(): EngineRequest =
     }
 
 @Suppress("LongParameterList")
-class KlawCli(
+internal class KlawCli(
     requestFn: EngineRequest = defaultEngineRequest(),
     conversationsDir: String = KlawPaths.conversations,
     engineChecker: () -> Boolean = { checkTcpPort(KlawPaths.engineHost, KlawPaths.enginePort) },
@@ -48,6 +51,8 @@ class KlawCli(
     modelsDir: String = KlawPaths.models,
     workspaceDir: String = KlawPaths.workspace,
     commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
+    releaseClient: GitHubReleaseClient = GitHubReleaseClientImpl(),
+    readLine: () -> String? = ::readlnOrNull,
     doctorCommandOutput: (String) -> String? = ::runCommandOutput,
     private val logDir: String = KlawPaths.logs,
 ) : CliktCommand(name = "klaw") {
@@ -71,6 +76,7 @@ class KlawCli(
             EngineCommand(commandRunner, configDir),
             GatewayCommand(commandRunner, configDir),
             StopCommand(commandRunner, configDir),
+            UpdateCommand(configDir, releaseClient, commandRunner, readLine),
         )
     }
 

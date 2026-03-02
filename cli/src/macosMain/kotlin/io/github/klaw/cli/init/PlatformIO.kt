@@ -18,3 +18,8 @@ internal actual fun chmodReadWrite(path: String) {
 internal actual fun chmodWorldRwx(path: String) {
     chmod(path, 0x1FFu.toUShort()) // 0777 as UShort (mode_t on macOS)
 }
+
+@OptIn(ExperimentalForeignApi::class)
+internal actual fun chmodExecutable(path: String) {
+    chmod(path, 0x1EDu.toUShort()) // 0755 as UShort (mode_t on macOS)
+}

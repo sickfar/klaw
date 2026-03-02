@@ -5,6 +5,7 @@ plugins {
 
 val generateBuildConfig by tasks.registering {
     val outputDir = layout.buildDirectory.dir("generated/buildconfig/nativeMain/io/github/klaw/cli")
+    inputs.property("version", rootProject.version.toString())
     outputs.dir(outputDir)
     doLast {
         val dir = outputDir.get().asFile
@@ -25,6 +26,11 @@ val generateBuildConfig by tasks.registering {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile>().configureEach {
+    dependsOn(generateBuildConfig)
+}
+
+// Ensure ktlint sees generated sources
+tasks.matching { it.name.contains("runKtlintCheck") || it.name.contains("runKtlintFormat") }.configureEach {
     dependsOn(generateBuildConfig)
 }
 

@@ -19,7 +19,6 @@ internal class GitHubReleaseClientImpl(
     private val owner: String = BuildConfig.GITHUB_OWNER,
     private val repo: String = BuildConfig.GITHUB_REPO,
 ) : GitHubReleaseClient {
-    private val client = HttpClient(CIO)
     private val json = Json { ignoreUnknownKeys = true }
     private val baseUrl = "https://api.github.com/repos/$owner/$repo/releases"
 
@@ -27,8 +26,9 @@ internal class GitHubReleaseClientImpl(
 
     override suspend fun fetchByTag(tag: String): GitHubRelease? = fetchRelease("$baseUrl/tags/$tag")
 
-    private suspend fun fetchRelease(url: String): GitHubRelease? =
-        try {
+    private suspend fun fetchRelease(url: String): GitHubRelease? {
+        val client = HttpClient(CIO)
+        return try {
             val response =
                 client.get(url) {
                     headers {
@@ -45,8 +45,10 @@ internal class GitHubReleaseClientImpl(
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
-            // CancellationException is not swallowed since we use try-catch (not runCatching)
             if (e is kotlinx.coroutines.CancellationException) throw e
             null
+        } finally {
+            client.close()
         }
+    }
 }
