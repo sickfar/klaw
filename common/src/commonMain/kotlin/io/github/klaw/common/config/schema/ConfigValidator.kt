@@ -82,18 +82,21 @@ private fun validateObject(
 
     // Property schemas
     val properties = schema["properties"]?.jsonObject
+    val addlProps = schema["additionalProperties"]
+    val rejectUnknown = addlProps is JsonPrimitive && addlProps.content == "false"
+
     if (properties != null) {
         for ((key, value) in obj) {
             val propSchema = properties[key]?.jsonObject
             if (propSchema != null) {
                 validate(propSchema, value, "$path.$key", errors)
+            } else if (rejectUnknown) {
+                errors.add(ValidationError("$path.$key", "Unknown property"))
             }
-            // Unknown keys: no error (additionalProperties defaults to true)
         }
     }
 
     // additionalProperties as schema (for map types)
-    val addlProps = schema["additionalProperties"]
     if (addlProps is JsonObject && properties == null) {
         // This is a map type — validate each value against the additionalProperties schema
         for ((key, value) in obj) {

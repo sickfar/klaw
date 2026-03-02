@@ -1,6 +1,7 @@
 package io.github.klaw.cli.command
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.init.DeployMode
@@ -31,10 +32,24 @@ internal class DoctorCommand(
     private val modelsDir: String = KlawPaths.models,
     private val workspaceDir: String = KlawPaths.workspace,
     private val commandOutput: (String) -> String? = ::runCommandOutput,
+    private val commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
 ) : CliktCommand(name = "doctor") {
+    override val invokeWithoutSubcommand = true
     private val dumpSchema by option("--dump-schema")
 
+    init {
+        subcommands(
+            DoctorFixCommand(
+                configDir = configDir,
+                workspaceDir = workspaceDir,
+                engineChecker = engineChecker,
+                commandRunner = commandRunner,
+            ),
+        )
+    }
+
     override fun run() {
+        if (currentContext.invokedSubcommand != null) return
         CliLogger.debug { "running doctor checks" }
         // Handle --dump-schema early exit
         dumpSchema?.let { target ->

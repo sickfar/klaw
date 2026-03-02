@@ -70,7 +70,7 @@ internal class KlawCli(
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
             MemoryCommand(requestFn, workspaceDir),
-            DoctorCommand(configDir, engineChecker, modelsDir, workspaceDir, doctorCommandOutput),
+            DoctorCommand(configDir, engineChecker, modelsDir, workspaceDir, doctorCommandOutput, commandRunner),
             ConfigCommand(configDir),
             IdentityCommand(workspaceDir, commandRunner),
             EngineCommand(commandRunner, configDir),

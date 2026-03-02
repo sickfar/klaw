@@ -32,56 +32,83 @@ class ComposeConfigSchemaTest {
     }
 
     @Test
-    fun `services is object with optional properties engine and gateway`() {
+    fun `services is map with service schema as additionalProperties`() {
         val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
         assertEquals("object", services["type"]?.jsonPrimitive?.content)
-        val serviceProps = services["properties"]!!.jsonObject
-        assertNotNull(serviceProps["engine"], "Expected engine in services properties")
-        assertNotNull(serviceProps["gateway"], "Expected gateway in services properties")
+        val serviceSchema = services["additionalProperties"]!!.jsonObject
+        assertEquals("object", serviceSchema["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `engine service has required image`() {
-        val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
-        val engine = services["properties"]!!.jsonObject["engine"]!!.jsonObject
-        val required = engine["required"]!!.jsonArray.map { it.jsonPrimitive.content }
+    fun `service schema has required image`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val required = serviceSchema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
         assertContains(required, "image")
     }
 
     @Test
-    fun `engine volumes is array of strings`() {
-        val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
-        val engine = services["properties"]!!.jsonObject["engine"]!!.jsonObject
-        val volumes = engine["properties"]!!.jsonObject["volumes"]!!.jsonObject
+    fun `service volumes is array of strings`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val volumes = serviceSchema["properties"]!!.jsonObject["volumes"]!!.jsonObject
         assertEquals("array", volumes["type"]?.jsonPrimitive?.content)
         val items = volumes["items"]!!.jsonObject
         assertEquals("string", items["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `engine environment is object with string additionalProperties`() {
-        val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
-        val engine = services["properties"]!!.jsonObject["engine"]!!.jsonObject
-        val env = engine["properties"]!!.jsonObject["environment"]!!.jsonObject
+    fun `service environment is object with string additionalProperties`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val env = serviceSchema["properties"]!!.jsonObject["environment"]!!.jsonObject
         assertEquals("object", env["type"]?.jsonPrimitive?.content)
         val addlProps = env["additionalProperties"]!!.jsonObject
         assertEquals("string", addlProps["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `engine env_file is string type`() {
-        val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
-        val engine = services["properties"]!!.jsonObject["engine"]!!.jsonObject
-        val envFile = engine["properties"]!!.jsonObject["env_file"]!!.jsonObject
+    fun `service env_file is string type`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val envFile = serviceSchema["properties"]!!.jsonObject["env_file"]!!.jsonObject
         assertEquals("string", envFile["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `engine restart is string type`() {
-        val services = schema["properties"]!!.jsonObject["services"]!!.jsonObject
-        val engine = services["properties"]!!.jsonObject["engine"]!!.jsonObject
-        val restart = engine["properties"]!!.jsonObject["restart"]!!.jsonObject
+    fun `service restart is string type`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val restart = serviceSchema["properties"]!!.jsonObject["restart"]!!.jsonObject
         assertEquals("string", restart["type"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `service ports is array of strings`() {
+        val serviceSchema =
+            schema["properties"]!!
+                .jsonObject["services"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val ports = serviceSchema["properties"]!!.jsonObject["ports"]!!.jsonObject
+        assertEquals("array", ports["type"]?.jsonPrimitive?.content)
+        val items = ports["items"]!!.jsonObject
+        assertEquals("string", items["type"]?.jsonPrimitive?.content)
     }
 
     @Test

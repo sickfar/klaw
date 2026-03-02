@@ -26,3 +26,15 @@ kotlin {
         }
     }
 }
+
+val generateSchemas by tasks.registering(JavaExec::class) {
+    description = "Regenerate schema JSON files and GeneratedSchemas.kt from config data classes"
+    group = "generation"
+    dependsOn("compileKotlinJvm")
+    val jvmMain = kotlin.jvm().compilations["main"]
+    classpath = jvmMain.output.allOutputs + jvmMain.runtimeDependencyFiles!!
+    mainClass.set("io.github.klaw.common.config.schema.SchemaGeneratorMainKt")
+    val schemaDir = rootProject.file("doc/config")
+    val kotlinDir = file("src/commonMain/kotlin/io/github/klaw/common/config/schema")
+    args = listOf(schemaDir.absolutePath, kotlinDir.absolutePath)
+}

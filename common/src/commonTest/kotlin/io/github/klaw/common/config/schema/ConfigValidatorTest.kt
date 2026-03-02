@@ -119,7 +119,7 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `unknown keys produce no errors`() {
+    fun `unknown keys produce errors with additionalProperties false`() {
         val json =
             parse(
                 """
@@ -135,7 +135,30 @@ class ConfigValidatorTest {
             """,
             )
         val errors = validateConfig(schema, json)
-        assertEquals(emptyList(), errors, "Unknown keys should not produce errors: $errors")
+        assertTrue(
+            errors.any { ".someUnknownField" in it.path && "Unknown" in it.message },
+            "Unknown keys should produce errors: $errors",
+        )
+    }
+
+    @Test
+    fun `unknown keys in map values produce no errors`() {
+        // Providers is a map — any key is valid
+        val json =
+            parse(
+                """
+            {
+              "providers": {"custom-provider": {"type": "openai-compatible", "endpoint": "http://localhost"}},
+              "models": {},
+              "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
+              "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
+              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+            }
+            """,
+            )
+        val errors = validateConfig(schema, json)
+        assertEquals(emptyList(), errors, "Map keys should not produce errors: $errors")
     }
 
     @Test

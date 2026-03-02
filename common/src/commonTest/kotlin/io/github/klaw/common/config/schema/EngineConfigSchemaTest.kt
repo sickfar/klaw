@@ -96,10 +96,10 @@ class EngineConfigSchemaTest {
     }
 
     @Test
-    fun `additionalProperties is true at top level`() {
+    fun `additionalProperties is false at top level`() {
         val addlProps = schema["additionalProperties"]
         assertNotNull(addlProps)
-        assertEquals(true, (addlProps as? JsonPrimitive)?.content?.toBooleanStrictOrNull())
+        assertEquals(false, (addlProps as? JsonPrimitive)?.content?.toBooleanStrictOrNull())
     }
 
     @Test

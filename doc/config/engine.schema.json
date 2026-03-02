@@ -20,7 +20,8 @@
                 "required": [
                     "type",
                     "endpoint"
-                ]
+                ],
+                "additionalProperties": false
             }
         },
         "models": {
@@ -37,7 +38,8 @@
                     "temperature": {
                         "type": "number"
                     }
-                }
+                },
+                "additionalProperties": false
             }
         },
         "routing": {
@@ -65,13 +67,15 @@
                     "required": [
                         "summarization",
                         "subagent"
-                    ]
+                    ],
+                    "additionalProperties": false
                 }
             },
             "required": [
                 "default",
                 "tasks"
-            ]
+            ],
+            "additionalProperties": false
         },
         "memory": {
             "type": "object",
@@ -89,7 +93,8 @@
                     "required": [
                         "type",
                         "model"
-                    ]
+                    ],
+                    "additionalProperties": false
                 },
                 "chunking": {
                     "type": "object",
@@ -106,7 +111,8 @@
                     "required": [
                         "size",
                         "overlap"
-                    ]
+                    ],
+                    "additionalProperties": false
                 },
                 "search": {
                     "type": "object",
@@ -118,14 +124,16 @@
                     },
                     "required": [
                         "topK"
-                    ]
+                    ],
+                    "additionalProperties": false
                 }
             },
             "required": [
                 "embedding",
                 "chunking",
                 "search"
-            ]
+            ],
+            "additionalProperties": false
         },
         "context": {
             "type": "object",
@@ -147,7 +155,8 @@
                 "defaultBudgetTokens",
                 "slidingWindow",
                 "subagentHistory"
-            ]
+            ],
+            "additionalProperties": false
         },
         "processing": {
             "type": "object",
@@ -177,7 +186,8 @@
                 "debounceMs",
                 "maxConcurrentLlm",
                 "maxToolCallRounds"
-            ]
+            ],
+            "additionalProperties": false
         },
         "llm": {
             "type": "object",
@@ -198,7 +208,8 @@
                     "type": "number",
                     "minimum": 1.0
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "logging": {
             "type": "object",
@@ -206,7 +217,8 @@
                 "subagentConversations": {
                     "type": "boolean"
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "codeExecution": {
             "type": "object",
@@ -244,7 +256,8 @@
                         "type": "string"
                     }
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "files": {
             "type": "object",
@@ -253,7 +266,8 @@
                     "type": "integer",
                     "exclusiveMinimum": 0
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "commands": {
             "type": "array",
@@ -270,7 +284,8 @@
                 "required": [
                     "name",
                     "description"
-                ]
+                ],
+                "additionalProperties": false
             }
         },
         "compatibility": {
@@ -294,11 +309,14 @@
                                 "userMd": {
                                     "type": "boolean"
                                 }
-                            }
+                            },
+                            "additionalProperties": false
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "autoRag": {
             "type": "object",
@@ -322,7 +340,8 @@
                     "type": "integer",
                     "exclusiveMinimum": 0
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "docs": {
             "type": "object",
@@ -330,7 +349,18 @@
                 "enabled": {
                     "type": "boolean"
                 }
-            }
+            },
+            "additionalProperties": false
+        },
+        "skills": {
+            "type": "object",
+            "properties": {
+                "maxInlineSkills": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "additionalProperties": false
         },
         "hostExecution": {
             "type": "object",
@@ -367,13 +397,15 @@
                             "type": "integer",
                             "exclusiveMinimum": 0
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "askTimeoutMin": {
                     "type": "integer",
                     "exclusiveMinimum": 0
                 }
-            }
+            },
+            "additionalProperties": false
         }
     },
     "required": [
@@ -384,5 +416,5 @@
         "context",
         "processing"
     ],
-    "additionalProperties": true
+    "additionalProperties": false
 }

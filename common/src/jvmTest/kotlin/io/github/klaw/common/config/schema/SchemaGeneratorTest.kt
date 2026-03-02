@@ -1,5 +1,8 @@
 package io.github.klaw.common.config.schema
 
+import io.github.klaw.common.config.ComposeConfig
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.GatewayConfig
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.io.File
@@ -24,8 +27,7 @@ class SchemaGeneratorTest {
         assertEquals(
             expected,
             file.readText(),
-            "engine.schema.json is out of date — regenerate with: " +
-                "klaw doctor --dump-schema engine > doc/config/engine.schema.json",
+            "engine.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
         )
     }
 
@@ -36,8 +38,7 @@ class SchemaGeneratorTest {
         assertEquals(
             expected,
             file.readText(),
-            "gateway.schema.json is out of date — regenerate with: " +
-                "klaw doctor --dump-schema gateway > doc/config/gateway.schema.json",
+            "gateway.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
         )
     }
 
@@ -48,8 +49,40 @@ class SchemaGeneratorTest {
         assertEquals(
             expected,
             file.readText(),
-            "compose.schema.json is out of date — regenerate with: " +
-                "klaw doctor --dump-schema compose > doc/config/compose.schema.json",
+            "compose.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
+        )
+    }
+
+    @Test
+    fun `GeneratedSchemas ENGINE matches generateJsonSchema output`() {
+        val fromGenerator = generateJsonSchema(EngineConfig.serializer().descriptor, engineOverrides())
+        val fromGenerated = engineJsonSchema()
+        assertEquals(
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerator),
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerated),
+            "GeneratedSchemas.ENGINE is out of date — regenerate with: ./gradlew :common:generateSchemas",
+        )
+    }
+
+    @Test
+    fun `GeneratedSchemas GATEWAY matches generateJsonSchema output`() {
+        val fromGenerator = generateJsonSchema(GatewayConfig.serializer().descriptor)
+        val fromGenerated = gatewayJsonSchema()
+        assertEquals(
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerator),
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerated),
+            "GeneratedSchemas.GATEWAY is out of date — regenerate with: ./gradlew :common:generateSchemas",
+        )
+    }
+
+    @Test
+    fun `GeneratedSchemas COMPOSE matches generateJsonSchema output`() {
+        val fromGenerator = generateJsonSchema(ComposeConfig.serializer().descriptor)
+        val fromGenerated = composeJsonSchema()
+        assertEquals(
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerator),
+            prettyJson.encodeToString(JsonObject.serializer(), fromGenerated),
+            "GeneratedSchemas.COMPOSE is out of date — regenerate with: ./gradlew :common:generateSchemas",
         )
     }
 }

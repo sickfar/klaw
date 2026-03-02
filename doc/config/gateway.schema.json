@@ -20,7 +20,8 @@
                     },
                     "required": [
                         "token"
-                    ]
+                    ],
+                    "additionalProperties": false
                 },
                 "discord": {
                     "type": "object",
@@ -31,7 +32,8 @@
                         "token": {
                             "type": "string"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "console": {
                     "type": "object",
@@ -42,9 +44,11 @@
                         "port": {
                             "type": "integer"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 }
-            }
+            },
+            "additionalProperties": false
         },
         "commands": {
             "type": "array",
@@ -61,12 +65,13 @@
                 "required": [
                     "name",
                     "description"
-                ]
+                ],
+                "additionalProperties": false
             }
         }
     },
     "required": [
         "channels"
     ],
-    "additionalProperties": true
+    "additionalProperties": false
 }
