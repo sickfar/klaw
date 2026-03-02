@@ -13,13 +13,14 @@ class UpdateExecutorTest {
     }
     private val printer: (String) -> Unit = { msg -> output += msg }
 
+    private val platformCliAsset = cliAssetName()
+
     private val testRelease =
         GitHubRelease(
             tagName = "v0.2.0",
             assets =
                 listOf(
-                    GitHubAsset("klaw-macosArm64", "https://example.com/klaw-macosArm64"),
-                    GitHubAsset("klaw-linuxArm64", "https://example.com/klaw-linuxArm64"),
+                    GitHubAsset(platformCliAsset, "https://example.com/$platformCliAsset"),
                     GitHubAsset("klaw-engine-0.2.0-all.jar", "https://example.com/klaw-engine-0.2.0-all.jar"),
                     GitHubAsset("klaw-gateway-0.2.0-all.jar", "https://example.com/klaw-gateway-0.2.0-all.jar"),
                 ),
@@ -86,7 +87,7 @@ class UpdateExecutorTest {
             "Expected docker compose pull, got: $commands",
         )
         assertTrue(
-            commands.any { it.contains("curl") && it.contains("klaw-macos") },
+            commands.any { it.contains("curl") && it.contains(platformCliAsset) },
             "Expected curl for CLI binary, got: $commands",
         )
     }
@@ -106,7 +107,7 @@ class UpdateExecutorTest {
     fun `native mode downloads CLI binary and JARs`() {
         executor(mode = DeployMode.NATIVE).execute()
         assertTrue(
-            commands.any { it.contains("curl") && it.contains("klaw-macos") },
+            commands.any { it.contains("curl") && it.contains(platformCliAsset) },
             "Expected curl for CLI binary, got: $commands",
         )
         assertTrue(
