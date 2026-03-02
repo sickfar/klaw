@@ -5,6 +5,8 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.PingMessage
+import io.github.klaw.common.protocol.PongMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -221,6 +223,11 @@ class EngineSocketServer(
                 is ApprovalResponseMessage -> {
                     logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
                     messageHandler.handleApprovalResponse(inMsg)
+                }
+
+                is PingMessage -> {
+                    logger.trace { "Ping received, responding with pong" }
+                    pushMessage(PongMessage)
                 }
 
                 else -> {} // Ignore other SocketMessage types sent by gateway

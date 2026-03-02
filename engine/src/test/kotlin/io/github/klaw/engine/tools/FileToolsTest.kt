@@ -14,7 +14,12 @@ class FileToolsTest {
     @TempDir
     lateinit var workspace: Path
 
-    private fun tools(maxSize: Long = 10_000L): FileTools = FileTools(workspace, maxSize)
+    @TempDir
+    lateinit var stateDir: Path
+
+    private fun tools(maxSize: Long = 10_000L): FileTools = FileTools(listOf(workspace), maxSize)
+
+    private fun toolsMultiPath(maxSize: Long = 10_000L): FileTools = FileTools(listOf(workspace, stateDir), maxSize)
 
     @Test
     fun `file_read reads file from workspace`() =
@@ -294,5 +299,50 @@ class FileToolsTest {
             assertTrue(result.contains("exceeds"), "Expected size error but got: $result")
             // Original file should be unchanged
             assertEquals("ab", Files.readString(workspace.resolve("small.txt")))
+        }
+
+    // --- Multi-path (read-only access to non-workspace directories) ---
+
+    @Test
+    fun `file_read reads from second allowed path using absolute path`() =
+        runTest {
+            val logFile = stateDir.resolve("logs").also { Files.createDirectories(it) }.resolve("engine.log")
+            Files.writeString(logFile, "log line 1\nlog line 2")
+            val result = toolsMultiPath().read(logFile.toAbsolutePath().toString())
+            assertEquals("log line 1\nlog line 2", result)
+        }
+
+    @Test
+    fun `file_read rejects path outside all allowed paths`() =
+        runTest {
+            val result = toolsMultiPath().read("/etc/passwd")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    @Test
+    fun `file_write rejects writes to non-workspace allowed path`() =
+        runTest {
+            val logsDir = stateDir.resolve("logs").also { Files.createDirectories(it) }
+            val absPath = logsDir.resolve("evil.txt").toAbsolutePath().toString()
+            val result = toolsMultiPath().write(absPath, "payload", "overwrite")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    @Test
+    fun `file_list works from non-workspace allowed path using absolute path`() =
+        runTest {
+            val logsDir = stateDir.resolve("logs").also { Files.createDirectories(it) }
+            Files.writeString(logsDir.resolve("engine.log"), "log data")
+            val result = toolsMultiPath().list(logsDir.toAbsolutePath().toString())
+            assertTrue(result.contains("engine.log"), "Expected engine.log in: $result")
+        }
+
+    @Test
+    fun `file_patch rejects patches to non-workspace allowed path`() =
+        runTest {
+            val logFile = stateDir.resolve("logs").also { Files.createDirectories(it) }.resolve("engine.log")
+            Files.writeString(logFile, "old content")
+            val result = toolsMultiPath().patch(logFile.toAbsolutePath().toString(), "old", "new")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
         }
 }

@@ -201,6 +201,30 @@ class SocketProtocolTest {
     }
 
     @Test
+    fun `PingMessage serializes with correct type discriminator`() {
+        val encoded = json.encodeToString<SocketMessage>(PingMessage)
+        assertTrue(encoded.contains(""""type":"ping""""), "Expected type=ping in: $encoded")
+    }
+
+    @Test
+    fun `PingMessage round-trip`() {
+        val encoded = json.encodeToString<SocketMessage>(PingMessage)
+        assertIs<PingMessage>(json.decodeFromString<SocketMessage>(encoded))
+    }
+
+    @Test
+    fun `PongMessage serializes with correct type discriminator`() {
+        val encoded = json.encodeToString<SocketMessage>(PongMessage)
+        assertTrue(encoded.contains(""""type":"pong""""), "Expected type=pong in: $encoded")
+    }
+
+    @Test
+    fun `PongMessage round-trip`() {
+        val encoded = json.encodeToString<SocketMessage>(PongMessage)
+        assertIs<PongMessage>(json.decodeFromString<SocketMessage>(encoded))
+    }
+
+    @Test
     fun `type field dispatches to correct subclass`() {
         val inboundJson = """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
         val outboundJson = """{"type":"outbound","channel":"tg","chatId":"123","content":"resp"}"""
@@ -210,6 +234,8 @@ class SocketProtocolTest {
         val shutdownJson = """{"type":"shutdown"}"""
         val approvalReqJson = """{"type":"approval_request","id":"apr_1","chatId":"123","command":"ls","riskScore":2,"timeout":60}"""
         val approvalRespJson = """{"type":"approval_response","id":"apr_1","approved":true}"""
+        val pingJson = """{"type":"ping"}"""
+        val pongJson = """{"type":"pong"}"""
 
         assertIs<InboundSocketMessage>(json.decodeFromString<SocketMessage>(inboundJson))
         assertIs<OutboundSocketMessage>(json.decodeFromString<SocketMessage>(outboundJson))
@@ -218,5 +244,7 @@ class SocketProtocolTest {
         assertIs<ShutdownMessage>(json.decodeFromString<SocketMessage>(shutdownJson))
         assertIs<ApprovalRequestMessage>(json.decodeFromString<SocketMessage>(approvalReqJson))
         assertIs<ApprovalResponseMessage>(json.decodeFromString<SocketMessage>(approvalRespJson))
+        assertIs<PingMessage>(json.decodeFromString<SocketMessage>(pingJson))
+        assertIs<PongMessage>(json.decodeFromString<SocketMessage>(pongJson))
     }
 }

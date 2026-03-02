@@ -31,7 +31,7 @@ class MessageEmbeddingServiceTest {
     // Stub SqliteVecLoader that reports available
     private val availableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: java.sql.Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = true
         }
@@ -39,7 +39,7 @@ class MessageEmbeddingServiceTest {
     // Stub SqliteVecLoader that reports NOT available
     private val unavailableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: java.sql.Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = false
         }

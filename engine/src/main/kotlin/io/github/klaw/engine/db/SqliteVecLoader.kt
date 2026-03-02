@@ -1,9 +1,9 @@
 package io.github.klaw.engine.db
 
-import java.sql.Connection
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 
 interface SqliteVecLoader {
     fun isAvailable(): Boolean
 
-    fun loadExtension(connection: Connection)
+    fun loadExtension(driver: JdbcSqliteDriver)
 }

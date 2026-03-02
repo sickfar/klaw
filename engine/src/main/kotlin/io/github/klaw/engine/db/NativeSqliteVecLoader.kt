@@ -1,10 +1,10 @@
 package io.github.klaw.engine.db
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
-import java.sql.Connection
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Singleton
@@ -26,7 +26,7 @@ class NativeSqliteVecLoader : SqliteVecLoader {
     override fun isAvailable(): Boolean = resourcePresent && extensionLoadable.get()
 
     @Suppress("TooGenericExceptionCaught")
-    override fun loadExtension(connection: Connection) {
+    override fun loadExtension(driver: JdbcSqliteDriver) {
         if (!isAvailable()) return
         try {
             val resource = javaClass.getResourceAsStream("/native/vec0") ?: return
@@ -43,9 +43,7 @@ class NativeSqliteVecLoader : SqliteVecLoader {
             val tempFile = tempPath.toFile()
             tempFile.deleteOnExit()
             resource.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-            connection.createStatement().use { stmt ->
-                stmt.execute("SELECT load_extension('${tempFile.absolutePath}')")
-            }
+            driver.execute(null, "SELECT load_extension('${tempFile.absolutePath}')", 0)
             logger.info { "sqlite-vec extension loaded successfully" }
         } catch (e: Exception) {
             logger.warn(e) { "Failed to load sqlite-vec extension" }

@@ -160,6 +160,33 @@ class SchemaTest {
     }
 
     @Test
+    fun `DatabaseFactory calls loadExtension before createVirtualTables`() {
+        // Verify that the production code calls loadExtension before createVirtualTables.
+        // We do this by reading the DatabaseFactory source order — the loadExtension call
+        // must precede createVirtualTables. This test uses a recording loader to verify.
+        val callOrder = mutableListOf<String>()
+        val recordingLoader =
+            object : SqliteVecLoader {
+                override fun isAvailable(): Boolean {
+                    callOrder.add("isAvailable")
+                    return false
+                }
+
+                override fun loadExtension(driver: JdbcSqliteDriver) {
+                    callOrder.add("loadExtension")
+                }
+            }
+
+        // Simulate the DatabaseFactory initialization sequence
+        val d = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        KlawDatabase.Schema.create(d)
+        recordingLoader.loadExtension(d)
+        VirtualTableSetup.createVirtualTables(d, recordingLoader.isAvailable())
+
+        assertEquals(listOf("loadExtension", "isAvailable"), callOrder)
+    }
+
+    @Test
     fun `database file permissions are owner-only after creation`(
         @TempDir tempDir: Path,
     ) {

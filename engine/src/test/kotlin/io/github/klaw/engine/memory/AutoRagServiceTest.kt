@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import java.sql.Connection
 
 class AutoRagServiceTest {
     private lateinit var driver: JdbcSqliteDriver
@@ -27,14 +26,14 @@ class AutoRagServiceTest {
 
     private val availableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = true
         }
 
     private val unavailableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = false
         }

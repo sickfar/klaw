@@ -20,6 +20,7 @@ class DatabaseFactory(
         File(dbPath).parentFile?.mkdirs()
         val d = JdbcSqliteDriver("jdbc:sqlite:$dbPath")
         KlawDatabase.Schema.create(d)
+        sqliteVecLoader.loadExtension(d)
         VirtualTableSetup.createVirtualTables(d, sqliteVecLoader.isAvailable())
         setOwnerOnlyPermissions(dbPath)
         d

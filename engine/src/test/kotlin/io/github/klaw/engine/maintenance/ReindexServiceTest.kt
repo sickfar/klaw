@@ -31,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
-import java.sql.Connection
 
 class ReindexServiceTest {
     companion object {
@@ -59,14 +58,14 @@ class ReindexServiceTest {
 
     private val availableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = true
         }
 
     private val unavailableVecLoader =
         object : SqliteVecLoader {
-            override fun loadExtension(connection: Connection) = Unit
+            override fun loadExtension(driver: JdbcSqliteDriver) = Unit
 
             override fun isAvailable(): Boolean = false
         }

@@ -10,7 +10,14 @@ import java.nio.file.Path
 class FileToolsFactory {
     @Singleton
     fun fileTools(config: EngineConfig): FileTools {
-        val workspace = Path.of(KlawPaths.workspace)
-        return FileTools(workspace, config.files.maxFileSizeBytes)
+        val allowedPaths =
+            listOf(
+                Path.of(KlawPaths.workspace), // First = workspace (writable)
+                Path.of(KlawPaths.state),
+                Path.of(KlawPaths.data),
+                Path.of(KlawPaths.config),
+                Path.of(KlawPaths.cache),
+            )
+        return FileTools(allowedPaths, config.files.maxFileSizeBytes)
     }
 }

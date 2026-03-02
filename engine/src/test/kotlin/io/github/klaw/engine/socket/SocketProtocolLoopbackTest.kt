@@ -4,6 +4,8 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.PingMessage
+import io.github.klaw.common.protocol.PongMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -152,6 +154,26 @@ class SocketProtocolLoopbackTest {
             Thread.sleep(200)
 
             assertEquals(3, countingHandler.inboundCount.get())
+
+            client.close()
+        }
+
+    @Test
+    fun `ping from gateway receives pong from engine`() =
+        runBlocking {
+            val client = connectClient()
+            val writer = writerFor(client)
+            val reader = readerFor(client)
+
+            writer.println(json.encodeToString<SocketMessage>(RegisterMessage("gateway")))
+            Thread.sleep(100)
+
+            writer.println(json.encodeToString<SocketMessage>(PingMessage))
+
+            val line = reader.readLine()
+            assertNotNull(line)
+            val received = json.decodeFromString<SocketMessage>(line!!)
+            assertInstanceOf(PongMessage::class.java, received)
 
             client.close()
         }

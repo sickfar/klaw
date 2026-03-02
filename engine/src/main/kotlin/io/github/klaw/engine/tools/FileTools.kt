@@ -7,49 +7,56 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
-@Suppress("TooGenericExceptionCaught", "ReturnCount")
+@Suppress("TooGenericExceptionCaught", "ReturnCount", "NestedBlockDepth", "LoopWithTooManyJumpStatements")
 class FileTools(
-    private val workspace: Path,
+    private val allowedPaths: List<Path>,
     private val maxFileSizeBytes: Long,
 ) {
-    private fun safePath(userPath: String): Result<Path> {
+    // First allowed path is the workspace — the only writable path
+    private val workspace: Path get() = allowedPaths.first()
+
+    private fun safePath(
+        userPath: String,
+        writeAccess: Boolean = false,
+    ): Result<Path> {
         return try {
-            val resolved = workspace.resolve(userPath).normalize()
-            if (!resolved.startsWith(workspace)) {
-                return Result.failure(SecurityException("Access denied: path outside workspace"))
-            }
-            // Check for symlinks (including broken ones) at the path itself
-            if (Files.isSymbolicLink(resolved)) {
-                val real = resolved.toRealPath()
-                val workspaceReal = workspace.toRealPath()
-                if (!real.startsWith(workspaceReal)) {
-                    return Result.failure(SecurityException("Access denied: path outside workspace"))
+            val basePaths = if (writeAccess) listOf(workspace) else allowedPaths
+            for (base in basePaths) {
+                val resolved = base.resolve(userPath).normalize()
+                if (!resolved.startsWith(base)) continue
+                // Check for symlinks at the path itself
+                if (Files.isSymbolicLink(resolved)) {
+                    val real = resolved.toRealPath()
+                    val baseReal = base.toRealPath()
+                    if (!real.startsWith(baseReal)) continue
                 }
-            }
-            // Check parent chain for symlinks pointing outside workspace
-            checkParentChain(resolved)?.let { return Result.failure(it) }
-            // Check existing non-symlink paths via toRealPath
-            if (Files.exists(resolved)) {
-                val real = resolved.toRealPath()
-                val workspaceReal = workspace.toRealPath()
-                if (!real.startsWith(workspaceReal)) {
-                    return Result.failure(SecurityException("Access denied: path outside workspace"))
+                // Check parent chain for symlinks pointing outside
+                if (checkParentChain(resolved, base) != null) continue
+                // Check existing non-symlink paths via toRealPath
+                if (Files.exists(resolved)) {
+                    val real = resolved.toRealPath()
+                    val baseReal = base.toRealPath()
+                    if (!real.startsWith(baseReal)) continue
                 }
+                return Result.success(resolved)
             }
-            Result.success(resolved)
+            Result.failure(SecurityException("Access denied: path outside allowed directories"))
         } catch (e: Exception) {
             Result.failure(SecurityException("Access denied: ${e::class.simpleName}"))
         }
     }
 
-    private fun checkParentChain(path: Path): SecurityException? {
+    private fun checkParentChain(
+        path: Path,
+        base: Path,
+    ): SecurityException? {
         var current = path.parent
-        val workspaceReal = workspace.toRealPath()
-        while (current != null && current.startsWith(workspace)) {
+        val baseReal = base.toRealPath()
+        while (current != null && current.startsWith(base)) {
             if (Files.isSymbolicLink(current)) {
                 val realParent = current.toRealPath()
-                if (!realParent.startsWith(workspaceReal)) {
-                    return SecurityException("Access denied: path outside workspace")
+                if (!realParent.startsWith(baseReal)) {
+                    return SecurityException("Access denied: path outside allowed directories")
                 }
             }
             current = current.parent
@@ -85,7 +92,7 @@ class FileTools(
         if (content.toByteArray().size > maxFileSizeBytes) {
             return "Error: content exceeds maximum file size of $maxFileSizeBytes bytes"
         }
-        val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
+        val safePath = safePath(path, writeAccess = true).getOrElse { return it.message ?: "Access denied" }
         return withContext(Dispatchers.VT) {
             try {
                 val parent = safePath.parent
@@ -121,7 +128,7 @@ class FileTools(
     ): String {
         if (oldString.isEmpty()) return "Error: old_string must not be empty"
         if (oldString == newString) return "Error: old_string and new_string are identical"
-        val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
+        val safePath = safePath(path, writeAccess = true).getOrElse { return it.message ?: "Access denied" }
         return withContext(Dispatchers.VT) {
             try {
                 if (!Files.exists(safePath)) return@withContext "Error: file not found: $path"
@@ -176,11 +183,13 @@ class FileTools(
                 if (!Files.exists(safePath) || !Files.isDirectory(safePath)) {
                     return@withContext "Error: directory not found: $path"
                 }
+                // Find which base path contains this safePath for relativizing
+                val matchedBase = allowedPaths.firstOrNull { safePath.startsWith(it) } ?: workspace
                 val stream = if (recursive) Files.walk(safePath) else Files.list(safePath)
                 stream.use { s ->
                     s
                         .filter { it != safePath }
-                        .map { workspace.relativize(it).toString() + if (Files.isDirectory(it)) "/" else "" }
+                        .map { matchedBase.relativize(it).toString() + if (Files.isDirectory(it)) "/" else "" }
                         .sorted()
                         .toList()
                         .joinToString("\n")

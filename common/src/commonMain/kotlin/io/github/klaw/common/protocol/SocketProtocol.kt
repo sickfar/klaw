@@ -66,6 +66,14 @@ data class ApprovalResponseMessage(
     val approved: Boolean,
 ) : SocketMessage()
 
+@Serializable
+@SerialName("ping")
+data object PingMessage : SocketMessage()
+
+@Serializable
+@SerialName("pong")
+data object PongMessage : SocketMessage()
+
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
 // It uses a separate framing path for CLI ↔ Engine communication,
 // distinct from the Gateway ↔ Engine socket protocol above.

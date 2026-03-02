@@ -2,6 +2,8 @@ package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.PingMessage
+import io.github.klaw.common.protocol.PongMessage
 import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -10,6 +12,7 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -39,6 +42,7 @@ class EngineSocketClient(
     private companion object {
         const val INITIAL_BACKOFF_MS = 1_000L
         const val MAX_BACKOFF_MS = 60_000L
+        const val PING_INTERVAL_MS = 60_000L
     }
 
     private val json =
@@ -132,9 +136,33 @@ class EngineSocketClient(
         // Drain any buffered messages now that we are connected
         drainBuffer()
 
-        // Read messages from engine until connection closes or shutdown received
-        processIncomingMessages(reader)
+        // Launch periodic ping to keep connection alive and prevent engine idle timeout
+        val pingJob = launchPingLoop()
+        try {
+            // Read messages from engine until connection closes or shutdown received
+            processIncomingMessages(reader)
+        } finally {
+            pingJob.cancel()
+        }
     }
+
+    @Suppress("LoopWithTooManyJumpStatements")
+    private fun launchPingLoop(): Job =
+        scope.launch {
+            while (connected) {
+                delay(PING_INTERVAL_MS)
+                if (!connected) break
+                try {
+                    writerLock.withLock {
+                        writer?.println(json.encodeToString<SocketMessage>(PingMessage))
+                    }
+                    logger.trace { "Ping sent to engine" }
+                } catch (_: Exception) {
+                    logger.trace { "Ping send failed, connection likely dropped" }
+                    break
+                }
+            }
+        }
 
     private suspend fun processIncomingMessages(reader: BufferedReader) {
         var shutdown = false
@@ -164,6 +192,11 @@ class EngineSocketClient(
                     logger.debug { "Received shutdown from engine" }
                     outboundHandler.handleShutdown()
                     true
+                }
+
+                is PongMessage -> {
+                    logger.trace { "Pong received from engine" }
+                    false
                 }
 
                 else -> {
