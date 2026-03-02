@@ -17,6 +17,6 @@ class SubagentTools(
     ): String {
         val scheduled = ScheduledMessage(name = name, message = message, model = model, injectInto = injectInto)
         processorProvider.get().handleScheduledMessage(scheduled)
-        return "Субагент '$name' запущен"
+        return "Subagent '$name' started"
     }
 }

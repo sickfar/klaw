@@ -192,184 +192,186 @@ class ToolRegistryImpl(
             listOf(
                 ToolDef(
                     "file_read",
-                    "Прочитать файл из рабочей директории",
+                    "Read a file from workspace, logs, config, or data directories. " +
+                        "Use absolute path for logs directory.",
                     toolParams(
                         listOf("path"),
                         mapOf(
-                            "path" to stringProp("Путь к файлу относительно workspace"),
-                            "startLine" to intProp("Начальная строка (1-based)"),
-                            "maxLines" to intProp("Максимальное количество строк"),
+                            "path" to
+                                stringProp("File path (relative to workspace or absolute for logs/config/data)"),
+                            "startLine" to intProp("Start line (1-based)"),
+                            "maxLines" to intProp("Maximum number of lines"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "file_write",
-                    "Записать содержимое в файл",
+                    "Write content to a file",
                     toolParams(
                         listOf("path", "content", "mode"),
                         mapOf(
-                            "path" to stringProp("Путь к файлу относительно workspace"),
-                            "content" to stringProp("Содержимое для записи"),
-                            "mode" to stringProp("Режим записи: overwrite или append"),
+                            "path" to stringProp("File path relative to workspace"),
+                            "content" to stringProp("Content to write"),
+                            "mode" to stringProp("Write mode: overwrite or append"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "file_list",
-                    "Показать содержимое директории",
+                    "List directory contents in workspace, logs, config, or data directories",
                     toolParams(
                         listOf("path"),
                         mapOf(
-                            "path" to stringProp("Путь к директории относительно workspace"),
-                            "recursive" to boolProp("Рекурсивный обход поддиректорий"),
+                            "path" to stringProp("Directory path relative to workspace"),
+                            "recursive" to boolProp("Recursively traverse subdirectories"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "file_patch",
-                    "Заменить фрагмент текста в файле точным совпадением",
+                    "Replace a text fragment in a file by exact match",
                     toolParams(
                         listOf("path", "old_string", "new_string"),
                         mapOf(
-                            "path" to stringProp("Путь к файлу относительно workspace"),
-                            "old_string" to stringProp("Текст для замены (точное совпадение)"),
-                            "new_string" to stringProp("Новый текст"),
-                            "force_first" to boolProp("Заменить первое вхождение при множественных совпадениях"),
+                            "path" to stringProp("File path relative to workspace"),
+                            "old_string" to stringProp("Text to replace (exact match)"),
+                            "new_string" to stringProp("New text"),
+                            "force_first" to boolProp("Replace first occurrence on multiple matches"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "memory_search",
-                    "Поиск по долговременной памяти",
+                    "Search long-term memory",
                     toolParams(
                         listOf("query"),
                         mapOf(
-                            "query" to stringProp("Поисковый запрос"),
-                            "topK" to intProp("Количество результатов (по умолчанию 10)"),
+                            "query" to stringProp("Search query"),
+                            "topK" to intProp("Number of results (default 10)"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "memory_save",
-                    "Сохранить информацию в долговременную память",
+                    "Save information to long-term memory",
                     toolParams(
                         listOf("content"),
                         mapOf(
-                            "content" to stringProp("Текст для сохранения"),
-                            "source" to stringProp("Источник информации (по умолчанию manual)"),
+                            "content" to stringProp("Text to save"),
+                            "source" to stringProp("Information source (default: manual)"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "docs_search",
-                    "Поиск по документации проекта",
+                    "Search project documentation",
                     toolParams(
                         listOf("query"),
                         mapOf(
-                            "query" to stringProp("Поисковый запрос"),
-                            "topK" to intProp("Количество результатов (по умолчанию 5)"),
+                            "query" to stringProp("Search query"),
+                            "topK" to intProp("Number of results (default 5)"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "docs_read",
-                    "Прочитать документ по пути",
+                    "Read a document by path",
                     toolParams(
                         listOf("path"),
-                        mapOf("path" to stringProp("Путь к документу")),
+                        mapOf("path" to stringProp("Document path")),
                     ),
                 ),
                 ToolDef(
                     "docs_list",
-                    "Показать список доступных документов",
+                    "List available documents",
                     toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
                     "skill_list",
-                    "Показать список доступных навыков",
+                    "List available skills",
                     toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
                     "skill_load",
-                    "Загрузить полное содержимое навыка",
+                    "Load full skill content",
                     toolParams(
                         listOf("name"),
-                        mapOf("name" to stringProp("Имя навыка")),
+                        mapOf("name" to stringProp("Skill name")),
                     ),
                 ),
                 ToolDef(
                     "schedule_list",
-                    "Показать список запланированных задач",
+                    "List scheduled tasks",
                     toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
                     "schedule_add",
-                    "Добавить запланированную задачу",
+                    "Add a scheduled task",
                     toolParams(
                         listOf("name", "cron", "message"),
                         mapOf(
-                            "name" to stringProp("Уникальное имя задачи"),
-                            "cron" to stringProp("Cron-выражение расписания"),
-                            "message" to stringProp("Сообщение для выполнения"),
-                            "model" to stringProp("Модель LLM (необязательно)"),
-                            "injectInto" to stringProp("chatId для отправки результата (необязательно)"),
+                            "name" to stringProp("Unique task name"),
+                            "cron" to stringProp("Cron schedule expression"),
+                            "message" to stringProp("Message to execute"),
+                            "model" to stringProp("LLM model (optional)"),
+                            "injectInto" to stringProp("chatId to send result to (optional)"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "schedule_remove",
-                    "Удалить запланированную задачу",
+                    "Remove a scheduled task",
                     toolParams(
                         listOf("name"),
-                        mapOf("name" to stringProp("Имя задачи для удаления")),
+                        mapOf("name" to stringProp("Task name to remove")),
                     ),
                 ),
                 ToolDef(
                     "subagent_spawn",
-                    "Запустить субагента для выполнения задачи",
+                    "Spawn a subagent to perform a task",
                     toolParams(
                         listOf("name", "message"),
                         mapOf(
-                            "name" to stringProp("Имя субагента"),
-                            "message" to stringProp("Задание для субагента"),
-                            "model" to stringProp("Модель LLM (необязательно)"),
-                            "injectInto" to stringProp("chatId для отправки результата (необязательно)"),
+                            "name" to stringProp("Subagent name"),
+                            "message" to stringProp("Task for the subagent"),
+                            "model" to stringProp("LLM model (optional)"),
+                            "injectInto" to stringProp("chatId to send result to (optional)"),
                         ),
                     ),
                 ),
                 @Suppress("MaxLineLength")
                 ToolDef(
                     "sandbox_exec",
-                    "ПРЕДПОЧТИТЕЛЬНЫЙ ИНСТРУМЕНТ для выполнения кода. Запускает Python или bash в изолированном Docker-контейнере с доступом к рабочей директории ($SANDBOX_WORKSPACE_PATH). Используй для: обработки данных, скачивания файлов (curl/wget), трансформации файлов, вычислений, парсинга, работы с файлами в workspace, тестирования скриптов. Рабочая директория проекта смонтирована в $SANDBOX_WORKSPACE_PATH — код может читать и писать файлы workspace.",
+                    "PREFERRED tool for code execution. Runs Python or bash in an isolated Docker container with workspace access ($SANDBOX_WORKSPACE_PATH). Use for: data processing, downloading files (curl/wget), file transformations, computations, parsing, working with workspace files, testing scripts. Project workspace is mounted at $SANDBOX_WORKSPACE_PATH — code can read and write workspace files.",
                     toolParams(
                         listOf("language", "code"),
                         mapOf(
-                            "language" to stringProp("Язык: python или bash"),
-                            "code" to stringProp("Код для выполнения"),
-                            "timeout" to intProp("Таймаут в секундах (по умолчанию 30)"),
+                            "language" to stringProp("Language: python or bash"),
+                            "code" to stringProp("Code to execute"),
+                            "timeout" to intProp("Timeout in seconds (default 30)"),
                         ),
                     ),
                 ),
                 @Suppress("MaxLineLength")
                 ToolDef(
                     "host_exec",
-                    "Выполнить команду НАПРЯМУЮ на хост-системе. ИСПОЛЬЗУЙ ТОЛЬКО когда sandbox_exec невозможен: мониторинг оборудования (sensors, lsblk, smartctl), управление системными сервисами (systemctl), Docker-команды, сетевая диагностика хоста (ip, ss, ping), действия вне workspace. НЕ используй для: обработки данных, скачивания файлов, скриптов, вычислений — для этого есть sandbox_exec.",
+                    "Execute a command DIRECTLY on the host system. USE ONLY when sandbox_exec is not possible: hardware monitoring (sensors, lsblk, smartctl), system service management (systemctl), Docker commands, host network diagnostics (ip, ss, ping), actions outside workspace. DO NOT use for: data processing, file downloads, scripts, computations — use sandbox_exec for those.",
                     toolParams(
                         listOf("command"),
                         mapOf(
-                            "command" to stringProp("Shell-команда для выполнения на хосте"),
+                            "command" to stringProp("Shell command to execute on host"),
                         ),
                     ),
                 ),
                 ToolDef(
                     "send_message",
-                    "Отправить сообщение в указанный канал и чат",
+                    "Send a message to a specific channel and chat",
                     toolParams(
                         listOf("channel", "chatId", "text"),
                         mapOf(
-                            "channel" to stringProp("Канал (telegram, discord и т.д.)"),
-                            "chatId" to stringProp("Идентификатор чата"),
-                            "text" to stringProp("Текст сообщения"),
+                            "channel" to stringProp("Channel (telegram, discord, etc.)"),
+                            "chatId" to stringProp("Chat identifier"),
+                            "text" to stringProp("Message text"),
                         ),
                     ),
                 ),

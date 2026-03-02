@@ -174,6 +174,22 @@ internal class DoctorCommand(
 
         checkConfigFile("docker-compose.json", composeFile, composeJsonSchema()) { parseComposeConfig(it) }
 
+        // Docker socket mount check
+        val composeContent = readFileText(composeFile)
+        if (composeContent != null) {
+            try {
+                val compose = parseComposeConfig(composeContent)
+                val engineVolumes = compose.services["engine"]?.volumes ?: emptyList()
+                if (engineVolumes.any { it.contains("/var/run/docker.sock") }) {
+                    echo("\u2713 Docker socket: mounted")
+                } else {
+                    echo("\u2717 Docker socket: not mounted in engine service (required for sandbox_exec)")
+                }
+            } catch (_: Exception) {
+                // Config already reported as invalid by checkConfigFile
+            }
+        }
+
         // Container status
         val output =
             commandOutput(

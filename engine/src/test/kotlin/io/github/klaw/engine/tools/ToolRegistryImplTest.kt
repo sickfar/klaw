@@ -160,7 +160,7 @@ class ToolRegistryImplTest {
         }
 
     @Test
-    fun `all tool definitions have Russian descriptions`() =
+    fun `all tool definitions have non-blank descriptions`() =
         runTest {
             val tools = registry.listTools()
             for (tool in tools) {
@@ -296,6 +296,22 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
             assertEquals(17, tools.size, "Should have 18 - 1 = 17 tools")
+        }
+
+    @Test
+    fun `file_read description mentions logs access`() =
+        runTest {
+            val tools = registry.listTools()
+            val fileRead = tools.first { it.name == "file_read" }
+            assertTrue(fileRead.description.contains("logs"), "file_read description should mention logs")
+        }
+
+    @Test
+    fun `file_list description mentions logs access`() =
+        runTest {
+            val tools = registry.listTools()
+            val fileList = tools.first { it.name == "file_list" }
+            assertTrue(fileList.description.contains("logs"), "file_list description should mention logs")
         }
 
     @Test

@@ -358,6 +358,29 @@ class DoctorCommandTest {
         assertEquals(0, result.statusCode)
     }
 
+    // --- Docker socket mount ---
+
+    @Test
+    fun `doctor reports docker socket mounted when volume present`() {
+        writeFile("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
+        writeFile(
+            "$tmpDir/docker-compose.json",
+            """{"services": {"engine": {"image": "test:latest", "volumes": ["/var/run/docker.sock:/var/run/docker.sock"]}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "\u2713 Docker socket: mounted")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor reports docker socket not mounted when volume missing`() {
+        writeFile("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
+        writeFile("$tmpDir/docker-compose.json", MINIMAL_COMPOSE_JSON)
+        val result = cli().test("doctor")
+        assertContains(result.output, "\u2717 Docker socket: not mounted in engine service")
+        assertEquals(0, result.statusCode)
+    }
+
     companion object {
         private val MINIMAL_ENGINE_JSON =
             """
