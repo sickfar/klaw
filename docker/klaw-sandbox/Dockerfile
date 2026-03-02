@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -g 65534 sandbox && useradd -u 65534 -g sandbox -m sandbox
+RUN groupadd -g 65533 sandbox && useradd -u 65533 -g sandbox -m sandbox
 USER sandbox
 WORKDIR /home/sandbox
 

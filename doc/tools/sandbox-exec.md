@@ -66,7 +66,7 @@ The sandbox enforces several hardcoded security constraints that cannot be overr
 - `--network host` is **never** used
 - `--pid host` is **never** used
 - Read-only root filesystem is enabled by default
-- Container runs as non-root user (`sandbox`, UID 65534)
+- Container runs as non-root user (`sandbox`, UID 65533)
 
 ## Docker Image
 
