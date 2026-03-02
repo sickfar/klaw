@@ -161,6 +161,7 @@ internal object ConfigTemplates {
                                         "$dataPath:/home/klaw/.local/share/klaw",
                                         "$configPath:/home/klaw/.config/klaw:ro",
                                         "$workspacePath:/workspace",
+                                        "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
                                 ports = listOf("127.0.0.1:7470:7470"),
                             ),
@@ -213,6 +214,7 @@ internal object ConfigTemplates {
                                         "klaw-data:/root/.local/share/klaw",
                                         "klaw-workspace:/workspace",
                                         "klaw-config:/root/.config/klaw:ro",
+                                        "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
                             ),
                         "gateway" to

@@ -96,4 +96,91 @@ class SandboxExecToolTest {
 
             assertTrue(result.contains("Unsupported language"), "Should report unsupported language")
         }
+
+    @Test
+    fun `returns docker unavailable error`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextRunException = SandboxExecutionException.DockerUnavailable()
+            val oneshotConfig = config.copy(keepAlive = false)
+            val manager = SandboxManager(oneshotConfig, docker)
+            val tool = SandboxExecTool(manager, oneshotConfig)
+
+            val result = tool.execute("python", "print(1)")
+
+            assertTrue(result.contains("Docker is not available"), "Should report Docker unavailable: $result")
+        }
+
+    @Test
+    fun `returns image not found error`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextRunException = SandboxExecutionException.ImageNotFound("klaw-sandbox:latest")
+            val oneshotConfig = config.copy(keepAlive = false)
+            val manager = SandboxManager(oneshotConfig, docker)
+            val tool = SandboxExecTool(manager, oneshotConfig)
+
+            val result = tool.execute("python", "print(1)")
+
+            assertTrue(
+                result.contains("image 'klaw-sandbox:latest' not found"),
+                "Should report image not found: $result",
+            )
+        }
+
+    @Test
+    fun `returns OOM error for keep-alive exec`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextExecResult = ExecutionResult(stdout = "", stderr = "Killed", exitCode = 137)
+            val manager = SandboxManager(config, docker)
+            val tool = SandboxExecTool(manager, config)
+
+            val result = tool.execute("python", "x = [0] * 10**9")
+
+            assertTrue(result.contains("ran out of memory"), "Should report OOM: $result")
+        }
+
+    @Test
+    fun `returns permission denied error for keep-alive exec`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextExecResult = ExecutionResult(stdout = "", stderr = "permission denied", exitCode = 1)
+            val manager = SandboxManager(config, docker)
+            val tool = SandboxExecTool(manager, config)
+
+            val result = tool.execute("python", "open('/etc/shadow')")
+
+            assertTrue(result.contains("Permission denied"), "Should report permission denied: $result")
+        }
+
+    @Test
+    fun `returns container start failure error`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextRunException = SandboxExecutionException.ContainerStartFailure("conflict: name already in use")
+            val oneshotConfig = config.copy(keepAlive = false)
+            val manager = SandboxManager(oneshotConfig, docker)
+            val tool = SandboxExecTool(manager, oneshotConfig)
+
+            val result = tool.execute("python", "print(1)")
+
+            assertTrue(
+                result.contains("Failed to start sandbox container"),
+                "Should report container start failure: $result",
+            )
+        }
+
+    @Test
+    fun `timeout result is not classified as OOM`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextExecResult = ExecutionResult(stdout = "", stderr = "", exitCode = 137, timedOut = true)
+            val manager = SandboxManager(config, docker)
+            val tool = SandboxExecTool(manager, config)
+
+            val result = tool.execute("python", "import time; time.sleep(999)")
+
+            assertTrue(result.contains("timed out"), "Timeout should not be classified as OOM: $result")
+        }
 }

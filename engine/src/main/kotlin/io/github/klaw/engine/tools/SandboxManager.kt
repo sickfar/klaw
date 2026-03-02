@@ -39,7 +39,8 @@ class SandboxManager(
         executionCount++
         lastExecutionTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())
         val cmd = buildExecCommand(language, code)
-        val result = docker.exec(id, cmd, timeout)
+        val raw = docker.exec(id, cmd, timeout)
+        val result = ProcessDockerClient.classifyExecResult(raw, config.maxMemory)
         logger.trace { "Keep-alive exec completed: exitCode=${result.exitCode}, timedOut=${result.timedOut}" }
         return SandboxExecOutput(
             stdout = result.stdout,
@@ -58,14 +59,8 @@ class SandboxManager(
         val cmd = buildOneshotCommand(language, code, timeout)
         val options = buildRunOptions(name, remove = true, command = cmd)
         logger.trace { "Oneshot run: name=$name" }
-        return try {
-            val output = docker.run(options)
-            SandboxExecOutput(stdout = output, stderr = "", exitCode = 0)
-        } catch (
-            @Suppress("TooGenericExceptionCaught") e: RuntimeException,
-        ) {
-            SandboxExecOutput(stdout = "", stderr = e.message ?: "", exitCode = 1)
-        }
+        val output = docker.run(options)
+        return SandboxExecOutput(stdout = output, stderr = "", exitCode = 0)
     }
 
     private suspend fun getOrCreateContainer(): String {

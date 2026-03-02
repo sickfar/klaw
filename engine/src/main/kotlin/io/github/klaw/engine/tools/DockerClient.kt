@@ -9,6 +9,38 @@ import java.util.concurrent.TimeUnit
 
 private val logger = KotlinLogging.logger {}
 
+sealed class SandboxExecutionException(
+    message: String,
+) : RuntimeException(message) {
+    class DockerUnavailable :
+        SandboxExecutionException(
+            "Docker is not available. Code execution requires Docker to be installed and running.",
+        )
+
+    class ImageNotFound(
+        image: String,
+    ) : SandboxExecutionException(
+            "Docker image '$image' not found. The sandbox image needs to be pulled or built first.",
+        )
+
+    class ContainerStartFailure(
+        detail: String,
+    ) : SandboxExecutionException(
+            "Failed to start sandbox container: $detail",
+        )
+
+    class OutOfMemory(
+        limit: String,
+    ) : SandboxExecutionException(
+            "Code execution ran out of memory (limit: $limit).",
+        )
+
+    class PermissionDenied :
+        SandboxExecutionException(
+            "Permission denied in sandbox container.",
+        )
+}
+
 data class DockerRunOptions(
     val image: String,
     val name: String,
@@ -68,7 +100,7 @@ class ProcessDockerClient : DockerClient {
                     .trim()
             val exitCode = process.waitFor()
             if (exitCode != 0) {
-                error("docker run failed (exit $exitCode): $stderr")
+                throwTypedRunException(stderr, options.image)
             }
             stdout
         }
@@ -157,5 +189,67 @@ class ProcessDockerClient : DockerClient {
     companion object {
         private const val STREAM_JOIN_TIMEOUT_MS = 5000L
         private const val TIMEOUT_EXIT_CODE = 137
+
+        @Suppress("ThrowsCount", "ComplexCondition")
+        internal fun throwTypedRunException(
+            stderr: String,
+            image: String,
+        ): Nothing {
+            val lower = stderr.lowercase()
+            when {
+                lower.contains("cannot connect to the docker daemon") ||
+                    lower.contains("is docker installed") ||
+                    lower.contains("command not found") ||
+                    (lower.contains("no such file or directory") && lower.contains("docker")) -> {
+                    throw SandboxExecutionException.DockerUnavailable()
+                }
+
+                lower.contains("no such image") ||
+                    lower.contains("pull access denied") ||
+                    lower.contains("manifest unknown") -> {
+                    throw SandboxExecutionException.ImageNotFound(image)
+                }
+
+                lower.contains("permission denied") -> {
+                    throw SandboxExecutionException.PermissionDenied()
+                }
+
+                else -> {
+                    throw SandboxExecutionException.ContainerStartFailure(
+                        sanitizeErrorDetail(stderr),
+                    )
+                }
+            }
+        }
+
+        internal fun classifyExecResult(
+            result: ExecutionResult,
+            memoryLimit: String,
+        ): ExecutionResult {
+            if (result.timedOut) return result
+            val lower = result.stderr.lowercase()
+            if (result.exitCode == OOM_EXIT_CODE && looksLikeOom(lower)) {
+                throw SandboxExecutionException.OutOfMemory(memoryLimit)
+            }
+            if (lower.contains("permission denied")) {
+                throw SandboxExecutionException.PermissionDenied()
+            }
+            return result
+        }
+
+        private fun sanitizeErrorDetail(stderr: String): String {
+            val first = stderr.lineSequence().firstOrNull()?.trim() ?: "unknown error"
+            val sanitized = first.replace(Regex("/[\\w./]+"), "<path>")
+            return sanitized.take(MAX_ERROR_DETAIL_LENGTH)
+        }
+
+        private val OOM_PATTERNS = listOf("killed", "oom")
+
+        // Empty stderr + exit 137 is treated as OOM because Docker's OOM killer
+        // often produces no stderr output before SIGKILL.
+        private fun looksLikeOom(lower: String): Boolean = lower.isEmpty() || OOM_PATTERNS.any { lower.contains(it) }
+
+        private const val MAX_ERROR_DETAIL_LENGTH = 200
+        private const val OOM_EXIT_CODE = 137
     }
 }

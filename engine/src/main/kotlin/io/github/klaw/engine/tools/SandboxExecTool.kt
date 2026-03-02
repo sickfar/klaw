@@ -21,6 +21,9 @@ class SandboxExecTool(
             output.formatForLlm()
         } catch (e: IllegalArgumentException) {
             "Error: ${e.message}"
+        } catch (e: SandboxExecutionException) {
+            logger.warn { "sandbox_exec failed: ${e::class.simpleName}" }
+            "Error: ${e.message}"
         } catch (e: Exception) {
             logger.warn { "sandbox_exec failed: ${e::class.simpleName}" }
             "Error: sandbox execution failed"

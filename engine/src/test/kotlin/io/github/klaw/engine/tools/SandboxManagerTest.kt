@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.fail
 
 class SandboxManagerTest {
     private fun config(
@@ -30,7 +31,6 @@ class SandboxManagerTest {
 
             assertEquals(2, docker.runCalls.size, "Expected 2 docker run calls for oneshot mode")
             assertEquals(0, docker.execCalls.size, "Expected 0 docker exec calls for oneshot mode")
-            // Oneshot containers get --rm, so no stop/rm needed
             assertTrue(docker.runCalls.all { it.remove }, "Oneshot runs should use --rm")
         }
 
@@ -55,7 +55,6 @@ class SandboxManagerTest {
 
             manager.execute("python", "print(1)", 30)
             manager.execute("python", "print(2)", 30)
-            // maxExecutions reached, next call should recreate
             manager.execute("python", "print(3)", 30)
 
             assertEquals(2, docker.runCalls.size, "Expected 2 docker run calls after maxExecutions")
@@ -85,5 +84,69 @@ class SandboxManagerTest {
 
             assertEquals(0, docker.stopCalls.size)
             assertEquals(0, docker.rmCalls.size)
+        }
+
+    @Suppress("SwallowedException")
+    @Test
+    fun `oneshot propagates docker unavailable exception`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextRunException = SandboxExecutionException.DockerUnavailable()
+            val manager = SandboxManager(config(keepAlive = false), docker)
+
+            try {
+                manager.execute("python", "print(1)", 30)
+                fail("Should have thrown DockerUnavailable")
+            } catch (e: SandboxExecutionException.DockerUnavailable) {
+                // expected
+            }
+        }
+
+    @Suppress("SwallowedException")
+    @Test
+    fun `oneshot propagates image not found exception`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextRunException = SandboxExecutionException.ImageNotFound("klaw-sandbox:latest")
+            val manager = SandboxManager(config(keepAlive = false), docker)
+
+            try {
+                manager.execute("python", "print(1)", 30)
+                fail("Should have thrown ImageNotFound")
+            } catch (e: SandboxExecutionException.ImageNotFound) {
+                assertTrue(e.message!!.contains("klaw-sandbox:latest"))
+            }
+        }
+
+    @Suppress("SwallowedException")
+    @Test
+    fun `keep-alive classifies OOM from exec result`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextExecResult = ExecutionResult(stdout = "", stderr = "Killed", exitCode = 137)
+            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
+
+            try {
+                manager.execute("python", "x = [0]*10**9", 30)
+                fail("Should have thrown OutOfMemory")
+            } catch (e: SandboxExecutionException.OutOfMemory) {
+                assertTrue(e.message!!.contains("memory"))
+            }
+        }
+
+    @Suppress("SwallowedException")
+    @Test
+    fun `keep-alive classifies permission denied from exec result`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.nextExecResult = ExecutionResult(stdout = "", stderr = "permission denied", exitCode = 1)
+            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
+
+            try {
+                manager.execute("python", "open('/etc/shadow')", 30)
+                fail("Should have thrown PermissionDenied")
+            } catch (e: SandboxExecutionException.PermissionDenied) {
+                // expected
+            }
         }
 }
