@@ -1,9 +1,8 @@
-package io.github.klaw.engine.llm
+package io.github.klaw.common.config
 
-import io.github.klaw.common.config.EnvVarResolver
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class EnvVarResolverTest {
     @Test
@@ -18,7 +17,6 @@ class EnvVarResolverTest {
 
     @Test
     fun `resolves env var placeholder to system environment value`() {
-        // PATH is always set in system environment
         val pathValue = System.getenv("PATH")
         val result = EnvVarResolver.resolve("\${PATH}")
         assertEquals(pathValue, result)
@@ -39,10 +37,38 @@ class EnvVarResolverTest {
 
     @Test
     fun `returns lowercase placeholder as literal - only uppercase env vars supported`() {
-        // By design: only ${UPPERCASE_VAR} placeholders are resolved.
-        // ${lowercase} is returned as-is (treated as a literal, not an env var reference).
-        // API key env vars are always uppercase: ZAI_API_KEY, DEEPSEEK_API_KEY, etc.
         assertEquals("\${lowercase}", EnvVarResolver.resolve("\${lowercase}"))
         assertEquals("\${mixedCase}", EnvVarResolver.resolve("\${mixedCase}"))
+    }
+
+    @Test
+    fun `resolveAll replaces all placeholders in string`() {
+        val home = System.getenv("HOME")
+        val result = EnvVarResolver.resolveAll("path is \${HOME} end")
+        assertEquals("path is $home end", result)
+    }
+
+    @Test
+    fun `resolveAll leaves unset vars as empty string`() {
+        val result = EnvVarResolver.resolveAll("token=\${KLAW_NONEXISTENT_VAR_XYZ_12345}")
+        assertEquals("token=", result)
+    }
+
+    @Test
+    fun `resolveAll handles string with no placeholders`() {
+        assertEquals("no placeholders here", EnvVarResolver.resolveAll("no placeholders here"))
+    }
+
+    @Test
+    fun `resolveAll handles multiple placeholders`() {
+        val home = System.getenv("HOME")
+        val path = System.getenv("PATH")
+        val result = EnvVarResolver.resolveAll("\${HOME}:\${PATH}")
+        assertEquals("$home:$path", result)
+    }
+
+    @Test
+    fun `resolveAll ignores lowercase placeholders`() {
+        assertEquals("keep \${lowercase}", EnvVarResolver.resolveAll("keep \${lowercase}"))
     }
 }

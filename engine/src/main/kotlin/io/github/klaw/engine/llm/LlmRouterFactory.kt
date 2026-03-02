@@ -1,6 +1,7 @@
 package io.github.klaw.engine.llm
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.EnvVarResolver
 import io.github.klaw.common.config.ModelRef
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Singleton

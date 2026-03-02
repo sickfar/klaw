@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.config
 
+import io.github.klaw.common.config.EnvVarResolver
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.parseGatewayConfig
 import io.github.klaw.common.paths.KlawPaths
@@ -12,7 +13,7 @@ class GatewayConfigFactory {
     @Singleton
     fun gatewayConfig(): GatewayConfig {
         val configFile = File("${KlawPaths.config}/gateway.json")
-        val jsonContent =
+        val rawContent =
             if (configFile.exists()) {
                 configFile.readText()
             } else {
@@ -22,6 +23,7 @@ class GatewayConfigFactory {
                     ?.readText()
                     ?: error("gateway.json not found at ${configFile.absolutePath} or on classpath")
             }
+        val jsonContent = EnvVarResolver.resolveAll(rawContent)
         return parseGatewayConfig(jsonContent)
     }
 }
