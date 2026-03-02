@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.jsonl
 
+import io.github.klaw.gateway.channel.CommandParser
 import io.github.klaw.gateway.channel.IncomingMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
@@ -43,7 +44,8 @@ class ConversationJsonlWriter(
     }
 
     suspend fun writeInbound(message: IncomingMessage) {
-        val type = if (message.isCommand) "command" else null
+        val isCmd = message.isCommand || CommandParser.parse(message.content).isCommand
+        val type = if (isCmd) "command" else null
         val json =
             buildJsonObject {
                 put("id", message.id)

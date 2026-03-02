@@ -27,7 +27,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Assemble distribution artifacts (JARs + native CLI binaries)
 ./gradlew assembleDist          # full build for current OS
 ./gradlew assembleCliMacos      # macOS CLI binaries only (for macOS CI)
+
+# Build everything including Docker images (preferred way to build + docker)
+./scripts/build.sh
 ```
+
+**IMPORTANT:** Do NOT use `docker compose build` or `docker-compose build` — there is no compose build file. Use `./scripts/build.sh` which runs `assembleDist` then builds Docker images individually via `docker build`.
 
 ## Project Architecture
 
@@ -169,3 +174,5 @@ Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`,
 ## Development Workflow
 
 TDD on every task: write tests with edge cases first, then implement. After each task: run code-review subagent, then `lang-tools` MCP cleanup (imports + dead code scan for whole project). The lang-tools dead code detector reports ~163 false positives for public API in `common` — all expected (consumed by other modules).
+
+**Important:** The developer uses localhost for testing and debugging Docker containers. Never mention or remind about Raspberry Pi deployment — Docker commands target the local machine during development.

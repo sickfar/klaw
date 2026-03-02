@@ -76,13 +76,6 @@ class GatewayOutboundHandler(
         logger.debug { "Received shutdown signal from engine" }
     }
 
-    private fun detectChannel(chatId: String): String =
-        when {
-            chatId.startsWith("telegram_") -> "telegram"
-            chatId.startsWith("console") -> "console"
-            else -> "unknown"
-        }
-
     private fun isAllowed(
         chatId: String,
         channel: String,
@@ -102,4 +95,11 @@ class GatewayOutboundHandler(
             (isReply && chatId in implicitAllow) || chatId in whitelist
         }
     }
+
+    private fun detectChannel(chatId: String): String =
+        when {
+            chatId.startsWith("telegram_") -> "telegram"
+            chatId.startsWith("console") -> "console"
+            else -> "unknown"
+        }
 }

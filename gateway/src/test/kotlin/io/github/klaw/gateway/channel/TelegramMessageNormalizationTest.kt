@@ -67,4 +67,20 @@ class TelegramMessageNormalizationTest {
         assertEquals("model", msg.commandName)
         assertEquals("deepseek r1 distill", msg.commandArgs)
     }
+
+    @Test
+    fun `command with at-bot suffix strips bot name`() {
+        val msg = TelegramNormalizer.normalize(123456L, "/new@KlawBot", messageId = "id1")
+        assertTrue(msg.isCommand)
+        assertEquals("new", msg.commandName)
+        assertNull(msg.commandArgs)
+    }
+
+    @Test
+    fun `command with at-bot suffix and args parsed correctly`() {
+        val msg = TelegramNormalizer.normalize(123456L, "/model@KlawBot gpt-4", messageId = "id1")
+        assertTrue(msg.isCommand)
+        assertEquals("model", msg.commandName)
+        assertEquals("gpt-4", msg.commandArgs)
+    }
 }

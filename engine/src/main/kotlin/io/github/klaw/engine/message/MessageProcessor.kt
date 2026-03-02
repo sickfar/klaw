@@ -29,6 +29,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Central message processing pipeline for the Klaw engine.
@@ -57,6 +58,7 @@ class MessageProcessor(
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val llmLimiter = PriorityLlmLimiter(config.processing.maxConcurrentLlm)
+    internal val activeProcessingJobs = ConcurrentHashMap<String, Job>()
 
     private val debounceBuffer =
         DebounceBuffer(
@@ -85,6 +87,16 @@ class MessageProcessor(
     }
 
     override suspend fun handleCommand(message: CommandSocketMessage) {
+        if (message.command == "new") {
+            val activeJob = activeProcessingJobs[message.chatId]
+            if (activeJob != null) {
+                logger.debug {
+                    "Cancelling active processing job for chatId=${message.chatId} before /new"
+                }
+                activeJob.cancel()
+                activeJob.join()
+            }
+        }
         val session = sessionManager.getOrCreate(message.chatId, config.routing.default)
         val result = commandHandler.handle(message, session)
         socketServerProvider.get().pushToGateway(
@@ -201,99 +213,113 @@ class MessageProcessor(
         val chatId = first.chatId
         val channel = first.channel
 
-        llmLimiter.withInteractivePermit {
-            try {
-                val session = sessionManager.getOrCreate(chatId, config.routing.default)
-                val pendingTexts = messages.map { it.content }
+        val currentJob = kotlin.coroutines.coroutineContext[Job]!!
+        activeProcessingJobs[chatId] = currentJob
+        try {
+            llmLimiter.withInteractivePermit {
+                try {
+                    val session = sessionManager.getOrCreate(chatId, config.routing.default)
+                    val pendingTexts = messages.map { it.content }
 
-                // Persist user messages before building context so countInSegment is accurate
-                messages.forEach { msg ->
-                    val rowId =
+                    // Persist user messages before building context so countInSegment is accurate
+                    messages.forEach { msg ->
+                        val rowId =
+                            messageRepository.saveAndGetRowId(
+                                id = msg.id,
+                                channel = msg.channel,
+                                chatId = msg.chatId,
+                                role = "user",
+                                type = "text",
+                                content = msg.content,
+                            )
+                        messageEmbeddingService.embedAsync(
+                            rowId,
+                            "user",
+                            "text",
+                            msg.content,
+                            config.autoRag,
+                            processingScope,
+                        )
+                    }
+
+                    val contextResult = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
+                    val tools: List<ToolDef> =
+                        toolRegistry.listTools(
+                            includeSkillList = contextResult.includeSkillList,
+                            includeSkillLoad = contextResult.includeSkillLoad,
+                        )
+
+                    val contextBudget =
+                        config.models[session.model]?.contextBudget
+                            ?: config.context.defaultBudgetTokens
+                    val runner =
+                        ToolCallLoopRunner(
+                            llmRouter,
+                            toolExecutor,
+                            config.processing.maxToolCallRounds,
+                            messageRepository,
+                            channel,
+                            chatId,
+                            contextBudgetTokens = contextBudget,
+                            maxToolOutputChars = config.processing.maxToolOutputChars,
+                        )
+                    val response = runner.run(contextResult.messages.toMutableList(), session, tools)
+
+                    // Persist assistant response to DB
+                    val content = response.content ?: ""
+                    val assistantRowId =
                         messageRepository.saveAndGetRowId(
-                            id = msg.id,
-                            channel = msg.channel,
-                            chatId = msg.chatId,
-                            role = "user",
+                            id = UUID.randomUUID().toString(),
+                            channel = channel,
+                            chatId = chatId,
+                            role = "assistant",
                             type = "text",
-                            content = msg.content,
+                            content = content,
                         )
                     messageEmbeddingService.embedAsync(
-                        rowId,
-                        "user",
+                        assistantRowId,
+                        "assistant",
                         "text",
-                        msg.content,
+                        content,
                         config.autoRag,
                         processingScope,
                     )
-                }
 
-                val contextResult = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
-                val tools: List<ToolDef> =
-                    toolRegistry.listTools(
-                        includeSkillList = contextResult.includeSkillList,
-                        includeSkillLoad = contextResult.includeSkillLoad,
-                    )
-
-                val contextBudget =
-                    config.models[session.model]?.contextBudget
-                        ?: config.context.defaultBudgetTokens
-                val runner =
-                    ToolCallLoopRunner(
-                        llmRouter,
-                        toolExecutor,
-                        config.processing.maxToolCallRounds,
-                        messageRepository,
-                        channel,
-                        chatId,
-                        contextBudgetTokens = contextBudget,
-                        maxToolOutputChars = config.processing.maxToolOutputChars,
-                    )
-                val response = runner.run(contextResult.messages.toMutableList(), session, tools)
-
-                // Persist assistant response to DB
-                val content = response.content ?: ""
-                val assistantRowId =
-                    messageRepository.saveAndGetRowId(
-                        id = UUID.randomUUID().toString(),
-                        channel = channel,
-                        chatId = chatId,
-                        role = "assistant",
-                        type = "text",
-                        content = content,
-                    )
-                messageEmbeddingService.embedAsync(
-                    assistantRowId,
-                    "assistant",
-                    "text",
-                    content,
-                    config.autoRag,
-                    processingScope,
-                )
-
-                if (!isSilent(content)) {
+                    if (!isSilent(content)) {
+                        socketServerProvider.get().pushToGateway(
+                            OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
+                        )
+                    }
+                } catch (_: KlawError.ToolCallLoopException) {
                     socketServerProvider.get().pushToGateway(
-                        OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
+                        OutboundSocketMessage(
+                            channel = channel,
+                            chatId = chatId,
+                            content = "Sorry, I reached the tool call limit. Please try again.",
+                        ),
+                    )
+                } catch (_: KlawError) {
+                    socketServerProvider.get().pushToGateway(
+                        OutboundSocketMessage(
+                            channel = channel,
+                            chatId = chatId,
+                            content = "Sorry, something went wrong.",
+                        ),
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    socketServerProvider.get().pushToGateway(
+                        OutboundSocketMessage(
+                            channel = channel,
+                            chatId = chatId,
+                            content = "An internal error occurred.",
+                        ),
                     )
                 }
-            } catch (_: KlawError.ToolCallLoopException) {
-                socketServerProvider.get().pushToGateway(
-                    OutboundSocketMessage(
-                        channel = channel,
-                        chatId = chatId,
-                        content = "Sorry, I reached the tool call limit. Please try again.",
-                    ),
-                )
-            } catch (_: KlawError) {
-                socketServerProvider.get().pushToGateway(
-                    OutboundSocketMessage(channel = channel, chatId = chatId, content = "Sorry, something went wrong."),
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                socketServerProvider.get().pushToGateway(
-                    OutboundSocketMessage(channel = channel, chatId = chatId, content = "An internal error occurred."),
-                )
             }
+        } finally {
+            activeProcessingJobs.remove(chatId, currentJob)
         }
     }
 }

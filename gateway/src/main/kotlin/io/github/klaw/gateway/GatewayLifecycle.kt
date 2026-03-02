@@ -3,6 +3,7 @@ package io.github.klaw.gateway
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
+import io.github.klaw.gateway.channel.CommandParser
 import io.github.klaw.gateway.socket.EngineSocketClient
 import io.github.klaw.gateway.socket.GatewayOutboundHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -39,13 +40,26 @@ class GatewayLifecycle(
                 channel.start()
                 channel.listen { incoming ->
                     outboundHandler.addImplicitAllow(incoming.chatId)
+                    val isCmd: Boolean
+                    val cmdName: String?
+                    val cmdArgs: String?
                     if (incoming.isCommand) {
+                        isCmd = true
+                        cmdName = incoming.commandName
+                        cmdArgs = incoming.commandArgs
+                    } else {
+                        val parsed = CommandParser.parse(incoming.content)
+                        isCmd = parsed.isCommand
+                        cmdName = parsed.commandName
+                        cmdArgs = parsed.commandArgs
+                    }
+                    if (isCmd) {
                         engineClient.send(
                             CommandSocketMessage(
                                 channel = incoming.channel,
                                 chatId = incoming.chatId,
-                                command = incoming.commandName ?: "",
-                                args = incoming.commandArgs,
+                                command = cmdName ?: "",
+                                args = cmdArgs,
                             ),
                         )
                         logger.debug { "Command forwarded to engine: channel=${incoming.channel}" }
