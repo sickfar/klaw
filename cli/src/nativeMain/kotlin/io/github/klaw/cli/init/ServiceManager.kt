@@ -64,7 +64,7 @@ internal class ServiceManager(
         printer("Restarting ${service.dockerName}...")
         return when (deployMode) {
             DeployMode.DOCKER, DeployMode.HYBRID -> {
-                val cmd = "docker compose -f '$composeFile' restart ${service.dockerName}"
+                val cmd = "docker compose -f '$composeFile' up -d --force-recreate ${service.dockerName}"
                 commandRunner(cmd) == 0
             }
 

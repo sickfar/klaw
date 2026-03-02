@@ -131,6 +131,19 @@ class ServiceCommandTest {
     }
 
     @Test
+    fun `engine restart uses docker compose up force-recreate when deploy conf is docker`() {
+        writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
+        val result = cli().test("engine restart")
+        assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d --force-recreate") && it.contains("engine")
+            },
+            "Expected docker compose up -d --force-recreate engine, got: $commands",
+        )
+    }
+
+    @Test
     fun `engine restart uses native when deploy conf missing`() {
         val result = cli().test("engine restart")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
@@ -198,6 +211,19 @@ class ServiceCommandTest {
                     it.contains("gateway") && it.contains("$tmpDir/docker-compose.json")
             },
             "Expected docker compose stop gateway with hybrid path, got: $commands",
+        )
+    }
+
+    @Test
+    fun `gateway restart uses docker compose up force-recreate when deploy conf is docker`() {
+        writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
+        val result = cli().test("gateway restart")
+        assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d --force-recreate") && it.contains("gateway")
+            },
+            "Expected docker compose up -d --force-recreate gateway, got: $commands",
         )
     }
 

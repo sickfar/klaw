@@ -67,13 +67,15 @@ class ServiceManagerTest {
     }
 
     @Test
-    fun `docker mode restart engine issues docker compose restart engine`() {
+    fun `docker mode restart engine issues docker compose up force-recreate engine`() {
         val commands = mutableListOf<String>()
         val manager = buildDockerManager(commands)
         manager.restart(KlawService.ENGINE)
         assertTrue(
-            commands.any { it.contains("docker compose") && it.contains("restart") && it.contains(" engine") },
-            "Expected docker compose restart engine, got: $commands",
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d --force-recreate") && it.contains(" engine")
+            },
+            "Expected docker compose up -d --force-recreate engine, got: $commands",
         )
     }
 
@@ -169,16 +171,16 @@ class ServiceManagerTest {
     }
 
     @Test
-    fun `hybrid mode restart issues compose restart with config-dir path`() {
+    fun `hybrid mode restart issues compose up force-recreate with config-dir path`() {
         val commands = mutableListOf<String>()
         val manager = buildHybridManager(commands)
         manager.restart(KlawService.ENGINE)
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("restart") &&
+                it.contains("docker compose") && it.contains("up -d --force-recreate") &&
                     it.contains(" engine") && it.contains("/home/user/.config/klaw/docker-compose.json")
             },
-            "Expected docker compose restart with hybrid compose file path, got: $commands",
+            "Expected docker compose up -d --force-recreate with hybrid compose file path, got: $commands",
         )
     }
 
