@@ -304,6 +304,17 @@ class FileToolsTest {
     // --- Multi-path (read-only access to non-workspace directories) ---
 
     @Test
+    fun `file_read relative path resolves to workspace not state dir`() =
+        runTest {
+            // Relative paths always resolve against workspace (first base), even if file exists in state dir
+            val logFile = stateDir.resolve("logs").also { Files.createDirectories(it) }.resolve("engine.log")
+            Files.writeString(logFile, "log data")
+            val result = toolsMultiPath().read("logs/engine.log")
+            // File doesn't exist in workspace, so we get "not found" — LLM must use absolute paths for state dir
+            assertTrue(result.contains("not found"), "Expected not found but got: $result")
+        }
+
+    @Test
     fun `file_read reads from second allowed path using absolute path`() =
         runTest {
             val logFile = stateDir.resolve("logs").also { Files.createDirectories(it) }.resolve("engine.log")

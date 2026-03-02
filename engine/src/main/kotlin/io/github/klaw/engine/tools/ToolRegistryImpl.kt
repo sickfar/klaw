@@ -192,13 +192,18 @@ class ToolRegistryImpl(
             listOf(
                 ToolDef(
                     "file_read",
-                    "Read a file from workspace, logs, config, or data directories. " +
-                        "Use absolute path for logs directory.",
+                    "Read a file. Accessible dirs: workspace (\$WORKSPACE), state (\$STATE — has logs/), " +
+                        "data (\$DATA), config (\$CONFIG), cache (\$CACHE). " +
+                        "Relative paths resolve to workspace only. " +
+                        "For other dirs use absolute paths (e.g. \$STATE/logs/engine.log).",
                     toolParams(
                         listOf("path"),
                         mapOf(
                             "path" to
-                                stringProp("File path (relative to workspace or absolute for logs/config/data)"),
+                                stringProp(
+                                    "File path — relative (workspace only) or absolute within " +
+                                        "workspace/state/data/config/cache dirs",
+                                ),
                             "startLine" to intProp("Start line (1-based)"),
                             "maxLines" to intProp("Maximum number of lines"),
                         ),
@@ -218,11 +223,16 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "file_list",
-                    "List directory contents in workspace, logs, config, or data directories",
+                    "List directory contents. Same accessible dirs as file_read. " +
+                        "Relative paths resolve to workspace only; use absolute paths for state/data/config/cache.",
                     toolParams(
                         listOf("path"),
                         mapOf(
-                            "path" to stringProp("Directory path relative to workspace"),
+                            "path" to
+                                stringProp(
+                                    "Directory path — relative (workspace only) or absolute within " +
+                                        "workspace/state/data/config/cache dirs",
+                                ),
                             "recursive" to boolProp("Recursively traverse subdirectories"),
                         ),
                     ),

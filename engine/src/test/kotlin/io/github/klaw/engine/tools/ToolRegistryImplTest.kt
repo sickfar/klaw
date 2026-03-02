@@ -307,11 +307,11 @@ class ToolRegistryImplTest {
         }
 
     @Test
-    fun `file_list description mentions logs access`() =
+    fun `file_list description mentions non-workspace dir access`() =
         runTest {
             val tools = registry.listTools()
             val fileList = tools.first { it.name == "file_list" }
-            assertTrue(fileList.description.contains("logs"), "file_list description should mention logs")
+            assertTrue(fileList.description.contains("state"), "file_list description should mention state dir")
         }
 
     @Test
