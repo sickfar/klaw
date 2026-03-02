@@ -15,6 +15,7 @@ internal enum class DeployMode(
 internal data class DeployConfig(
     val mode: DeployMode = DeployMode.NATIVE,
     val dockerTag: String = "latest",
+    val installedVersion: String = "",
 )
 
 internal fun readDeployConf(configDir: String): DeployConfig {
@@ -31,14 +32,15 @@ internal fun readDeployConf(configDir: String): DeployConfig {
     }
     val mode = DeployMode.entries.firstOrNull { it.configName == map["mode"] } ?: DeployMode.NATIVE
     val dockerTag = map["docker_tag"]?.ifBlank { "latest" } ?: "latest"
-    return DeployConfig(mode, dockerTag)
+    val installedVersion = map["installed_version"] ?: ""
+    return DeployConfig(mode, dockerTag, installedVersion)
 }
 
 internal fun writeDeployConf(
     configDir: String,
     config: DeployConfig,
 ) {
-    val content = "mode=${config.mode.configName}\ndocker_tag=${config.dockerTag}\n"
+    val content = "mode=${config.mode.configName}\ndocker_tag=${config.dockerTag}\ninstalled_version=${config.installedVersion}\n"
     val tmpPath = "$configDir/deploy.conf.tmp"
     val finalPath = "$configDir/deploy.conf"
     writeFileText(tmpPath, content)

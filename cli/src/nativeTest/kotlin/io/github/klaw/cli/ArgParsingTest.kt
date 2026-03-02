@@ -3,6 +3,7 @@ package io.github.klaw.cli
 import com.github.ajalt.clikt.testing.test
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class ArgParsingTest {
     private fun fakeRequest(response: String): (String, Map<String, String>) -> String = { _, _ -> response }
@@ -207,6 +208,22 @@ class ArgParsingTest {
             )
         val result = cli.test("stop")
         assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `klaw --version exits with status 0 and contains version`() {
+        val cli =
+            KlawCli(
+                requestFn = fakeRequest("{}"),
+                conversationsDir = "/nonexistent",
+                engineChecker = { false },
+                configDir = "/nonexistent",
+                modelsDir = "/nonexistent",
+                logDir = "/nonexistent/logs",
+            )
+        val result = cli.test("--version")
+        assertEquals(0, result.statusCode)
+        assertTrue(result.output.contains("0.1.0"), "Output should contain version string, got: ${result.output}")
     }
 
     @Test

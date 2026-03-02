@@ -3,6 +3,31 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val generateBuildConfig by tasks.registering {
+    val outputDir = layout.buildDirectory.dir("generated/buildconfig/nativeMain/io/github/klaw/cli")
+    outputs.dir(outputDir)
+    doLast {
+        val dir = outputDir.get().asFile
+        dir.mkdirs()
+        val version = rootProject.version.toString()
+        dir.resolve("BuildConfig.kt").writeText(
+            """
+            |package io.github.klaw.cli
+            |
+            |object BuildConfig {
+            |    const val VERSION: String = "$version"
+            |    const val GITHUB_OWNER: String = "sickfar"
+            |    const val GITHUB_REPO: String = "klaw"
+            |}
+            """.trimMargin() + "\n",
+        )
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile>().configureEach {
+    dependsOn(generateBuildConfig)
+}
+
 kotlin {
     linuxArm64 {
         binaries {
@@ -38,6 +63,9 @@ kotlin {
     }
 
     sourceSets {
+        nativeMain {
+            kotlin.srcDir(layout.buildDirectory.dir("generated/buildconfig/nativeMain"))
+        }
         nativeMain.dependencies {
             implementation(project(":common"))
             implementation(libs.clikt)

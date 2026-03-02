@@ -78,7 +78,7 @@ class DeployConfigTest {
     fun `write creates file with expected content`() {
         writeDeployConf(tmpDir, DeployConfig(DeployMode.DOCKER, "nightly"))
         val content = readFileText("$tmpDir/deploy.conf")
-        assertEquals("mode=docker\ndocker_tag=nightly\n", content)
+        assertEquals("mode=docker\ndocker_tag=nightly\ninstalled_version=\n", content)
     }
 
     @Test
@@ -95,6 +95,44 @@ class DeployConfigTest {
         val config = readDeployConf(tmpDir)
         assertEquals(DeployMode.HYBRID, config.mode)
         assertEquals("latest", config.dockerTag)
+    }
+
+    @Test
+    fun `installed_version roundtrip preserves value`() {
+        val original = DeployConfig(DeployMode.HYBRID, "unstable", "0.2.0")
+        writeDeployConf(tmpDir, original)
+        val loaded = readDeployConf(tmpDir)
+        assertEquals("0.2.0", loaded.installedVersion)
+    }
+
+    @Test
+    fun `missing installed_version defaults to empty string`() {
+        writeTestFile("$tmpDir/deploy.conf", "mode=native\ndocker_tag=latest\n")
+        val config = readDeployConf(tmpDir)
+        assertEquals("", config.installedVersion)
+    }
+
+    @Test
+    fun `write preserves all three fields`() {
+        val config = DeployConfig(DeployMode.DOCKER, "nightly", "1.0.0")
+        writeDeployConf(tmpDir, config)
+        val content = readFileText("$tmpDir/deploy.conf")
+        assertEquals("mode=docker\ndocker_tag=nightly\ninstalled_version=1.0.0\n", content)
+    }
+
+    @Test
+    fun `backward compat - old file without installed_version parses correctly`() {
+        writeTestFile("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=0.4.2\n")
+        val config = readDeployConf(tmpDir)
+        assertEquals(DeployMode.HYBRID, config.mode)
+        assertEquals("0.4.2", config.dockerTag)
+        assertEquals("", config.installedVersion)
+    }
+
+    @Test
+    fun `default DeployConfig has empty installedVersion`() {
+        val config = DeployConfig()
+        assertEquals("", config.installedVersion)
     }
 
     private fun writeTestFile(
