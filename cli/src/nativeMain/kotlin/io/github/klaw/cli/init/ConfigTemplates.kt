@@ -21,8 +21,8 @@ import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.TelegramConfig
 import io.github.klaw.common.config.encodeComposeConfig
-import io.github.klaw.common.config.encodeEngineConfig
-import io.github.klaw.common.config.encodeGatewayConfig
+import io.github.klaw.common.config.encodeEngineConfigMinimal
+import io.github.klaw.common.config.encodeGatewayConfigMinimal
 
 internal object ConfigTemplates {
     /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`. */
@@ -32,74 +32,26 @@ internal object ConfigTemplates {
         providerUrl: String,
         modelId: String,
         heartbeatChannel: String? = null,
-    ): String {
+    ): String = encodeEngineConfigMinimal(buildEngineConfig(providerUrl, modelId, heartbeatChannel))
+
+    private fun buildEngineConfig(
+        providerUrl: String,
+        modelId: String,
+        heartbeatChannel: String?,
+    ): EngineConfig {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
-        val apiKeyEnvVar = apiKeyEnvVar(providerName)
-        val config =
-            EngineConfig(
-                providers =
-                    mapOf(
-                        providerName to
-                            ProviderConfig(
-                                type = "openai-compatible",
-                                endpoint = providerUrl,
-                                apiKey = "\${$apiKeyEnvVar}",
-                            ),
-                    ),
-                models =
-                    mapOf(
-                        modelId to
-                            ModelConfig(
-                                maxTokens = 8192,
-                                contextBudget = 16384,
-                            ),
-                    ),
-                routing =
-                    RoutingConfig(
-                        default = modelId,
-                        fallback = emptyList(),
-                        tasks =
-                            TaskRoutingConfig(
-                                summarization = modelId,
-                                subagent = modelId,
-                            ),
-                    ),
-                context =
-                    ContextConfig(
-                        slidingWindow = 20,
-                        defaultBudgetTokens = 4096,
-                        subagentHistory = 10,
-                    ),
-                processing =
-                    ProcessingConfig(
-                        debounceMs = 800,
-                        maxConcurrentLlm = 3,
-                        maxToolCallRounds = 10,
-                    ),
-                memory =
-                    MemoryConfig(
-                        embedding =
-                            EmbeddingConfig(
-                                type = "onnx",
-                                model = "all-MiniLM-L6-v2",
-                            ),
-                        chunking =
-                            ChunkingConfig(
-                                size = 512,
-                                overlap = 64,
-                            ),
-                        search =
-                            SearchConfig(
-                                topK = 10,
-                            ),
-                    ),
-                heartbeat =
-                    HeartbeatConfig(
-                        interval = if (heartbeatChannel != null) "PT1H" else "off",
-                        channel = heartbeatChannel,
-                    ),
-            )
-        return encodeEngineConfig(config)
+        return EngineConfig(
+            providers = buildConfigProviders(providerName, providerUrl),
+            models = buildConfigModels(modelId),
+            routing = buildConfigRouting(modelId),
+            context = buildConfigContext(),
+            processing = buildConfigProcessing(),
+            memory = buildConfigMemory(),
+            heartbeat = HeartbeatConfig(
+                interval = if (heartbeatChannel != null) "PT1H" else "off",
+                channel = heartbeatChannel,
+            ),
+        )
     }
 
     @Suppress("LongParameterList")
@@ -135,7 +87,7 @@ internal object ConfigTemplates {
                         console = console,
                     ),
             )
-        return encodeGatewayConfig(config)
+        return encodeGatewayConfigMinimal(config)
     }
 
     @Suppress("LongParameterList")
@@ -258,3 +210,39 @@ internal object ConfigTemplates {
         dockerTag: String,
     ): String = "mode=${mode.configName}\ndocker_tag=$dockerTag\n"
 }
+
+private fun buildConfigProviders(
+    providerName: String,
+    providerUrl: String,
+): Map<String, ProviderConfig> =
+    mapOf(
+        providerName to
+            ProviderConfig(
+                type = "openai-compatible",
+                endpoint = providerUrl,
+                apiKey = "\${${ConfigTemplates.apiKeyEnvVar(providerName)}}",
+            ),
+    )
+
+private fun buildConfigModels(modelId: String): Map<String, ModelConfig> =
+    mapOf(modelId to ModelConfig(maxTokens = 8192, contextBudget = 16384))
+
+private fun buildConfigRouting(modelId: String): RoutingConfig =
+    RoutingConfig(
+        default = modelId,
+        fallback = emptyList(),
+        tasks = TaskRoutingConfig(summarization = modelId, subagent = modelId),
+    )
+
+private fun buildConfigContext(): ContextConfig =
+    ContextConfig(slidingWindow = 20, defaultBudgetTokens = 4096, subagentHistory = 10)
+
+private fun buildConfigProcessing(): ProcessingConfig =
+    ProcessingConfig(debounceMs = 800, maxConcurrentLlm = 3, maxToolCallRounds = 50)
+
+private fun buildConfigMemory(): MemoryConfig =
+    MemoryConfig(
+        embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
+        chunking = ChunkingConfig(size = 512, overlap = 64),
+        search = SearchConfig(topK = 10),
+    )

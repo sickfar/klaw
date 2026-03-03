@@ -10,6 +10,16 @@ import platform.posix.read
 import platform.posix.stdout
 import platform.posix.system
 
+// Terminal byte constants for RadioSelector key handling
+private const val KEY_CR = 13       // Carriage Return
+private const val KEY_LF = 10       // Line Feed
+private const val KEY_CTRL_C = 3    // Ctrl+C
+private const val KEY_ESC = 0x1B    // ESC
+private const val KEY_BRACKET = 0x5B // '[' — CSI second byte
+private const val KEY_UP = 0x41     // 'A' — cursor up in CSI sequence
+private const val KEY_DOWN = 0x42   // 'B' — cursor down in CSI sequence
+private const val BYTE_MASK = 0xFF  // convert signed byte to unsigned int
+
 internal enum class EscState { None, EscWait, BracketWait }
 
 internal sealed class SelectorEvent {
@@ -39,30 +49,24 @@ internal fun handleByte(
     when (escState) {
         EscState.None -> {
             when (byte) {
-                13, 10 -> Pair(EscState.None, SelectorEvent.Confirm(currentIdx))
-                3 -> Pair(EscState.None, SelectorEvent.Cancel)
-                0x1B -> Pair(EscState.EscWait, SelectorEvent.Unchanged)
+                KEY_CR, KEY_LF -> Pair(EscState.None, SelectorEvent.Confirm(currentIdx))
+                KEY_CTRL_C -> Pair(EscState.None, SelectorEvent.Cancel)
+                KEY_ESC -> Pair(EscState.EscWait, SelectorEvent.Unchanged)
                 else -> Pair(EscState.None, SelectorEvent.Unchanged)
             }
         }
 
         EscState.EscWait -> {
             when (byte) {
-                0x5B -> Pair(EscState.BracketWait, SelectorEvent.Unchanged)
-
-                // '['
+                KEY_BRACKET -> Pair(EscState.BracketWait, SelectorEvent.Unchanged)
                 else -> Pair(EscState.None, SelectorEvent.Cancel) // ESC alone or unrecognized
             }
         }
 
         EscState.BracketWait -> {
             when (byte) {
-                0x41 -> Pair(EscState.None, SelectorEvent.MoveUp)
-
-                // 'A'
-                0x42 -> Pair(EscState.None, SelectorEvent.MoveDown)
-
-                // 'B'
+                KEY_UP -> Pair(EscState.None, SelectorEvent.MoveUp)
+                KEY_DOWN -> Pair(EscState.None, SelectorEvent.MoveDown)
                 else -> Pair(EscState.None, SelectorEvent.Unchanged)
             }
         }
@@ -98,7 +102,7 @@ internal class RadioSelector(
                     }
                 if (n <= 0) return null
 
-                val byte = buf[0].toInt() and 0xFF
+                val byte = buf[0].toInt() and BYTE_MASK
                 val (newState, event) = handleByte(byte, escState, currentIdx)
                 escState = newState
 

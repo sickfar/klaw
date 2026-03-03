@@ -18,6 +18,9 @@ import platform.posix.readdir
 import platform.posix.rmdir
 import platform.posix.unlink
 
+private const val FILE_READ_BUF_SIZE = 8192
+private const val COMMAND_READ_BUF_SIZE = 4096
+
 @OptIn(ExperimentalForeignApi::class)
 internal fun fileExists(path: String): Boolean = access(path, F_OK) == 0
 
@@ -32,7 +35,7 @@ internal fun isDirectory(path: String): Boolean {
 internal fun readFileText(path: String): String? {
     val file = fopen(path, "r") ?: return null
     val sb = StringBuilder()
-    val buf = ByteArray(8192)
+    val buf = ByteArray(FILE_READ_BUF_SIZE)
     buf.usePinned { pinned ->
         while (true) {
             val n = fread(pinned.addressOf(0), 1.convert(), buf.size.convert(), file).toInt()
@@ -61,7 +64,7 @@ internal fun writeFileText(
 internal fun runCommandOutput(command: String): String? {
     val pipe = platform.posix.popen(command, "r") ?: return null
     val sb = StringBuilder()
-    val buf = ByteArray(4096)
+    val buf = ByteArray(COMMAND_READ_BUF_SIZE)
     buf.usePinned { pinned ->
         while (true) {
             val n = fread(pinned.addressOf(0), 1.convert(), buf.size.convert(), pipe).toInt()

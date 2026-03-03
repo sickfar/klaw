@@ -326,14 +326,6 @@ class MessageProcessor(
                             OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
                         )
                     }
-                } catch (_: KlawError.ToolCallLoopException) {
-                    socketServerProvider.get().pushToGateway(
-                        OutboundSocketMessage(
-                            channel = channel,
-                            chatId = chatId,
-                            content = "Sorry, I reached the tool call limit. Please try again.",
-                        ),
-                    )
                 } catch (_: KlawError) {
                     socketServerProvider.get().pushToGateway(
                         OutboundSocketMessage(

@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:filename")
-
 package io.github.klaw.common.config.schema
 
 import kotlinx.serialization.json.JsonArray
@@ -9,11 +7,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
-
-data class SanitizeResult(
-    val sanitized: JsonElement,
-    val removedPaths: List<String>,
-)
 
 fun sanitizeConfig(
     schema: JsonObject,
@@ -30,50 +23,64 @@ private fun sanitizeNode(
     path: String,
     removedPaths: MutableList<String>,
 ): JsonElement {
-    if (element !is JsonObject) {
-        if (element is JsonArray) {
-            val itemSchema = schema["items"]?.jsonObject ?: return element
-            return buildJsonArray {
-                element.forEachIndexed { index, item ->
-                    add(sanitizeNode(itemSchema, item, "$path[$index]", removedPaths))
-                }
-            }
-        }
-        return element
-    }
-
     val properties = schema["properties"]?.jsonObject
     val addlProps = schema["additionalProperties"]
+    return when {
+        element is JsonArray -> sanitizeArray(schema, element, path, removedPaths)
+        element !is JsonObject -> element
+        addlProps is JsonObject && properties == null ->
+            sanitizeMap(addlProps, element, path, removedPaths)
+        properties != null ->
+            sanitizeObjectProps(properties, addlProps, element, path, removedPaths)
+        else -> element
+    }
+}
+
+private fun sanitizeArray(
+    schema: JsonObject,
+    element: JsonArray,
+    path: String,
+    removedPaths: MutableList<String>,
+): JsonElement {
+    val itemSchema = schema["items"]?.jsonObject ?: return element
+    return buildJsonArray {
+        element.forEachIndexed { index, item ->
+            add(sanitizeNode(itemSchema, item, "$path[$index]", removedPaths))
+        }
+    }
+}
+
+private fun sanitizeMap(
+    valueSchema: JsonObject,
+    element: JsonObject,
+    path: String,
+    removedPaths: MutableList<String>,
+): JsonObject =
+    buildJsonObject {
+        for ((key, value) in element) {
+            put(key, sanitizeNode(valueSchema, value, "$path.$key", removedPaths))
+        }
+    }
+
+private fun sanitizeObjectProps(
+    properties: JsonObject,
+    addlProps: JsonElement?,
+    element: JsonObject,
+    path: String,
+    removedPaths: MutableList<String>,
+): JsonObject {
     val rejectUnknown = addlProps is JsonPrimitive && addlProps.content == "false"
-
-    // Map type: additionalProperties is a schema object, no properties defined
-    if (addlProps is JsonObject && properties == null) {
-        return buildJsonObject {
-            for ((key, value) in element) {
-                put(key, sanitizeNode(addlProps, value, "$path.$key", removedPaths))
-            }
-        }
-    }
-
-    // Object with properties
-    if (properties != null) {
-        return buildJsonObject {
-            for ((key, value) in element) {
-                val propSchema = properties[key]?.jsonObject
-                if (propSchema != null) {
+    return buildJsonObject {
+        for ((key, value) in element) {
+            val propSchema = properties[key]?.jsonObject
+            when {
+                propSchema != null ->
                     put(key, sanitizeNode(propSchema, value, "$path.$key", removedPaths))
-                } else if (rejectUnknown) {
-                    removedPaths.add("$path.$key")
-                } else if (addlProps is JsonObject) {
-                    // Has both properties and additionalProperties schema
+                rejectUnknown -> removedPaths.add("$path.$key")
+                addlProps is JsonObject ->
                     put(key, sanitizeNode(addlProps, value, "$path.$key", removedPaths))
-                } else {
-                    // additionalProperties: true or absent — keep as-is
-                    put(key, value)
-                }
+                else -> put(key, value)
             }
         }
     }
-
-    return element
 }

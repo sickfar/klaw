@@ -6,7 +6,6 @@ import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.TaskRoutingConfig
-import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmResponse
@@ -179,22 +178,22 @@ class ToolCallLoopTest {
         }
 
     @Test
-    fun `ToolCallLoopException thrown after maxToolCallRounds`() =
+    fun `graceful degradation response returned after maxToolCallRounds`() =
         runTest {
             val mockClient = mockk<LlmClient>()
             val mockToolExecutor = mockk<ToolExecutor>()
 
             val toolCall = ToolCall(id = "call-1", name = "infinite_tool", arguments = "{}")
 
-            // Always returns a tool call -- never terminates naturally
+            // First 3 calls always return a tool call; 4th call is the graceful summary
             coEvery {
                 mockClient.chat(any(), any(), any())
-            } returns
-                LlmResponse(
-                    content = null,
-                    toolCalls = listOf(toolCall),
-                    usage = null,
-                    finishReason = FinishReason.TOOL_CALLS,
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Here is a summary of my progress so far.", null, null, FinishReason.STOP),
                 )
 
             coEvery { mockToolExecutor.executeAll(any()) } returns listOf(ToolResult("call-1", "result"))
@@ -207,15 +206,17 @@ class ToolCallLoopTest {
                 )
 
             val context = mutableListOf(LlmMessage(role = "user", content = "Loop forever"))
-            var caught: KlawError.ToolCallLoopException? = null
-            try {
-                runner.run(context, testSession)
-            } catch (e: KlawError.ToolCallLoopException) {
-                caught = e
-            }
-            assertNotNull(caught, "Expected ToolCallLoopException to be thrown")
+            val response = runner.run(context, testSession)
 
-            coVerify(exactly = 3) { mockClient.chat(any(), any(), any()) }
+            // Runner must return a response, not throw
+            assertEquals("Here is a summary of my progress so far.", response.content)
+
+            // Total calls: 3 loop rounds + 1 graceful summary = 4
+            coVerify(exactly = 4) { mockClient.chat(any(), any(), any()) }
+
+            // Context must contain the limit notification injected before the final call
+            val limitMsg = context.find { it.role == "user" && it.content?.contains("tool call limit") == true }
+            assertNotNull(limitMsg, "Context must contain limit notification message")
         }
 
     @Test

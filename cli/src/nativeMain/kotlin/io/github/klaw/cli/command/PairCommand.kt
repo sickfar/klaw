@@ -7,6 +7,7 @@ import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
+import kotlinx.serialization.SerializationException
 import io.github.klaw.common.config.PairingRequest
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.klawJson
@@ -53,7 +54,7 @@ internal class PairCommand(
         val config =
             try {
                 parseGatewayConfig(configContent)
-            } catch (e: Exception) {
+            } catch (e: SerializationException) {
                 echo("Error: could not parse $configPath — ${e::class.simpleName}")
                 return
             }
@@ -103,7 +104,7 @@ internal class PairCommand(
         val text = readFileText(pairingRequestsPath) ?: return emptyList()
         return try {
             klawJson.decodeFromString(ListSerializer(PairingRequest.serializer()), text)
-        } catch (e: Exception) {
+        } catch (e: SerializationException) {
             CliLogger.warn { "Could not parse pairing requests: ${e::class.simpleName}" }
             emptyList()
         }

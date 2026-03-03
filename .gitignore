@@ -58,3 +58,6 @@ dist/
 /config/
 !/config/.gitkeep
 !/config/*.example
+
+# Claude Code worktrees
+.claude/worktrees/

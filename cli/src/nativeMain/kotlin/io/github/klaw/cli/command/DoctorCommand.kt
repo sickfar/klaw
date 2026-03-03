@@ -23,6 +23,7 @@ import io.github.klaw.common.config.schema.engineJsonSchema
 import io.github.klaw.common.config.schema.gatewayJsonSchema
 import io.github.klaw.common.config.schema.validateConfig
 import io.github.klaw.common.paths.KlawPaths
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 
 @Suppress("LongParameterList")
@@ -51,42 +52,40 @@ internal class DoctorCommand(
     override fun run() {
         if (currentContext.invokedSubcommand != null) return
         CliLogger.debug { "running doctor checks" }
-        // Handle --dump-schema early exit
-        dumpSchema?.let { target ->
-            val schema =
-                when (target) {
-                    "engine" -> {
-                        engineJsonSchema()
-                    }
-
-                    "gateway" -> {
-                        gatewayJsonSchema()
-                    }
-
-                    "compose" -> {
-                        composeJsonSchema()
-                    }
-
-                    else -> {
-                        echo("Unknown schema target: $target (use 'engine', 'gateway', or 'compose')")
-                        return
-                    }
-                }
-            echo(klawPrettyJson.encodeToString(JsonObject.serializer(), schema))
-            return
-        }
+        if (handleDumpSchema()) return
 
         val deployConfig = readDeployConf(configDir)
         echo("  Deploy mode: ${deployConfig.mode.configName}")
 
-        val gatewayJson = "$configDir/gateway.json"
-        val engineJson = "$configDir/engine.json"
+        checkConfigFile("gateway.json", "$configDir/gateway.json", gatewayJsonSchema()) { parseGatewayConfig(it) }
+        checkConfigFile("engine.json", "$configDir/engine.json", engineJsonSchema()) { parseEngineConfig(it) }
+        checkEngine()
+        checkGatewayWebSocket(deployConfig)
+        checkModels()
+        checkWorkspace()
 
-        // Config files — schema validation then deserialization
-        checkConfigFile("gateway.json", gatewayJson, gatewayJsonSchema()) { parseGatewayConfig(it) }
-        checkConfigFile("engine.json", engineJson, engineJsonSchema()) { parseEngineConfig(it) }
+        if (deployConfig.mode != DeployMode.NATIVE) {
+            checkDocker()
+        }
+    }
 
-        // Engine TCP connectivity
+    private fun handleDumpSchema(): Boolean {
+        val target = dumpSchema ?: return false
+        val schema =
+            when (target) {
+                "engine" -> engineJsonSchema()
+                "gateway" -> gatewayJsonSchema()
+                "compose" -> composeJsonSchema()
+                else -> {
+                    echo("Unknown schema target: $target (use 'engine', 'gateway', or 'compose')")
+                    return true
+                }
+            }
+        echo(klawPrettyJson.encodeToString(JsonObject.serializer(), schema))
+        return true
+    }
+
+    private fun checkEngine() {
         if (engineChecker()) {
             CliLogger.debug { "engine port responsive" }
             echo("\u2713 Engine: running")
@@ -94,23 +93,24 @@ internal class DoctorCommand(
             CliLogger.warn { "engine not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort}" }
             echo("\u2717 Engine: stopped (not responding on ${KlawPaths.engineHost}:${KlawPaths.enginePort})")
         }
+    }
 
-        // Gateway WebSocket (console chat)
+    private fun checkGatewayWebSocket(deployConfig: io.github.klaw.cli.init.DeployConfig) {
         val consoleConfig = readConsoleChatConfig(configDir)
-        if (consoleConfig.enabled) {
-            if (checkTcpPort("127.0.0.1", consoleConfig.port)) {
-                CliLogger.debug { "gateway WebSocket port responsive on ${consoleConfig.port}" }
-                echo("\u2713 Gateway WebSocket: reachable on port ${consoleConfig.port}")
-            } else {
-                CliLogger.warn { "gateway WebSocket not responding on port ${consoleConfig.port}" }
-                echo("\u2717 Gateway WebSocket: not reachable on port ${consoleConfig.port}")
-                if (deployConfig.mode != DeployMode.NATIVE) {
-                    echo("  Hint: check docker-compose.json for gateway port mapping")
-                }
+        if (!consoleConfig.enabled) return
+        if (checkTcpPort("127.0.0.1", consoleConfig.port)) {
+            CliLogger.debug { "gateway WebSocket port responsive on ${consoleConfig.port}" }
+            echo("\u2713 Gateway WebSocket: reachable on port ${consoleConfig.port}")
+        } else {
+            CliLogger.warn { "gateway WebSocket not responding on port ${consoleConfig.port}" }
+            echo("\u2717 Gateway WebSocket: not reachable on port ${consoleConfig.port}")
+            if (deployConfig.mode != DeployMode.NATIVE) {
+                echo("  Hint: check docker-compose.json for gateway port mapping")
             }
         }
+    }
 
-        // ONNX models
+    private fun checkModels() {
         val onnxFiles =
             if (fileExists(modelsDir) && isDirectory(modelsDir)) {
                 listDirectory(modelsDir).filter { it.endsWith(".onnx") }
@@ -124,19 +124,15 @@ internal class DoctorCommand(
             CliLogger.warn { "no ONNX models in $modelsDir" }
             echo("\u2717 ONNX: no .onnx files in models directory ($modelsDir)")
         }
+    }
 
-        // Workspace
+    private fun checkWorkspace() {
         if (fileExists(workspaceDir) && isDirectory(workspaceDir)) {
             CliLogger.debug { "workspace found" }
             echo("\u2713 Workspace: found")
         } else {
             CliLogger.warn { "workspace missing at $workspaceDir" }
             echo("\u2717 Workspace: missing ($workspaceDir)")
-        }
-
-        // Docker checks (hybrid/docker only)
-        if (deployConfig.mode != DeployMode.NATIVE) {
-            checkDocker()
         }
     }
 
@@ -160,7 +156,7 @@ internal class DoctorCommand(
         val element =
             try {
                 klawJson.parseToJsonElement(content)
-            } catch (e: Exception) {
+            } catch (e: SerializationException) {
                 echo("\u2717 $name: parse error (${e::class.simpleName})")
                 return
             }
@@ -179,7 +175,8 @@ internal class DoctorCommand(
         try {
             parser(content)
             echo("\u2713 $name: valid")
-        } catch (e: Exception) {
+        } catch (e: IllegalArgumentException) {
+            // Catches SerializationException (extends IllegalArgumentException) and require() failures
             echo("\u2717 $name: validation error (${e::class.simpleName})")
         }
     }

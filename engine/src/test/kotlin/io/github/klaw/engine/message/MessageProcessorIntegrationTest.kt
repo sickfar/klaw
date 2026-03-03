@@ -256,15 +256,31 @@ class MessageProcessorIntegrationTest {
     @Suppress("MaxLineLength")
     @Test
     fun `tool call returned by LLM is executed by ToolExecutor`() {
-        // LLM always returns a tool call; with maxRounds=1, loop exhausts after 1 round
+        // Round 1: LLM returns a tool call; loop exhausts after 1 round (maxRounds=1)
         wireMock.stubFor(
             post(urlEqualTo("/chat/completions"))
+                .inScenario("tool-call-graceful")
+                .whenScenarioStateIs(Scenario.STARTED)
                 .willReturn(
                     aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody(
                             """{"id":"1","choices":[{"index":0,"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"lookup","arguments":"{\"query\":\"test\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}""",
+                        ),
+                ).willSetStateTo("after-tool-call"),
+        )
+        // Graceful summary call: LLM returns a text response
+        wireMock.stubFor(
+            post(urlEqualTo("/chat/completions"))
+                .inScenario("tool-call-graceful")
+                .whenScenarioStateIs("after-tool-call")
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"id":"2","choices":[{"index":0,"message":{"role":"assistant","content":"I completed the lookup and found the information you needed.","tool_calls":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}""",
                         ),
                 ),
         )
@@ -304,10 +320,12 @@ class MessageProcessorIntegrationTest {
 
             // ToolExecutor should have been called with the tool call from LLM
             coVerify { toolExecutor.executeAll(match { it.isNotEmpty() && it[0].name == "lookup" }) }
-            // With maxRounds=1, loop exhausted → error message pushed
+            // With maxRounds=1 exhausted → graceful summary response pushed (not a static error)
             assertNotNull(result.content)
-            val containsLimit = result.content.contains("tool call limit")
-            assertEquals(true, containsLimit, "Expected 'tool call limit' in: ${result.content}")
+            assertTrue(
+                result.content.contains("I completed the lookup"),
+                "Expected graceful summary response pushed to gateway, got: ${result.content}",
+            )
         }
     }
 

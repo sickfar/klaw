@@ -36,6 +36,9 @@ import platform.posix.SIGINT
 import platform.posix.exit
 import platform.posix.signal
 
+// SIGINT exit code: 128 + signal number (2) = 130, per POSIX convention
+private const val SIGINT_EXIT_CODE = 130
+
 /** Type alias for delegated engine commands — (command, params) → JSON response */
 internal typealias EngineRequest = (command: String, params: Map<String, String>) -> String
 
@@ -102,7 +105,7 @@ internal fun hoistVerboseFlag(args: Array<String>): Array<String> {
 
 @OptIn(ExperimentalForeignApi::class)
 fun main(args: Array<String>) {
-    signal(SIGINT, staticCFunction { _ -> exit(130) })
+    signal(SIGINT, staticCFunction { _ -> exit(SIGINT_EXIT_CODE) })
     // Allow -v/--verbose anywhere (e.g. "klaw init -v" instead of only "klaw -v init")
     val normalizedArgs = hoistVerboseFlag(args)
     try {

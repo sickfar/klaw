@@ -1,11 +1,6 @@
 package io.github.klaw.cli.update
 
-internal data class SemVer(
-    val major: Int,
-    val minor: Int,
-    val patch: Int,
-    val isSnapshot: Boolean = false,
-)
+private const val SEMVER_PARTS = 3
 
 /**
  * Parses a semver tag like "v0.1.0", "0.2.3", or "v1.0.0-SNAPSHOT".
@@ -17,12 +12,17 @@ internal fun parseSemVer(tag: String): SemVer? {
     val isSnapshot = cleaned.endsWith("-SNAPSHOT")
     val versionPart = if (isSnapshot) cleaned.removeSuffix("-SNAPSHOT") else cleaned
     val parts = versionPart.split('.')
-    if (parts.size != 3) return null
+    if (parts.size != SEMVER_PARTS) return null
+    val (major, minor, patch) = parseVersionParts(parts) ?: return null
+    return SemVer(major, minor, patch, isSnapshot)
+}
+
+private fun parseVersionParts(parts: List<String>): Triple<Int, Int, Int>? {
     val major = parts[0].toIntOrNull() ?: return null
     val minor = parts[1].toIntOrNull() ?: return null
     val patch = parts[2].toIntOrNull() ?: return null
     if (major < 0 || minor < 0 || patch < 0) return null
-    return SemVer(major, minor, patch, isSnapshot)
+    return Triple(major, minor, patch)
 }
 
 /**

@@ -15,6 +15,7 @@ import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import platform.posix.SEEK_END
 import platform.posix.SEEK_SET
@@ -25,12 +26,15 @@ import platform.posix.fseek
 import platform.posix.ftell
 import platform.posix.sleep
 
+private const val DEFAULT_LOG_LIMIT = 50
+private const val TAIL_READ_BUF_SIZE = 4096
+
 internal class LogsCommand(
     private val conversationsDir: String = KlawPaths.conversations,
 ) : CliktCommand(name = "logs") {
     private val follow by option("--follow", "-f").flag()
     private val chat by option("--chat")
-    private val limit by option("--limit", "-n").int().default(50)
+    private val limit by option("--limit", "-n").int().default(DEFAULT_LOG_LIMIT)
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -107,16 +111,30 @@ internal class LogsCommand(
                 val newContent = readFileFromOffset(path, oldPos)
                 if (newContent != null && newContent.isNotBlank()) {
                     positions[path] = getFileSize(path)
-                    newContent.lines().filter { it.isNotBlank() }.forEach { line ->
-                        try {
-                            val msg = json.decodeFromString<ConversationMessage>(line)
-                            echo("[${msg.ts}] [$chatId] [${msg.role}] ${msg.content}")
-                        } catch (_: Exception) {
-                            // skip malformed
-                        }
-                    }
+                    processNewLines(chatId, newContent)
                 }
             }
+        }
+    }
+
+    private fun processNewLines(
+        chatId: String,
+        content: String,
+    ) {
+        content.lines().filter { it.isNotBlank() }.forEach { line ->
+            printLogLine(chatId, line)
+        }
+    }
+
+    private fun printLogLine(
+        chatId: String,
+        line: String,
+    ) {
+        try {
+            val msg = json.decodeFromString<ConversationMessage>(line)
+            echo("[${msg.ts}] [$chatId] [${msg.role}] ${msg.content}")
+        } catch (_: SerializationException) {
+            // skip malformed JSONL lines
         }
     }
 
@@ -137,7 +155,7 @@ internal class LogsCommand(
         val file = fopen(path, "r") ?: return null
         fseek(file, offset, SEEK_SET)
         val sb = StringBuilder()
-        val buf = ByteArray(4096)
+        val buf = ByteArray(TAIL_READ_BUF_SIZE)
         buf.usePinned { pinned ->
             while (true) {
                 val n = fread(pinned.addressOf(0), 1.toULong(), buf.size.toULong(), file).toInt()

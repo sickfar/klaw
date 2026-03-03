@@ -26,6 +26,9 @@ import platform.posix.sockaddr
 import platform.posix.socket
 import platform.posix.timeval
 
+private const val RECV_BUF_SIZE = 4096
+private const val RECV_TIMEOUT_SECONDS = 120L
+
 @OptIn(ExperimentalForeignApi::class)
 class EngineSocketClient(
     private val host: String = KlawPaths.engineHost,
@@ -60,10 +63,10 @@ class EngineSocketClient(
             throw EngineNotRunningException()
         }
 
-        // Set 120-second receive timeout to prevent indefinite blocking on slow LLM responses
+        // Set receive timeout to prevent indefinite blocking on slow LLM responses
         memScoped {
             val tv = alloc<timeval>()
-            tv.tv_sec = 120.convert()
+            tv.tv_sec = RECV_TIMEOUT_SECONDS.convert()
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, tv.ptr, sizeOf<timeval>().convert())
         }
 
@@ -82,10 +85,10 @@ class EngineSocketClient(
         }
 
         val sb = StringBuilder()
-        val recvBuf = ByteArray(4096)
+        val recvBuf = ByteArray(RECV_BUF_SIZE)
         recvBuf.usePinned { pinned ->
             while (true) {
-                val n = recv(fd, pinned.addressOf(0), 4095.convert(), 0).toInt()
+                val n = recv(fd, pinned.addressOf(0), (RECV_BUF_SIZE - 1).convert(), 0).toInt()
                 if (n <= 0) break
                 sb.append(recvBuf.decodeToString(0, n))
                 if ('\n' in sb) break

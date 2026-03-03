@@ -1,6 +1,5 @@
 package io.github.klaw.engine.message
 
-import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
@@ -26,7 +25,8 @@ import java.util.UUID
  *    and appends assistant + tool result messages to [context].
  * 3. Loops until the LLM returns no tool calls or [maxRounds] is reached.
  *
- * Throws [KlawError.ToolCallLoopException] if [maxRounds] is exhausted.
+ * When [maxRounds] is exhausted, injects a limit notification into [context]
+ * and makes one final LLM call with no tools so the model can summarize gracefully.
  */
 @Suppress("LongParameterList")
 internal class ToolCallLoopRunner(
@@ -56,47 +56,61 @@ internal class ToolCallLoopRunner(
             rounds++
             if (response.toolCalls.isNullOrEmpty()) return response
             val toolCalls = response.toolCalls!!
-
-            if (contextBudgetTokens > 0) {
-                val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
-                if (currentTokens > contextBudgetTokens) {
-                    logger.warn { "Context $currentTokens tokens exceeds budget $contextBudgetTokens at round $rounds" }
-                }
-            }
-
-            @Suppress("TooGenericExceptionCaught")
-            val results =
-                try {
-                    val ctx =
-                        if (chatId != null && channel != null) {
-                            ChatContext(chatId, channel)
-                        } else {
-                            null
-                        }
-                    if (ctx != null) {
-                        withContext(ctx) { toolExecutor.executeAll(toolCalls) }
-                    } else {
-                        toolExecutor.executeAll(toolCalls)
-                    }
-                } catch (e: Exception) {
-                    logger.warn(e) { "Tool executor failed, surfacing error as tool results" }
-                    toolCalls.map { call ->
-                        // e::class.simpleName in tool result content is intentional and safe (no message text)
-                        ToolResult(callId = call.id, content = "Tool execution failed: ${e::class.simpleName}")
-                    }
-                }
-
-            val assistantMsg = LlmMessage(role = "assistant", content = null, toolCalls = toolCalls)
-            context.add(assistantMsg)
+            checkContextBudget(context, rounds)
+            val results = executeToolCalls(toolCalls)
+            context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->
                 val safeContent = buildSafeToolContent(result.callId, result.content, maxToolOutputChars)
                 context.add(LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId))
             }
-
-            // Persist intermediate tool_call and tool_result messages to DB (raw content, not wrapped)
             persistToolCallResults(toolCalls, results)
         }
-        throw KlawError.ToolCallLoopException("Reached maxToolCallRounds limit")
+        return requestGracefulSummary(context, session)
+    }
+
+    private fun checkContextBudget(
+        context: List<LlmMessage>,
+        rounds: Int,
+    ) {
+        if (contextBudgetTokens <= 0) return
+        val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
+        if (currentTokens > contextBudgetTokens) {
+            logger.warn { "Context $currentTokens tokens exceeds budget $contextBudgetTokens at round $rounds" }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun executeToolCalls(toolCalls: List<ToolCall>): List<ToolResult> =
+        try {
+            val ctx = if (chatId != null && channel != null) ChatContext(chatId, channel) else null
+            if (ctx != null) {
+                withContext(ctx) { toolExecutor.executeAll(toolCalls) }
+            } else {
+                toolExecutor.executeAll(toolCalls)
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Tool executor failed, surfacing error as tool results" }
+            // e::class.simpleName in tool result content is intentional and safe (no message text)
+            toolCalls.map { call ->
+                ToolResult(callId = call.id, content = "Tool execution failed: ${e::class.simpleName}")
+            }
+        }
+
+    private suspend fun requestGracefulSummary(
+        context: MutableList<LlmMessage>,
+        session: Session,
+    ): LlmResponse {
+        logger.warn { "Tool call loop exhausted after $maxRounds rounds, requesting graceful summary" }
+        context.add(
+            LlmMessage(
+                role = "user",
+                content =
+                    "[System] You have reached the tool call limit ($maxRounds rounds). " +
+                        "Please summarize what you have accomplished and provide your final response now, " +
+                        "without calling any more tools.",
+            ),
+        )
+        return llmRouter.chat(LlmRequest(messages = context, tools = null), session.model)
     }
 
     private suspend fun persistToolCallResults(

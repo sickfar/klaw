@@ -10,6 +10,7 @@ import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.encodeEngineConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
+import kotlinx.serialization.SerializationException
 
 internal class ConfigCommand(
     private val configDir: String = KlawPaths.config,
@@ -44,7 +45,7 @@ internal class ConfigSetCommand(
         val config =
             try {
                 parseEngineConfig(content)
-            } catch (e: Exception) {
+            } catch (e: SerializationException) {
                 CliLogger.error { "config parse error: ${e::class.simpleName}" }
                 echo("Error: could not parse $configPath — ${e::class.simpleName}")
                 return

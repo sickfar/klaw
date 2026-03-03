@@ -26,6 +26,22 @@ subprojects {
     detekt {
         buildUponDefaultConfig = true
         autoCorrect = false
+        config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+        // Restrict main detekt task to non-test sources only
+        source.setFrom(
+            fileTree(projectDir) {
+                include("**/src/main/**/*.kt", "**/src/*Main/**/*.kt")
+                exclude("**/src/*Test/**", "**/build/**")
+            },
+        )
+    }
+
+    // Apply lenient config for detekt tasks that analyse test source sets
+    tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+        if (name.endsWith("Test")) {
+            buildUponDefaultConfig = true
+            config.setFrom(files("$rootDir/config/detekt/detekt-test.yml"))
+        }
     }
 }
 

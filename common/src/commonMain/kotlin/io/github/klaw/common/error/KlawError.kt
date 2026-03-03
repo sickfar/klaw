@@ -20,8 +20,4 @@ sealed class KlawError(
         val toolName: String,
         override val cause: Throwable?,
     ) : KlawError("Tool '$toolName' failed", cause)
-
-    data class ToolCallLoopException(
-        override val message: String,
-    ) : KlawError(message)
 }

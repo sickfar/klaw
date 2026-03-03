@@ -29,24 +29,25 @@ internal class GitHubReleaseClientImpl(
     private suspend fun fetchRelease(url: String): GitHubRelease? {
         val client = HttpClient(CIO)
         return try {
-            val response =
-                client.get(url) {
-                    headers {
-                        append("Accept", "application/vnd.github+json")
-                        append("User-Agent", "klaw-cli/${BuildConfig.VERSION}")
+            val result =
+                runCatching {
+                    val response =
+                        client.get(url) {
+                            headers {
+                                append("Accept", "application/vnd.github+json")
+                                append("User-Agent", "klaw-cli/${BuildConfig.VERSION}")
+                            }
+                        }
+                    if (response.status.isSuccess()) {
+                        json.decodeFromString(GitHubRelease.serializer(), response.bodyAsText())
+                    } else {
+                        null
                     }
                 }
-            if (response.status.isSuccess()) {
-                val body = response.bodyAsText()
-                json.decodeFromString(GitHubRelease.serializer(), body)
-            } else {
+            result.getOrElse { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 null
             }
-        } catch (
-            @Suppress("TooGenericExceptionCaught") e: Exception,
-        ) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            null
         } finally {
             client.close()
         }

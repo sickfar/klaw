@@ -84,11 +84,17 @@ internal class EngineStarter(
 
     private fun sleepMs(ms: Long) {
         // usleep takes microseconds; max is 1_000_000 per POSIX so handle large values
-        val microseconds = ms * 1_000L
-        if (microseconds > 999_999) {
-            platform.posix.sleep((ms / 1000).toUInt())
+        val microseconds = ms * MICROS_PER_MILLI
+        if (microseconds > USLEEP_MAX) {
+            platform.posix.sleep((ms / MILLIS_PER_SECOND).toUInt())
         } else {
             platform.posix.usleep(microseconds.toUInt())
         }
+    }
+
+    companion object {
+        private const val MICROS_PER_MILLI = 1_000L
+        private const val MILLIS_PER_SECOND = 1_000L
+        private const val USLEEP_MAX = 999_999L
     }
 }

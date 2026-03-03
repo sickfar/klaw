@@ -11,15 +11,34 @@ val klawPrettyJson =
         encodeDefaults = true
         explicitNulls = false
     }
+val klawMinimalJson =
+    Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+        encodeDefaults = false
+        explicitNulls = false
+    }
 
-fun parseGatewayConfig(jsonString: String): GatewayConfig = klawJson.decodeFromString(GatewayConfig.serializer(), jsonString)
+fun parseGatewayConfig(jsonString: String): GatewayConfig =
+    klawJson.decodeFromString(GatewayConfig.serializer(), jsonString)
 
-fun parseEngineConfig(jsonString: String): EngineConfig = klawJson.decodeFromString(EngineConfig.serializer(), jsonString)
+fun parseEngineConfig(jsonString: String): EngineConfig =
+    klawJson.decodeFromString(EngineConfig.serializer(), jsonString)
 
-fun encodeGatewayConfig(config: GatewayConfig): String = klawPrettyJson.encodeToString(GatewayConfig.serializer(), config)
+fun encodeGatewayConfig(config: GatewayConfig): String =
+    klawPrettyJson.encodeToString(GatewayConfig.serializer(), config)
 
-fun encodeEngineConfig(config: EngineConfig): String = klawPrettyJson.encodeToString(EngineConfig.serializer(), config)
+fun encodeEngineConfig(config: EngineConfig): String =
+    klawPrettyJson.encodeToString(EngineConfig.serializer(), config)
 
-fun parseComposeConfig(jsonString: String): ComposeConfig = klawJson.decodeFromString(ComposeConfig.serializer(), jsonString)
+fun encodeEngineConfigMinimal(config: EngineConfig): String =
+    klawMinimalJson.encodeToString(EngineConfig.serializer(), config)
 
-fun encodeComposeConfig(config: ComposeConfig): String = klawPrettyJson.encodeToString(ComposeConfig.serializer(), config)
+fun encodeGatewayConfigMinimal(config: GatewayConfig): String =
+    klawMinimalJson.encodeToString(GatewayConfig.serializer(), config)
+
+fun parseComposeConfig(jsonString: String): ComposeConfig =
+    klawJson.decodeFromString(ComposeConfig.serializer(), jsonString)
+
+fun encodeComposeConfig(config: ComposeConfig): String =
+    klawPrettyJson.encodeToString(ComposeConfig.serializer(), config)

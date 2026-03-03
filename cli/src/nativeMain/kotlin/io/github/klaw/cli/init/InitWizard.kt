@@ -32,6 +32,18 @@ import kotlin.native.Platform
 private const val TOTAL_PHASES = 8
 private const val DEFAULT_MODEL = "zai/glm-5"
 private const val MODELS_FETCH_TIMEOUT = 10
+private const val COMMAND_OUTPUT_BUF_SIZE = 4096
+private const val CONSOLE_DEFAULT_PORT = 37474
+private const val SPINNER_TICK_MS = 100L
+private const val ID_KEY_OFFSET = 4  // length of "\"id\"" to skip to the value
+
+// Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
+private const val PHASE_LLM = 3
+private const val PHASE_TELEGRAM = 4
+private const val PHASE_WEBSOCKET = 5
+private const val PHASE_SETUP = 6
+private const val PHASE_ENGINE_START = 7
+private const val PHASE_SERVICE_INSTALL = 8
 
 internal data class LlmProvider(
     val label: String,
@@ -45,7 +57,7 @@ private val LLM_PROVIDERS =
     )
 
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "TooManyFunctions")
 internal class InitWizard(
     private val configDir: String = KlawPaths.config,
     private val workspaceDir: String = KlawPaths.workspace,
@@ -69,7 +81,7 @@ internal class InitWizard(
             null
         } else {
             val sb = StringBuilder()
-            val buf = ByteArray(4096)
+            val buf = ByteArray(COMMAND_OUTPUT_BUF_SIZE)
             buf.usePinned { pinned ->
                 var n: Int
                 do {
@@ -103,7 +115,7 @@ internal class InitWizard(
         },
     private val force: Boolean = false,
 ) {
-    @Suppress("LongMethod", "CyclomaticComplexMethod")
+    @Suppress("LongMethod", "CyclomaticComplexMethod", "ReturnCount")
     fun run() {
         // ── Collection phases (1–6): gather all user input before touching disk ──
 
@@ -146,7 +158,7 @@ internal class InitWizard(
 
         CliLogger.info { "phase 3: LLM provider setup" }
         CliLogger.debug { "resolved deploy mode=${resolvedMode.configName}" }
-        phase(3, "LLM provider setup")
+        phase(PHASE_LLM, "LLM provider setup")
         val providerIdx = radioSelector(LLM_PROVIDERS.map { it.label }, "LLM provider:")
         val providerUrl: String
         val defaultAlias: String
@@ -183,7 +195,7 @@ internal class InitWizard(
         }
 
         CliLogger.info { "phase 4: Telegram setup" }
-        phase(4, "Telegram setup")
+        phase(PHASE_TELEGRAM, "Telegram setup")
         printer("Configure Telegram bot? [Y/n]:")
         val telegramAnswer = readLineOrExit() ?: return
         val configureTelegram = telegramAnswer.trim().lowercase() != "n"
@@ -206,13 +218,13 @@ internal class InitWizard(
         }
 
         CliLogger.info { "phase 5: WebSocket chat setup" }
-        phase(5, "WebSocket chat setup")
+        phase(PHASE_WEBSOCKET, "WebSocket chat setup")
         printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
         val enableConsole = readLineOrExit()?.trim()?.lowercase() == "y"
-        var consolePort = 37474
+        var consolePort = CONSOLE_DEFAULT_PORT
         if (enableConsole) {
-            printer("Gateway WebSocket port [37474]:")
-            consolePort = readLineOrExit()?.trim()?.toIntOrNull() ?: 37474
+            printer("Gateway WebSocket port [$CONSOLE_DEFAULT_PORT]:")
+            consolePort = readLineOrExit()?.trim()?.toIntOrNull() ?: CONSOLE_DEFAULT_PORT
             success("WebSocket chat enabled on port $consolePort")
         } else {
             printer("WebSocket chat disabled (can be enabled later in gateway.json)")
@@ -228,7 +240,7 @@ internal class InitWizard(
             }
 
         CliLogger.info { "phase 6: setup" }
-        phase(6, "Setup")
+        phase(PHASE_SETUP, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
             dataDir = dataDir,
@@ -302,7 +314,7 @@ internal class InitWizard(
         success("Directories and configuration written")
 
         CliLogger.info { "phase 7: engine auto-start" }
-        phase(7, "Engine auto-start")
+        phase(PHASE_ENGINE_START, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val startCommand =
             when (resolvedMode) {
@@ -346,7 +358,7 @@ internal class InitWizard(
         CliLogger.info { "phase 8: service/container startup" }
         when (resolvedMode) {
             DeployMode.DOCKER -> {
-                phase(8, "Container startup")
+                phase(PHASE_SERVICE_INSTALL, "Container startup")
                 val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
                 if (!dockerInstaller.installServices()) {
                     printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
@@ -357,7 +369,7 @@ internal class InitWizard(
             }
 
             DeployMode.HYBRID -> {
-                phase(8, "Container startup")
+                phase(PHASE_SERVICE_INSTALL, "Container startup")
                 val dockerInstaller = DockerComposeInstaller(composeFilePath, printer, commandRunner)
                 if (!dockerInstaller.installServices()) {
                     printer("${AnsiColors.YELLOW}⚠ docker compose up failed.${AnsiColors.RESET}")
@@ -368,7 +380,7 @@ internal class InitWizard(
             }
 
             DeployMode.NATIVE -> {
-                phase(8, "Service setup")
+                phase(PHASE_SERVICE_INSTALL, "Service setup")
                 val envFile = "$configDir/.env"
                 val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
                 val engineBin = "$home/.local/bin/klaw-engine"
@@ -409,11 +421,11 @@ internal class InitWizard(
                         launch(Dispatchers.Default) {
                             while (isActive) {
                                 identitySpinner.tick()
-                                delay(100)
+                                delay(SPINNER_TICK_MS)
                             }
                         }
                     val result =
-                        try {
+                        runCatching {
                             withContext(Dispatchers.Default) {
                                 requestFn(
                                     "klaw_init_generate_identity",
@@ -424,7 +436,8 @@ internal class InitWizard(
                                     ),
                                 )
                             }
-                        } catch (e: Exception) {
+                        }.getOrElse { e ->
+                            if (e is kotlinx.coroutines.CancellationException) throw e
                             CliLogger.error { "identity generation failed: ${e::class.simpleName}" }
                             """{"error":"${e::class.simpleName}"}"""
                         }
@@ -515,7 +528,9 @@ internal class InitWizard(
     ): String? {
         if ("'" in providerUrl || "'" in llmApiKey) {
             CliLogger.warn { "unsafe characters in URL or key, skipping validation" }
-            printer("${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}")
+            printer(
+                "${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}",
+            )
             return null
         }
         val url = "${providerUrl.trimEnd('/')}/models"
@@ -567,40 +582,51 @@ internal class InitWizard(
      */
     private fun parseModels(json: String?): List<String> {
         if (json == null) return emptyList()
-        val dataStart = json.indexOf("\"data\"")
-        if (dataStart < 0) return emptyList()
-        val arrayStart = json.indexOf('[', dataStart)
-        if (arrayStart < 0) return emptyList()
-        val arrayEnd = json.indexOf(']', arrayStart)
-        if (arrayEnd < 0) return emptyList()
-        val arrayContent = json.substring(arrayStart + 1, arrayEnd)
-
+        val arrayContent = extractDataArrayContent(json) ?: return emptyList()
         val result = mutableListOf<String>()
         var searchFrom = 0
         while (true) {
             val idKey = arrayContent.indexOf("\"id\"", searchFrom)
             if (idKey < 0) break
-            var i = idKey + 4
-            while (i < arrayContent.length && (arrayContent[i] == ':' || arrayContent[i] == ' ')) i++
-            if (i >= arrayContent.length || arrayContent[i] != '"') break
-            i++ // skip opening quote
-            val sb = StringBuilder()
-            while (i < arrayContent.length) {
-                val c = arrayContent[i]
-                if (c == '\\' && i + 1 < arrayContent.length && arrayContent[i + 1] == '"') {
-                    sb.append('"')
-                    i += 2
-                } else if (c == '"') {
-                    break
-                } else {
-                    sb.append(c)
-                    i++
-                }
-            }
-            if (sb.isNotEmpty()) result += sb.toString()
-            searchFrom = i + 1
+            val (modelId, nextPos) = parseOneModelId(arrayContent, idKey + ID_KEY_OFFSET) ?: break
+            if (modelId.isNotEmpty()) result += modelId
+            searchFrom = nextPos
         }
         return result
+    }
+
+    private fun extractDataArrayContent(json: String): String? {
+        val dataStart = json.indexOf("\"data\"")
+        if (dataStart < 0) return null
+        val arrayStart = json.indexOf('[', dataStart)
+        if (arrayStart < 0) return null
+        val arrayEnd = json.indexOf(']', arrayStart)
+        if (arrayEnd < 0) return null
+        return json.substring(arrayStart + 1, arrayEnd)
+    }
+
+    private fun parseOneModelId(
+        content: String,
+        startIdx: Int,
+    ): Pair<String, Int>? {
+        var i = startIdx
+        while (i < content.length && (content[i] == ':' || content[i] == ' ')) i++
+        if (i >= content.length || content[i] != '"') return null
+        i++ // skip opening quote
+        val sb = StringBuilder()
+        while (i < content.length) {
+            val c = content[i]
+            if (c == '\\' && i + 1 < content.length && content[i + 1] == '"') {
+                sb.append('"')
+                i += 2
+            } else if (c == '"') {
+                break
+            } else {
+                sb.append(c)
+                i++
+            }
+        }
+        return sb.toString() to i + 1
     }
 
     private fun phase(
@@ -640,6 +666,7 @@ internal class InitWizard(
                 printer("      ghcr.io/sickfar/klaw-cli:$dockerTag [command]")
                 printer("")
                 printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
+                @Suppress("MaxLineLength")
                 printer("    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install")
             }
 
@@ -653,6 +680,24 @@ internal class InitWizard(
                 // No additional summary for native mode
             }
         }
+    }
+
+    /** Returns (unescaped char, new index after escape sequence). */
+    private fun unescapeChar(
+        json: String,
+        backslashIdx: Int,
+    ): Pair<Char, Int> {
+        val next = if (backslashIdx + 1 < json.length) json[backslashIdx + 1] else '\\'
+        val ch =
+            when (next) {
+                'n' -> '\n'
+                '"' -> '"'
+                '\\' -> '\\'
+                'r' -> '\r'
+                't' -> '\t'
+                else -> next
+            }
+        return ch to backslashIdx + 2
     }
 
     private fun extractJsonField(
@@ -671,37 +716,9 @@ internal class InitWizard(
         while (i < json.length) {
             val c = json[i]
             if (c == '\\' && i + 1 < json.length) {
-                when (json[i + 1]) {
-                    'n' -> {
-                        sb.append('\n')
-                        i += 2
-                    }
-
-                    '"' -> {
-                        sb.append('"')
-                        i += 2
-                    }
-
-                    '\\' -> {
-                        sb.append('\\')
-                        i += 2
-                    }
-
-                    'r' -> {
-                        sb.append('\r')
-                        i += 2
-                    }
-
-                    't' -> {
-                        sb.append('\t')
-                        i += 2
-                    }
-
-                    else -> {
-                        sb.append(json[i + 1])
-                        i += 2
-                    }
-                }
+                val (ch, next) = unescapeChar(json, i)
+                sb.append(ch)
+                i = next
             } else if (c == '"') {
                 break
             } else {

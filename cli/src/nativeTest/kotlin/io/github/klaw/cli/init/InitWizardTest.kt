@@ -4,6 +4,7 @@ import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
+import io.github.klaw.common.config.parseGatewayConfig
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
@@ -1014,7 +1015,9 @@ class InitWizardTest {
         val gatewayJson = readFileText("$configDir/gateway.json")
         assertNotNull(gatewayJson)
         assertTrue(gatewayJson.contains("\"enabled\": true"), "Expected 'enabled: true' in gateway.json:\n$gatewayJson")
-        assertTrue(gatewayJson.contains("37474"), "Expected 'port: 37474' in gateway.json:\n$gatewayJson")
+        // Default port (37474) is not encoded by minimal encoder; verify via parse
+        val config = parseGatewayConfig(gatewayJson)
+        assertTrue(config.channels.console?.port == 37474, "Expected default port 37474 in parsed config")
     }
 
     @Test

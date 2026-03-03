@@ -47,7 +47,10 @@ class ConfigTemplatesTest {
     fun `gateway json template with empty chat ids is valid`() {
         val json = ConfigTemplates.gatewayJson(allowedChats = emptyList())
         assertTrue(json.contains("telegram"), "Expected 'telegram' in:\n$json")
-        assertTrue(json.contains("allowedChats"), "Expected 'allowedChats' in:\n$json")
+        // allowedChats=emptyList() matches Kotlin default — not encoded by minimal encoder
+        val config = parseGatewayConfig(json)
+        val allowedChats = config.channels.telegram?.allowedChats
+        assertTrue(allowedChats?.isEmpty() == true, "Expected empty allowedChats in parsed config")
     }
 
     @Test
@@ -67,7 +70,9 @@ class ConfigTemplatesTest {
         val json = ConfigTemplates.gatewayJson(enableConsole = true)
         assertTrue(json.contains("console"), "Expected 'console' in:\n$json")
         assertTrue(json.contains("true"), "Expected 'true' (enabled) in:\n$json")
-        assertTrue(json.contains("37474"), "Expected default port in:\n$json")
+        // Default port (37474) is not encoded by minimal encoder; verify via round-trip parse
+        val config = parseGatewayConfig(json)
+        assertTrue(config.channels.console?.port == 37474, "Expected default port 37474 in parsed config")
     }
 
     @Test
@@ -393,6 +398,51 @@ class ConfigTemplatesTest {
     }
 
     // --- deployConf ---
+
+    // --- Minimal encoder: default sections omitted ---
+
+    @Test
+    fun `engineJson minimal config omits llm section`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        assertTrue(!json.contains("\"llm\""), "Expected no 'llm' section (all defaults) in:\n$json")
+    }
+
+    @Test
+    fun `engineJson minimal config omits codeExecution section`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        assertTrue(!json.contains("codeExecution"), "Expected no 'codeExecution' section (all defaults) in:\n$json")
+    }
+
+    @Test
+    fun `engineJson minimal config omits autoRag section`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        assertTrue(!json.contains("autoRag"), "Expected no 'autoRag' section (all defaults) in:\n$json")
+    }
+
+    @Test
+    fun `engineJson minimal config omits hostExecution section`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        assertTrue(!json.contains("hostExecution"), "Expected no 'hostExecution' section (all defaults) in:\n$json")
+    }
+
+    @Test
+    fun `engineJson minimal config omits commands section`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        assertTrue(!json.contains("\"commands\""), "Expected no 'commands' section (empty default) in:\n$json")
+    }
+
+    @Test
+    fun `engineJson maxToolCallRounds defaults to 50`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val config = parseEngineConfig(json)
+        assertTrue(config.processing.maxToolCallRounds == 50, "Expected maxToolCallRounds=50, got ${config.processing.maxToolCallRounds}")
+    }
+
+    @Test
+    fun `gatewayJson minimal config omits commands section`() {
+        val json = ConfigTemplates.gatewayJson(allowedChats = emptyList())
+        assertTrue(!json.contains("commands"), "Expected no 'commands' section (empty default) in:\n$json")
+    }
 
     @Test
     fun `deployConf for NATIVE latest round-trips`() {

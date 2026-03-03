@@ -8,6 +8,7 @@ import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.parseGatewayConfig
+import kotlinx.serialization.SerializationException
 
 internal class UnpairCommand(
     private val configDir: String,
@@ -31,7 +32,7 @@ internal class UnpairCommand(
         val config =
             try {
                 parseGatewayConfig(configContent)
-            } catch (e: Exception) {
+            } catch (e: SerializationException) {
                 echo("Error: could not parse $configPath — ${e::class.simpleName}")
                 return
             }

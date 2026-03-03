@@ -175,4 +175,6 @@ Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`,
 
 TDD on every task: write tests with edge cases first, then implement. After each task: run code-review subagent, then `lang-tools` MCP cleanup (imports + dead code scan for whole project). The lang-tools dead code detector reports ~163 false positives for public API in `common` — all expected (consumed by other modules).
 
+**Detekt policy:** Detekt violations in **test code** may be suppressed with `@Suppress(...)`. Detekt violations in **production code MUST be fixed** — `@Suppress` on production code is not acceptable. Fix the root cause (extract constants, split functions, use specific exception types, refactor, etc.).
+
 **Important:** The developer uses localhost for testing and debugging Docker containers. Never mention or remind about Raspberry Pi deployment — Docker commands target the local machine during development.

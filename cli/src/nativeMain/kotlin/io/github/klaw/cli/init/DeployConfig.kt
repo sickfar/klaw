@@ -40,7 +40,9 @@ internal fun writeDeployConf(
     configDir: String,
     config: DeployConfig,
 ) {
-    val content = "mode=${config.mode.configName}\ndocker_tag=${config.dockerTag}\ninstalled_version=${config.installedVersion}\n"
+    val content =
+        "mode=${config.mode.configName}\ndocker_tag=${config.dockerTag}\n" +
+            "installed_version=${config.installedVersion}\n"
     val tmpPath = "$configDir/deploy.conf.tmp"
     val finalPath = "$configDir/deploy.conf"
     writeFileText(tmpPath, content)

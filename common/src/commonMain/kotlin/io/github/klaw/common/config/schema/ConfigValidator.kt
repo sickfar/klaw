@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:filename")
-
 package io.github.klaw.common.config.schema
 
 import kotlinx.serialization.json.JsonArray
@@ -13,11 +11,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-
-data class ValidationError(
-    val path: String,
-    val message: String,
-)
 
 fun validateConfig(
     schema: JsonObject,
@@ -96,13 +89,23 @@ private fun validateObject(
         }
     }
 
-    // additionalProperties as schema (for map types)
-    if (addlProps is JsonObject && properties == null) {
-        // This is a map type — validate each value against the additionalProperties schema
+    validateAdditionalPropertiesSchema(addlProps, properties, obj, path, errors)
+}
+
+private fun validateAdditionalPropertiesSchema(
+    addlProps: JsonElement?,
+    properties: JsonObject?,
+    obj: JsonObject,
+    path: String,
+    errors: MutableList<ValidationError>,
+) {
+    if (addlProps !is JsonObject) return
+    if (properties == null) {
+        // Map type — validate each value against the additionalProperties schema
         for ((key, value) in obj) {
             validate(addlProps, value, "$path.$key", errors)
         }
-    } else if (addlProps is JsonObject && properties != null) {
+    } else {
         // Has both properties and additionalProperties — validate unknown keys
         for ((key, value) in obj) {
             if (key !in properties) {
@@ -145,57 +148,39 @@ private fun checkNumericConstraints(
     }
 }
 
+private fun isNumericPrimitive(
+    element: JsonPrimitive,
+    type: String,
+): Boolean {
+    if (element.isString) return false
+    return when (type) {
+        "integer" -> element.longOrNull != null
+        "number" -> element.doubleOrNull != null || element.longOrNull != null
+        else -> false
+    }
+}
+
 private fun matchesType(
     element: JsonElement,
     expectedType: String,
 ): Boolean =
     when (expectedType) {
-        "object" -> {
-            element is JsonObject
-        }
-
-        "array" -> {
-            element is JsonArray
-        }
-
-        "string" -> {
-            element is JsonPrimitive && element.isString
-        }
-
-        "integer" -> {
-            element is JsonPrimitive && !element.isString && element.longOrNull != null
-        }
-
-        "number" -> {
-            element is JsonPrimitive && !element.isString &&
-                (element.doubleOrNull != null || element.longOrNull != null)
-        }
-
-        "boolean" -> {
+        "object" -> element is JsonObject
+        "array" -> element is JsonArray
+        "string" -> element is JsonPrimitive && element.isString
+        "integer", "number" -> element is JsonPrimitive && isNumericPrimitive(element, expectedType)
+        "boolean" ->
             element is JsonPrimitive && !element.isString &&
                 element.content in listOf("true", "false")
-        }
-
-        else -> {
-            true
-        }
+        else -> true
     }
 
 private fun elementTypeName(element: JsonElement): String =
     when (element) {
-        is JsonObject -> {
-            "object"
-        }
-
-        is JsonArray -> {
-            "array"
-        }
-
-        is JsonNull -> {
-            "null"
-        }
-
-        is JsonPrimitive -> {
+        is JsonObject -> "object"
+        is JsonArray -> "array"
+        is JsonNull -> "null"
+        is JsonPrimitive ->
             when {
                 element.isString -> "string"
                 element.content in listOf("true", "false") -> "boolean"
@@ -203,5 +188,4 @@ private fun elementTypeName(element: JsonElement): String =
                 element.doubleOrNull != null -> "number"
                 else -> "unknown"
             }
-        }
     }

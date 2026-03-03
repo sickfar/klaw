@@ -37,8 +37,8 @@ internal class ChatTui(
     private val history = mutableListOf<Message>()
     private val input = InputBuffer()
 
-    private var termWidth = 80
-    private var termHeight = 24
+    private var termWidth = DEFAULT_TERM_WIDTH
+    private var termHeight = DEFAULT_TERM_HEIGHT
     private val ansiPattern = Regex("""\u001B\[[0-9;]*m""")
 
     private var statusText = ""
@@ -53,6 +53,10 @@ internal class ChatTui(
     companion object {
         private val SPINNER_FRAMES = arrayOf("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
         private const val INPUT_PANEL_ROWS = 3
+        private const val DEFAULT_TERM_WIDTH = 80
+        private const val DEFAULT_TERM_HEIGHT = 24
+        private const val STTY_BUF_SIZE = 64
+        private const val FRAME_OVERHEAD_ROWS = 3  // title row + separator row + bottom border row
     }
 
     // --- State management (testable) ---
@@ -161,20 +165,21 @@ internal class ChatTui(
     private fun queryTerminalSize() {
         val fp = popen("stty size < /dev/tty 2>/dev/null", "r") ?: return
         try {
-            val buf = ByteArray(64)
-            val output =
-                buf.usePinned { pinned ->
-                    val n = fread(pinned.addressOf(0), 1.convert(), (buf.size - 1).convert(), fp).toInt()
-                    if (n > 0) buf.decodeToString(0, n) else ""
-                }
-            val parts = output.trim().split(" ")
-            if (parts.size == 2) {
-                parts[0].toIntOrNull()?.let { if (it > 0) termHeight = it }
-                parts[1].toIntOrNull()?.let { if (it > 0) termWidth = it }
+            val buf = ByteArray(STTY_BUF_SIZE)
+            val n = buf.usePinned { pinned ->
+                fread(pinned.addressOf(0), 1.convert(), (buf.size - 1).convert(), fp).toInt()
             }
+            if (n > 0) applyTerminalSize(buf.decodeToString(0, n))
         } finally {
             pclose(fp)
         }
+    }
+
+    private fun applyTerminalSize(output: String) {
+        val parts = output.trim().split(" ")
+        if (parts.size != 2) return
+        parts[0].toIntOrNull()?.let { if (it > 0) termHeight = it }
+        parts[1].toIntOrNull()?.let { if (it > 0) termWidth = it }
     }
 
     fun cleanup() {
@@ -194,7 +199,7 @@ internal class ChatTui(
         sb.posLine(1, "╔${padded.take(innerWidth)}╗")
 
         // Rows 2..(termHeight-5): history area
-        val historyHeight = termHeight - INPUT_PANEL_ROWS - 3 // title + separator + bottom border
+        val historyHeight = termHeight - INPUT_PANEL_ROWS - FRAME_OVERHEAD_ROWS
         val lines = renderHistoryLines(innerWidth)
         val recentLines = lines.takeLast(historyHeight)
         val emptyCount = historyHeight - recentLines.size
@@ -391,13 +396,15 @@ internal class ChatTui(
     }
 }
 
+private const val BYTE_MASK = 0xFF  // converts signed byte to unsigned int
+
 /** Reads one raw byte from stdin. Returns null on EOF or error. */
 @OptIn(ExperimentalForeignApi::class)
 internal fun readRawByte(): Int? {
     val buf = ByteArray(1)
     buf.usePinned { pinned ->
         val n = read(STDIN_FILENO, pinned.addressOf(0), 1.convert())
-        return if (n <= 0) null else buf[0].toInt() and 0xFF
+        return if (n <= 0) null else buf[0].toInt() and BYTE_MASK
     }
     return null
 }
