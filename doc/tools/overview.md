@@ -1,6 +1,6 @@
 # Built-in Tools Overview
 
-Klaw Engine provides 18 built-in tools that LLM agents can invoke during conversations. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides 18 standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
@@ -39,12 +39,13 @@ See [docs.md](docs.md).
 
 See [skills.md](skills.md).
 
-### Schedule Tools (3)
+### Schedule Tools (3 + 1 contextual)
 | Tool | Description |
 |------|-------------|
 | `schedule_list` | List scheduled tasks |
 | `schedule_add` | Add a scheduled or one-time task |
 | `schedule_remove` | Remove a scheduled task |
+| `schedule_deliver` | **Contextual** — deliver a result to the user; only available inside scheduled tasks and spawned subagents when `injectInto` is set |
 
 See [schedule.md](schedule.md).
 
@@ -69,6 +70,13 @@ See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 | `send_message` | Send a message to a specific channel and chat |
 
 See [utils.md](utils.md).
+
+### Heartbeat Tools (1 contextual)
+| Tool | Description |
+|------|-------------|
+| `heartbeat_deliver` | **Contextual** — deliver a result during a heartbeat run; only available when a delivery target is configured |
+
+See [heartbeat.md](../scheduling/heartbeat.md).
 
 ## Tool Call Loop Protection
 

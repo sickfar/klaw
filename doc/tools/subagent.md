@@ -18,7 +18,8 @@ Spawn a fire-and-forget subagent to execute a task asynchronously.
 
 - The subagent runs in a separate coroutine with its own LLM session.
 - It has access to the same tools as the parent agent.
-- Results are silent unless `injectInto` is specified, in which case the subagent's final response is sent to the given chat.
+- If `injectInto` is set, the `schedule_deliver` tool is available to the subagent. The subagent must call it explicitly to send a result — silence is the default.
+- If `injectInto` is `null`, no delivery tool is available and the subagent's output is logged only.
 
 ## Comparison with schedule_add
 
