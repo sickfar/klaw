@@ -4,7 +4,7 @@ import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import org.quartz.CronScheduleBuilder
 import org.quartz.CronTrigger
 import org.quartz.JobBuilder
