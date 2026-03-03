@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.tgbotapi)
 
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
+    implementation("org.slf4j:jul-to-slf4j")
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.websockets)
     implementation(libs.kotlin.logging)

@@ -7,6 +7,7 @@
     </appender>
 
     <logger name="io.github.klaw" level="DEBUG"/>
+    <logger name="org.quartz" level="INFO"/>
 
     <root level="DEBUG">
         <appender-ref ref="CONSOLE"/>

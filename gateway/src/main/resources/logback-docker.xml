@@ -7,6 +7,8 @@
     </appender>
 
     <logger name="io.github.klaw" level="DEBUG"/>
+    <logger name="dev.inmo" level="WARN"/>
+    <logger name="KTgBot" level="WARN"/>
 
     <root level="DEBUG">
         <appender-ref ref="CONSOLE"/>

@@ -1,7 +1,9 @@
 package io.github.klaw.gateway.channel
 
+import dev.inmo.kslog.common.filter.filtered
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
@@ -43,7 +45,14 @@ class TelegramChannel(
                 return
             }
         logger.info { "Starting TelegramChannel" }
-        val b = telegramBot(telegramConfig.token)
+        val b =
+            telegramBot(telegramConfig.token) {
+                logger =
+                    logger.filtered { _, _, throwable ->
+                        throwable !is HttpRequestTimeoutException &&
+                            throwable?.cause !is HttpRequestTimeoutException
+                    }
+            }
         bot = b
         if (config.commands.isNotEmpty()) {
             runCatching {
