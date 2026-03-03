@@ -24,6 +24,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -246,8 +247,8 @@ class CommandHandlerTest {
 
             assertTrue(result.contains("telegram"), "Should confirm channel, got: $result")
             assertTrue(result.contains("chat-1"), "Should confirm chatId, got: $result")
-            org.junit.jupiter.api.Assertions.assertEquals("telegram", runner.deliveryChannel)
-            org.junit.jupiter.api.Assertions.assertEquals("chat-1", runner.deliveryChatId)
+            assertEquals("telegram", runner.deliveryChannel)
+            assertEquals("chat-1", runner.deliveryChatId)
         }
 
     @Test
