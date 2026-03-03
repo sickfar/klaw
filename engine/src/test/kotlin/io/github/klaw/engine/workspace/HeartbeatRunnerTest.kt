@@ -285,6 +285,7 @@ class HeartbeatRunnerTest {
                     includeSkillList: Boolean,
                     includeSkillLoad: Boolean,
                     includeHeartbeatDeliver: Boolean,
+                    includeScheduleDeliver: Boolean,
                 ): List<ToolDef> = emptyList()
             }
 

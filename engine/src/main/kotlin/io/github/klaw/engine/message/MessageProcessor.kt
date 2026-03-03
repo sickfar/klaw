@@ -18,6 +18,8 @@ import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ApprovalService
 import io.github.klaw.engine.tools.ToolExecutor
+import io.github.klaw.engine.workspace.ScheduleDeliverContext
+import io.github.klaw.engine.workspace.ScheduleDeliverSink
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
@@ -28,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -130,10 +133,12 @@ class MessageProcessor(
                             isSubagent = true,
                             taskName = message.name,
                         )
+                    val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
                     val tools =
                         toolRegistry.listTools(
                             includeSkillList = contextResult.includeSkillList,
                             includeSkillLoad = contextResult.includeSkillLoad,
+                            includeScheduleDeliver = sink != null,
                         )
 
                     // Persist scheduled user message before LLM call
@@ -164,7 +169,18 @@ class MessageProcessor(
                             config.processing.maxToolCallRounds,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
                         )
-                    val response = runner.run(contextResult.messages.toMutableList(), session, tools)
+                    // ScheduleDeliverContext propagates through ToolCallLoopRunner's internal
+                    // withContext(ChatContext(...)) because CoroutineContext merges elements by key —
+                    // sub-withContext calls add to the context map rather than replacing it.
+                    // The sink is only accessed in the "schedule_deliver" tool dispatch case.
+                    val response =
+                        if (sink != null) {
+                            withContext(ScheduleDeliverContext(sink)) {
+                                runner.run(contextResult.messages.toMutableList(), session, tools)
+                            }
+                        } else {
+                            runner.run(contextResult.messages.toMutableList(), session, tools)
+                        }
                     val content = response.content ?: ""
 
                     // Persist assistant response
@@ -188,12 +204,13 @@ class MessageProcessor(
                         )
                     }
 
-                    if (!isSilent(content) && message.injectInto != null) {
+                    val deliveryMessage = sink?.consumeMessage()
+                    if (deliveryMessage != null) {
                         socketServerProvider.get().pushToGateway(
                             OutboundSocketMessage(
                                 channel = message.channel ?: "engine",
-                                chatId = message.injectInto,
-                                content = content,
+                                chatId = message.injectInto!!,
+                                content = deliveryMessage,
                             ),
                         )
                         // Record in interactive session so user can follow up naturally
@@ -204,13 +221,13 @@ class MessageProcessor(
                                 chatId = message.injectInto,
                                 role = "assistant",
                                 type = "text",
-                                content = content,
+                                content = deliveryMessage,
                             )
                         messageEmbeddingService.embedAsync(
                             injectedRowId,
                             "assistant",
                             "text",
-                            content,
+                            deliveryMessage,
                             config.autoRag,
                             processingScope,
                         )

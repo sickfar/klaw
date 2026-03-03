@@ -7,6 +7,7 @@ import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
 import io.github.klaw.engine.workspace.HeartbeatDeliverContext
+import io.github.klaw.engine.workspace.ScheduleDeliverContext
 import io.micronaut.context.annotation.Replaces
 import jakarta.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -35,12 +36,14 @@ class ToolRegistryImpl(
         includeSkillList: Boolean,
         includeSkillLoad: Boolean,
         includeHeartbeatDeliver: Boolean,
+        includeScheduleDeliver: Boolean,
     ): List<ToolDef> {
         var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
         if (includeHeartbeatDeliver) result = result + HEARTBEAT_DELIVER_DEF
+        if (includeScheduleDeliver) result = result + SCHEDULE_DELIVER_DEF
         return result
     }
 
@@ -179,6 +182,14 @@ class ToolRegistryImpl(
                 "Message queued for delivery"
             }
 
+            "schedule_deliver" -> {
+                val ctx =
+                    kotlin.coroutines.coroutineContext[ScheduleDeliverContext]
+                        ?: error("schedule_deliver called outside schedule context")
+                ctx.sink.deliver(args.str("message"))
+                "Message queued for delivery"
+            }
+
             else -> {
                 "Error: unknown tool '$name'"
             }
@@ -208,6 +219,17 @@ class ToolRegistryImpl(
                 toolParams(
                     listOf("message"),
                     mapOf("message" to stringProp("Message text to deliver")),
+                ),
+            )
+
+        private val SCHEDULE_DELIVER_DEF =
+            ToolDef(
+                "schedule_deliver",
+                "Deliver a message to the user. This is the only way to send a result. " +
+                    "If you have nothing to deliver, do not call this tool.",
+                toolParams(
+                    listOf("message"),
+                    mapOf("message" to stringProp("Message text to deliver to the user")),
                 ),
             )
 

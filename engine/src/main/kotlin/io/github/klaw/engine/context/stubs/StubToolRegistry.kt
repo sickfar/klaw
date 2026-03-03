@@ -10,5 +10,6 @@ class StubToolRegistry : ToolRegistry {
         includeSkillList: Boolean,
         includeSkillLoad: Boolean,
         includeHeartbeatDeliver: Boolean,
+        includeScheduleDeliver: Boolean,
     ): List<ToolDef> = emptyList()
 }

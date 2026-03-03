@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
+import com.github.tomakehurst.wiremock.stubbing.Scenario
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.ContextConfig
@@ -161,7 +162,7 @@ class MessageProcessorIntegrationTest {
                 coEvery { listAll() } returns emptyList()
                 io.mockk.every { discover() } returns Unit
             }
-        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any()) } returns emptyList() }
+        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any(), any(), any()) } returns emptyList() }
 
         val autoRagService =
             mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }
@@ -312,14 +313,31 @@ class MessageProcessorIntegrationTest {
     @Suppress("MaxLineLength")
     @Test
     fun `scheduled message persists user and assistant messages when logging enabled`() {
+        // Round 1: LLM calls schedule_deliver to deliver the reply
         wireMock.stubFor(
             post(urlEqualTo("/chat/completions"))
+                .inScenario("daily-check")
+                .whenScenarioStateIs(Scenario.STARTED)
                 .willReturn(
                     aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody(
-                            """{"id":"s1","choices":[{"index":0,"message":{"role":"assistant","content":"Scheduled reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}""",
+                            """{"id":"s1","choices":[{"index":0,"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"schedule_deliver","arguments":"{\"message\":\"Scheduled reply\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}""",
+                        ),
+                ).willSetStateTo("after-tool-call"),
+        )
+        // Round 2: LLM completes after seeing tool result
+        wireMock.stubFor(
+            post(urlEqualTo("/chat/completions"))
+                .inScenario("daily-check")
+                .whenScenarioStateIs("after-tool-call")
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"id":"s2","choices":[{"index":0,"message":{"role":"assistant","content":"Scheduled reply"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}""",
                         ),
                 ),
         )
@@ -333,7 +351,8 @@ class MessageProcessorIntegrationTest {
         coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
 
         val config = buildTestConfig().copy(logging = LoggingConfig(subagentConversations = true))
-        val processor = buildProcessor(config, db, socketServer)
+        // ScheduleDeliverAwareToolExecutor delivers the message via coroutine context
+        val processor = buildProcessor(config, db, socketServer, ScheduleDeliverAwareToolExecutor())
 
         runBlocking {
             processor
@@ -341,10 +360,10 @@ class MessageProcessorIntegrationTest {
                     ScheduledMessage(name = "daily-check", message = "Run daily check", model = null, injectInto = "chat-inject"),
                 ).join()
 
-            // Wait for the response to be pushed (confirms LLM call completed)
+            // Wait for the delivery to confirm schedule_deliver was called
             withTimeout(5000) { pushed.await() }
 
-            // Query persisted messages
+            // Query persisted messages in the subagent session
             val messageRepository = MessageRepository(db)
             val messages = messageRepository.getWindowMessages("subagent:daily-check", "2000-01-01T00:00:00Z", 100)
 
@@ -381,9 +400,7 @@ class MessageProcessorIntegrationTest {
         KlawDatabase.Schema.create(driver)
         val db = KlawDatabase(driver)
 
-        val pushed = CompletableDeferred<OutboundSocketMessage>()
         val socketServer = mockk<EngineSocketServer>(relaxed = true)
-        coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
 
         // logging.subagentConversations = false (default from buildTestConfig)
         val config = buildTestConfig()
@@ -395,8 +412,7 @@ class MessageProcessorIntegrationTest {
                     ScheduledMessage(name = "quiet-task", message = "Do something", model = null, injectInto = "chat-inject"),
                 ).join()
 
-            withTimeout(5000) { pushed.await() }
-
+            // .join() ensures the job is complete; no delivery expected (LLM returned text, not schedule_deliver)
             val messageRepository = MessageRepository(db)
             val messages = messageRepository.getWindowMessages("subagent:quiet-task", "2000-01-01T00:00:00Z", 100)
             assertEquals(0, messages.size, "No messages should be persisted when logging disabled")

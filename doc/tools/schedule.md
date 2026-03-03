@@ -73,23 +73,36 @@ Permanently removes a scheduled task.
 
 ---
 
+## `schedule_deliver`
+
+Used by scheduled subagents to deliver a result to the user. This is the **only** way for a scheduled task to send output back. If the LLM does not call `schedule_deliver`, nothing is sent — silence is the default.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `message` | string | yes | Message text to deliver to the user. |
+
+**Only available when `injectInto` is set on the task.** Background tasks (no delivery target) do not receive this tool.
+
+---
+
 ## Result delivery (`injectInto` and `channel`)
 
 When `schedule_add` is called via the LLM tool interface, `injectInto` (chatId) and `channel` (e.g. `telegram`, `discord`) are automatically set from the current chat context. This means the scheduled task's result will be delivered back to the user who created it, on the same platform.
 
-- If `injectInto` is set: the subagent result is sent to that user via Gateway on the stored `channel`.
-- If the subagent result JSON contains `{"silent": true}`, it is logged but **not** sent to the user.
-- If `injectInto` is `null` (e.g. tasks created via CLI without specifying a target): result is logged only.
+- If `injectInto` is set: the `schedule_deliver` tool is available to the subagent. Delivery only occurs if the LLM explicitly calls it.
+- If `injectInto` is `null` (e.g. tasks created via CLI without specifying a target): result is logged only, `schedule_deliver` is not available.
 - Legacy jobs without a stored `channel` fall back to `"engine"` for backwards compatibility.
 
 **Reminder delivery pattern** — when the user wants to receive a specific text at the scheduled time:
 ```
-Your task: send the user this reminder: Buy milk
+Your task: send the user this reminder: Buy milk. Call schedule_deliver with that message.
 ```
 
-**Silent pattern** — include in the `message` field when the task should only notify if something is found:
+**Conditional delivery pattern** — when the task should only notify if something is found:
 ```
-Check email and report urgent messages. If nothing requires attention, respond with JSON: {"silent": true, "reason": "what was checked"}
+Check email and report urgent messages. If there are urgent messages, call schedule_deliver with a summary. If nothing requires attention, complete without calling schedule_deliver.
 ```
 
 ---

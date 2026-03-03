@@ -676,6 +676,10 @@ class ContextBuilderTest {
                 systemMessage.content!!.contains("my-task"),
                 "System message should contain the task name",
             )
+            assertTrue(
+                systemMessage.content!!.contains("schedule_deliver"),
+                "System message should mention schedule_deliver tool",
+            )
         }
 
     @Test

@@ -19,6 +19,8 @@ import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.TokenUsage
+import io.github.klaw.common.llm.ToolCall
+import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
@@ -31,6 +33,7 @@ import io.github.klaw.engine.tools.ToolExecutor
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -96,6 +99,18 @@ class MessageProcessorTest {
             finishReason = FinishReason.STOP,
         )
 
+    private fun makeToolCallResponse(
+        toolCallId: String,
+        toolName: String,
+        arguments: String,
+    ): LlmResponse =
+        LlmResponse(
+            content = null,
+            toolCalls = listOf(ToolCall(id = toolCallId, name = toolName, arguments = arguments)),
+            usage = TokenUsage(promptTokens = 10, completionTokens = 5, totalTokens = 15),
+            finishReason = FinishReason.STOP,
+        )
+
     private fun makeContextResult(userContent: String = "task message"): ContextResult =
         ContextResult(
             messages =
@@ -136,7 +151,8 @@ class MessageProcessorTest {
         )
 
     @Test
-    fun `injectInto non-silent response saves assistant message to injectInto chatId`() =
+    @Suppress("LongMethod")
+    fun `when LLM calls schedule_deliver, message is pushed to injectInto and saved to session`() =
         runTest {
             val session = makeSession()
             val sessionManager = mockk<SessionManager>(relaxed = true)
@@ -147,16 +163,17 @@ class MessageProcessorTest {
                 makeContextResult("Your task: send the user this reminder: Buy milk")
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
-            coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Buy milk")
+            coEvery { llmRouter.chat(match { req -> req.messages.none { it.role == "tool" } }, any()) } returns
+                makeToolCallResponse("call-1", "schedule_deliver", """{"message":"Buy milk"}""")
+            coEvery { llmRouter.chat(match { req -> req.messages.any { it.role == "tool" } }, any()) } returns
+                makeLlmResponse("")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
-
+            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
+            val toolExecutor = ScheduleDeliverAwareToolExecutor()
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 42L
-
-            val messageEmbeddingService = mockk<MessageEmbeddingService>(relaxed = true)
 
             val processor =
                 buildProcessor(
@@ -165,8 +182,9 @@ class MessageProcessorTest {
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
+                    toolExecutor = toolExecutor,
                     messageRepository = messageRepository,
-                    messageEmbeddingService = messageEmbeddingService,
+                    messageEmbeddingService = mockk(relaxed = true),
                 )
 
             processor
@@ -181,6 +199,15 @@ class MessageProcessorTest {
                 ).join()
 
             coVerify {
+                socketServer.pushToGateway(
+                    OutboundSocketMessage(
+                        channel = "telegram",
+                        chatId = "chat-user-123",
+                        content = "Buy milk",
+                    ),
+                )
+            }
+            coVerify {
                 messageRepository.saveAndGetRowId(
                     id = any(),
                     channel = "telegram",
@@ -189,6 +216,64 @@ class MessageProcessorTest {
                     type = "text",
                     content = "Buy milk",
                     metadata = null,
+                )
+            }
+        }
+
+    @Test
+    fun `when LLM does not call schedule_deliver, nothing is pushed to gateway`() =
+        runTest {
+            val session = makeSession()
+            val sessionManager = mockk<SessionManager>(relaxed = true)
+            coEvery { sessionManager.getOrCreate(any(), any()) } returns session
+
+            val contextBuilder = mockk<ContextBuilder>(relaxed = true)
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
+                makeContextResult("background task")
+
+            val llmRouter = mockk<LlmRouter>(relaxed = true)
+            // LLM returns STOP with plain text content (no tool calls)
+            coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Background task done")
+
+            val socketServer = mockk<EngineSocketServer>(relaxed = true)
+            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
+            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
+
+            val messageRepository = mockk<MessageRepository>(relaxed = true)
+            coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
+
+            val processor =
+                buildProcessor(
+                    sessionManager = sessionManager,
+                    contextBuilder = contextBuilder,
+                    llmRouter = llmRouter,
+                    socketServerProvider = { socketServer },
+                    toolRegistry = toolRegistry,
+                    messageRepository = messageRepository,
+                )
+
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(
+                        name = "bg-task",
+                        message = "background task",
+                        model = null,
+                        injectInto = "chat-user-456",
+                        channel = "telegram",
+                    ),
+                ).join()
+
+            // No tool call = no delivery to injectInto
+            coVerify(exactly = 0) { socketServer.pushToGateway(any()) }
+            coVerify(exactly = 0) {
+                messageRepository.saveAndGetRowId(
+                    id = any(),
+                    channel = any(),
+                    chatId = "chat-user-456",
+                    role = any(),
+                    type = any(),
+                    content = any(),
+                    metadata = any(),
                 )
             }
         }
@@ -208,7 +293,7 @@ class MessageProcessorTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Background task done")
 
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
@@ -231,80 +316,42 @@ class MessageProcessorTest {
             coVerify(exactly = 0) { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) }
         }
 
-    @Suppress("LongMethod")
     @Test
-    fun `silent response does not save to interactive session`() =
+    fun `when injectInto is null, schedule_deliver tool is not included in tool list`() =
         runTest {
-            val session = makeSession(chatId = "subagent:silent-task")
+            val session = makeSession()
             val sessionManager = mockk<SessionManager>(relaxed = true)
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
             coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
-                makeContextResult("data collection task")
+                makeContextResult("background task")
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
-            coEvery { llmRouter.chat(any(), any()) } returns
-                makeLlmResponse("""{"silent": true, "result": "collected"}""")
+            coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
 
-            val socketServer = mockk<EngineSocketServer>(relaxed = true)
+            val includeScheduleDeliverSlot = slot<Boolean>()
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
-
-            val messageRepository = mockk<MessageRepository>(relaxed = true)
-            coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
-
-            val messageEmbeddingService = mockk<MessageEmbeddingService>(relaxed = true)
-
-            // Enable subagentConversations so the subagent logging path fires —
-            // this isolates that the isSilent guard specifically prevents the injectInto save
-            val configWithLogging = makeConfig().copy(logging = LoggingConfig(subagentConversations = true))
+            coEvery {
+                toolRegistry.listTools(any(), any(), any(), capture(includeScheduleDeliverSlot))
+            } returns emptyList()
 
             val processor =
                 buildProcessor(
-                    config = configWithLogging,
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    socketServerProvider = { socketServer },
                     toolRegistry = toolRegistry,
-                    messageRepository = messageRepository,
-                    messageEmbeddingService = messageEmbeddingService,
                 )
 
             processor
                 .handleScheduledMessage(
-                    ScheduledMessage(
-                        name = "silent-task",
-                        message = "data collection task",
-                        model = null,
-                        injectInto = "chat-user-456",
-                    ),
+                    ScheduledMessage(name = "bg-task", message = "background task", model = null, injectInto = null),
                 ).join()
 
-            // Subagent conversation logging fires for the subagent chatId
-            coVerify {
-                messageRepository.saveAndGetRowId(
-                    id = any(),
-                    channel = "scheduler",
-                    chatId = "subagent:silent-task",
-                    role = "user",
-                    type = "text",
-                    content = any(),
-                    metadata = any(),
-                )
-            }
-            // Silent response must NOT save to the injectInto chatId
-            coVerify(exactly = 0) {
-                messageRepository.saveAndGetRowId(
-                    id = any(),
-                    channel = any(),
-                    chatId = "chat-user-456",
-                    role = any(),
-                    type = any(),
-                    content = any(),
-                    metadata = any(),
-                )
+            // injectInto=null means sink=null means includeScheduleDeliver=false
+            assert(!includeScheduleDeliverSlot.captured) {
+                "includeScheduleDeliver should be false when injectInto is null"
             }
         }
 }

@@ -39,8 +39,9 @@ For one-time tasks (created with `at` instead of `cron`), the job fires once and
 
 A scheduled subagent receives:
 - Shared system prompt (same as main agent, including USER.md)
-- A `## Scheduled Task Execution` notice appended to the system prompt — informs the LLM that it is running as a named scheduled task and that its reply goes directly to the user (no meta-commentary about "sending" or "delivering")
+- A `## Scheduled Task Execution` notice appended to the system prompt — informs the LLM that it is running as a named scheduled task and should call `schedule_deliver` to send results to the user, or complete silently if nothing needs to be delivered
 - Last 5 messages from its own scheduler channel log
+- The `schedule_deliver` tool (only if `injectInto` is set on the task)
 
 A scheduled subagent does **not** see:
 - The main chat's recent messages
@@ -53,12 +54,11 @@ This is intentional. Scheduled tasks should not depend on conversation state —
 ## Delivering results to the user
 
 If `injectInto` is set:
-1. The subagent completes its LLM run.
-2. Engine checks the result for `{"silent": true}`.
-3. If not silent: Engine sends the result to Gateway on the stored `channel` (e.g. `telegram`) → user receives it in their chat. The result is also saved as an `assistant` message in the interactive session (`injectInto` chatId) so the user can follow up naturally.
-4. If silent: result is logged only. No notification. Nothing is saved to the interactive session.
+1. The subagent runs with `schedule_deliver` available in its tool list.
+2. If the LLM calls `schedule_deliver(message=...)`: Engine sends that message to Gateway on the stored `channel` (e.g. `telegram`) → user receives it in their chat. The message is also saved as an `assistant` message in the interactive session (`injectInto` chatId) so the user can follow up naturally.
+3. If the LLM does **not** call `schedule_deliver`: nothing is sent. Silence is the default — no escape-hatch JSON required.
 
-If `injectInto` is `null`: result is logged only.
+If `injectInto` is `null`: `schedule_deliver` is not included in the tool list and the result is logged only.
 
 When tasks are created via the LLM tool interface (`schedule_add`), `injectInto` and `channel` are automatically populated from the current chat context — the LLM does not need to specify them.
 
