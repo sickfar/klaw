@@ -38,15 +38,15 @@ For one-time tasks (created with `at` instead of `cron`), the job fires once and
 ## Subagent context for scheduled tasks
 
 A scheduled subagent receives:
-- Shared system prompt (same as main agent)
-- Shared system prompt (including USER.md)
+- Shared system prompt (same as main agent, including USER.md)
+- A `## Scheduled Task Execution` notice appended to the system prompt — informs the LLM that it is running as a named scheduled task and that its reply goes directly to the user (no meta-commentary about "sending" or "delivering")
 - Last 5 messages from its own scheduler channel log
 
 A scheduled subagent does **not** see:
 - The main chat's recent messages
 - Other conversation sessions
 
-This is intentional. Heartbeat tasks should not depend on conversation state — they run independently and report their findings.
+This is intentional. Scheduled tasks should not depend on conversation state — they run independently and report their findings.
 
 ---
 
@@ -55,8 +55,8 @@ This is intentional. Heartbeat tasks should not depend on conversation state —
 If `injectInto` is set:
 1. The subagent completes its LLM run.
 2. Engine checks the result for `{"silent": true}`.
-3. If not silent: Engine sends the result to Gateway on the stored `channel` (e.g. `telegram`) → user receives it in their chat.
-4. If silent: result is logged only. No notification.
+3. If not silent: Engine sends the result to Gateway on the stored `channel` (e.g. `telegram`) → user receives it in their chat. The result is also saved as an `assistant` message in the interactive session (`injectInto` chatId) so the user can follow up naturally.
+4. If silent: result is logged only. No notification. Nothing is saved to the interactive session.
 
 If `injectInto` is `null`: result is logged only.
 
