@@ -22,7 +22,7 @@ class MisfireRecoveryTest {
             val scheduler = QuartzKlawScheduler(dbFile.toString())
             scheduler.start()
             try {
-                scheduler.add("misfire-job", "0 0 9 * * ?", "test", null, null)
+                scheduler.add("misfire-job", "0 0 9 * * ?", null, "test", null, null, null)
                 val list = scheduler.list()
                 assertTrue(list.contains("misfire-job"), "misfire-job not found: $list")
             } finally {

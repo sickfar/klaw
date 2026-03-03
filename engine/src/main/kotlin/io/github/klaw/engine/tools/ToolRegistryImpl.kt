@@ -122,12 +122,15 @@ class ToolRegistryImpl(
             }
 
             "schedule_add" -> {
+                val ctx = kotlin.coroutines.coroutineContext[ChatContext]
                 scheduleTools.add(
                     args.str("name"),
-                    args.str("cron"),
+                    args.strOrNull("cron"),
+                    args.strOrNull("at"),
                     args.str("message"),
                     args.strOrNull("model"),
-                    args.strOrNull("injectInto"),
+                    ctx?.chatId,
+                    ctx?.channel,
                 )
             }
 
@@ -316,15 +319,15 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "schedule_add",
-                    "Add a scheduled task",
+                    "Add a scheduled or one-time task",
                     toolParams(
-                        listOf("name", "cron", "message"),
+                        listOf("name", "message"),
                         mapOf(
                             "name" to stringProp("Unique task name"),
-                            "cron" to stringProp("Cron schedule expression"),
+                            "cron" to stringProp("Cron schedule expression (mutually exclusive with at)"),
+                            "at" to stringProp("ISO-8601 datetime for one-time trigger (mutually exclusive with cron)"),
                             "message" to stringProp("Message to execute"),
                             "model" to stringProp("LLM model (optional)"),
-                            "injectInto" to stringProp("chatId to send result to (optional)"),
                         ),
                     ),
                 ),

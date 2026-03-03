@@ -1,6 +1,6 @@
 # Schedule Tools
 
-Schedule tools manage persistent cron tasks via the Quartz scheduler. Tasks survive engine restarts.
+Schedule tools manage persistent scheduled tasks via the Quartz scheduler. Tasks can be recurring (cron) or one-time (fixed datetime). All tasks survive engine restarts.
 
 ---
 
@@ -8,7 +8,7 @@ Schedule tools manage persistent cron tasks via the Quartz scheduler. Tasks surv
 
 No parameters. Returns all active scheduled tasks.
 
-**Returns:** For each task: name, cron expression, message, model (if set), inject_into (if set), next fire time, previous fire time.
+**Returns:** For each task: name, schedule (cron expression or one-time datetime), message, model (if set), inject_into (if set), channel (if set), next fire time, previous fire time.
 
 **Example output:**
 ```
@@ -17,30 +17,44 @@ No parameters. Returns all active scheduled tasks.
   Message: Check email and report important messages
   Model: glm/glm-4-plus
   InjectInto: telegram_123456
+  Channel: telegram
   Next: Mon Feb 27 09:00:00 UTC 2026
+
+- One-Time Reminder
+  At: 2026-03-15T14:00:00Z
+  Message: Send quarterly report
+  Channel: telegram
 ```
 
 ---
 
 ## `schedule_add`
 
-Adds a new persistent cron task.
+Adds a new scheduled or one-time task.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | string | yes | Unique task name. Duplicate names return an error. |
-| `cron` | string | yes | Quartz 7-field cron expression. See `doc/scheduling/cron-format.md`. |
+| `cron` | string | no | Quartz 7-field cron expression. Mutually exclusive with `at`. See `doc/scheduling/cron-format.md`. |
+| `at` | string | no | ISO-8601 datetime for a one-time trigger (e.g. `2026-03-15T14:00:00Z`). Mutually exclusive with `cron`. |
 | `message` | string | yes | Instruction sent to the subagent when the task fires. |
 | `model` | string | no | LLM model to use. Defaults to `routing.tasks.subagent` from `engine.json`. |
-| `injectInto` | string | no | chatId (e.g. `"telegram_123456"`). If set, delivers result to the user via Gateway. |
 
-**Returns:** `"OK: 'name' scheduled with cron 'expression'"` on success, or an error message.
+Exactly one of `cron` or `at` must be provided. Providing both or neither returns an error.
+
+**`injectInto` and `channel`** are not exposed as parameters — they are automatically populated from the current chat context. When a user asks the LLM to schedule a task, the result will be delivered back to that same user's chat.
+
+**Returns:**
+- Cron: `"OK: 'name' scheduled with cron 'expression'"`
+- One-time: `"OK: 'name' scheduled at 'datetime'"`
+- Error: descriptive error message
 
 **Notes:**
 - Tasks persist in `scheduler.db` across engine restarts.
 - Duplicate names are rejected. Remove the existing task first.
+- One-time tasks are automatically removed from the scheduler after they fire.
 - Use cheaper or local models (e.g. `ollama/qwen3:8b`) for routine checks to save cost.
 
 ---
@@ -59,11 +73,14 @@ Permanently removes a scheduled task.
 
 ---
 
-## `injectInto` explained
+## Result delivery (`injectInto` and `channel`)
 
-- If `injectInto` is set to a chatId (e.g. `"telegram_123456"`), the subagent result is sent to that user via Gateway.
+When `schedule_add` is called via the LLM tool interface, `injectInto` (chatId) and `channel` (e.g. `telegram`, `discord`) are automatically set from the current chat context. This means the scheduled task's result will be delivered back to the user who created it, on the same platform.
+
+- If `injectInto` is set: the subagent result is sent to that user via Gateway on the stored `channel`.
 - If the subagent result JSON contains `{"silent": true}`, it is logged but **not** sent to the user.
-- If `injectInto` is `null`, the result is only logged — no user notification.
+- If `injectInto` is `null` (e.g. tasks created via CLI without specifying a target): result is logged only.
+- Legacy jobs without a stored `channel` fall back to `"engine"` for backwards compatibility.
 
 **Silent pattern** — include in the `message` field when the task should only notify if something is found:
 ```

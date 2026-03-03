@@ -191,7 +191,7 @@ class MessageProcessor(
                     if (!isSilent(content) && message.injectInto != null) {
                         socketServerProvider.get().pushToGateway(
                             OutboundSocketMessage(
-                                channel = "engine",
+                                channel = message.channel ?: "engine",
                                 chatId = message.injectInto,
                                 content = content,
                             ),

@@ -4,17 +4,21 @@ import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Instant
 import org.quartz.CronScheduleBuilder
 import org.quartz.CronTrigger
 import org.quartz.JobBuilder
 import org.quartz.JobKey
 import org.quartz.SchedulerException
+import org.quartz.SimpleScheduleBuilder
+import org.quartz.SimpleTrigger
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.StdSchedulerFactory
 import org.quartz.impl.matchers.GroupMatcher
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Date
 import java.util.Properties
 
 private val logger = KotlinLogging.logger {}
@@ -54,13 +58,17 @@ class QuartzKlawScheduler(
                     val detail = quartzScheduler.getJobDetail(key) ?: return@forEach
                     val triggers = quartzScheduler.getTriggersOfJob(key)
                     val trigger = triggers.firstOrNull()
-                    val cron = (trigger as? CronTrigger)?.cronExpression ?: "?"
                     val data = detail.jobDataMap
                     appendLine("- ${key.name}")
-                    appendLine("  Cron: $cron")
+                    when (trigger) {
+                        is CronTrigger -> appendLine("  Cron: ${trigger.cronExpression}")
+                        is SimpleTrigger -> appendLine("  At: ${trigger.startTime.toInstant()}")
+                        else -> appendLine("  Schedule: ?")
+                    }
                     appendLine("  Message: ${data.getString("message")}")
                     data.getString("model")?.let { appendLine("  Model: $it") }
                     data.getString("injectInto")?.let { appendLine("  InjectInto: $it") }
+                    data.getString("channel")?.let { appendLine("  Channel: $it") }
                     trigger?.nextFireTime?.let { appendLine("  Next: $it") }
                     trigger?.previousFireTime?.let { appendLine("  Prev: $it") }
                 }
@@ -69,12 +77,20 @@ class QuartzKlawScheduler(
 
     override suspend fun add(
         name: String,
-        cron: String,
+        cron: String?,
+        at: String?,
         message: String,
         model: String?,
         injectInto: String?,
+        channel: String?,
     ): String =
         withContext(Dispatchers.VT) {
+            if (cron != null && at != null) {
+                return@withContext "Error: 'cron' and 'at' are mutually exclusive — provide only one"
+            }
+            if (cron == null && at == null) {
+                return@withContext "Error: either 'cron' or 'at' must be provided"
+            }
             val jobKey = JobKey(name, JOB_GROUP)
             if (quartzScheduler.checkExists(jobKey)) {
                 return@withContext "Error: schedule '$name' already exists"
@@ -86,26 +102,57 @@ class QuartzKlawScheduler(
                         put("message", message)
                         model?.let { put("model", it) }
                         injectInto?.let { put("injectInto", it) }
+                        channel?.let { put("channel", it) }
                     }
-                val job =
-                    JobBuilder
-                        .newJob(ScheduledMessageJob::class.java)
-                        .withIdentity(jobKey)
-                        .usingJobData(jobData)
-                        .storeDurably()
-                        .build()
-                val trigger =
-                    TriggerBuilder
-                        .newTrigger()
-                        .withIdentity(TriggerKey(name, TRIGGER_GROUP))
-                        .withSchedule(
-                            CronScheduleBuilder
-                                .cronSchedule(cron)
-                                .withMisfireHandlingInstructionFireAndProceed(),
-                        ).build()
-                quartzScheduler.scheduleJob(job, trigger)
-                logger.debug { "Schedule added name=$name" }
-                "OK: '$name' scheduled with cron '$cron'"
+                if (cron != null) {
+                    val job =
+                        JobBuilder
+                            .newJob(ScheduledMessageJob::class.java)
+                            .withIdentity(jobKey)
+                            .usingJobData(jobData)
+                            .storeDurably()
+                            .build()
+                    val trigger =
+                        TriggerBuilder
+                            .newTrigger()
+                            .withIdentity(TriggerKey(name, TRIGGER_GROUP))
+                            .withSchedule(
+                                CronScheduleBuilder
+                                    .cronSchedule(cron)
+                                    .withMisfireHandlingInstructionFireAndProceed(),
+                            ).build()
+                    quartzScheduler.scheduleJob(job, trigger)
+                    logger.debug { "Schedule added name=$name type=cron" }
+                    "OK: '$name' scheduled with cron '$cron'"
+                } else {
+                    val instant =
+                        try {
+                            Instant.parse(at!!)
+                        } catch (_: IllegalArgumentException) {
+                            return@withContext "Error: invalid ISO-8601 datetime '$at'"
+                        }
+                    val job =
+                        JobBuilder
+                            .newJob(ScheduledMessageJob::class.java)
+                            .withIdentity(jobKey)
+                            .usingJobData(jobData)
+                            .storeDurably(false)
+                            .build()
+                    val trigger =
+                        TriggerBuilder
+                            .newTrigger()
+                            .withIdentity(TriggerKey(name, TRIGGER_GROUP))
+                            .startAt(Date(instant.toEpochMilliseconds()))
+                            .withSchedule(
+                                SimpleScheduleBuilder
+                                    .simpleSchedule()
+                                    .withMisfireHandlingInstructionFireNow()
+                                    .withRepeatCount(0),
+                            ).build()
+                    quartzScheduler.scheduleJob(job, trigger)
+                    logger.debug { "Schedule added name=$name type=at" }
+                    "OK: '$name' scheduled at '$at'"
+                }
             } catch (e: SchedulerException) {
                 logger.warn { "Failed to add schedule name=$name class=${e::class.simpleName}" }
                 "Error: ${e::class.simpleName}"

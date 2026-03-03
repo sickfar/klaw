@@ -43,7 +43,7 @@ See [skills.md](skills.md).
 | Tool | Description |
 |------|-------------|
 | `schedule_list` | List scheduled tasks |
-| `schedule_add` | Add a cron-scheduled task |
+| `schedule_add` | Add a scheduled or one-time task |
 | `schedule_remove` | Remove a scheduled task |
 
 See [schedule.md](schedule.md).

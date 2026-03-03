@@ -21,6 +21,9 @@ import io.github.klaw.common.llm.ToolCall
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -334,5 +337,75 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
             assertEquals(18, tools.size)
+        }
+
+    @Test
+    fun `schedule_add tool definition has no injectInto parameter`() =
+        runTest {
+            val tools = registry.listTools()
+            val scheduleAdd = tools.first { it.name == "schedule_add" }
+            val props = scheduleAdd.parameters["properties"]?.jsonObject
+            assertFalse(
+                props?.containsKey("injectInto") ?: false,
+                "schedule_add should not expose injectInto param",
+            )
+        }
+
+    @Test
+    fun `schedule_add tool definition has optional at parameter`() =
+        runTest {
+            val tools = registry.listTools()
+            val scheduleAdd = tools.first { it.name == "schedule_add" }
+            val props = scheduleAdd.parameters["properties"]?.jsonObject
+            assertTrue(
+                props?.containsKey("at") ?: false,
+                "schedule_add should have an 'at' parameter",
+            )
+            val required = scheduleAdd.parameters["required"]
+            val requiredNames = required?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            assertFalse("cron" in requiredNames, "cron should not be required")
+            assertFalse("at" in requiredNames, "at should not be required")
+        }
+
+    @Test
+    fun `schedule_add dispatch passes ChatContext chatId and channel`() =
+        runTest {
+            coEvery {
+                scheduleTools.add("daily", "0 9 * * *", null, "hello", null, "chat:42", "telegram")
+            } returns "OK"
+
+            val ctx = ChatContext(chatId = "chat:42", channel = "telegram")
+            val result =
+                withContext(ctx) {
+                    registry.execute(
+                        ToolCall(
+                            id = "5",
+                            name = "schedule_add",
+                            arguments = """{"name":"daily","cron":"0 9 * * *","message":"hello"}""",
+                        ),
+                    )
+                }
+            assertEquals("OK", result.content)
+        }
+
+    @Test
+    fun `schedule_add dispatch with at param`() =
+        runTest {
+            coEvery {
+                scheduleTools.add("once", null, "2026-01-01T09:00:00Z", "hello", null, "chat:42", "telegram")
+            } returns "OK"
+
+            val ctx = ChatContext(chatId = "chat:42", channel = "telegram")
+            val result =
+                withContext(ctx) {
+                    registry.execute(
+                        ToolCall(
+                            id = "6",
+                            name = "schedule_add",
+                            arguments = """{"name":"once","at":"2026-01-01T09:00:00Z","message":"hello"}""",
+                        ),
+                    )
+                }
+            assertEquals("OK", result.content)
         }
 }

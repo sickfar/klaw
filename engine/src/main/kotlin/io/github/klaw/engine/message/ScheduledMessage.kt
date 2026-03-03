@@ -5,4 +5,5 @@ data class ScheduledMessage(
     val message: String,
     val model: String?,
     val injectInto: String?,
+    val channel: String? = null,
 )

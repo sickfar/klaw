@@ -36,11 +36,13 @@ class KlawSchedulerImpl(
 
     override suspend fun add(
         name: String,
-        cron: String,
+        cron: String?,
+        at: String?,
         message: String,
         model: String?,
         injectInto: String?,
-    ) = inner.add(name, cron, message, model, injectInto)
+        channel: String?,
+    ) = inner.add(name, cron, at, message, model, injectInto, channel)
 
     override suspend fun remove(name: String) = inner.remove(name)
 }
