@@ -1,12 +1,16 @@
 package io.github.klaw.engine.command
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.encodeEngineConfig
+import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.util.VT
+import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
+import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,6 +22,7 @@ class CommandHandler(
     private val sessionManager: SessionManager,
     private val messageRepository: MessageRepository,
     private val config: EngineConfig,
+    private val heartbeatRunnerFactory: Provider<HeartbeatRunnerFactory>,
 ) {
     internal var workspacePath: Path = Path.of(KlawPaths.workspace)
 
@@ -31,6 +36,7 @@ class CommandHandler(
             "models" -> listModels()
             "memory" -> showMemory()
             "status" -> showStatus(session)
+            "use-for-heartbeat" -> handleUseForHeartbeat(message.channel, message.chatId)
             "help" -> showHelp()
             else -> "Unknown command: /${message.command}"
         }
@@ -82,6 +88,37 @@ class CommandHandler(
     private fun showStatus(session: Session): String =
         "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}"
 
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun handleUseForHeartbeat(
+        channel: String,
+        chatId: String,
+    ): String =
+        withContext(Dispatchers.VT) {
+            try {
+                val runner = heartbeatRunnerFactory.get().runner
+                if (runner == null) {
+                    return@withContext "Heartbeat is disabled (interval=off). Enable it in engine.json first."
+                }
+                runner.deliveryChannel = channel
+                runner.deliveryChatId = chatId
+                persistHeartbeatTarget(channel, chatId)
+                "Heartbeat delivery set to $channel/$chatId. Takes effect on next heartbeat run."
+            } catch (e: Exception) {
+                "Failed to update heartbeat config: ${e::class.simpleName}"
+            }
+        }
+
+    private fun persistHeartbeatTarget(
+        channel: String,
+        chatId: String,
+    ) {
+        val configFile = Path.of(KlawPaths.config, "engine.json")
+        if (!Files.exists(configFile)) return
+        val current = parseEngineConfig(Files.readString(configFile))
+        val updated = current.copy(heartbeat = current.heartbeat.copy(channel = channel, injectInto = chatId))
+        Files.writeString(configFile, encodeEngineConfig(updated))
+    }
+
     private fun showHelp(): String {
         val commands = config.commands
         if (commands.isEmpty()) {
@@ -91,6 +128,7 @@ class CommandHandler(
                 "/models — list models",
                 "/memory — show memory",
                 "/status — show status",
+                "/use-for-heartbeat — deliver heartbeat to this chat",
                 "/help — this help",
             ).joinToString("\n")
         }

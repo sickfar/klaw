@@ -413,6 +413,24 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "heartbeat": {
+                    "type": "object",
+                    "properties": {
+                        "interval": {
+                            "type": "string"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "injectInto": {
+                            "type": "string"
+                        },
+                        "channel": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

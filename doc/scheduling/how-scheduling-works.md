@@ -2,18 +2,23 @@
 
 ## Architecture
 
-Quartz runs **inside the Engine process** — not as a separate service. Scheduled tasks are stored in `scheduler.db` (SQLite) and survive engine restarts.
+The engine has two scheduling mechanisms:
+
+1. **Quartz scheduler** — for cron-based and one-time tasks created via `schedule_add` or CLI. Stored in `scheduler.db` (SQLite), survives restarts.
+2. **Heartbeat runner** — for periodic autonomous LLM monitoring via `HEARTBEAT.md`. Configured in `engine.json`, uses Micronaut's built-in `TaskScheduler`.
 
 ```
 Engine process
-├── MessageProcessor      ← handles user messages
-├── KlawSchedulerImpl     ← Quartz wrapper
+├── MessageProcessor       ← handles user messages
+├── KlawSchedulerImpl      ← Quartz wrapper (cron/one-time tasks)
 │   └── QuartzKlawScheduler
 │       └── Quartz JobStoreTX → scheduler.db
-└── ScheduledMessageJob   ← fired by Quartz, calls MessageProcessor directly
+├── ScheduledMessageJob    ← fired by Quartz, calls MessageProcessor directly
+└── HeartbeatRunnerFactory ← periodic autonomous LLM run (reads HEARTBEAT.md)
+    └── HeartbeatRunner
 ```
 
-No additional processes or daemons are needed. Quartz uses 2 background threads for job execution.
+No additional processes or daemons are needed. Quartz uses 2 background threads for job execution. The heartbeat runs on Micronaut's scheduled executor.
 
 ---
 
@@ -71,17 +76,31 @@ The misfire threshold is 60 seconds. Tasks missed by less than 60 seconds are no
 
 ---
 
+## Heartbeat
+
+The heartbeat is a separate scheduling mechanism from Quartz. See `doc/scheduling/heartbeat.md` for full details.
+
+Key differences from Quartz-scheduled tasks:
+- Runs at a fixed interval (ISO-8601 duration), not cron
+- Has full tool access (all standard tools + `heartbeat_deliver`)
+- The LLM autonomously decides whether to deliver results
+- Configured in `engine.json` (`heartbeat` section), not `scheduler.db`
+- Skipped entirely if `HEARTBEAT.md` is missing/blank or no delivery target is configured
+- Delivery target is set via `/use-for-heartbeat` command (pairs current chat for delivery)
+
+---
+
 ## Managing tasks
 
 | Method | Description |
 |--------|-------------|
-| `schedule_add` tool | Add a task at runtime |
+| `schedule_add` tool | Add a cron or one-time task at runtime |
 | `schedule_remove` tool | Remove a task at runtime |
-| `schedule_list` tool | List all active tasks |
+| `schedule_list` tool | List all active Quartz tasks |
 | `klaw schedule add` CLI | Add a task from the command line |
-| `HEARTBEAT.md` | Declare tasks in workspace; imported at startup |
+| `engine.json` `heartbeat` | Configure periodic autonomous monitoring |
 
-Changes via `schedule_add`/`schedule_remove` take effect immediately. Changes to `HEARTBEAT.md` take effect on next engine restart.
+Changes via `schedule_add`/`schedule_remove` take effect immediately. Changes to `engine.json` `heartbeat.interval` and `heartbeat.model` take effect on next engine restart. The `/use-for-heartbeat` command updates the delivery target at runtime (no restart needed).
 
 ---
 

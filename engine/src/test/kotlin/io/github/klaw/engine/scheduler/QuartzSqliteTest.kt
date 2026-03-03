@@ -1,7 +1,6 @@
 package io.github.klaw.engine.scheduler
 
 import kotlinx.coroutines.runBlocking
-import kotlin.time.Clock
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -10,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.quartz.SimpleTrigger
 import org.quartz.impl.matchers.GroupMatcher
 import java.nio.file.Files
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 
 class QuartzSqliteTest {

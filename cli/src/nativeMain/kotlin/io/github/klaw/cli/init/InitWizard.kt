@@ -247,7 +247,22 @@ internal class InitWizard(
             chmodWorldRwx(dataDir)
         }
         CliLogger.debug { "writing config files to $configDir" }
-        writeFileText("$configDir/engine.json", ConfigTemplates.engineJson(providerUrl, modelId))
+        // Derive heartbeat channel from first configured channel.
+        // injectInto (chatId) is set later via /use-for-heartbeat command.
+        val heartbeatChannel =
+            when {
+                configureTelegram -> "telegram"
+                enableConsole -> "console"
+                else -> null
+            }
+        writeFileText(
+            "$configDir/engine.json",
+            ConfigTemplates.engineJson(
+                providerUrl = providerUrl,
+                modelId = modelId,
+                heartbeatChannel = heartbeatChannel,
+            ),
+        )
         writeFileText(
             "$configDir/gateway.json",
             ConfigTemplates.gatewayJson(

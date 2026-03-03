@@ -126,9 +126,32 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
   },
   "docs": {
     "enabled": true
+  },
+  "heartbeat": {
+    "interval": "PT1H",
+    "model": "zai/glm-5",
+    "injectInto": "telegram_123456",
+    "channel": "telegram"
   }
 }
 ```
+
+## heartbeat
+
+Configures periodic autonomous LLM monitoring. The engine reads `HEARTBEAT.md` from the workspace at each interval and runs an LLM session with full tool access. The LLM decides whether to deliver results to the user via the `heartbeat_deliver` tool.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `interval` | string | `"off"` | ISO-8601 duration (`"PT1H"`, `"PT30M"`) or `"off"` to disable. |
+| `model` | string | `null` | LLM model for heartbeat. `null` uses `routing.default`. |
+| `injectInto` | string | `null` | chatId for delivering results (e.g. `"telegram_123456"`). |
+| `channel` | string | `null` | Channel for delivery (e.g. `"telegram"`). |
+
+Both `injectInto` and `channel` must be set for delivery to work. If either is missing, heartbeat runs are skipped entirely (no LLM tokens consumed).
+
+`channel` is set automatically by `klaw init` based on the first configured messaging channel. `injectInto` is set at runtime via the `/use-for-heartbeat` command — send it in any chat to pair that chat for heartbeat delivery. The command persists the change to `engine.json`.
+
+See `doc/scheduling/heartbeat.md` for details.
 
 ## docs
 

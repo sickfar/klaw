@@ -21,6 +21,7 @@ data class EngineConfig(
     val docs: DocsConfig = DocsConfig(),
     val skills: SkillsConfig = SkillsConfig(),
     val hostExecution: HostExecutionConfig = HostExecutionConfig(),
+    val heartbeat: HeartbeatConfig = HeartbeatConfig(),
 )
 
 @Serializable
@@ -243,4 +244,12 @@ data class PreValidationConfig(
     val model: String = "",
     val riskThreshold: Int = 5,
     val timeoutMs: Long = 5000,
+)
+
+@Serializable
+data class HeartbeatConfig(
+    val interval: String = "off",
+    val model: String? = null,
+    val injectInto: String? = null,
+    val channel: String? = null,
 )

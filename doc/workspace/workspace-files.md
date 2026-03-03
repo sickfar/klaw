@@ -62,13 +62,15 @@ Use `file_write` to append new entries. Each file is indexed as a separate sourc
 
 ---
 
-## Scheduling file
+## Heartbeat file
 
 ### `HEARTBEAT.md`
 
-Defines recurring scheduled tasks. Parsed into Quartz jobs at startup.
+Instructions for the periodic heartbeat — an autonomous LLM run with full tool access. Read at each heartbeat interval (configured in `engine.json`). The LLM decides whether to report findings to the user via the `heartbeat_deliver` tool.
 
-See `doc/scheduling/heartbeat.md` for the format and import behavior.
+This file is **not** created by `klaw init` — create it manually when you want to enable heartbeat monitoring. If the file is missing or blank, heartbeat runs are skipped silently.
+
+See `doc/scheduling/heartbeat.md` for the format and configuration.
 
 ---
 
@@ -95,7 +97,7 @@ See `doc/skills/` for skill format documentation.
 | `TOOLS.md` | Startup → system prompt | Environment notes |
 | `MEMORY.md` | Startup → sqlite-vec | Long-term memory index |
 | `memory/*.md` | Startup → sqlite-vec | Daily memory logs |
-| `HEARTBEAT.md` | Startup → Quartz | Recurring task definitions |
+| `HEARTBEAT.md` | Each heartbeat interval | Autonomous LLM monitoring instructions |
 | `skills/*.md` | Startup → skill registry | Workspace-local skills |
 
 ---

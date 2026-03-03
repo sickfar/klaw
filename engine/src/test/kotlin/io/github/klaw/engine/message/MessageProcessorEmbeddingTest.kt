@@ -170,7 +170,7 @@ class MessageProcessorEmbeddingTest {
             io.github.klaw.engine.context
                 .SubagentHistoryLoader()
         val toolExecutor = mockk<ToolExecutor> { coEvery { executeAll(any()) } returns emptyList() }
-        val commandHandler = CommandHandler(sessionManager, messageRepository, config)
+        val commandHandler = CommandHandler(sessionManager, messageRepository, config, jakarta.inject.Provider { mockk(relaxed = true) })
 
         val builder =
             contextBuilder ?: io.github.klaw.engine.context.ContextBuilder(

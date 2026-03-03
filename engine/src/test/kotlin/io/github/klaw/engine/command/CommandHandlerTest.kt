@@ -19,7 +19,9 @@ import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -35,6 +37,7 @@ class CommandHandlerTest {
 
     private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val messageRepository = mockk<MessageRepository>(relaxed = true)
+    private val heartbeatRunnerFactory = mockk<HeartbeatRunnerFactory>(relaxed = true)
 
     private val defaultModels = mapOf("test/model" to ModelConfig(contextBudget = 4096))
 
@@ -91,6 +94,7 @@ class CommandHandlerTest {
             sessionManager,
             messageRepository,
             makeConfig(models),
+            jakarta.inject.Provider { heartbeatRunnerFactory },
         ).also { it.workspacePath = workspace }
 
     private fun makeCmd(
@@ -205,6 +209,45 @@ class CommandHandlerTest {
                 result.contains("Important facts about user."),
                 "Response should contain MEMORY.md content, got: $result",
             )
+        }
+
+    @Test
+    fun `use_for_heartbeat returns disabled when runner is null`() =
+        runTest {
+            every { heartbeatRunnerFactory.runner } returns null
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("use-for-heartbeat"), session)
+
+            assertTrue(result.contains("disabled", ignoreCase = true), "Should indicate disabled, got: $result")
+        }
+
+    @Test
+    fun `use_for_heartbeat updates runner delivery target`() =
+        runTest {
+            val runner =
+                io.github.klaw.engine.workspace.HeartbeatRunner(
+                    config = makeConfig(),
+                    chat = { _, _ -> error("not called") },
+                    toolExecutor = mockk(),
+                    getOrCreateSession = { _, _ -> error("not called") },
+                    workspaceLoader = mockk(),
+                    toolRegistry = mockk(),
+                    pushToGateway = {},
+                    workspacePath = workspace,
+                    maxToolCallRounds = 5,
+                )
+            every { heartbeatRunnerFactory.runner } returns runner
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("use-for-heartbeat"), session)
+
+            assertTrue(result.contains("telegram"), "Should confirm channel, got: $result")
+            assertTrue(result.contains("chat-1"), "Should confirm chatId, got: $result")
+            org.junit.jupiter.api.Assertions.assertEquals("telegram", runner.deliveryChannel)
+            org.junit.jupiter.api.Assertions.assertEquals("chat-1", runner.deliveryChatId)
         }
 
     @Test

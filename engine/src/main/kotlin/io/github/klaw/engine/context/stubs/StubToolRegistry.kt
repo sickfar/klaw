@@ -9,5 +9,6 @@ class StubToolRegistry : ToolRegistry {
     override suspend fun listTools(
         includeSkillList: Boolean,
         includeSkillLoad: Boolean,
+        includeHeartbeatDeliver: Boolean,
     ): List<ToolDef> = emptyList()
 }

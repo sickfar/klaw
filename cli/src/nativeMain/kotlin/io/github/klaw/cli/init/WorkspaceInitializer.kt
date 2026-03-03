@@ -30,7 +30,6 @@ internal class WorkspaceInitializer(
 
         CliLogger.debug { "writing stub files to $workspaceDir" }
         writeStubIfAbsent("$workspaceDir/TOOLS.md", TOOLS_STUB)
-        writeStubIfAbsent("$workspaceDir/HEARTBEAT.md", HEARTBEAT_STUB)
         writeStubIfAbsent("$workspaceDir/SOUL.md", SOUL_STUB)
         writeStubIfAbsent("$workspaceDir/AGENTS.md", AGENTS_STUB)
     }
@@ -55,8 +54,6 @@ internal class WorkspaceInitializer(
 
     private companion object {
         const val TOOLS_STUB = "# Tools\n\nList available tools here.\n"
-        const val HEARTBEAT_STUB = "# Heartbeat\n\nThis file is updated by the scheduler.\n"
-
         @Suppress("MaxLineLength")
         const val SOUL_STUB =
             "# Soul\n\n" +

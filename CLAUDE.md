@@ -64,7 +64,7 @@ engine/src/main/kotlin/io/github/klaw/engine/
 ├── memory/       # MemoryService, AutoRagService, EmbeddingService (ONNX + Ollama), MarkdownChunker, RrfMerge
 ├── tools/        # ToolExecutor, FileTools, MemoryTools, ScheduleTools, SkillTools, SubagentTools, DocsTools
 ├── scheduler/    # KlawScheduler, KlawSchedulerImpl, MicronautJobFactory (Quartz + SQLiteDelegate)
-├── workspace/    # HeartbeatImporter, HeartbeatParser
+├── workspace/    # HeartbeatRunner, HeartbeatRunnerFactory, HeartbeatDeliverSink
 ├── db/           # DatabaseFactory, SqliteVecLoader, VirtualTableSetup
 ├── docs/         # DocsService
 ├── init/         # InitCliHandler

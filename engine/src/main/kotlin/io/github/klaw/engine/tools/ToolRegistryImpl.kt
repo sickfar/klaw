@@ -6,6 +6,7 @@ import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
+import io.github.klaw.engine.workspace.HeartbeatDeliverContext
 import io.micronaut.context.annotation.Replaces
 import jakarta.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -33,11 +34,13 @@ class ToolRegistryImpl(
     override suspend fun listTools(
         includeSkillList: Boolean,
         includeSkillLoad: Boolean,
+        includeHeartbeatDeliver: Boolean,
     ): List<ToolDef> {
         var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
+        if (includeHeartbeatDeliver) result = result + HEARTBEAT_DELIVER_DEF
         return result
     }
 
@@ -168,6 +171,14 @@ class ToolRegistryImpl(
                 hostExecTool.execute(args.str("command"), ctx?.chatId ?: "unknown", ctx?.channel ?: "unknown")
             }
 
+            "heartbeat_deliver" -> {
+                val ctx =
+                    kotlin.coroutines.coroutineContext[HeartbeatDeliverContext]
+                        ?: error("heartbeat_deliver called outside heartbeat context")
+                ctx.sink.deliver(args.str("message"))
+                "Message queued for delivery"
+            }
+
             else -> {
                 "Error: unknown tool '$name'"
             }
@@ -190,6 +201,15 @@ class ToolRegistryImpl(
         private const val HOST_EXEC_TOOL_NAME = "host_exec"
         private const val SKILL_LIST_TOOL_NAME = "skill_list"
         private const val SKILL_LOAD_TOOL_NAME = "skill_load"
+        private val HEARTBEAT_DELIVER_DEF =
+            ToolDef(
+                "heartbeat_deliver",
+                "Deliver a message to the user. This is the only way to communicate results.",
+                toolParams(
+                    listOf("message"),
+                    mapOf("message" to stringProp("Message text to deliver")),
+                ),
+            )
 
         private val toolDefs =
             listOf(

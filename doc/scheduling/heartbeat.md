@@ -2,114 +2,135 @@
 
 ## What is HEARTBEAT.md
 
-`HEARTBEAT.md` is a workspace file at `$KLAW_WORKSPACE/HEARTBEAT.md`. It defines recurring scheduled tasks in a declarative format.
+`HEARTBEAT.md` is a workspace file at `$KLAW_WORKSPACE/HEARTBEAT.md`. It provides instructions for the periodic heartbeat — an autonomous LLM run that reads the file, has full tool access, and decides whether to deliver results to the user.
 
-On engine startup, Klaw parses the file and imports all valid tasks into the Quartz scheduler. The file is **read-only** — Klaw never modifies it. This is intentional for OpenClaw compatibility (the file can be version-controlled with the workspace).
+The heartbeat is configured via the `heartbeat` section in `engine.json`. The file is **read-only** — Klaw never modifies it. This is intentional for OpenClaw compatibility (the file can be version-controlled with the workspace).
+
+---
+
+## How it works
+
+1. The engine reads `HEARTBEAT.md` at each heartbeat interval.
+2. The file content is sent as a user message to an LLM session (chatId `"heartbeat"`) with the full system prompt and all standard tools.
+3. An additional tool `heartbeat_deliver` is available — the LLM calls it when it has information worth sharing with the user.
+4. If the LLM calls `heartbeat_deliver` and `injectInto`/`channel` are configured, the message is pushed to the user via Gateway.
+
+The heartbeat LLM has access to all standard tools (file, memory, docs, schedule, subagent, sandbox, etc.) plus `heartbeat_deliver`. This means it can read files, search memory, run code, and make autonomous decisions about what to report.
+
+---
+
+## Configuration
+
+The heartbeat is configured in `engine.json`:
+
+```json
+{
+  "heartbeat": {
+    "interval": "PT1H",
+    "model": "zai/glm-5",
+    "injectInto": "telegram_123456",
+    "channel": "telegram"
+  }
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `interval` | no | `"off"` | ISO-8601 duration (`"PT1H"`, `"PT30M"`) or `"off"` to disable. |
+| `model` | no | `routing.default` | LLM model for heartbeat runs. |
+| `injectInto` | no | `null` | chatId for delivering results (e.g. `"telegram_123456"`). |
+| `channel` | no | `null` | Channel for delivery (e.g. `"telegram"`). |
+
+Both `injectInto` and `channel` must be set for delivery to work. If either is missing, the heartbeat run is **skipped entirely** — no LLM tokens are consumed.
+
+### Setup via `klaw init`
+
+When you run `klaw init`, the wizard automatically sets `channel` based on the first configured messaging channel (e.g. `"telegram"`). The `interval` defaults to `"PT1H"` when a channel is available, or `"off"` otherwise.
+
+However, `injectInto` (the chatId) is **not** set during init — it is unknown until the first message arrives from a user. See the pairing section below.
+
+### Pairing: `/use-for-heartbeat`
+
+To complete heartbeat setup, send `/use-for-heartbeat` in any chat channel. This command:
+
+1. Sets the current channel and chatId as the heartbeat delivery target.
+2. Persists the change to `engine.json` on disk.
+3. Takes effect on the next heartbeat run.
+
+This is required because the chatId is only known after the first message arrives from a user on a channel. Until pairing, heartbeat runs are skipped (no delivery target configured).
+
+---
+
+## Creating HEARTBEAT.md
+
+`HEARTBEAT.md` is **not** created by `klaw init`. Create it manually in your workspace when you are ready to use the heartbeat feature:
+
+```bash
+cat > ~/.local/share/klaw/workspace/HEARTBEAT.md << 'EOF'
+# Your heartbeat instructions here
+EOF
+```
+
+If `HEARTBEAT.md` is missing or blank, the heartbeat run is skipped silently.
 
 ---
 
 ## Format
 
-Each task is a level-2 Markdown heading followed by bullet-point fields:
+`HEARTBEAT.md` is free-form Markdown. There is no required structure — write whatever instructions you want the heartbeat LLM to follow.
+
+**Example:**
 
 ```markdown
-## Task Name
-- Cron: 0 0 9 * * ?
-- Message: Check email and report important messages
-- Model: glm/glm-4-plus
-- InjectInto: telegram_123456
+# Heartbeat Instructions
+
+Check the following and report only if something requires attention:
+
+1. Read the latest log entries in $STATE/logs/engine.log for errors
+2. Check if any scheduled tasks have failed recently
+3. Review memory for any pending reminders due today
+
+If nothing noteworthy, do not call heartbeat_deliver.
+If something needs attention, call heartbeat_deliver with a concise summary.
 ```
-
-**Fields:**
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `Cron` | yes | Quartz 7-field cron expression. See `doc/scheduling/cron-format.md`. |
-| `Message` | yes | Instruction sent to the subagent when the task fires. |
-| `Model` | no | LLM model. Defaults to `routing.tasks.subagent` from `engine.json`. |
-| `InjectInto` | no | chatId for delivering results to a user (e.g. `telegram_123456`). |
-
-Tasks missing `Cron` or `Message` are silently skipped.
 
 ---
 
-## Multiple tasks
+## The `heartbeat_deliver` tool
 
-Separate tasks with blank lines or any non-`##` content between them:
+Available only during heartbeat runs. The LLM calls this tool when it has information worth sharing:
 
-```markdown
-# Recurring Tasks
+- **name:** `heartbeat_deliver`
+- **parameters:** `message` (string, required) — the text to deliver to the user
+- **behavior:** Queues the message for delivery. Only the last call's message is delivered (subsequent calls overwrite previous ones).
 
-## Morning Check
-- Cron: 0 0 9 * * ?
-- Message: Check email and summarize urgent items
-
-## Weekly Report
-- Cron: 0 0 9 ? * MON
-- Message: Generate weekly activity summary
-- Model: glm/glm-4-plus
-- InjectInto: telegram_123456
-```
-
-Content before the first `##` heading is ignored (use it for comments or description).
+If the LLM does not call `heartbeat_deliver`, no message is sent — the heartbeat completes silently.
 
 ---
 
-## Import behavior
+## Concurrency
 
-- Parsed **once** at startup.
-- Changes to the file do **not** take effect until engine restart.
-- To add a task immediately without restart: use `schedule_add` tool.
-- If a task name from `HEARTBEAT.md` already exists in `scheduler.db` (e.g. from a previous restart), the import logs a warning and skips it — the existing job is kept.
+Only one heartbeat run executes at a time. If a heartbeat is still running when the next interval fires, the new run is skipped.
 
 ---
 
 ## HEARTBEAT.md vs `schedule_add`
 
-Both produce identical Quartz jobs. The difference is lifecycle:
-
-| | `HEARTBEAT.md` | `schedule_add` |
+| | Heartbeat | `schedule_add` |
 |---|---|---|
-| Source | Workspace file (version-controlled) | Runtime API |
-| Persistence | Imported at startup | Immediate |
-| Survives file edit | No (requires restart) | Yes |
-| Survives engine restart | Yes (re-imported) | Yes (stored in `scheduler.db`) |
+| Trigger | Fixed interval (ISO-8601 duration) | Cron expression or one-time datetime |
+| Context | Full tool access, autonomous LLM | Subagent with task message |
+| Decision-making | LLM decides what to report | Always delivers result |
+| Configuration | `engine.json` `heartbeat` section | Runtime API or CLI |
 
-For tasks you want permanently defined with the workspace: use `HEARTBEAT.md`.
-For tasks added dynamically at runtime: use `schedule_add`.
-
----
-
-## Updating a task at runtime
-
-To update parameters of a task originally from `HEARTBEAT.md`:
-
-```
-schedule_remove("Morning Check")
-schedule_add("Morning Check", "0 0 10 * * ?", "Check email at 10 AM", ...)
-```
-
-Or: edit `HEARTBEAT.md` and restart the engine (the updated version is re-imported).
-
----
-
-## Silent pattern
-
-When the task should only notify the user if something requires attention:
-
-```markdown
-## Email Check
-- Cron: 0 0/2 8-20 * * ?
-- Message: Check email for urgent messages. If nothing requires attention, respond with JSON: {"silent": true, "reason": "no urgent emails found"}
-- InjectInto: telegram_123456
-```
-
-The subagent returns `{"silent": true, ...}` → Engine logs the result but does not send a message to the user.
+Use heartbeat for periodic autonomous monitoring with intelligent filtering.
+Use `schedule_add` for specific recurring or one-time tasks.
 
 ---
 
 ## See also
 
-- `doc/scheduling/how-scheduling-works.md` — execution model
-- `doc/scheduling/cron-format.md` — cron syntax
+- `doc/scheduling/how-scheduling-works.md` — execution model for scheduled tasks
+- `doc/scheduling/cron-format.md` — cron syntax (for `schedule_add`)
 - `doc/tools/schedule.md` — schedule tool reference
+- `doc/config/engine-json.md` — engine configuration reference

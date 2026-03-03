@@ -10,6 +10,7 @@ import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.HeartbeatConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -30,6 +31,7 @@ internal object ConfigTemplates {
     fun engineJson(
         providerUrl: String,
         modelId: String,
+        heartbeatChannel: String? = null,
     ): String {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
         val apiKeyEnvVar = apiKeyEnvVar(providerName)
@@ -90,6 +92,11 @@ internal object ConfigTemplates {
                             SearchConfig(
                                 topK = 10,
                             ),
+                    ),
+                heartbeat =
+                    HeartbeatConfig(
+                        interval = if (heartbeatChannel != null) "PT1H" else "off",
+                        channel = heartbeatChannel,
                     ),
             )
         return encodeEngineConfig(config)
@@ -160,7 +167,7 @@ internal object ConfigTemplates {
                                     listOf(
                                         "$statePath:/home/klaw/.local/state/klaw",
                                         "$dataPath:/home/klaw/.local/share/klaw",
-                                        "$configPath:/home/klaw/.config/klaw:ro",
+                                        "$configPath:/home/klaw/.config/klaw",
                                         "$workspacePath:/workspace",
                                         "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
@@ -214,7 +221,7 @@ internal object ConfigTemplates {
                                         "klaw-state:/root/.local/state/klaw",
                                         "klaw-data:/root/.local/share/klaw",
                                         "klaw-workspace:/workspace",
-                                        "klaw-config:/root/.config/klaw:ro",
+                                        "klaw-config:/root/.config/klaw",
                                         "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
                             ),

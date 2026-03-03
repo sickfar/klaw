@@ -47,7 +47,7 @@ class WorkspaceInitializerTest {
     }
 
     @Test
-    fun `creates stub TOOLS_md and HEARTBEAT_md`() {
+    fun `creates stub TOOLS_md`() {
         val initializer =
             WorkspaceInitializer(
                 configDir = "$tmpDir/config",
@@ -63,7 +63,6 @@ class WorkspaceInitializerTest {
         initializer.initialize()
 
         assertTrue(fileExists("$tmpDir/workspace/TOOLS.md"), "TOOLS.md missing")
-        assertTrue(fileExists("$tmpDir/workspace/HEARTBEAT.md"), "HEARTBEAT.md missing")
         val tools = readFileText("$tmpDir/workspace/TOOLS.md")
         assertNotNull(tools, "TOOLS.md should be readable")
     }

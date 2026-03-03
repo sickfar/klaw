@@ -70,5 +70,8 @@
   },
   "skills": {
     "maxInlineSkills": 5
+  },
+  "heartbeat": {
+    "interval": "off"
   }
 }

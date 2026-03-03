@@ -12,7 +12,7 @@ Set `KLAW_WORKSPACE` to an existing OpenClaw workspace directory. Klaw reads all
 - `AGENTS.md` → system prompt
 - `TOOLS.md` → system prompt
 - `MEMORY.md` → sqlite-vec index
-- `HEARTBEAT.md` → Quartz scheduled jobs
+- `HEARTBEAT.md` → periodic autonomous heartbeat (configured in `engine.json`)
 
 No migration or file conversion required.
 
@@ -29,11 +29,9 @@ This means:
 - Memory scales beyond what fits in a context window
 - Search quality depends on the embedding model
 
-### HEARTBEAT tasks run as isolated subagents
+### HEARTBEAT.md is compatible
 
-OpenClaw runs heartbeat tasks in the main session context, consuming 170k–210k tokens per run. Klaw runs heartbeat tasks as isolated subagents using ~2–3k tokens each.
-
-The tradeoff: heartbeat subagents do **not** see the main chat's recent messages. They have access to archival memory and their own task log, but not the conversation history. This is intentional — heartbeat tasks should be self-contained.
+Klaw reads `HEARTBEAT.md` from the workspace. Unlike OpenClaw, Klaw does not create a stub `HEARTBEAT.md` during init — create it manually when ready. The heartbeat delivery target is set via the `/use-for-heartbeat` command. See `doc/scheduling/heartbeat.md` for details.
 
 ### Skills override order
 
@@ -44,7 +42,6 @@ Workspace skills (`$KLAW_WORKSPACE/skills/`) take precedence over global skills 
 ## What is NOT supported
 
 - OpenClaw's full-context MEMORY.md loading (replaced by chunked indexing)
-- OpenClaw's main-session heartbeat execution (replaced by isolated subagents)
 
 ---
 
