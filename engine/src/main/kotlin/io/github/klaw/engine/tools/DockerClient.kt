@@ -127,6 +127,7 @@ class ProcessDockerClient : DockerClient {
             val completed = process.waitFor(timeoutSeconds.toLong(), TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()
+                logger.warn { "docker exec: timed out after ${timeoutSeconds}s" }
                 stdoutThread.join(STREAM_JOIN_TIMEOUT_MS)
                 stderrThread.join(STREAM_JOIN_TIMEOUT_MS)
                 return@withContext ExecutionResult(

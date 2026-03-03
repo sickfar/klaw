@@ -1,11 +1,14 @@
 package io.github.klaw.engine.tools
 
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+
+private val logger = KotlinLogging.logger {}
 
 @Suppress("TooGenericExceptionCaught", "ReturnCount", "NestedBlockDepth", "LoopWithTooManyJumpStatements")
 class FileTools(
@@ -42,6 +45,7 @@ class FileTools(
             }
             Result.failure(SecurityException("Access denied: path outside allowed directories"))
         } catch (e: Exception) {
+            logger.trace { "file access denied: ${e::class.simpleName}" }
             Result.failure(SecurityException("Access denied: ${e::class.simpleName}"))
         }
     }
@@ -69,6 +73,7 @@ class FileTools(
         startLine: Int? = null,
         maxLines: Int? = null,
     ): String {
+        logger.trace { "file_read: startLine=$startLine, maxLines=$maxLines" }
         val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
         return withContext(Dispatchers.VT) {
             try {
@@ -79,6 +84,7 @@ class FileTools(
                 if (start >= lines.size) return@withContext ""
                 lines.subList(start, end).joinToString("\n")
             } catch (e: Exception) {
+                logger.warn(e) { "file_read failed" }
                 "Error reading file: ${e::class.simpleName}"
             }
         }
@@ -89,6 +95,7 @@ class FileTools(
         content: String,
         mode: String,
     ): String {
+        logger.trace { "file_write: ${content.toByteArray().size} bytes, mode=$mode" }
         if (content.toByteArray().size > maxFileSizeBytes) {
             return "Error: content exceeds maximum file size of $maxFileSizeBytes bytes"
         }
@@ -115,6 +122,7 @@ class FileTools(
                 }
                 "OK: file written to $path"
             } catch (e: Exception) {
+                logger.warn(e) { "file_write failed" }
                 "Error writing file: ${e::class.simpleName}"
             }
         }
@@ -126,6 +134,7 @@ class FileTools(
         newString: String,
         forceFirst: Boolean = false,
     ): String {
+        logger.trace { "file_patch: oldLen=${oldString.length}, newLen=${newString.length}, forceFirst=$forceFirst" }
         if (oldString.isEmpty()) return "Error: old_string must not be empty"
         if (oldString == newString) return "Error: old_string and new_string are identical"
         val safePath = safePath(path, writeAccess = true).getOrElse { return it.message ?: "Access denied" }
@@ -153,6 +162,7 @@ class FileTools(
                     }
                 }
             } catch (e: Exception) {
+                logger.warn(e) { "file_patch failed" }
                 "Error patching file: ${e::class.simpleName}"
             }
         }
@@ -177,6 +187,7 @@ class FileTools(
         path: String,
         recursive: Boolean = false,
     ): String {
+        logger.trace { "file_list: recursive=$recursive" }
         val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
         return withContext(Dispatchers.VT) {
             try {
@@ -195,6 +206,7 @@ class FileTools(
                         .joinToString("\n")
                 }
             } catch (e: Exception) {
+                logger.warn(e) { "file_list failed" }
                 "Error listing directory: ${e::class.simpleName}"
             }
         }

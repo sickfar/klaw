@@ -8,6 +8,7 @@ import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
 import io.github.klaw.engine.workspace.HeartbeatDeliverContext
 import io.github.klaw.engine.workspace.ScheduleDeliverContext
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.annotation.Replaces
 import jakarta.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -16,6 +17,8 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 @Replaces(StubToolRegistry::class)
@@ -51,6 +54,7 @@ class ToolRegistryImpl(
 
     @Suppress("TooGenericExceptionCaught")
     suspend fun execute(call: ToolCall): ToolResult {
+        logger.trace { "tool: name=${call.name}" }
         val result =
             try {
                 val args =
@@ -61,6 +65,7 @@ class ToolRegistryImpl(
                     }
                 dispatch(call.name, args)
             } catch (e: Exception) {
+                logger.warn(e) { "execute failed: tool=${call.name}" }
                 "Error: ${e.message}"
             }
         return ToolResult(callId = call.id, content = result)
@@ -193,6 +198,7 @@ class ToolRegistryImpl(
             }
 
             else -> {
+                logger.warn { "unknown tool: '$name'" }
                 "Error: unknown tool '$name'"
             }
         }
