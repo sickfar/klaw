@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.GatewayConfig
@@ -7,6 +8,7 @@ import io.github.klaw.common.config.TelegramConfig
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -30,25 +32,25 @@ class OutboundWhitelistTest {
     )
 
     private fun makeHandler(
-        allowedChatIds: List<String>,
+        allowedChats: List<AllowedChat>,
         channel: Channel,
     ): GatewayOutboundHandler {
         val config =
             GatewayConfig(
                 channels =
                     ChannelsConfig(
-                        telegram = TelegramConfig(token = "tok", allowedChatIds = allowedChatIds),
+                        telegram = TelegramConfig(token = "tok", allowedChats = allowedChats),
                     ),
             )
         return GatewayOutboundHandler(
             channels = listOf(channel),
-            config = config,
+            allowlistService = InboundAllowlistService(config),
             jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
         )
     }
 
     @Test
-    fun `empty allowedChatIds blocks all send_message tool outbound`() =
+    fun `empty allowedChats blocks all send_message tool outbound`() =
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "telegram"
@@ -58,34 +60,23 @@ class OutboundWhitelistTest {
         }
 
     @Test
-    fun `chatId in allowedChatIds allowed`() =
+    fun `chatId in allowedChats allowed`() =
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "telegram"
-            val handler = makeHandler(listOf("telegram_123"), channel)
+            val handler = makeHandler(listOf(AllowedChat("telegram_123")), channel)
             handler.handleOutbound(outboundMsg("telegram_123", replyTo = null))
             coVerify(exactly = 1) { channel.send("telegram_123", any()) }
         }
 
     @Test
-    fun `chatId not in allowedChatIds rejected`() =
+    fun `chatId not in allowedChats rejected`() =
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "telegram"
-            val handler = makeHandler(listOf("telegram_123"), channel)
+            val handler = makeHandler(listOf(AllowedChat("telegram_123")), channel)
             handler.handleOutbound(outboundMsg("telegram_456", replyTo = null))
             coVerify(exactly = 0) { channel.send(any(), any()) }
-        }
-
-    @Test
-    fun `reply to inbound allowed even with non-empty whitelist (implicit allow)`() =
-        runBlocking {
-            val channel = mockk<Channel>(relaxed = true)
-            every { channel.name } returns "telegram"
-            val handler = makeHandler(listOf("telegram_123"), channel)
-            handler.addImplicitAllow("telegram_456")
-            handler.handleOutbound(outboundMsg("telegram_456", replyTo = "msg-id-1"))
-            coVerify(exactly = 1) { channel.send("telegram_456", any()) }
         }
 
     @Test
@@ -93,10 +84,11 @@ class OutboundWhitelistTest {
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "console"
+            val config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true)))
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),
-                    config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true))),
+                    allowlistService = InboundAllowlistService(config),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
             handler.handleOutbound(
@@ -110,10 +102,11 @@ class OutboundWhitelistTest {
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "console"
+            val config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true)))
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),
-                    config = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = true))),
+                    allowlistService = InboundAllowlistService(config),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
             handler.handleOutbound(
@@ -127,7 +120,7 @@ class OutboundWhitelistTest {
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "telegram"
-            val handler = makeHandler(listOf("telegram_123"), channel)
+            val handler = makeHandler(listOf(AllowedChat("telegram_123")), channel)
             val discordMsg =
                 OutboundSocketMessage(
                     channel = "discord",

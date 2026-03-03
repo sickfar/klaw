@@ -23,6 +23,7 @@ data class KlawPathsSnapshot(
     val logs: String,
     val deployConf: String,
     val hybridDockerCompose: String,
+    val pairingRequests: String,
 )
 
 internal fun buildPaths(
@@ -60,11 +61,15 @@ internal fun buildPaths(
         logs = "$state/logs",
         deployConf = "$config/deploy.conf",
         hybridDockerCompose = "$config/docker-compose.json",
+        pairingRequests = "$state/pairing_requests.json",
     )
 }
 
 object KlawPaths {
     private val snapshot: KlawPathsSnapshot by lazy { buildPaths() }
+
+    fun snapshot(): KlawPathsSnapshot = snapshot
+
     val config: String get() = snapshot.config
     val data: String get() = snapshot.data
     val state: String get() = snapshot.state
@@ -83,4 +88,5 @@ object KlawPaths {
     val logs: String get() = snapshot.logs
     val deployConf: String get() = snapshot.deployConf
     val hybridDockerCompose: String get() = snapshot.hybridDockerCompose
+    val pairingRequests: String get() = snapshot.pairingRequests
 }

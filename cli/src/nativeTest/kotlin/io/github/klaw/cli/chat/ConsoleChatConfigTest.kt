@@ -29,7 +29,7 @@ class ConsoleChatConfigTest {
   "channels": {
     "telegram": {
       "token": "abc",
-      "allowedChatIds": []
+      "allowedChats": []
     }
   }
 }
@@ -47,7 +47,7 @@ class ConsoleChatConfigTest {
   "channels": {
     "telegram": {
       "token": "abc",
-      "allowedChatIds": []
+      "allowedChats": []
     },
     "console": {
       "enabled": false,
@@ -69,7 +69,7 @@ class ConsoleChatConfigTest {
   "channels": {
     "telegram": {
       "token": "abc",
-      "allowedChatIds": []
+      "allowedChats": []
     },
     "console": {
       "enabled": true,
@@ -92,7 +92,7 @@ class ConsoleChatConfigTest {
   "channels": {
     "telegram": {
       "token": "abc",
-      "allowedChatIds": []
+      "allowedChats": []
     },
     "console": {
       "enabled": true,

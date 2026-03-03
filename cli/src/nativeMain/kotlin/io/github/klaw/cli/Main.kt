@@ -15,11 +15,13 @@ import io.github.klaw.cli.command.IdentityCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
 import io.github.klaw.cli.command.MemoryCommand
+import io.github.klaw.cli.command.PairCommand
 import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
+import io.github.klaw.cli.command.UnpairCommand
 import io.github.klaw.cli.command.UpdateCommand
 import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.socket.EngineSocketClient
@@ -55,6 +57,7 @@ internal class KlawCli(
     readLine: () -> String? = ::readlnOrNull,
     doctorCommandOutput: (String) -> String? = ::runCommandOutput,
     private val logDir: String = KlawPaths.logs,
+    pairingRequestsPath: String = KlawPaths.pairingRequests,
 ) : CliktCommand(name = "klaw") {
     private val verbose by option("-v", "--verbose", help = "Enable debug logging")
         .flag(default = false)
@@ -76,6 +79,8 @@ internal class KlawCli(
             EngineCommand(commandRunner, configDir),
             GatewayCommand(commandRunner, configDir),
             StopCommand(commandRunner, configDir),
+            PairCommand(configDir, pairingRequestsPath),
+            UnpairCommand(configDir),
             UpdateCommand(configDir, releaseClient, commandRunner, readLine),
         )
     }

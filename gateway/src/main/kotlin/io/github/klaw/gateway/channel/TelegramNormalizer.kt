@@ -8,6 +8,7 @@ object TelegramNormalizer {
     fun normalize(
         chatId: Long,
         text: String,
+        userId: Long? = null,
         ts: Instant = Clock.System.now(),
         messageId: String = UUID.randomUUID().toString(),
     ): IncomingMessage {
@@ -18,6 +19,7 @@ object TelegramNormalizer {
             chatId = "telegram_$chatId",
             content = text,
             ts = ts,
+            userId = userId?.toString(),
             isCommand = parsed.isCommand,
             commandName = parsed.commandName,
             commandArgs = parsed.commandArgs,

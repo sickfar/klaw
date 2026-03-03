@@ -63,10 +63,17 @@ class TelegramChannel(
                 onText { message ->
                     val chatId = message.chat.id.chatId.long
                     val text = message.content.text
+                    val fromUserId =
+                        (message as? dev.inmo.tgbotapi.abstracts.FromUser)
+                            ?.from
+                            ?.id
+                            ?.chatId
+                            ?.long
                     val incoming =
                         TelegramNormalizer.normalize(
                             chatId = chatId,
                             text = text,
+                            userId = fromUserId,
                         )
                     logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
                     runCatching {

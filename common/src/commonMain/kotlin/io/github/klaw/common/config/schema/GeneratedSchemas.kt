@@ -442,10 +442,25 @@ object GeneratedSchemas {
                                 "token": {
                                     "type": "string"
                                 },
-                                "allowedChatIds": {
+                                "allowedChats": {
                                     "type": "array",
                                     "items": {
-                                        "type": "string"
+                                        "type": "object",
+                                        "properties": {
+                                            "chatId": {
+                                                "type": "string"
+                                            },
+                                            "allowedUserIds": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "chatId"
+                                        ],
+                                        "additionalProperties": false
                                     }
                                 }
                             },

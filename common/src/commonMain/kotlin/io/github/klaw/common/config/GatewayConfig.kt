@@ -22,11 +22,17 @@ data class ConsoleConfig(
 )
 
 @Serializable
+data class AllowedChat(
+    val chatId: String,
+    val allowedUserIds: List<String> = emptyList(),
+)
+
+@Serializable
 data class TelegramConfig(
     val token: String,
-    val allowedChatIds: List<String> = emptyList(),
+    val allowedChats: List<AllowedChat> = emptyList(),
 ) {
-    override fun toString(): String = "TelegramConfig(token=***, allowedChatIds=$allowedChatIds)"
+    override fun toString(): String = "TelegramConfig(token=***, allowedChats=$allowedChats)"
 }
 
 @Serializable

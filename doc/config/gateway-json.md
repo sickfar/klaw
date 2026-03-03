@@ -30,7 +30,10 @@ klaw doctor --dump-schema gateway > gateway.schema.json
   "channels": {
     "telegram": {
       "token": "your-bot-token",
-      "allowedChatIds": ["telegram_123456789", "telegram_987654321"]
+      "allowedChats": [
+        {"chatId": "telegram_123456789", "allowedUserIds": ["12345"]},
+        {"chatId": "telegram_987654321"}
+      ]
     },
     "console": {
       "enabled": true,
@@ -56,18 +59,34 @@ klaw doctor --dump-schema gateway > gateway.schema.json
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `token` | string | required | Telegram Bot API token from @BotFather |
-| `allowedChatIds` | list of strings | `[]` | Whitelist for unsolicited outbound delivery |
+| `allowedChats` | list of objects | `[]` | Paired chats allowed to interact with the bot |
 
-### allowedChatIds — Outbound Whitelist
+### allowedChats — Inbound & Outbound Allowlist
 
-The `allowedChatIds` list controls which chats the agent can **proactively message** (via the `send_message` tool or `injectInto` on scheduled tasks):
+The `allowedChats` list controls which chats and users can interact with the bot. This is the primary access control mechanism — **both inbound and outbound** messages are blocked for unpaired chats.
 
-- **Empty list** — accepts all inbound messages but **rejects all unsolicited outbound**. This is the safe default that prevents the agent from messaging arbitrary people.
-- **Non-empty list** — only chats in this list receive proactively-sent messages.
+Each entry is an object:
 
-### Implicit Allow for Replies
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `chatId` | string | required | Chat ID in `{channel}_{platformId}` format |
+| `allowedUserIds` | list of strings | `[]` | User IDs allowed in this chat (empty = deny all users) |
 
-When a user sends a message, their `chatId` is temporarily allowed for that conversation session even if it is not in the whitelist. This lets the agent reply to any user without requiring the operator to pre-add every chat ID.
+**Restrictive by default:**
+- **Empty `allowedChats`** — denies all inbound and outbound messages. No chat can interact with the bot.
+- **Empty `allowedUserIds`** — denies all users in that chat, even if the chat is listed.
+
+### Pairing Flow
+
+New users pair with the bot using the `/start` command:
+
+1. User sends `/start` to the bot in Telegram
+2. Bot replies with a 6-character pairing code and instructions
+3. Operator runs `klaw pair telegram <code>` on the server
+4. The chat and user are added to `allowedChats` in `gateway.json`
+5. Gateway detects the config change and reloads the allowlist
+
+To unpair a chat: `klaw unpair telegram <chatId>`
 
 ### chatId Format
 
@@ -79,9 +98,9 @@ Use this exact format in:
 - `send_message(chatId="telegram_123456")`
 - `schedule_add(injectInto="telegram_123456")`
 
-### What to do when send_message is blocked
+### What to do when messages are blocked
 
-If the agent reports `"chatId not in allowedChatIds"`, the target chat must be added to `gateway.json` by the operator. The agent cannot modify this file.
+If a chat is not paired, the user will receive "Not paired. Send /start to get a pairing code." The operator must complete the pairing flow to grant access.
 
 ---
 
@@ -98,7 +117,7 @@ The console channel enables `klaw chat` — an interactive split-screen TUI that
 
 **Session:** All console messages use the fixed chatId `console_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
 
-**Allow policy:** `console_default` is implicitly allowed for outbound delivery — no entry in `allowedChatIds` is needed. Other chatIds are blocked on the console channel.
+**Allow policy:** `console_default` is implicitly allowed — no pairing needed. Other chatIds are blocked on the console channel.
 
 To enable via `klaw init`, answer `y` at the "WebSocket chat setup" phase. To enable manually, add to `gateway.json`:
 

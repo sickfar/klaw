@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.TelegramConfig
@@ -9,6 +10,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -36,6 +38,14 @@ class ApprovalHandlingTest {
             encodeDefaults = false
         }
 
+    private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
+        val config =
+            GatewayConfig(
+                ChannelsConfig(TelegramConfig("tok", allowedChats)),
+            )
+        return InboundAllowlistService(config)
+    }
+
     @Test
     fun `approval request dispatched to channel sendApproval`() =
         runBlocking {
@@ -44,10 +54,9 @@ class ApprovalHandlingTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
-                    config = GatewayConfig(ChannelsConfig(TelegramConfig("tok", listOf("telegram_123")))),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
-            handler.addImplicitAllow("telegram_123")
 
             val request =
                 ApprovalRequestMessage(
@@ -70,7 +79,7 @@ class ApprovalHandlingTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
-                    config = GatewayConfig(ChannelsConfig(TelegramConfig("tok", allowedChatIds = emptyList()))),
+                    allowlistService = makeAllowlistService(emptyList()),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
 
@@ -100,11 +109,10 @@ class ApprovalHandlingTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
-                    config = GatewayConfig(ChannelsConfig(TelegramConfig("tok", listOf("telegram_123")))),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                     approvalCallback = { msg -> sentResponses.add(msg) },
                 )
-            handler.addImplicitAllow("telegram_123")
 
             val request =
                 ApprovalRequestMessage(
@@ -138,11 +146,10 @@ class ApprovalHandlingTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
-                    config = GatewayConfig(ChannelsConfig(TelegramConfig("tok", listOf("telegram_123")))),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                     approvalCallback = { msg -> sentResponses.add(msg) },
                 )
-            handler.addImplicitAllow("telegram_123")
 
             val request =
                 ApprovalRequestMessage(

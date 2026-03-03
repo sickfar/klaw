@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.TelegramConfig
@@ -7,6 +8,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -25,6 +27,14 @@ class OutboundHandlerTest {
     @TempDir
     lateinit var tempDir: File
 
+    private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
+        val config =
+            GatewayConfig(
+                ChannelsConfig(TelegramConfig("tok", allowedChats)),
+            )
+        return InboundAllowlistService(config)
+    }
+
     @Test
     fun `outbound from engine dispatched to correct channel`() =
         runBlocking {
@@ -33,10 +43,7 @@ class OutboundHandlerTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
-                    config =
-                        GatewayConfig(
-                            ChannelsConfig(TelegramConfig("tok", listOf("telegram_123"))),
-                        ),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
             handler.handleOutbound(
@@ -53,10 +60,7 @@ class OutboundHandlerTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),
-                    config =
-                        GatewayConfig(
-                            ChannelsConfig(TelegramConfig("tok", listOf("telegram_123"))),
-                        ),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
             handler.handleOutbound(
@@ -78,10 +82,7 @@ class OutboundHandlerTest {
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),
-                    config =
-                        GatewayConfig(
-                            ChannelsConfig(TelegramConfig("tok", allowedChatIds = emptyList())),
-                        ),
+                    allowlistService = makeAllowlistService(emptyList()),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                 )
             handler.handleOutbound(

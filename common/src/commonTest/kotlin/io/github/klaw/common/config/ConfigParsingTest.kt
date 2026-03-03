@@ -14,7 +14,7 @@ class ConfigParsingTest {
   "channels": {
     "telegram": {
       "token": "test_bot_token_123",
-      "allowedChatIds": ["123456", "789012"]
+      "allowedChats": [{"chatId": "123456", "allowedUserIds": ["user1"]}, {"chatId": "789012"}]
     },
     "discord": {
       "enabled": false,
@@ -155,9 +155,14 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `parse gateway json - telegram allowedChatIds`() {
+    fun `parse gateway json - telegram allowedChats`() {
         val config = parseGatewayConfig(gatewayJson)
-        assertEquals(listOf("123456", "789012"), config.channels.telegram?.allowedChatIds)
+        val chats = config.channels.telegram?.allowedChats
+        assertEquals(2, chats?.size)
+        assertEquals("123456", chats?.get(0)?.chatId)
+        assertEquals(listOf("user1"), chats?.get(0)?.allowedUserIds)
+        assertEquals("789012", chats?.get(1)?.chatId)
+        assertEquals(emptyList(), chats?.get(1)?.allowedUserIds)
     }
 
     @Test
@@ -237,7 +242,7 @@ class ConfigParsingTest {
               "channels": {
                 "telegram": {
                   "token": "bot-token",
-                  "allowedChatIds": ["telegram_123"]
+                  "allowedChats": [{"chatId": "telegram_123"}]
                 }
               },
               "commands": [
@@ -267,7 +272,7 @@ class ConfigParsingTest {
               "channels": {
                 "telegram": {
                   "token": "bot-token",
-                  "allowedChatIds": []
+                  "allowedChats": []
                 },
                 "console": {
                   "enabled": true,
@@ -290,7 +295,7 @@ class ConfigParsingTest {
               "channels": {
                 "telegram": {
                   "token": "bot-token",
-                  "allowedChatIds": []
+                  "allowedChats": []
                 },
                 "console": {
                   "enabled": false,
@@ -313,7 +318,7 @@ class ConfigParsingTest {
               "channels": {
                 "telegram": {
                   "token": "bot-token",
-                  "allowedChatIds": []
+                  "allowedChats": []
                 }
               }
             }

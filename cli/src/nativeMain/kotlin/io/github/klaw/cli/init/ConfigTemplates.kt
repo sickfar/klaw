@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ComposeConfig
@@ -97,7 +98,7 @@ internal object ConfigTemplates {
     @Suppress("LongParameterList")
     fun gatewayJson(
         telegramEnabled: Boolean = true,
-        allowedChatIds: List<String> = emptyList(),
+        allowedChats: List<AllowedChat> = emptyList(),
         enableConsole: Boolean = false,
         consolePort: Int = 37474,
     ): String {
@@ -105,7 +106,7 @@ internal object ConfigTemplates {
             if (telegramEnabled) {
                 TelegramConfig(
                     token = "\${KLAW_TELEGRAM_TOKEN}",
-                    allowedChatIds = allowedChatIds,
+                    allowedChats = allowedChats,
                 )
             } else {
                 null

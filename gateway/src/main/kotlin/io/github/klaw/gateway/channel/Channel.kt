@@ -33,6 +33,7 @@ data class IncomingMessage(
     val chatId: String,
     val content: String,
     val ts: Instant,
+    val userId: String? = null,
     val isCommand: Boolean = false,
     val commandName: String? = null,
     val commandArgs: String? = null,

@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -44,13 +45,20 @@ class ConfigModelsTest {
             GatewayConfig(
                 channels =
                     ChannelsConfig(
-                        telegram = TelegramConfig(token = "bot123", allowedChatIds = listOf("123456")),
+                        telegram = TelegramConfig(token = "bot123", allowedChats = listOf(AllowedChat("123456", listOf("user1")))),
                     ),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<GatewayConfig>(encoded)
         assertEquals(config, decoded)
         assertEquals("bot123", decoded.channels.telegram?.token)
+        val chat =
+            decoded.channels.telegram
+                ?.allowedChats
+                ?.firstOrNull()
+        assertNotNull(chat)
+        assertEquals("123456", chat.chatId)
+        assertEquals(listOf("user1"), chat.allowedUserIds)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.parseComposeConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig
@@ -37,16 +38,16 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gateway json template contains telegram channel`() {
-        val json = ConfigTemplates.gatewayJson(allowedChatIds = listOf("123456789"))
+        val json = ConfigTemplates.gatewayJson(allowedChats = listOf(AllowedChat("123456789")))
         assertTrue(json.contains("telegram"), "Expected 'telegram' in:\n$json")
         assertTrue(json.contains("123456789"), "Expected chatId in:\n$json")
     }
 
     @Test
     fun `gateway json template with empty chat ids is valid`() {
-        val json = ConfigTemplates.gatewayJson(allowedChatIds = emptyList())
+        val json = ConfigTemplates.gatewayJson(allowedChats = emptyList())
         assertTrue(json.contains("telegram"), "Expected 'telegram' in:\n$json")
-        assertTrue(json.contains("allowedChatIds"), "Expected 'allowedChatIds' in:\n$json")
+        assertTrue(json.contains("allowedChats"), "Expected 'allowedChats' in:\n$json")
     }
 
     @Test
@@ -57,7 +58,7 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gateway json token uses env var reference`() {
-        val json = ConfigTemplates.gatewayJson(allowedChatIds = emptyList())
+        val json = ConfigTemplates.gatewayJson(allowedChats = emptyList())
         assertTrue(json.contains("KLAW_TELEGRAM_TOKEN"), "Expected env var reference in:\n$json")
     }
 
@@ -83,7 +84,7 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gatewayJson with chatIds and enableConsole=true includes both sections`() {
-        val json = ConfigTemplates.gatewayJson(allowedChatIds = listOf("123456"), enableConsole = true, consolePort = 8080)
+        val json = ConfigTemplates.gatewayJson(allowedChats = listOf(AllowedChat("123456")), enableConsole = true, consolePort = 8080)
         assertTrue(json.contains("123456"), "Expected chatId in:\n$json")
         assertTrue(json.contains("console"), "Expected console section in:\n$json")
         assertTrue(json.contains("8080"), "Expected custom port in:\n$json")
@@ -129,7 +130,7 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gatewayJson round-trips through parser`() {
-        val json = ConfigTemplates.gatewayJson(allowedChatIds = listOf("123"), enableConsole = true, consolePort = 9090)
+        val json = ConfigTemplates.gatewayJson(allowedChats = listOf(AllowedChat("123")), enableConsole = true, consolePort = 9090)
         val config = parseGatewayConfig(json)
         assertTrue(config.channels.telegram != null, "Expected telegram section")
         assertTrue(config.channels.console != null, "Expected console section")

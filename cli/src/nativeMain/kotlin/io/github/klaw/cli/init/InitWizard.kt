@@ -192,7 +192,7 @@ internal class InitWizard(
         if (configureTelegram) {
             printer("Telegram bot token:")
             telegramToken = (readLineOrExit() ?: return).trim()
-            printer("Allowed chat IDs (comma-separated, empty = allow all):")
+            printer("Allowed chat IDs (comma-separated, empty for pairing later):")
             val rawChatIds = readLineOrExit()?.trim().orEmpty()
             chatIds =
                 if (rawChatIds.isBlank()) {
@@ -252,7 +252,11 @@ internal class InitWizard(
             "$configDir/gateway.json",
             ConfigTemplates.gatewayJson(
                 telegramEnabled = configureTelegram,
-                allowedChatIds = chatIds,
+                allowedChats =
+                    chatIds.map {
+                        io.github.klaw.common.config
+                            .AllowedChat(chatId = it)
+                    },
                 enableConsole = enableConsole,
                 consolePort = consolePort,
             ),
