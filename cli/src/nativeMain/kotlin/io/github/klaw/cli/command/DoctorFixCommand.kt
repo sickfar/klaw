@@ -77,10 +77,18 @@ internal class DoctorFixCommand(
                 modelsDir = modelsDir,
             )
 
-        val allDirs = listOf(
-            configDir, dataDir, stateDir, cacheDir,
-            workspaceDir, conversationsDir, memoryDir, skillsDir, modelsDir,
-        )
+        val allDirs =
+            listOf(
+                configDir,
+                dataDir,
+                stateDir,
+                cacheDir,
+                workspaceDir,
+                conversationsDir,
+                memoryDir,
+                skillsDir,
+                modelsDir,
+            )
         val dirsBefore = allDirs.filter { !fileExists(it) }
 
         initializer.initialize()

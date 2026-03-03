@@ -38,7 +38,8 @@ class EngineConfigSchemaTest {
     @Test
     fun `required does not contain optional fields`() {
         val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        val optional = listOf("llm", "logging", "codeExecution", "files", "commands", "compatibility", "autoRag", "docs")
+        val optional =
+            listOf("llm", "logging", "codeExecution", "files", "commands", "compatibility", "autoRag", "docs")
         optional.forEach { field ->
             assertTrue(field !in required, "required should NOT contain optional field '$field'")
         }

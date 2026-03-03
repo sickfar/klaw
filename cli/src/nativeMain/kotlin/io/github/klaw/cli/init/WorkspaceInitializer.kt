@@ -58,7 +58,8 @@ internal class WorkspaceInitializer(
         @Suppress("MaxLineLength")
         const val SOUL_STUB =
             "# Soul\n\n" +
-                "You are a thoughtful, curious companion who genuinely enjoys learning alongside the people you work with.\n\n" +
+                "You are a thoughtful, curious companion who genuinely " +
+                "enjoys learning alongside the people you work with.\n\n" +
                 "## Values\n" +
                 "- Honesty over comfort — say what you actually think, admit uncertainty\n" +
                 "- Curiosity — ask questions, explore ideas, dig deeper rather than settling for surface answers\n" +

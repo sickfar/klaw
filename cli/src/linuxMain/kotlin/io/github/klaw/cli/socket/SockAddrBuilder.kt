@@ -4,8 +4,8 @@ package io.github.klaw.cli.socket
 // Total: 16 bytes
 private const val SOCKADDR_SIZE = 16
 private const val IPV4_BYTES = 4
-private const val AF_INET_LOW: Byte = 2   // AF_INET = 2, little-endian low byte
-private const val AF_INET_HIGH: Byte = 0  // AF_INET = 2, little-endian high byte
+private const val AF_INET_LOW: Byte = 2 // AF_INET = 2, little-endian low byte
+private const val AF_INET_HIGH: Byte = 0 // AF_INET = 2, little-endian high byte
 private const val SIN_FAMILY_LO_OFFSET = 0
 private const val SIN_FAMILY_HI_OFFSET = 1
 private const val SIN_PORT_HI_OFFSET = 2
@@ -20,10 +20,10 @@ internal actual fun buildTcpSockAddrBytes(
 ): ByteArray {
     require(ipBytes.size == IPV4_BYTES) { "IPv4 address must be 4 bytes" }
     val result = ByteArray(SOCKADDR_SIZE)
-    result[SIN_FAMILY_LO_OFFSET] = AF_INET_LOW   // sin_family low byte (LE)
-    result[SIN_FAMILY_HI_OFFSET] = AF_INET_HIGH  // sin_family high byte (LE)
-    result[SIN_PORT_HI_OFFSET] = (port shr PORT_HIGH_BYTE_SHIFT).toByte()  // sin_port high byte (big-endian)
-    result[SIN_PORT_LO_OFFSET] = (port and PORT_LOW_BYTE_MASK).toByte()    // sin_port low byte
+    result[SIN_FAMILY_LO_OFFSET] = AF_INET_LOW // sin_family low byte (LE)
+    result[SIN_FAMILY_HI_OFFSET] = AF_INET_HIGH // sin_family high byte (LE)
+    result[SIN_PORT_HI_OFFSET] = (port shr PORT_HIGH_BYTE_SHIFT).toByte() // sin_port high byte (big-endian)
+    result[SIN_PORT_LO_OFFSET] = (port and PORT_LOW_BYTE_MASK).toByte() // sin_port low byte
     ipBytes.copyInto(result, destinationOffset = SIN_ADDR_OFFSET)
     return result
 }

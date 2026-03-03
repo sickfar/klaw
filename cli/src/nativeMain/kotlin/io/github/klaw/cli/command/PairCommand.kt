@@ -7,12 +7,12 @@ import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
-import kotlinx.serialization.SerializationException
 import io.github.klaw.common.config.PairingRequest
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.klawJson
 import io.github.klaw.common.config.klawPrettyJson
 import io.github.klaw.common.config.parseGatewayConfig
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes

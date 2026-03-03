@@ -165,22 +165,47 @@ private fun matchesType(
     expectedType: String,
 ): Boolean =
     when (expectedType) {
-        "object" -> element is JsonObject
-        "array" -> element is JsonArray
-        "string" -> element is JsonPrimitive && element.isString
-        "integer", "number" -> element is JsonPrimitive && isNumericPrimitive(element, expectedType)
-        "boolean" ->
+        "object" -> {
+            element is JsonObject
+        }
+
+        "array" -> {
+            element is JsonArray
+        }
+
+        "string" -> {
+            element is JsonPrimitive && element.isString
+        }
+
+        "integer", "number" -> {
+            element is JsonPrimitive && isNumericPrimitive(element, expectedType)
+        }
+
+        "boolean" -> {
             element is JsonPrimitive && !element.isString &&
                 element.content in listOf("true", "false")
-        else -> true
+        }
+
+        else -> {
+            true
+        }
     }
 
 private fun elementTypeName(element: JsonElement): String =
     when (element) {
-        is JsonObject -> "object"
-        is JsonArray -> "array"
-        is JsonNull -> "null"
-        is JsonPrimitive ->
+        is JsonObject -> {
+            "object"
+        }
+
+        is JsonArray -> {
+            "array"
+        }
+
+        is JsonNull -> {
+            "null"
+        }
+
+        is JsonPrimitive -> {
             when {
                 element.isString -> "string"
                 element.content in listOf("true", "false") -> "boolean"
@@ -188,4 +213,5 @@ private fun elementTypeName(element: JsonElement): String =
                 element.doubleOrNull != null -> "number"
                 else -> "unknown"
             }
+        }
     }

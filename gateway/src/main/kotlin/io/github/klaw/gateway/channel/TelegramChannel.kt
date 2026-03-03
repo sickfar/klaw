@@ -3,8 +3,8 @@ package io.github.klaw.gateway.channel
 import dev.inmo.kslog.common.filter.filtered
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
-import io.ktor.client.plugins.HttpRequestTimeoutException
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
+import dev.inmo.tgbotapi.extensions.api.send.sendActionTyping
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
@@ -18,11 +18,15 @@ import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
@@ -37,6 +41,11 @@ class TelegramChannel(
     private var pollingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
+    internal val typingJobs = ConcurrentHashMap<String, Job>()
+    internal var typingAction: suspend (Long) -> Unit = { platformId ->
+        bot?.sendActionTyping(ChatId(RawChatId(platformId)))
+    }
+    internal var typingScope: CoroutineScope = scope
 
     override suspend fun start() {
         val telegramConfig =
@@ -84,6 +93,7 @@ class TelegramChannel(
                             text = text,
                             userId = fromUserId,
                         )
+                    startTyping(incoming.chatId, chatId)
                     logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
                     runCatching {
                         jsonlWriter.writeInbound(incoming)
@@ -106,6 +116,7 @@ class TelegramChannel(
         chatId: String,
         response: OutgoingMessage,
     ) {
+        stopTyping(chatId)
         val b =
             bot ?: run {
                 logger.warn { "TelegramChannel.send called but bot not started" }
@@ -124,12 +135,12 @@ class TelegramChannel(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     override suspend fun sendApproval(
         chatId: String,
         request: ApprovalRequestMessage,
         onResult: suspend (Boolean) -> Unit,
     ) {
+        stopTyping(chatId)
         val b =
             bot ?: run {
                 logger.warn { "TelegramChannel.sendApproval called but bot not started" }
@@ -142,7 +153,7 @@ class TelegramChannel(
             }
         pendingApprovals[request.id] = onResult
         logger.trace { "Sending approval request to Telegram chatId=$chatId" }
-        try {
+        runCatching {
             val keyboard =
                 InlineKeyboardMarkup(
                     keyboard =
@@ -158,13 +169,12 @@ class TelegramChannel(
                 text = "Command approval requested:\n\n${request.command}\n\nRisk score: ${request.riskScore}/10",
                 replyMarkup = keyboard,
             )
-        } catch (e: Exception) {
+        }.onFailure { e ->
             pendingApprovals.remove(request.id)
             logger.error(e) { "Failed to send approval request to chatId=$chatId" }
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private suspend fun handleApprovalCallback(
         data: String,
         @Suppress("UNUSED_PARAMETER") query: dev.inmo.tgbotapi.types.queries.callback.DataCallbackQuery,
@@ -183,12 +193,41 @@ class TelegramChannel(
         logger.debug { "Approval callback processed: id=$approvalId approved=$approved" }
     }
 
+    internal fun startTyping(
+        chatId: String,
+        platformId: Long,
+    ) {
+        typingJobs.compute(chatId) { _, existingJob ->
+            existingJob?.cancel()
+            typingScope.launch {
+                while (isActive) {
+                    runCatching { typingAction(platformId) }
+                        .onFailure { e ->
+                            logger.warn(e) { "Typing action failed for chatId=$chatId: ${e::class.simpleName}" }
+                        }
+                    delay(TYPING_REFRESH_INTERVAL_MS)
+                }
+            }
+        }
+        logger.trace { "Typing started for chatId=$chatId" }
+    }
+
+    internal fun stopTyping(chatId: String) {
+        val cancelled = typingJobs.remove(chatId)?.cancel()
+        if (cancelled != null) {
+            logger.trace { "Typing stopped for chatId=$chatId" }
+        }
+    }
+
     override suspend fun stop() {
         pollingJob?.cancel()
+        typingJobs.values.forEach { it.cancel() }
+        typingJobs.clear()
         logger.info { "TelegramChannel stopped" }
     }
 
     companion object {
         private const val APPROVAL_CALLBACK_PARTS = 3
+        private const val TYPING_REFRESH_INTERVAL_MS = 4_000L
     }
 }

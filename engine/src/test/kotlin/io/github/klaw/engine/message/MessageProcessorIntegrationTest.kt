@@ -376,7 +376,12 @@ class MessageProcessorIntegrationTest {
         runBlocking {
             processor
                 .handleScheduledMessage(
-                    ScheduledMessage(name = "daily-check", message = "Run daily check", model = null, injectInto = "chat-inject"),
+                    ScheduledMessage(
+                        name = "daily-check",
+                        message = "Run daily check",
+                        model = null,
+                        injectInto = "chat-inject",
+                    ),
                 ).join()
 
             // Wait for the delivery to confirm schedule_deliver was called
@@ -428,7 +433,12 @@ class MessageProcessorIntegrationTest {
         runBlocking {
             processor
                 .handleScheduledMessage(
-                    ScheduledMessage(name = "quiet-task", message = "Do something", model = null, injectInto = "chat-inject"),
+                    ScheduledMessage(
+                        name = "quiet-task",
+                        message = "Do something",
+                        model = null,
+                        injectInto = "chat-inject",
+                    ),
                 ).join()
 
             // .join() ensures the job is complete; no delivery expected (LLM returned text, not schedule_deliver)

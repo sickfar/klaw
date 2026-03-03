@@ -77,7 +77,8 @@ class RegistrationHandshakeTest {
     private fun writerFor(channel: SocketChannel): PrintWriter = PrintWriter(Channels.newOutputStream(channel), true)
 
     @Suppress("MaxLineLength")
-    private fun readerFor(channel: SocketChannel): BufferedReader = BufferedReader(InputStreamReader(Channels.newInputStream(channel)))
+    private fun readerFor(channel: SocketChannel): BufferedReader =
+        BufferedReader(InputStreamReader(Channels.newInputStream(channel)))
 
     @Test
     fun `gateway registers with type=register client=gateway`() =

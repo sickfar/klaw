@@ -11,14 +11,14 @@ import platform.posix.stdout
 import platform.posix.system
 
 // Terminal byte constants for RadioSelector key handling
-private const val KEY_CR = 13       // Carriage Return
-private const val KEY_LF = 10       // Line Feed
-private const val KEY_CTRL_C = 3    // Ctrl+C
-private const val KEY_ESC = 0x1B    // ESC
+private const val KEY_CR = 13 // Carriage Return
+private const val KEY_LF = 10 // Line Feed
+private const val KEY_CTRL_C = 3 // Ctrl+C
+private const val KEY_ESC = 0x1B // ESC
 private const val KEY_BRACKET = 0x5B // '[' — CSI second byte
-private const val KEY_UP = 0x41     // 'A' — cursor up in CSI sequence
-private const val KEY_DOWN = 0x42   // 'B' — cursor down in CSI sequence
-private const val BYTE_MASK = 0xFF  // convert signed byte to unsigned int
+private const val KEY_UP = 0x41 // 'A' — cursor up in CSI sequence
+private const val KEY_DOWN = 0x42 // 'B' — cursor down in CSI sequence
+private const val BYTE_MASK = 0xFF // convert signed byte to unsigned int
 
 internal enum class EscState { None, EscWait, BracketWait }
 

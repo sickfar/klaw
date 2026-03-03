@@ -73,9 +73,18 @@ internal class DoctorCommand(
         val target = dumpSchema ?: return false
         val schema =
             when (target) {
-                "engine" -> engineJsonSchema()
-                "gateway" -> gatewayJsonSchema()
-                "compose" -> composeJsonSchema()
+                "engine" -> {
+                    engineJsonSchema()
+                }
+
+                "gateway" -> {
+                    gatewayJsonSchema()
+                }
+
+                "compose" -> {
+                    composeJsonSchema()
+                }
+
                 else -> {
                     echo("Unknown schema target: $target (use 'engine', 'gateway', or 'compose')")
                     return true

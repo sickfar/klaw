@@ -135,7 +135,10 @@ class InitWizardTest {
         wizard.run()
 
         assertTrue(!fileExists("$configDir/engine.json"), "engine.json should not be created on EOF at telegram prompt")
-        assertTrue(!fileExists("$configDir/gateway.json"), "gateway.json should not be created on EOF at telegram prompt")
+        assertTrue(
+            !fileExists("$configDir/gateway.json"),
+            "gateway.json should not be created on EOF at telegram prompt",
+        )
     }
 
     // --- Skip Telegram ---
@@ -548,7 +551,10 @@ class InitWizardTest {
         platform.posix.mkdir(configDir, 0x1EDu)
         wizard.run()
 
-        assertTrue(modelRadioSelectorCalled.isEmpty(), "RadioSelector should not be called for model when no models fetched")
+        assertTrue(
+            modelRadioSelectorCalled.isEmpty(),
+            "RadioSelector should not be called for model when no models fetched",
+        )
 
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
@@ -872,7 +878,11 @@ class InitWizardTest {
             )
         wizard.run()
 
-        val phase9Calls = commandsRun.filter { it.contains("engine") && it.contains("gateway") && it.contains("docker compose") }
+        val phase9Calls =
+            commandsRun.filter {
+                it.contains("engine") && it.contains("gateway") &&
+                    it.contains("docker compose")
+            }
         assertTrue(
             phase9Calls.isNotEmpty(),
             "Expected docker compose up for both services in phase 9, got: $commandsRun",

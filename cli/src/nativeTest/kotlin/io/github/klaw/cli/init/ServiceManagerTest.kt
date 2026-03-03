@@ -73,7 +73,8 @@ class ServiceManagerTest {
         manager.restart(KlawService.ENGINE)
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") && it.contains(" engine")
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
+                    it.contains(" engine")
             },
             "Expected docker compose up -d --no-deps --force-recreate engine, got: $commands",
         )
@@ -99,7 +100,10 @@ class ServiceManagerTest {
         val manager = buildNativeLinuxManager(commands)
         manager.start(KlawService.ENGINE)
         assertTrue(
-            commands.any { it.contains("systemctl") && it.contains("--user") && it.contains("start") && it.contains("klaw-engine") },
+            commands.any {
+                it.contains("systemctl") && it.contains("--user") && it.contains("start") &&
+                    it.contains("klaw-engine")
+            },
             "Expected systemctl --user start klaw-engine, got: $commands",
         )
     }

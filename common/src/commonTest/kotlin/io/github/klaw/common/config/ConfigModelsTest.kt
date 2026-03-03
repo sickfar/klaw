@@ -45,7 +45,11 @@ class ConfigModelsTest {
             GatewayConfig(
                 channels =
                     ChannelsConfig(
-                        telegram = TelegramConfig(token = "bot123", allowedChats = listOf(AllowedChat("123456", listOf("user1")))),
+                        telegram =
+                            TelegramConfig(
+                                token = "bot123",
+                                allowedChats = listOf(AllowedChat("123456", listOf("user1"))),
+                            ),
                     ),
             )
         val encoded = json.encodeToString(config)

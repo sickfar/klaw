@@ -137,7 +137,8 @@ class ServiceCommandTest {
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") && it.contains("engine")
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
+                    it.contains("engine")
             },
             "Expected docker compose up -d --no-deps --force-recreate engine, got: $commands",
         )
@@ -221,7 +222,8 @@ class ServiceCommandTest {
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
-                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") && it.contains("gateway")
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
+                    it.contains("gateway")
             },
             "Expected docker compose up -d --no-deps --force-recreate gateway, got: $commands",
         )

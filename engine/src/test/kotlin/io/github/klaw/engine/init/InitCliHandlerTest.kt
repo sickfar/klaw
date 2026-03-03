@@ -95,7 +95,13 @@ class InitCliHandlerTest {
                     ),
                 context = ContextConfig(defaultBudgetTokens = 4096, slidingWindow = 20, subagentHistory = 10),
                 processing = ProcessingConfig(debounceMs = 10L, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-                llm = LlmRetryConfig(maxRetries = 0, requestTimeoutMs = 5000, initialBackoffMs = 100, backoffMultiplier = 2.0),
+                llm =
+                    LlmRetryConfig(
+                        maxRetries = 0,
+                        requestTimeoutMs = 5000,
+                        initialBackoffMs = 100,
+                        backoffMultiplier = 2.0,
+                    ),
                 logging = LoggingConfig(subagentConversations = false),
                 codeExecution =
                     CodeExecutionConfig(

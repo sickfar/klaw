@@ -89,7 +89,12 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gatewayJson with chatIds and enableConsole=true includes both sections`() {
-        val json = ConfigTemplates.gatewayJson(allowedChats = listOf(AllowedChat("123456")), enableConsole = true, consolePort = 8080)
+        val json =
+            ConfigTemplates.gatewayJson(
+                allowedChats = listOf(AllowedChat("123456")),
+                enableConsole = true,
+                consolePort = 8080,
+            )
         assertTrue(json.contains("123456"), "Expected chatId in:\n$json")
         assertTrue(json.contains("console"), "Expected console section in:\n$json")
         assertTrue(json.contains("8080"), "Expected custom port in:\n$json")
@@ -135,7 +140,12 @@ class ConfigTemplatesTest {
 
     @Test
     fun `gatewayJson round-trips through parser`() {
-        val json = ConfigTemplates.gatewayJson(allowedChats = listOf(AllowedChat("123")), enableConsole = true, consolePort = 9090)
+        val json =
+            ConfigTemplates.gatewayJson(
+                allowedChats = listOf(AllowedChat("123")),
+                enableConsole = true,
+                consolePort = 9090,
+            )
         val config = parseGatewayConfig(json)
         assertTrue(config.channels.telegram != null, "Expected telegram section")
         assertTrue(config.channels.console != null, "Expected console section")
@@ -435,7 +445,10 @@ class ConfigTemplatesTest {
     fun `engineJson maxToolCallRounds defaults to 50`() {
         val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
         val config = parseEngineConfig(json)
-        assertTrue(config.processing.maxToolCallRounds == 50, "Expected maxToolCallRounds=50, got ${config.processing.maxToolCallRounds}")
+        assertTrue(
+            config.processing.maxToolCallRounds == 50,
+            "Expected maxToolCallRounds=50, got ${config.processing.maxToolCallRounds}",
+        )
     }
 
     @Test

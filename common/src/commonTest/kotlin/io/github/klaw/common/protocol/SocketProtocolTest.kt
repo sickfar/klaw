@@ -226,13 +226,15 @@ class SocketProtocolTest {
 
     @Test
     fun `type field dispatches to correct subclass`() {
-        val inboundJson = """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
+        val inboundJson =
+            """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
         val outboundJson = """{"type":"outbound","channel":"tg","chatId":"123","content":"resp"}"""
         val commandJson = """{"type":"command","channel":"tg","chatId":"123","command":"new"}"""
         val registerJson = """{"type":"register","client":"gateway"}"""
 
         val shutdownJson = """{"type":"shutdown"}"""
-        val approvalReqJson = """{"type":"approval_request","id":"apr_1","chatId":"123","command":"ls","riskScore":2,"timeout":60}"""
+        val approvalReqJson =
+            """{"type":"approval_request","id":"apr_1","chatId":"123","command":"ls","riskScore":2,"timeout":60}"""
         val approvalRespJson = """{"type":"approval_response","id":"apr_1","approved":true}"""
         val pingJson = """{"type":"ping"}"""
         val pongJson = """{"type":"pong"}"""

@@ -49,7 +49,12 @@ class ConfigValidatorTest {
             """,
             )
         val errors = validateConfig(schema, json)
-        assertTrue(errors.any { it.path == ".routing" && "required" in it.message.lowercase() }, "Should report missing routing: $errors")
+        assertTrue(
+            errors.any {
+                it.path == ".routing" && "required" in it.message.lowercase()
+            },
+            "Should report missing routing: $errors",
+        )
     }
 
     @Test

@@ -7,7 +7,11 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class EngineNotRunningTest {
-    private fun engineDownRequest(): (String, Map<String, String>) -> String = { _, _ -> throw EngineNotRunningException() }
+    private fun engineDownRequest(): (
+        String,
+        Map<String, String>,
+    ) -> String =
+        { _, _ -> throw EngineNotRunningException() }
 
     private fun cli() =
         KlawCli(

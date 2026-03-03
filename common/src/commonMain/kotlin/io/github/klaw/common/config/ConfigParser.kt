@@ -28,8 +28,7 @@ fun parseEngineConfig(jsonString: String): EngineConfig =
 fun encodeGatewayConfig(config: GatewayConfig): String =
     klawPrettyJson.encodeToString(GatewayConfig.serializer(), config)
 
-fun encodeEngineConfig(config: EngineConfig): String =
-    klawPrettyJson.encodeToString(EngineConfig.serializer(), config)
+fun encodeEngineConfig(config: EngineConfig): String = klawPrettyJson.encodeToString(EngineConfig.serializer(), config)
 
 fun encodeEngineConfigMinimal(config: EngineConfig): String =
     klawMinimalJson.encodeToString(EngineConfig.serializer(), config)
