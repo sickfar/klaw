@@ -55,9 +55,10 @@ build/dist/
 dist/
 
 # Config directory (real configs with secrets — keep only examples and .gitkeep)
-/config/
+/config/*
 !/config/.gitkeep
 !/config/*.example
+!/config/detekt/
 
 # Claude Code worktrees
 .claude/worktrees/

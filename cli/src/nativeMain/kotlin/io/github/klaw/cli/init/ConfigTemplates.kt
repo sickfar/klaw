@@ -47,10 +47,11 @@ internal object ConfigTemplates {
             context = buildConfigContext(),
             processing = buildConfigProcessing(),
             memory = buildConfigMemory(),
-            heartbeat = HeartbeatConfig(
-                interval = if (heartbeatChannel != null) "PT1H" else "off",
-                channel = heartbeatChannel,
-            ),
+            heartbeat =
+                HeartbeatConfig(
+                    interval = if (heartbeatChannel != null) "PT1H" else "off",
+                    channel = heartbeatChannel,
+                ),
         )
     }
 
@@ -235,10 +236,18 @@ private fun buildConfigRouting(modelId: String): RoutingConfig =
     )
 
 private fun buildConfigContext(): ContextConfig =
-    ContextConfig(slidingWindow = 20, defaultBudgetTokens = 4096, subagentHistory = 10)
+    ContextConfig(
+        slidingWindow = 20,
+        defaultBudgetTokens = 4096,
+        subagentHistory = 10,
+    )
 
 private fun buildConfigProcessing(): ProcessingConfig =
-    ProcessingConfig(debounceMs = 800, maxConcurrentLlm = 3, maxToolCallRounds = 50)
+    ProcessingConfig(
+        debounceMs = 800,
+        maxConcurrentLlm = 3,
+        maxToolCallRounds = 50,
+    )
 
 private fun buildConfigMemory(): MemoryConfig =
     MemoryConfig(

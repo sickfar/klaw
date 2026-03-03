@@ -19,10 +19,10 @@ internal actual fun buildTcpSockAddrBytes(
 ): ByteArray {
     require(ipBytes.size == IPV4_BYTES) { "IPv4 address must be 4 bytes" }
     val result = ByteArray(SOCKADDR_SIZE)
-    result[SIN_LEN_OFFSET] = SOCKADDR_SIZE.toByte()  // sin_len
-    result[SIN_FAMILY_OFFSET] = AF_INET               // sin_family: AF_INET
-    result[SIN_PORT_HI_OFFSET] = (port shr PORT_HIGH_BYTE_SHIFT).toByte()  // sin_port high byte (big-endian)
-    result[SIN_PORT_LO_OFFSET] = (port and PORT_LOW_BYTE_MASK).toByte()    // sin_port low byte
+    result[SIN_LEN_OFFSET] = SOCKADDR_SIZE.toByte() // sin_len
+    result[SIN_FAMILY_OFFSET] = AF_INET // sin_family: AF_INET
+    result[SIN_PORT_HI_OFFSET] = (port shr PORT_HIGH_BYTE_SHIFT).toByte() // sin_port high byte (big-endian)
+    result[SIN_PORT_LO_OFFSET] = (port and PORT_LOW_BYTE_MASK).toByte() // sin_port low byte
     ipBytes.copyInto(result, destinationOffset = SIN_ADDR_OFFSET)
     return result
 }

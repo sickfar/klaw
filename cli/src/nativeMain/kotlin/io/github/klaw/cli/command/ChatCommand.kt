@@ -93,13 +93,25 @@ internal class ChatCommand(
                     tui.addMessage(ChatTui.Message("assistant", event.content))
                     tui.redrawFull()
                 }
+
                 ChatEvent.Enter -> {
                     val (shouldClose, newJob) = handleEnterEvent(tui, sendChannel, events)
-                    if (newJob != null) { spinnerJob?.cancel(); spinnerJob = newJob }
+                    if (newJob != null) {
+                        spinnerJob?.cancel()
+                        spinnerJob = newJob
+                    }
                     if (shouldClose) break
                 }
-                ChatEvent.Quit -> { events.close(); break }
-                is ChatEvent.StatusUpdate -> spinnerJob = handleStatusUpdate(event.status, tui, spinnerJob)
+
+                ChatEvent.Quit -> {
+                    events.close()
+                    break
+                }
+
+                is ChatEvent.StatusUpdate -> {
+                    spinnerJob = handleStatusUpdate(event.status, tui, spinnerJob)
+                }
+
                 is ChatEvent.ApprovalRequest -> {
                     spinnerJob?.cancel()
                     spinnerJob = null
@@ -107,7 +119,10 @@ internal class ChatCommand(
                     tui.showApproval(event.id, event.command, event.riskScore, event.timeout)
                     tui.redrawFull()
                 }
-                else -> handleInputEditingEvent(event, tui, sendChannel)
+
+                else -> {
+                    handleInputEditingEvent(event, tui, sendChannel)
+                }
             }
         }
         spinnerJob?.cancel()
@@ -124,14 +139,43 @@ internal class ChatCommand(
         }
         if (tui.isApprovalMode()) return
         when (event) {
-            is ChatEvent.KeyPressed -> { tui.appendInput(event.text); tui.redrawInputPanel() }
-            is ChatEvent.ArrowKey -> handleArrowKey(event.direction, tui)
-            ChatEvent.Backspace -> { tui.deleteLastInput(); tui.redrawInputPanel() }
-            ChatEvent.Delete -> { tui.deleteForward(); tui.redrawInputPanel() }
-            ChatEvent.Home -> { tui.moveHome(); tui.redrawInputPanel() }
-            ChatEvent.End -> { tui.moveEnd(); tui.redrawInputPanel() }
-            ChatEvent.NewLine -> { tui.insertNewline(); tui.redrawInputPanel() }
-            else -> Unit
+            is ChatEvent.KeyPressed -> {
+                tui.appendInput(event.text)
+                tui.redrawInputPanel()
+            }
+
+            is ChatEvent.ArrowKey -> {
+                handleArrowKey(event.direction, tui)
+            }
+
+            ChatEvent.Backspace -> {
+                tui.deleteLastInput()
+                tui.redrawInputPanel()
+            }
+
+            ChatEvent.Delete -> {
+                tui.deleteForward()
+                tui.redrawInputPanel()
+            }
+
+            ChatEvent.Home -> {
+                tui.moveHome()
+                tui.redrawInputPanel()
+            }
+
+            ChatEvent.End -> {
+                tui.moveEnd()
+                tui.redrawInputPanel()
+            }
+
+            ChatEvent.NewLine -> {
+                tui.insertNewline()
+                tui.redrawInputPanel()
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
 
@@ -140,8 +184,14 @@ internal class ChatCommand(
         events: SendChannel<ChatEvent>,
     ) {
         when (frame.type) {
-            "assistant" -> events.send(ChatEvent.MessageReceived(frame.content))
-            "status" -> events.send(ChatEvent.StatusUpdate(frame.content))
+            "assistant" -> {
+                events.send(ChatEvent.MessageReceived(frame.content))
+            }
+
+            "status" -> {
+                events.send(ChatEvent.StatusUpdate(frame.content))
+            }
+
             "approval_request" -> {
                 val id = frame.approvalId ?: return
                 val riskScore = frame.riskScore ?: 0
@@ -167,11 +217,17 @@ internal class ChatCommand(
             CliLogger.error { "chat connection failed: ${e::class.simpleName}" }
             val msg =
                 when (e::class.simpleName) {
-                    "ConnectException", "IOException" ->
+                    "ConnectException", "IOException" -> {
                         "Cannot connect to gateway at $wsUrl — is the gateway running?"
-                    "WebSocketException" ->
+                    }
+
+                    "WebSocketException" -> {
                         "WebSocket connection failed — gateway may not have console chat enabled"
-                    else -> "Connection error: ${e::class.simpleName}"
+                    }
+
+                    else -> {
+                        "Connection error: ${e::class.simpleName}"
+                    }
                 }
             events.trySend(ChatEvent.MessageReceived(msg))
         }

@@ -56,7 +56,7 @@ internal class ChatTui(
         private const val DEFAULT_TERM_WIDTH = 80
         private const val DEFAULT_TERM_HEIGHT = 24
         private const val STTY_BUF_SIZE = 64
-        private const val FRAME_OVERHEAD_ROWS = 3  // title row + separator row + bottom border row
+        private const val FRAME_OVERHEAD_ROWS = 3 // title row + separator row + bottom border row
     }
 
     // --- State management (testable) ---
@@ -166,9 +166,10 @@ internal class ChatTui(
         val fp = popen("stty size < /dev/tty 2>/dev/null", "r") ?: return
         try {
             val buf = ByteArray(STTY_BUF_SIZE)
-            val n = buf.usePinned { pinned ->
-                fread(pinned.addressOf(0), 1.convert(), (buf.size - 1).convert(), fp).toInt()
-            }
+            val n =
+                buf.usePinned { pinned ->
+                    fread(pinned.addressOf(0), 1.convert(), (buf.size - 1).convert(), fp).toInt()
+                }
             if (n > 0) applyTerminalSize(buf.decodeToString(0, n))
         } finally {
             pclose(fp)
@@ -396,7 +397,7 @@ internal class ChatTui(
     }
 }
 
-private const val BYTE_MASK = 0xFF  // converts signed byte to unsigned int
+private const val BYTE_MASK = 0xFF // converts signed byte to unsigned int
 
 /** Reads one raw byte from stdin. Returns null on EOF or error. */
 @OptIn(ExperimentalForeignApi::class)

@@ -35,7 +35,7 @@ private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val CONSOLE_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
-private const val ID_KEY_OFFSET = 4  // length of "\"id\"" to skip to the value
+private const val ID_KEY_OFFSET = 4 // length of "\"id\"" to skip to the value
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3

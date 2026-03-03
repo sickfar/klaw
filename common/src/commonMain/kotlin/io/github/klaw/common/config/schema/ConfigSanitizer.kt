@@ -26,13 +26,25 @@ private fun sanitizeNode(
     val properties = schema["properties"]?.jsonObject
     val addlProps = schema["additionalProperties"]
     return when {
-        element is JsonArray -> sanitizeArray(schema, element, path, removedPaths)
-        element !is JsonObject -> element
-        addlProps is JsonObject && properties == null ->
+        element is JsonArray -> {
+            sanitizeArray(schema, element, path, removedPaths)
+        }
+
+        element !is JsonObject -> {
+            element
+        }
+
+        addlProps is JsonObject && properties == null -> {
             sanitizeMap(addlProps, element, path, removedPaths)
-        properties != null ->
+        }
+
+        properties != null -> {
             sanitizeObjectProps(properties, addlProps, element, path, removedPaths)
-        else -> element
+        }
+
+        else -> {
+            element
+        }
     }
 }
 
@@ -74,12 +86,21 @@ private fun sanitizeObjectProps(
         for ((key, value) in element) {
             val propSchema = properties[key]?.jsonObject
             when {
-                propSchema != null ->
+                propSchema != null -> {
                     put(key, sanitizeNode(propSchema, value, "$path.$key", removedPaths))
-                rejectUnknown -> removedPaths.add("$path.$key")
-                addlProps is JsonObject ->
+                }
+
+                rejectUnknown -> {
+                    removedPaths.add("$path.$key")
+                }
+
+                addlProps is JsonObject -> {
                     put(key, sanitizeNode(addlProps, value, "$path.$key", removedPaths))
-                else -> put(key, value)
+                }
+
+                else -> {
+                    put(key, value)
+                }
             }
         }
     }

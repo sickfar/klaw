@@ -16,7 +16,7 @@ internal class ConfigCommand(
     private val configDir: String = KlawPaths.config,
 ) : CliktCommand(name = "config") {
     init {
-        subcommands(ConfigSetCommand(configDir))
+        subcommands(ConfigSetCommand(configDir), ConfigEditCommand(configDir))
     }
 
     override fun run() = Unit

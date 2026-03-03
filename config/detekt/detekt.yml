@@ -1,0 +1,24 @@
+complexity:
+  LargeClass:
+    threshold: 700
+  LongMethod:
+    threshold: 60
+  TooManyFunctions:
+    # TUI classes (ChatTui) and buffer classes (InputBuffer) legitimately have many methods
+    thresholdInClasses: 40
+    thresholdInInterfaces: 40
+  LongParameterList:
+    # Initializer/starter classes use constructor injection for testable path overrides
+    constructorThreshold: 10
+
+style:
+  MaxLineLength:
+    # ktlint enforces expression-body-on-same-line, so 120 conflicts with
+    # single-expression functions like parseGatewayConfig/encodeEngineConfig.
+    maxLineLength: 130
+  ReturnCount:
+    max: 6
+  ThrowsCount:
+    max: 3
+  LoopWithTooManyJumpStatements:
+    maxJumpCount: 3
