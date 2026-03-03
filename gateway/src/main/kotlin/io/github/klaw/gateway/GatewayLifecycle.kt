@@ -23,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
@@ -168,9 +169,22 @@ class GatewayLifecycle(
                                     "Code expires in 5 minutes.",
                             )
                             if (pairingService.hasPendingRequests()) {
+                                val confirmationSent = AtomicBoolean(false)
                                 configFileWatcher.startWatching { newConfig ->
                                     allowlistService.reload(newConfig)
                                     logger.debug { "Config reloaded after file change" }
+                                    if (allowlistService.isChatAllowed(incoming.channel, incoming.chatId) &&
+                                        confirmationSent.compareAndSet(false, true)
+                                    ) {
+                                        runBlocking {
+                                            replyFn(
+                                                incoming.chatId,
+                                                "Pairing successful! You can now send me messages.",
+                                            )
+                                        }
+                                    } else {
+                                        logger.trace { "No confirmation sent for chatId=${incoming.chatId}" }
+                                    }
                                 }
                             }
                             logger.debug { "Pairing code generated for chatId=${incoming.chatId}" }
