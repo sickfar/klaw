@@ -6,12 +6,36 @@ import io.github.klaw.common.config.formatConfigValue
 import io.github.klaw.common.config.getByPath
 import kotlinx.serialization.json.JsonObject
 
+internal fun expandWildcardDescriptors(
+    descriptors: List<ConfigPropertyDescriptor>,
+    config: JsonObject,
+): List<ConfigPropertyDescriptor> {
+    val result = mutableListOf<ConfigPropertyDescriptor>()
+    for (d in descriptors) {
+        val starIdx = d.path.indexOf('*')
+        if (starIdx < 0) {
+            result.add(d)
+            continue
+        }
+        val parentPath = d.path.substring(0, starIdx).trimEnd('.')
+        val childSuffix = d.path.substring(starIdx + 1).trimStart('.')
+        val mapElement = if (parentPath.isEmpty()) config else config.getByPath(parentPath)
+        if (mapElement !is JsonObject) continue
+        for (key in mapElement.keys) {
+            val concretePath = if (childSuffix.isEmpty()) "$parentPath.$key" else "$parentPath.$key.$childSuffix"
+            result.add(d.copy(path = concretePath))
+        }
+    }
+    return result
+}
+
 internal fun buildItems(
     descriptors: List<ConfigPropertyDescriptor>,
     config: JsonObject,
 ): List<EditorItem> {
+    val expanded = expandWildcardDescriptors(descriptors, config)
     val editable =
-        descriptors.filter { d ->
+        expanded.filter { d ->
             d.type != ConfigValueType.MAP_SECTION && d.type != ConfigValueType.LIST_STRING
         }
 

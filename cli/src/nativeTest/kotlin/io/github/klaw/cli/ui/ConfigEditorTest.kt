@@ -1215,4 +1215,86 @@ class ConfigEditorTest {
         assertTrue(newState.editMode is EditMode.InlineEdit)
         assertEquals("test", newState.editMode.buffer)
     }
+
+    // ── Wildcard map expansion ────────────────────────────────────────────
+
+    @Test
+    fun `buildItems expands wildcard paths using actual map keys`() {
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put(
+                            "zai",
+                            buildJsonObject {
+                                put("type", JsonPrimitive("openai-compatible"))
+                                put("endpoint", JsonPrimitive("https://api.example.com"))
+                            },
+                        )
+                    },
+                )
+            }
+        val descriptors =
+            listOf(
+                descriptor("providers", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+                descriptor("providers.*.endpoint"),
+                descriptor("providers.*.apiKey", sensitive = true),
+            )
+
+        val items = buildItems(descriptors, config)
+        val props = items.filterIsInstance<EditorItem.Property>()
+        val explicit = props.filter { it.isExplicit }
+
+        assertEquals(2, explicit.size)
+        assertTrue(explicit.any { it.descriptor.path == "providers.zai.type" })
+        assertTrue(explicit.any { it.descriptor.path == "providers.zai.endpoint" })
+    }
+
+    @Test
+    fun `buildItems wildcard with multiple map keys shows all entries as explicit`() {
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                        put("deepseek", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                    },
+                )
+            }
+        val descriptors =
+            listOf(
+                descriptor("providers.*.type"),
+                descriptor("providers.*.endpoint"),
+            )
+
+        val items = buildItems(descriptors, config)
+        val props = items.filterIsInstance<EditorItem.Property>()
+        val explicit = props.filter { it.isExplicit }
+
+        // Both providers have 'type' set
+        assertEquals(2, explicit.size)
+        assertTrue(explicit.any { it.descriptor.path == "providers.zai.type" })
+        assertTrue(explicit.any { it.descriptor.path == "providers.deepseek.type" })
+    }
+
+    @Test
+    fun `buildItems wildcard with empty map shows no items`() {
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        val descriptors = listOf(descriptor("providers.*.type"))
+
+        val items = buildItems(descriptors, config)
+        assertTrue(items.filterIsInstance<EditorItem.Property>().isEmpty())
+    }
+
+    @Test
+    fun `buildItems wildcard when map absent shows no items`() {
+        val config = JsonObject(emptyMap())
+        val descriptors = listOf(descriptor("providers.*.type"))
+
+        val items = buildItems(descriptors, config)
+        assertTrue(items.filterIsInstance<EditorItem.Property>().isEmpty())
+    }
 }
