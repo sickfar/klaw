@@ -75,6 +75,7 @@ class QuartzKlawScheduler(
             }.trimEnd()
         }
 
+    @Suppress("LongParameterList", "LongMethod")
     override suspend fun add(
         name: String,
         cron: String?,

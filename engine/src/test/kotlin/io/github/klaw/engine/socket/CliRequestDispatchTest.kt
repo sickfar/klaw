@@ -68,7 +68,9 @@ class CliRequestDispatchTest {
     @Test
     fun `schedule_add command creates job`() =
         runTest {
-            coEvery { klawScheduler.add("morning", "0 8 * * *", null, "Good morning", null, null, null) } returns "OK: added"
+            coEvery {
+                klawScheduler.add("morning", "0 8 * * *", null, "Good morning", null, null, null)
+            } returns "OK: added"
             val dispatcher = buildDispatcher()
             val result =
                 dispatcher.dispatch(

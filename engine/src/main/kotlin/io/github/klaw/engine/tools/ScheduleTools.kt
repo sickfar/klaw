@@ -9,6 +9,7 @@ class ScheduleTools(
 ) {
     suspend fun list(): String = scheduler.list()
 
+    @Suppress("LongParameterList")
     suspend fun add(
         name: String,
         cron: String?,
