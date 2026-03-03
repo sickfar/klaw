@@ -47,7 +47,7 @@ class InitCliHandler(
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
-            logger.warn { "Identity generation failed: ${e::class.simpleName}" }
+            logger.warn(e) { "Identity generation failed" }
             """{"error":"${e::class.simpleName}"}"""
         }
     }

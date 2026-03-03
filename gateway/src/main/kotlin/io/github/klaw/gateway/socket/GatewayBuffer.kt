@@ -36,7 +36,7 @@ class GatewayBuffer(
                         PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")),
                     )
                 }.onFailure { e ->
-                    logger.warn { "Could not create buffer file with restricted permissions: ${e::class.simpleName}" }
+                    logger.warn(e) { "Could not create buffer file with restricted permissions" }
                 }
             }
             file.appendText(json.encodeToString<SocketMessage>(message) + "\n")
@@ -60,7 +60,7 @@ class GatewayBuffer(
                         try {
                             messages.add(json.decodeFromString<SocketMessage>(line))
                         } catch (e: Exception) {
-                            logger.warn { "Skipping malformed buffer line: ${e::class.simpleName}" }
+                            logger.warn(e) { "Skipping malformed buffer line" }
                             // Skip malformed lines — partial writes or corruption.
                         }
                     }

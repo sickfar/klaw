@@ -7,6 +7,7 @@ import io.github.klaw.engine.db.SqliteVecLoader
 import io.github.klaw.engine.db.VirtualTableSetup
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -260,5 +261,85 @@ class AutoRagServiceTest {
             // Should not throw, return empty
             val results = failingSvc.search("query", "chat1", "2025-01-01T00:00:00Z", emptySet(), config)
             assertTrue(results.isEmpty())
+        }
+
+    // --- escapeFtsQuery unit tests ---
+
+    @Test
+    fun `escapeFtsQuery wraps terms in double quotes`() {
+        assertEquals("\"hello\" \"world\"", escapeFtsQuery("hello world"))
+    }
+
+    @Test
+    fun `escapeFtsQuery removes parentheses`() {
+        assertEquals("\"hello\" \"world\"", escapeFtsQuery("(hello world)"))
+    }
+
+    @Test
+    fun `escapeFtsQuery removes double quotes`() {
+        // input: say "hi" → terms: say, hi → "say" "hi"
+        assertEquals("\"say\" \"hi\"", escapeFtsQuery("say \"hi\""))
+    }
+
+    @Test
+    fun `escapeFtsQuery strips FTS5 boolean operators`() {
+        assertEquals("\"test\" \"end\"", escapeFtsQuery("test AND NOT end"))
+    }
+
+    @Test
+    fun `escapeFtsQuery returns empty fallback when only operators`() {
+        assertEquals("\"\"", escapeFtsQuery("AND OR NOT"))
+    }
+
+    @Test
+    fun `escapeFtsQuery handles Chinese with parens`() {
+        val result = escapeFtsQuery("你好 (怎么了)")
+        assertTrue(result.contains("\"你好\""))
+        assertTrue(result.contains("\"怎么了\""))
+    }
+
+    @Test
+    fun `escapeFtsQuery returns empty fallback for empty string`() {
+        assertEquals("\"\"", escapeFtsQuery(""))
+    }
+
+    @Test
+    fun `escapeFtsQuery strips asterisks and plus signs`() {
+        // foo*bar → foobar, +baz → baz
+        assertEquals("\"foobar\" \"baz\"", escapeFtsQuery("foo*bar +baz"))
+    }
+
+    @Test
+    fun `escapeFtsQuery returns empty fallback for whitespace-only string`() {
+        assertEquals("\"\"", escapeFtsQuery("   "))
+    }
+
+    @Test
+    fun `escapeFtsQuery strips caret operator`() {
+        assertEquals("\"foobar\"", escapeFtsQuery("foo^bar"))
+    }
+
+    @Test
+    fun `escapeFtsQuery strips mixed-case boolean operators`() {
+        assertEquals("\"hello\"", escapeFtsQuery("hello and"))
+    }
+
+    @Test
+    fun `ftsSearch returns empty without DB call for whitespace-only query`() =
+        runBlocking {
+            // escapeFtsQuery("   ") → "" → early return, no SQLiteException
+            val result = service.ftsSearch("   ", "chat1", "2025-01-01T00:00:00Z", topK = 10)
+            assertNotNull(result)
+            assertTrue(result.isEmpty())
+        }
+
+    @Test
+    fun `ftsSearch does not throw on FTS5 special chars in query`() =
+        runBlocking {
+            // Should not throw SQLiteException
+            val result =
+                service.ftsSearch("(hello) AND \"world\" OR NOT test*", "chat1", "2025-01-01T00:00:00Z", topK = 10)
+            // Result can be empty but must not throw
+            assertNotNull(result)
         }
 }

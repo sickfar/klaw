@@ -46,7 +46,7 @@ class ConfigFileWatcher(
                                 @Suppress("TooGenericExceptionCaught")
                                 e: Exception,
                             ) {
-                                logger.warn { "Failed to parse updated gateway.json: ${e::class.simpleName}" }
+                                logger.warn(e) { "Failed to parse updated gateway.json" }
                             }
                         }
                         if (!key.reset()) {

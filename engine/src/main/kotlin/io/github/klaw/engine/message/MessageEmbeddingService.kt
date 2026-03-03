@@ -55,7 +55,7 @@ class MessageEmbeddingService(
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                logger.warn { "Failed to embed message rowId=$messageRowId role=$role: ${e::class.simpleName}" }
+                logger.warn(e) { "Failed to embed message rowId=$messageRowId role=$role" }
             }
         }
     }

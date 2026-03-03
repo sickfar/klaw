@@ -50,7 +50,7 @@ class TelegramChannel(
                 b.setMyCommands(config.commands.map { BotCommand(it.name, it.description) })
                 logger.debug { "Registered ${config.commands.size} bot commands with Telegram" }
             }.onFailure { e ->
-                logger.warn { "Failed to register bot commands: ${e::class.simpleName}" }
+                logger.warn(e) { "Failed to register bot commands" }
             }
         }
     }

@@ -94,7 +94,7 @@ class PairingService(
             @Suppress("TooGenericExceptionCaught")
             e: Exception,
         ) {
-            logger.warn { "Failed to load pairing requests: ${e::class.simpleName}" }
+            logger.warn(e) { "Failed to load pairing requests" }
             emptyList()
         }
     }

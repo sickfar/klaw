@@ -58,7 +58,7 @@ class HeartbeatRunner(
         try {
             runBlocking { doExecute() }
         } catch (e: Exception) {
-            logger.error(e) { "Heartbeat execution failed: ${e::class.simpleName}" }
+            logger.error(e) { "Heartbeat execution failed" }
         } finally {
             running.set(false)
         }
@@ -73,7 +73,7 @@ class HeartbeatRunner(
         try {
             doExecute()
         } catch (e: Exception) {
-            logger.error(e) { "Heartbeat execution failed: ${e::class.simpleName}" }
+            logger.error(e) { "Heartbeat execution failed" }
         } finally {
             running.set(false)
         }
@@ -171,7 +171,8 @@ class HeartbeatRunner(
                 toolExecutor.executeAll(toolCalls)
             }
         } catch (e: Exception) {
-            logger.warn { "Heartbeat tool execution failed: ${e::class.simpleName}" }
+            logger.warn(e) { "Heartbeat tool execution failed" }
+            // e::class.simpleName in tool result content is intentional and safe (no message text)
             toolCalls.map { ToolResult(callId = it.id, content = "Tool execution failed: ${e::class.simpleName}") }
         }
 

@@ -36,7 +36,7 @@ class DatabaseFactory(
         runCatching {
             Files.setPosixFilePermissions(Paths.get(path), PosixFilePermissions.fromString("rw-------"))
         }.onFailure { e ->
-            logger.warn { "Could not set owner-only permissions on $path: ${e.message}" }
+            logger.warn(e) { "Could not set owner-only permissions on $path" }
         }
     }
 }

@@ -22,10 +22,10 @@ class SandboxExecTool(
         } catch (e: IllegalArgumentException) {
             "Error: ${e.message}"
         } catch (e: SandboxExecutionException) {
-            logger.warn { "sandbox_exec failed: ${e::class.simpleName}" }
+            logger.warn(e) { "sandbox_exec: SandboxExecutionException" }
             "Error: ${e.message}"
         } catch (e: Exception) {
-            logger.warn { "sandbox_exec failed: ${e::class.simpleName}" }
+            logger.warn(e) { "sandbox_exec failed unexpectedly" }
             "Error: sandbox execution failed"
         }
     }

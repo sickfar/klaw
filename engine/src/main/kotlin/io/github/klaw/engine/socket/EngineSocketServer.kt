@@ -120,7 +120,7 @@ class EngineSocketServer(
             } catch (_: kotlinx.coroutines.CancellationException) {
                 break
             } catch (e: Exception) {
-                logger.warn { "EngineSocketServer: accept error (continuing): ${e::class.simpleName}" }
+                logger.warn(e) { "EngineSocketServer: accept error (continuing)" }
                 continue
             }
         }

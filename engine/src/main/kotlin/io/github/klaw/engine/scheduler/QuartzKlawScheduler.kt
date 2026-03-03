@@ -155,7 +155,7 @@ class QuartzKlawScheduler(
                     "OK: '$name' scheduled at '$at'"
                 }
             } catch (e: SchedulerException) {
-                logger.warn { "Failed to add schedule name=$name class=${e::class.simpleName}" }
+                logger.warn(e) { "Failed to add schedule name=$name" }
                 "Error: ${e::class.simpleName}"
             }
         }

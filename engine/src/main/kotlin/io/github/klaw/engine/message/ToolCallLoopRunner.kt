@@ -79,8 +79,9 @@ internal class ToolCallLoopRunner(
                         toolExecutor.executeAll(toolCalls)
                     }
                 } catch (e: Exception) {
-                    logger.warn { "Tool executor failed, surfacing error as tool results: ${e::class.simpleName}" }
+                    logger.warn(e) { "Tool executor failed, surfacing error as tool results" }
                     toolCalls.map { call ->
+                        // e::class.simpleName in tool result content is intentional and safe (no message text)
                         ToolResult(callId = call.id, content = "Tool execution failed: ${e::class.simpleName}")
                     }
                 }

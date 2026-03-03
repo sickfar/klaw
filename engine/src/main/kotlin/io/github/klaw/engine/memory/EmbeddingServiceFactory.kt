@@ -16,7 +16,7 @@ class EmbeddingServiceFactory {
                 logger.info { "Using ONNX embedding service" }
             }
         } catch (e: Exception) {
-            logger.warn { "ONNX embedding service unavailable (${e.message}), falling back to Ollama" }
+            logger.warn(e) { "ONNX embedding service unavailable, falling back to Ollama" }
             OllamaEmbeddingService()
         }
 }

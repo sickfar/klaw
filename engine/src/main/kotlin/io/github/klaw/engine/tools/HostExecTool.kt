@@ -111,7 +111,7 @@ class HostExecTool(
                 retryScore ?: config.preValidation.riskThreshold
             }
         } catch (e: Exception) {
-            logger.debug { "host_exec: LLM pre-validation failed: ${e::class.simpleName}, falling back to ask" }
+            logger.debug(e) { "host_exec: LLM pre-validation failed, falling back to ask" }
             config.preValidation.riskThreshold
         }
 
@@ -169,7 +169,7 @@ class HostExecTool(
                 stderrThread.join(STREAM_JOIN_TIMEOUT_MS)
                 formatOutput(stdout, stderr, process.exitValue())
             } catch (e: Exception) {
-                logger.warn { "host_exec: execution failed: ${e::class.simpleName}" }
+                logger.warn(e) { "host_exec: execution failed" }
                 "Error: command execution failed"
             }
         }

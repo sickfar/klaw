@@ -13,6 +13,33 @@ import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Escapes a raw user query string for safe use in an FTS5 MATCH clause.
+ *
+ * FTS5 has its own query syntax where characters like `(`, `)`, `"`, `*`, `+`, `^` and
+ * keywords `AND`, `OR`, `NOT` are interpreted as operators and cause a syntax error when
+ * passed verbatim. This function strips those special characters and wraps each remaining
+ * term in double-quotes so it is treated as a literal phrase by FTS5.
+ *
+ * Returns `""` (a quoted empty string, which is a valid FTS5 no-op) when no terms remain
+ * after stripping.
+ */
+internal fun escapeFtsQuery(raw: String): String {
+    // Replace grouping/quoting chars with spaces so they act as term separators
+    val spaced = raw.replace(Regex("""["()]"""), " ")
+    // Strip operator chars that can appear within or around terms without splitting
+    val cleaned = spaced.replace(Regex("""[*+\-^]"""), "")
+    val terms =
+        cleaned
+            .split(Regex("""\s+"""))
+            .filter { it.isNotBlank() && it.uppercase() !in setOf("AND", "OR", "NOT") }
+    return if (terms.isEmpty()) {
+        "\"\""
+    } else {
+        terms.joinToString(" ") { "\"${it.replace("\"", "\"\"")}\"" }
+    }
+}
+
 data class AutoRagResult(
     val messageId: String,
     val content: String,
@@ -72,7 +99,7 @@ class AutoRagService(
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Exception,
         ) {
-            logger.warn { "Auto-RAG search failed: ${e::class.simpleName}" }
+            logger.warn(e) { "Auto-RAG search failed" }
             emptyList()
         }
     }
@@ -141,6 +168,10 @@ class AutoRagService(
         topK: Int,
     ): List<RawCandidate> =
         withContext(Dispatchers.VT) {
+            val escaped = escapeFtsQuery(query)
+            // Guard: escaped to empty means no searchable terms; skip DB call entirely
+            // (passing `""` to FTS5 MATCH is implementation-defined and may throw on some SQLite builds)
+            if (escaped == "\"\"") return@withContext emptyList()
             driver
                 .executeQuery(
                     null,
@@ -170,7 +201,7 @@ class AutoRagService(
                     },
                     4,
                 ) {
-                    bindString(0, query)
+                    bindString(0, escaped)
                     bindString(1, chatId)
                     bindString(2, segmentStart)
                     bindLong(3, topK.toLong())
