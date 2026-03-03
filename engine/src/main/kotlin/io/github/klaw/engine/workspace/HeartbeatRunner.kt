@@ -107,6 +107,7 @@ class HeartbeatRunner(
                 includeSkillList = false,
                 includeSkillLoad = false,
                 includeHeartbeatDeliver = true,
+                includeSendMessage = false,
             )
 
         val fullSystemPrompt =

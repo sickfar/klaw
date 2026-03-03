@@ -37,11 +37,13 @@ class ToolRegistryImpl(
         includeSkillLoad: Boolean,
         includeHeartbeatDeliver: Boolean,
         includeScheduleDeliver: Boolean,
+        includeSendMessage: Boolean,
     ): List<ToolDef> {
         var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
+        if (!includeSendMessage) result = result.filter { it.name != SEND_MESSAGE_TOOL_NAME }
         if (includeHeartbeatDeliver) result = result + HEARTBEAT_DELIVER_DEF
         if (includeScheduleDeliver) result = result + SCHEDULE_DELIVER_DEF
         return result
@@ -212,6 +214,7 @@ class ToolRegistryImpl(
         private const val HOST_EXEC_TOOL_NAME = "host_exec"
         private const val SKILL_LIST_TOOL_NAME = "skill_list"
         private const val SKILL_LOAD_TOOL_NAME = "skill_load"
+        private const val SEND_MESSAGE_TOOL_NAME = "send_message"
         private val HEARTBEAT_DELIVER_DEF =
             ToolDef(
                 "heartbeat_deliver",

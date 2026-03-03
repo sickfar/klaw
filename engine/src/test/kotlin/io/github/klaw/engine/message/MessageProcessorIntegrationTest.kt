@@ -162,7 +162,8 @@ class MessageProcessorIntegrationTest {
                 coEvery { listAll() } returns emptyList()
                 io.mockk.every { discover() } returns Unit
             }
-        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any(), any(), any()) } returns emptyList() }
+        val toolRegistry =
+            mockk<ToolRegistry> { coEvery { listTools(any(), any(), any(), any(), any()) } returns emptyList() }
 
         val autoRagService =
             mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }

@@ -167,7 +167,7 @@ class SubagentSpawnTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -229,7 +229,7 @@ class SubagentSpawnTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -277,7 +277,7 @@ class SubagentSpawnTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -320,7 +320,7 @@ class SubagentSpawnTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -367,7 +367,7 @@ class SubagentSpawnTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
 
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(

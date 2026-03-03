@@ -139,6 +139,7 @@ class MessageProcessor(
                             includeSkillList = contextResult.includeSkillList,
                             includeSkillLoad = contextResult.includeSkillLoad,
                             includeScheduleDeliver = sink != null,
+                            includeSendMessage = false,
                         )
 
                     // Persist scheduled user message before LLM call

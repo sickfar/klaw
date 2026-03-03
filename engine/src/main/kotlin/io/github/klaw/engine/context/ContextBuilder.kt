@@ -78,7 +78,9 @@ class ContextBuilder(
                     append("\n\n## Scheduled Task Execution\n")
                     append("You are running as scheduled task '$taskName'. ")
                     append("Execute the instruction in the user message. ")
-                    append("If you have a result to deliver to the user, call `schedule_deliver`. ")
+                    append("If you have a result to deliver to the user, call `schedule_deliver` — ")
+                    append("this is the only delivery mechanism. ")
+                    append("Do NOT use `send_message` to deliver results or confirmations. ")
                     append("If there is nothing to deliver, complete without calling it.")
                 }
             val historyMessages = subagentHistoryLoader.loadHistory(taskName, config.context.subagentHistory)

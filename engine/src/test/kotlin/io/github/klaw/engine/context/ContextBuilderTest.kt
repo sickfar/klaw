@@ -680,6 +680,10 @@ class ContextBuilderTest {
                 systemMessage.content!!.contains("schedule_deliver"),
                 "System message should mention schedule_deliver tool",
             )
+            assertTrue(
+                systemMessage.content!!.contains("send_message"),
+                "System message should explicitly prohibit send_message for delivery",
+            )
         }
 
     @Test

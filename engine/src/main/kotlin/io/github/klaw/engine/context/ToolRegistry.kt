@@ -8,5 +8,6 @@ interface ToolRegistry {
         includeSkillLoad: Boolean = true,
         includeHeartbeatDeliver: Boolean = false,
         includeScheduleDeliver: Boolean = false,
+        includeSendMessage: Boolean = true,
     ): List<ToolDef>
 }

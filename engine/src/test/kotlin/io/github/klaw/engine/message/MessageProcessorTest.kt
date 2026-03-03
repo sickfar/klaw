@@ -170,7 +170,7 @@ class MessageProcessorTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
             val toolExecutor = ScheduleDeliverAwareToolExecutor()
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 42L
@@ -237,7 +237,7 @@ class MessageProcessorTest {
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
@@ -293,7 +293,7 @@ class MessageProcessorTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Background task done")
 
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any()) } returns emptyList()
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
@@ -331,9 +331,16 @@ class MessageProcessorTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
 
             val includeScheduleDeliverSlot = slot<Boolean>()
+            val includeSendMessageSlot = slot<Boolean>()
             val toolRegistry = mockk<ToolRegistry>(relaxed = true)
             coEvery {
-                toolRegistry.listTools(any(), any(), any(), capture(includeScheduleDeliverSlot))
+                toolRegistry.listTools(
+                    any(),
+                    any(),
+                    any(),
+                    capture(includeScheduleDeliverSlot),
+                    capture(includeSendMessageSlot),
+                )
             } returns emptyList()
 
             val processor =
@@ -352,6 +359,10 @@ class MessageProcessorTest {
             // injectInto=null means sink=null means includeScheduleDeliver=false
             assert(!includeScheduleDeliverSlot.captured) {
                 "includeScheduleDeliver should be false when injectInto is null"
+            }
+            // send_message tool should always be excluded from scheduled tasks
+            assert(!includeSendMessageSlot.captured) {
+                "includeSendMessage should be false for scheduled tasks"
             }
         }
 }
