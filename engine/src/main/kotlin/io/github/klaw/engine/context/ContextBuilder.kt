@@ -72,9 +72,18 @@ class ContextBuilder(
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
+            val scheduledSystemContent =
+                buildString {
+                    append(systemContent)
+                    append("\n\n## Scheduled Task Execution\n")
+                    append("You are running as scheduled task '$taskName'. ")
+                    append("Execute the instruction in the user message. ")
+                    append("Your response will be delivered directly to the user — ")
+                    append("write a clean, natural reply without meta-commentary about sending or delivering.")
+                }
             val historyMessages = subagentHistoryLoader.loadHistory(taskName, config.context.subagentHistory)
             return ContextResult(
-                buildSubagentContext(systemContent, historyMessages, pendingMessages),
+                buildSubagentContext(scheduledSystemContent, historyMessages, pendingMessages),
                 includeSkillList = includeSkillList,
                 includeSkillLoad = includeSkillLoad,
             )

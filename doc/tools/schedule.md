@@ -82,6 +82,11 @@ When `schedule_add` is called via the LLM tool interface, `injectInto` (chatId) 
 - If `injectInto` is `null` (e.g. tasks created via CLI without specifying a target): result is logged only.
 - Legacy jobs without a stored `channel` fall back to `"engine"` for backwards compatibility.
 
+**Reminder delivery pattern** — when the user wants to receive a specific text at the scheduled time:
+```
+Your task: send the user this reminder: Buy milk
+```
+
 **Silent pattern** — include in the `message` field when the task should only notify if something is found:
 ```
 Check email and report urgent messages. If nothing requires attention, respond with JSON: {"silent": true, "reason": "what was checked"}

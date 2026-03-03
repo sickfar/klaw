@@ -196,6 +196,24 @@ class MessageProcessor(
                                 content = content,
                             ),
                         )
+                        // Record in interactive session so user can follow up naturally
+                        val injectedRowId =
+                            messageRepository.saveAndGetRowId(
+                                id = UUID.randomUUID().toString(),
+                                channel = message.channel ?: "engine",
+                                chatId = message.injectInto,
+                                role = "assistant",
+                                type = "text",
+                                content = content,
+                            )
+                        messageEmbeddingService.embedAsync(
+                            injectedRowId,
+                            "assistant",
+                            "text",
+                            content,
+                            config.autoRag,
+                            processingScope,
+                        )
                     }
                 } catch (e: CancellationException) {
                     throw e

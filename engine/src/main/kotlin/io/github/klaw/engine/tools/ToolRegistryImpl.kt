@@ -339,14 +339,21 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "schedule_add",
-                    "Add a scheduled or one-time task",
+                    "Add a scheduled or one-time task. The 'message' field must be an explicit instruction " +
+                        "for the subagent, not just content to deliver.",
                     toolParams(
                         listOf("name", "message"),
                         mapOf(
                             "name" to stringProp("Unique task name"),
                             "cron" to stringProp("Cron schedule expression (mutually exclusive with at)"),
                             "at" to stringProp("ISO-8601 datetime for one-time trigger (mutually exclusive with cron)"),
-                            "message" to stringProp("Message to execute"),
+                            "message" to
+                                stringProp(
+                                    "Explicit instruction for the subagent when the task fires. " +
+                                        "Must be an actionable task, not just content. " +
+                                        "For reminder delivery: 'Your task: send the user this reminder: <text>'. " +
+                                        "For data collection: 'Check <source>, extract <info>, summarize for user'.",
+                                ),
                             "model" to stringProp("LLM model (optional)"),
                         ),
                     ),

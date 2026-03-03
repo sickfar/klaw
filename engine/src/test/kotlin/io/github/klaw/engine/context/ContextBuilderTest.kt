@@ -657,4 +657,40 @@ class ContextBuilderTest {
 
             io.mockk.verify(exactly = 2) { skillRegistry.discover() }
         }
+
+    @Test
+    fun `subagent scheduled task execution notice in system message when taskName provided`() =
+        runTest {
+            val session = buildSession()
+            coEvery { subagentHistoryLoader.loadHistory("my-task", any()) } returns emptyList()
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "my-task")
+
+            val systemMessage = result.messages.first { it.role == "system" }
+            assertTrue(
+                systemMessage.content!!.contains("Scheduled Task Execution"),
+                "System message should contain 'Scheduled Task Execution' section",
+            )
+            assertTrue(
+                systemMessage.content!!.contains("my-task"),
+                "System message should contain the task name",
+            )
+        }
+
+    @Test
+    fun `subagent with null taskName does not get scheduled task execution notice`() =
+        runTest {
+            val session = buildSession()
+
+            val contextBuilder = buildContextBuilder(buildConfig())
+            // isSubagent=true, taskName=null falls through to the interactive sliding-window path
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = null)
+
+            val systemMessage = result.messages.first { it.role == "system" }
+            assertFalse(
+                systemMessage.content!!.contains("Scheduled Task Execution"),
+                "isSubagent=true with null taskName must NOT produce a scheduled task notice",
+            )
+        }
 }
