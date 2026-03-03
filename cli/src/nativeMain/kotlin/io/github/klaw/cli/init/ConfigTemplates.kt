@@ -10,8 +10,8 @@ import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
-import io.github.klaw.common.config.HeartbeatConfig
 import io.github.klaw.common.config.GatewayConfig
+import io.github.klaw.common.config.HeartbeatConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.config.ProcessingConfig

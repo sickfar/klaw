@@ -54,6 +54,7 @@ internal class WorkspaceInitializer(
 
     private companion object {
         const val TOOLS_STUB = "# Tools\n\nList available tools here.\n"
+
         @Suppress("MaxLineLength")
         const val SOUL_STUB =
             "# Soul\n\n" +
