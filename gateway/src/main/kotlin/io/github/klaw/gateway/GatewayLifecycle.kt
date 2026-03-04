@@ -39,6 +39,10 @@ class GatewayLifecycle(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onApplicationEvent(event: StartupEvent) {
+        configFileWatcher.startWatching { newConfig ->
+            allowlistService.reload(newConfig)
+            logger.debug { "Config reloaded after file change" }
+        }
         outboundHandler.approvalCallback = { msg -> engineClient.send(msg) }
         engineClient.start()
         if (channels.isEmpty()) {

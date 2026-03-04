@@ -9,6 +9,7 @@ import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
+import io.micronaut.context.ApplicationContext
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -26,6 +27,16 @@ import java.time.LocalDate
 class OutboundHandlerTest {
     @TempDir
     lateinit var tempDir: File
+
+    private fun makeHandler(
+        allowedChats: List<AllowedChat> = emptyList(),
+        applicationContext: ApplicationContext = mockk(relaxed = true),
+    ) = GatewayOutboundHandler(
+        channels = emptyList(),
+        allowlistService = makeAllowlistService(allowedChats),
+        jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+        applicationContext = applicationContext,
+    )
 
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
@@ -45,6 +56,7 @@ class OutboundHandlerTest {
                     channels = listOf(telegramChannel),
                     allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk(relaxed = true),
                 )
             handler.handleOutbound(
                 OutboundSocketMessage(channel = "telegram", chatId = "telegram_123", content = "hi", replyTo = null),
@@ -62,6 +74,7 @@ class OutboundHandlerTest {
                     channels = listOf(channel),
                     allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk(relaxed = true),
                 )
             handler.handleOutbound(
                 OutboundSocketMessage(channel = "telegram", chatId = "telegram_123", content = "hello", replyTo = null),
@@ -84,10 +97,26 @@ class OutboundHandlerTest {
                     channels = listOf(channel),
                     allowlistService = makeAllowlistService(emptyList()),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk(relaxed = true),
                 )
             handler.handleOutbound(
                 OutboundSocketMessage(channel = "telegram", chatId = "telegram_999", content = "hi", replyTo = null),
             )
             coVerify(exactly = 0) { channel.send(any(), any()) }
+        }
+
+    @Test
+    fun `handleRestartRequest closes application context and triggers exit`() =
+        runBlocking {
+            val appCtx = mockk<ApplicationContext>(relaxed = true)
+            val handler = makeHandler(applicationContext = appCtx)
+            var exitCode = -1
+            handler.exitFn = { code -> exitCode = code }
+
+            handler.handleRestartRequest()
+            Thread.sleep(700) // wait past 500ms restart delay
+
+            coVerify { appCtx.close() }
+            assertEquals(0, exitCode)
         }
 }

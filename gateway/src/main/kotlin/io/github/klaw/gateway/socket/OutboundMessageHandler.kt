@@ -9,4 +9,6 @@ interface OutboundMessageHandler {
     suspend fun handleApprovalRequest(message: ApprovalRequestMessage)
 
     suspend fun handleShutdown()
+
+    suspend fun handleRestartRequest()
 }

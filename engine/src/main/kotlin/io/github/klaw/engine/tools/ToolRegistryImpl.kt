@@ -33,6 +33,7 @@ class ToolRegistryImpl(
     private val utilityTools: UtilityTools,
     private val sandboxExecTool: SandboxExecTool,
     private val hostExecTool: HostExecTool,
+    private val configTools: ConfigTools,
     private val config: EngineConfig,
 ) : ToolRegistry {
     override suspend fun listTools(
@@ -179,6 +180,14 @@ class ToolRegistryImpl(
             "host_exec" -> {
                 val ctx = kotlin.coroutines.coroutineContext[ChatContext]
                 hostExecTool.execute(args.str("command"), ctx?.chatId ?: "unknown", ctx?.channel ?: "unknown")
+            }
+
+            "config_get" -> {
+                configTools.configGet(args.str("target"), args.strOrNull("path"))
+            }
+
+            "config_set" -> {
+                configTools.configSet(args.str("target"), args.str("path"), args.str("value"))
             }
 
             "heartbeat_deliver" -> {
@@ -431,6 +440,43 @@ class ToolRegistryImpl(
                         listOf("command"),
                         mapOf(
                             "command" to stringProp("Shell command to execute on host"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "config_get",
+                    "Read current engine or gateway configuration. Sensitive values (API keys) are masked. " +
+                        "Omit 'path' to get the full config. Use dot notation for specific fields, " +
+                        "e.g. 'routing.default', 'providers.zai.baseUrl'.",
+                    toolParams(
+                        listOf("target"),
+                        mapOf(
+                            "target" to stringProp("Config target: 'engine' or 'gateway'"),
+                            "path" to
+                                stringProp(
+                                    "Dot-notation path (optional), e.g. 'routing.default', " +
+                                        "'providers.zai.baseUrl'",
+                                ),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "config_set",
+                    "Update a configuration field. Engine config changes trigger automatic restart (~2s downtime). " +
+                        "Gateway channel config changes restart the gateway. " +
+                        "Other gateway changes apply immediately.",
+                    toolParams(
+                        listOf("target", "path", "value"),
+                        mapOf(
+                            "target" to stringProp("Config target: 'engine' or 'gateway'"),
+                            "path" to
+                                stringProp(
+                                    "Dot-notation path, e.g. 'routing.default', 'providers.zai.apiKey'",
+                                ),
+                            "value" to
+                                stringProp(
+                                    "New value as string (booleans: 'true'/'false', numbers as digits)",
+                                ),
                         ),
                     ),
                 ),

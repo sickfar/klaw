@@ -9,6 +9,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
+import io.micronaut.context.ApplicationContext
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -46,6 +47,7 @@ class OutboundWhitelistTest {
             channels = listOf(channel),
             allowlistService = InboundAllowlistService(config),
             jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+            applicationContext = mockk<ApplicationContext>(relaxed = true),
         )
     }
 
@@ -90,6 +92,7 @@ class OutboundWhitelistTest {
                     channels = listOf(channel),
                     allowlistService = InboundAllowlistService(config),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                 )
             handler.handleOutbound(
                 OutboundSocketMessage(channel = "console", chatId = "console_default", content = "hi", replyTo = null),
@@ -108,6 +111,7 @@ class OutboundWhitelistTest {
                     channels = listOf(channel),
                     allowlistService = InboundAllowlistService(config),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                 )
             handler.handleOutbound(
                 OutboundSocketMessage(channel = "console", chatId = "other_chat", content = "hi", replyTo = null),

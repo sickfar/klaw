@@ -10,4 +10,6 @@ class NoOpOutboundMessageHandler : OutboundMessageHandler {
     override suspend fun handleApprovalRequest(message: ApprovalRequestMessage) = Unit
 
     override suspend fun handleShutdown() = Unit
+
+    override suspend fun handleRestartRequest() = Unit
 }

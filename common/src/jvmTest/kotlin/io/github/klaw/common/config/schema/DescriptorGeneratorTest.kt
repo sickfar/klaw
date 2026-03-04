@@ -97,7 +97,10 @@ class DescriptorGeneratorTest {
         val desc = findDescriptor(engineDescriptors, "processing.debounceMs")
         assertNotNull(desc)
         assertTrue(desc.description.isNotEmpty(), "Description should not be empty")
-        assertTrue(desc.description.contains("milliseconds", ignoreCase = true), "Expected 'milliseconds' in: ${desc.description}")
+        assertTrue(
+            desc.description.contains("milliseconds", ignoreCase = true),
+            "Expected 'milliseconds' in: ${desc.description}",
+        )
     }
 
     // --- possibleValues ---

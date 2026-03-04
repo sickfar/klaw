@@ -9,19 +9,25 @@ import io.github.klaw.gateway.channel.OutgoingMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micronaut.context.ApplicationContext
 import jakarta.inject.Singleton
 
 private val logger = KotlinLogging.logger {}
+
+private const val RESTART_DELAY_MS = 500L
 
 @Singleton
 class GatewayOutboundHandler(
     private val channels: List<Channel>,
     private val allowlistService: InboundAllowlistService,
     private val jsonlWriter: ConversationJsonlWriter,
+    private val applicationContext: ApplicationContext,
     approvalCallback: (suspend (SocketMessage) -> Unit)? = null,
 ) : OutboundMessageHandler {
     @Volatile
     var approvalCallback: (suspend (SocketMessage) -> Unit)? = approvalCallback
+
+    internal var exitFn: (Int) -> Unit = { System.exit(it) }
 
     override suspend fun handleOutbound(message: OutboundSocketMessage) {
         if (!isAllowed(message.chatId, message.channel)) {
@@ -65,6 +71,15 @@ class GatewayOutboundHandler(
 
     override suspend fun handleShutdown() {
         logger.debug { "Received shutdown signal from engine" }
+    }
+
+    override suspend fun handleRestartRequest() {
+        logger.info { "Restart requested by engine — gateway shutting down" }
+        Thread({
+            Thread.sleep(RESTART_DELAY_MS)
+            applicationContext.close()
+            exitFn(0)
+        }, "klaw-gateway-restart").apply { isDaemon = false }.start()
     }
 
     private fun isAllowed(

@@ -11,6 +11,7 @@ import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
+import io.micronaut.context.ApplicationContext
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -56,6 +57,7 @@ class ApprovalHandlingTest {
                     channels = listOf(telegramChannel),
                     allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                 )
 
             val request =
@@ -81,6 +83,7 @@ class ApprovalHandlingTest {
                     channels = listOf(telegramChannel),
                     allowlistService = makeAllowlistService(emptyList()),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                 )
 
             val request =
@@ -111,6 +114,7 @@ class ApprovalHandlingTest {
                     channels = listOf(telegramChannel),
                     allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                     approvalCallback = { msg -> sentResponses.add(msg) },
                 )
 
@@ -148,6 +152,7 @@ class ApprovalHandlingTest {
                     channels = listOf(telegramChannel),
                     allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
                     approvalCallback = { msg -> sentResponses.add(msg) },
                 )
 
@@ -182,6 +187,8 @@ class ApprovalHandlingTest {
                 override suspend fun handleOutbound(message: OutboundSocketMessage) = Unit
 
                 override suspend fun handleShutdown() = Unit
+
+                override suspend fun handleRestartRequest() = Unit
 
                 override suspend fun handleApprovalRequest(message: ApprovalRequestMessage) {
                     handledRequests.add(message)

@@ -5,6 +5,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.PingMessage
 import io.github.klaw.common.protocol.PongMessage
 import io.github.klaw.common.protocol.RegisterMessage
+import io.github.klaw.common.protocol.RestartRequestSocketMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -192,6 +193,12 @@ class EngineSocketClient(
                     logger.debug { "Received shutdown from engine" }
                     outboundHandler.handleShutdown()
                     true
+                }
+
+                is RestartRequestSocketMessage -> {
+                    logger.debug { "Received restart request from engine" }
+                    outboundHandler.handleRestartRequest()
+                    false
                 }
 
                 is PongMessage -> {

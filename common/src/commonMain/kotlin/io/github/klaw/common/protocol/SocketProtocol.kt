@@ -74,6 +74,10 @@ data object PingMessage : SocketMessage()
 @SerialName("pong")
 data object PongMessage : SocketMessage()
 
+@Serializable
+@SerialName("restart_request")
+data object RestartRequestSocketMessage : SocketMessage()
+
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
 // It uses a separate framing path for CLI ↔ Engine communication,
 // distinct from the Gateway ↔ Engine socket protocol above.

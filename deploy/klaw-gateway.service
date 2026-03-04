@@ -8,7 +8,7 @@ Wants=klaw-engine.service
 Type=simple
 Environment=HOME=%h
 ExecStart=/usr/bin/java -Xms32m -Xmx128m -jar %h/.local/share/klaw/bin/klaw-gateway.jar
-Restart=on-failure
+Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal

@@ -141,7 +141,7 @@ internal object ConfigTemplates {
                                     listOf(
                                         "$statePath:/home/klaw/.local/state/klaw",
                                         "$dataPath:/home/klaw/.local/share/klaw",
-                                        "$configPath:/home/klaw/.config/klaw:ro",
+                                        "$configPath:/home/klaw/.config/klaw",
                                     ),
                                 ports =
                                     if (enableConsole) {
@@ -191,7 +191,7 @@ internal object ConfigTemplates {
                                     listOf(
                                         "klaw-state:/root/.local/state/klaw",
                                         "klaw-data:/root/.local/share/klaw",
-                                        "klaw-config:/root/.config/klaw:ro",
+                                        "klaw-config:/root/.config/klaw",
                                     ),
                             ),
                     ),

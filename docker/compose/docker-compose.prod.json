@@ -10,7 +10,7 @@
                 "klaw-state:/root/.local/state/klaw",
                 "klaw-data:/root/.local/share/klaw",
                 "klaw-workspace:/workspace",
-                "klaw-config:/root/.config/klaw:ro"
+                "klaw-config:/root/.config/klaw"
             ]
         },
         "gateway": {
@@ -22,7 +22,7 @@
             "volumes": [
                 "klaw-state:/root/.local/state/klaw",
                 "klaw-data:/root/.local/share/klaw",
-                "klaw-config:/root/.config/klaw:ro"
+                "klaw-config:/root/.config/klaw"
             ]
         }
     },

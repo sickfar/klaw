@@ -225,6 +225,18 @@ class SocketProtocolTest {
     }
 
     @Test
+    fun `RestartRequestSocketMessage serializes with correct type discriminator`() {
+        val encoded = json.encodeToString<SocketMessage>(RestartRequestSocketMessage)
+        assertTrue(encoded.contains(""""type":"restart_request""""), "Expected type=restart_request in: $encoded")
+    }
+
+    @Test
+    fun `RestartRequestSocketMessage round-trip`() {
+        val encoded = json.encodeToString<SocketMessage>(RestartRequestSocketMessage)
+        assertIs<RestartRequestSocketMessage>(json.decodeFromString<SocketMessage>(encoded))
+    }
+
+    @Test
     fun `type field dispatches to correct subclass`() {
         val inboundJson =
             """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
@@ -238,6 +250,7 @@ class SocketProtocolTest {
         val approvalRespJson = """{"type":"approval_response","id":"apr_1","approved":true}"""
         val pingJson = """{"type":"ping"}"""
         val pongJson = """{"type":"pong"}"""
+        val restartReqJson = """{"type":"restart_request"}"""
 
         assertIs<InboundSocketMessage>(json.decodeFromString<SocketMessage>(inboundJson))
         assertIs<OutboundSocketMessage>(json.decodeFromString<SocketMessage>(outboundJson))
@@ -248,5 +261,6 @@ class SocketProtocolTest {
         assertIs<ApprovalResponseMessage>(json.decodeFromString<SocketMessage>(approvalRespJson))
         assertIs<PingMessage>(json.decodeFromString<SocketMessage>(pingJson))
         assertIs<PongMessage>(json.decodeFromString<SocketMessage>(pongJson))
+        assertIs<RestartRequestSocketMessage>(json.decodeFromString<SocketMessage>(restartReqJson))
     }
 }

@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Integration-level test verifying that all 19 tools are registered with correct
+ * Integration-level test verifying that all 20 tools are registered with correct
  * definitions and that the ToolRegistryImpl/DispatchingToolExecutor wiring is correct.
  *
  * Note: Full Micronaut context startup is not used here because there is a known
@@ -76,6 +76,7 @@ class ToolsIntegrationTest {
             utilityTools = mockk(),
             sandboxExecTool = mockk(),
             hostExecTool = mockk(),
+            configTools = mockk(),
             config = testEngineConfig(),
         )
 
@@ -91,10 +92,10 @@ class ToolsIntegrationTest {
     }
 
     @Test
-    fun `all 18 tools are registered`() =
+    fun `all 20 tools are registered`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(18, tools.size)
+            assertEquals(20, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue("file_read" in names)
             assertTrue("file_write" in names)
@@ -114,6 +115,8 @@ class ToolsIntegrationTest {
             assertTrue("send_message" in names)
             assertTrue("sandbox_exec" in names)
             assertTrue("host_exec" in names)
+            assertTrue("config_get" in names)
+            assertTrue("config_set" in names)
         }
 
     @Test
