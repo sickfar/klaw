@@ -2,6 +2,10 @@
 
 This file documents the structure of `~/.config/klaw/engine.json`, the primary configuration file for the Klaw engine.
 
+> **Interactive editor:** Run `klaw config edit engine` for a TUI that shows all properties with descriptions, validates changes, and saves directly.
+>
+> **Generated reference:** See [`engine-config-reference.md`](engine-config-reference.md) for the most up-to-date property descriptions (auto-generated from `@ConfigDoc` annotations in source code).
+
 ## JSON Schema
 
 A JSON Schema (draft-07) is available at [`engine.schema.json`](engine.schema.json). Add it to your config file for IDE autocompletion:

@@ -21,39 +21,6 @@ class SchemaGeneratorTest {
     }
 
     @Test
-    fun `engine schema file is up to date`() {
-        val expected = prettyJson.encodeToString(JsonObject.serializer(), engineJsonSchema()) + "\n"
-        val file = File(projectRoot(), "doc/config/engine.schema.json")
-        assertEquals(
-            expected,
-            file.readText(),
-            "engine.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
-        )
-    }
-
-    @Test
-    fun `gateway schema file is up to date`() {
-        val expected = prettyJson.encodeToString(JsonObject.serializer(), gatewayJsonSchema()) + "\n"
-        val file = File(projectRoot(), "doc/config/gateway.schema.json")
-        assertEquals(
-            expected,
-            file.readText(),
-            "gateway.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
-        )
-    }
-
-    @Test
-    fun `compose schema file is up to date`() {
-        val expected = prettyJson.encodeToString(JsonObject.serializer(), composeJsonSchema()) + "\n"
-        val file = File(projectRoot(), "doc/config/compose.schema.json")
-        assertEquals(
-            expected,
-            file.readText(),
-            "compose.schema.json is out of date — regenerate with: ./gradlew :common:generateSchemas",
-        )
-    }
-
-    @Test
     fun `GeneratedSchemas ENGINE matches generateJsonSchema output`() {
         val fromGenerator = generateJsonSchema(EngineConfig.serializer().descriptor, engineOverrides())
         val fromGenerated = engineJsonSchema()

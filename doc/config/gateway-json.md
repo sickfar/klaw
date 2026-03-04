@@ -2,7 +2,11 @@
 
 **Location:** `~/.config/klaw/gateway.json`
 
-This file is read by the Gateway process on startup. It is read-only from the agent's perspective — the agent cannot modify it. The user must edit this file directly to change channel settings.
+This file is read by the Gateway process on startup. It is read-only from the agent's perspective — the agent cannot modify it. The user must edit this file manually or via `klaw config edit gateway`.
+
+> **Interactive editor:** Run `klaw config edit gateway` for a TUI that shows all properties with descriptions, validates changes, and saves directly.
+>
+> **Generated reference:** See [`gateway-config-reference.md`](gateway-config-reference.md) for the most up-to-date property descriptions (auto-generated from `@ConfigDoc` annotations in source code).
 
 ## JSON Schema
 

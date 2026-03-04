@@ -50,6 +50,32 @@ klaw config set maxTokens 4096
 Prints a reminder to restart the Engine after changes:
 > Updated routing.default. Restart Engine to apply changes.
 
+### `klaw config edit engine` / `klaw config edit gateway`
+
+Opens an interactive TUI editor for the specified configuration file. Displays all properties with descriptions, grouped by section, with explicit values shown first and defaults below.
+
+```
+klaw config edit engine
+klaw config edit gateway
+```
+
+**Navigation:**
+- **Up/Down arrows** — move between properties
+- **PageUp/PageDown** — scroll by page
+- **Left/Right arrows** — cycle boolean and enum values
+- **Enter** — edit a text/number value inline
+- **Escape** — cancel inline edit
+- **S** — save changes (validates against JSON schema before writing)
+- **Q** — quit without saving
+
+**Display:**
+- Properties set in the config file appear first; defaults appear below a divider
+- Boolean and enum values show `◂ value ▸` indicators
+- Sensitive values (API keys, tokens) are masked as `***` unless they contain an env var pattern like `${API_KEY}`
+- The current property's description is shown in the status bar
+
+**Validation:** On save, the editor validates the modified config against the JSON schema. If validation fails, errors are displayed and changes are not written until fixed.
+
 ### `klaw engine start / stop / restart`
 
 Starts, stops, or restarts the engine service.

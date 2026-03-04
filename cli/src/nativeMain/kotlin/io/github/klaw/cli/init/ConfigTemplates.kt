@@ -236,10 +236,18 @@ private fun buildConfigRouting(modelId: String): RoutingConfig =
     )
 
 private fun buildConfigContext(): ContextConfig =
-    ContextConfig(slidingWindow = 20, defaultBudgetTokens = 4096, subagentHistory = 10)
+    ContextConfig(
+        slidingWindow = 20,
+        defaultBudgetTokens = 4096,
+        subagentHistory = 10,
+    )
 
 private fun buildConfigProcessing(): ProcessingConfig =
-    ProcessingConfig(debounceMs = 800, maxConcurrentLlm = 3, maxToolCallRounds = 50)
+    ProcessingConfig(
+        debounceMs = 800,
+        maxConcurrentLlm = 3,
+        maxToolCallRounds = 50,
+    )
 
 private fun buildConfigMemory(): MemoryConfig =
     MemoryConfig(

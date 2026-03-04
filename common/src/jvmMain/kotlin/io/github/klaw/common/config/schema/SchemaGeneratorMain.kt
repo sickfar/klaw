@@ -1,6 +1,7 @@
 package io.github.klaw.common.config.schema
 
 import io.github.klaw.common.config.ComposeConfig
+import io.github.klaw.common.config.ConfigPropertyDescriptor
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
 import kotlinx.serialization.json.JsonObject
@@ -44,29 +45,61 @@ private val prettyJson =
     }
 
 fun main(args: Array<String>) {
-    val outputDir = File(args.firstOrNull() ?: error("Usage: SchemaGeneratorMain <output-dir>"))
-    outputDir.mkdirs()
+    // generatedDir: build output for JSON schemas + markdown (not tracked in git)
+    // kotlinDir: src/commonMain/.../schema/ for GeneratedSchemas.kt + GeneratedConfigDescriptors.kt
+    val usage = "Usage: SchemaGeneratorMain <generated-dir> <kotlin-dir>"
+    val generatedDir = File(args.getOrNull(0) ?: error(usage))
+    generatedDir.mkdirs()
 
     val engineSchema = generateJsonSchema(EngineConfig.serializer().descriptor, ENGINE_OVERRIDES)
     val gatewaySchema = generateJsonSchema(GatewayConfig.serializer().descriptor)
     val composeSchema = generateJsonSchema(ComposeConfig.serializer().descriptor)
 
-    // Write schema JSON files (for doc/ and validation)
-    File(outputDir, "engine.schema.json").writeText(
+    // Write schema JSON files
+    File(generatedDir, "engine.schema.json").writeText(
         prettyJson.encodeToString(JsonObject.serializer(), engineSchema) + "\n",
     )
-    File(outputDir, "gateway.schema.json").writeText(
+    File(generatedDir, "gateway.schema.json").writeText(
         prettyJson.encodeToString(JsonObject.serializer(), gatewaySchema) + "\n",
     )
-    File(outputDir, "compose.schema.json").writeText(
+    File(generatedDir, "compose.schema.json").writeText(
         prettyJson.encodeToString(JsonObject.serializer(), composeSchema) + "\n",
     )
 
-    // Write GeneratedSchemas.kt source file for KMP access
-    val kotlinDir = File(args.getOrNull(1) ?: error("Usage: SchemaGeneratorMain <schema-dir> <kotlin-dir>"))
+    // Generate config property descriptors
+    val engineDescriptors =
+        generateDescriptors(
+            EngineConfig.serializer().descriptor,
+            EngineConfig::class.java,
+        )
+    val gatewayDescriptors =
+        generateDescriptors(
+            GatewayConfig.serializer().descriptor,
+            GatewayConfig::class.java,
+        )
+
+    // Write markdown reference docs
+    File(generatedDir, "engine-config-reference.md").writeText(
+        generateMarkdown("Engine Configuration Reference", engineDescriptors),
+    )
+    File(generatedDir, "gateway-config-reference.md").writeText(
+        generateMarkdown("Gateway Configuration Reference", gatewayDescriptors),
+    )
+
+    // Write GeneratedSchemas.kt and GeneratedConfigDescriptors.kt
+    val kotlinDir = File(args.getOrNull(1) ?: error(usage))
     kotlinDir.mkdirs()
 
-    // Escape $ in JSON to prevent Kotlin string template interpolation in raw strings
+    writeGeneratedSchemas(kotlinDir, engineSchema, gatewaySchema, composeSchema)
+    writeGeneratedDescriptors(kotlinDir, engineDescriptors, gatewayDescriptors)
+}
+
+private fun writeGeneratedSchemas(
+    kotlinDir: File,
+    engineSchema: JsonObject,
+    gatewaySchema: JsonObject,
+    composeSchema: JsonObject,
+) {
     val engineStr = prettyJson.encodeToString(JsonObject.serializer(), engineSchema).escapeDollar()
     val gatewayStr = prettyJson.encodeToString(JsonObject.serializer(), gatewaySchema).escapeDollar()
     val composeStr = prettyJson.encodeToString(JsonObject.serializer(), composeSchema).escapeDollar()
@@ -98,4 +131,69 @@ fun main(args: Array<String>) {
     )
 }
 
+private fun writeGeneratedDescriptors(
+    kotlinDir: File,
+    engineDescriptors: List<ConfigPropertyDescriptor>,
+    gatewayDescriptors: List<ConfigPropertyDescriptor>,
+) {
+    File(kotlinDir, "GeneratedConfigDescriptors.kt").writeText(
+        buildString {
+            appendLine("package io.github.klaw.common.config.schema")
+            appendLine()
+            appendLine("import io.github.klaw.common.config.ConfigPropertyDescriptor")
+            appendLine("import io.github.klaw.common.config.ConfigValueType")
+            appendLine()
+            appendLine("// AUTO-GENERATED — do not edit manually. Run generateSchemas task to regenerate.")
+            appendLine()
+            appendLine("object GeneratedConfigDescriptors {")
+            appendLine("    val ENGINE: List<ConfigPropertyDescriptor> = listOf(")
+            for (desc in engineDescriptors) {
+                appendLine("        ${formatDescriptorLiteral(desc)},")
+            }
+            appendLine("    )")
+            appendLine()
+            appendLine("    val GATEWAY: List<ConfigPropertyDescriptor> = listOf(")
+            for (desc in gatewayDescriptors) {
+                appendLine("        ${formatDescriptorLiteral(desc)},")
+            }
+            appendLine("    )")
+            appendLine("}")
+        },
+    )
+}
+
+private fun formatDescriptorLiteral(desc: ConfigPropertyDescriptor): String {
+    val possibleStr =
+        if (desc.possibleValues != null) {
+            "listOf(${desc.possibleValues.joinToString(", ") { "\"${it.escapeKotlinString()}\"" }})"
+        } else {
+            "null"
+        }
+    val defaultStr =
+        if (desc.defaultValue != null) {
+            "\"${desc.defaultValue.escapeKotlinString()}\""
+        } else {
+            "null"
+        }
+    val descStr = desc.description.escapeKotlinString()
+    val indent = "            "
+    return buildString {
+        append("ConfigPropertyDescriptor(\n")
+        append("${indent}\"${desc.path}\",\n")
+        append("${indent}ConfigValueType.${desc.type.name},\n")
+        append("${indent}\"$descStr\",\n")
+        append("${indent}$defaultStr,\n")
+        append("${indent}$possibleStr,\n")
+        append("${indent}${desc.sensitive},\n")
+        append("${indent}${desc.required},\n")
+        append("        )")
+    }
+}
+
 private fun String.escapeDollar(): String = replace("$", "\${'\$'}")
+
+private fun String.escapeKotlinString(): String =
+    replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\$", "\\\$")
