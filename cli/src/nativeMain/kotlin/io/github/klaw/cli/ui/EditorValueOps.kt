@@ -74,11 +74,7 @@ internal fun commitInlineEdit(
     if (item !is EditorItem.Property) return state
     val parsed = parseConfigValue(edit.buffer, item.descriptor.type) ?: return state
     val newConfig = state.config.setByPath(item.descriptor.path, parsed)
-    val newItems =
-        buildItems(
-            state.items.filterIsInstance<EditorItem.Property>().map { it.descriptor },
-            newConfig,
-        )
+    val newItems = buildItems(state.descriptors, newConfig)
     return state.copy(config = newConfig, items = newItems, editMode = EditMode.Navigation, modified = true)
 }
 
@@ -86,11 +82,7 @@ internal fun rebuildItems(
     state: EditorState,
     newConfig: JsonObject,
 ): EditorState {
-    val newItems =
-        buildItems(
-            state.items.filterIsInstance<EditorItem.Property>().map { it.descriptor },
-            newConfig,
-        )
+    val newItems = buildItems(state.descriptors, newConfig)
     return state.copy(config = newConfig, items = newItems, modified = true)
 }
 

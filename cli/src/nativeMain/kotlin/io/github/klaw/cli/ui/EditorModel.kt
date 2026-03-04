@@ -59,5 +59,6 @@ internal data class EditorState(
     val editMode: EditMode,
     val modified: Boolean,
     val config: JsonObject,
+    val descriptors: List<ConfigPropertyDescriptor>,
     val pendingAction: EditorAction = EditorAction.NONE,
 )

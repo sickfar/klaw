@@ -1,6 +1,5 @@
 package io.github.klaw.cli.ui
 
-import io.github.klaw.common.config.ConfigPropertyDescriptor
 import io.github.klaw.common.config.getByPath
 import io.github.klaw.common.config.removeByPath
 import io.github.klaw.common.config.setByPath
@@ -9,13 +8,12 @@ import kotlinx.serialization.json.JsonObject
 internal fun processEvent(
     state: EditorState,
     event: EditorEvent,
-    descriptors: List<ConfigPropertyDescriptor> = emptyList(),
 ): EditorState =
     when (state.editMode) {
         is EditMode.Navigation -> processNavigationEvent(state, event)
         is EditMode.InlineEdit -> processInlineEditEvent(state, event)
-        is EditMode.KeyNameInput -> processKeyNameInputEvent(state, event, state.editMode, descriptors)
-        is EditMode.ConfirmDelete -> processConfirmDeleteEvent(state, event, state.editMode, descriptors)
+        is EditMode.KeyNameInput -> processKeyNameInputEvent(state, event, state.editMode)
+        is EditMode.ConfirmDelete -> processConfirmDeleteEvent(state, event, state.editMode)
     }
 
 private fun processNavigationEvent(
@@ -117,7 +115,6 @@ private fun processKeyNameInputEvent(
     state: EditorState,
     event: EditorEvent,
     mode: EditMode.KeyNameInput,
-    descriptors: List<ConfigPropertyDescriptor>,
 ): EditorState =
     when (event) {
         is EditorEvent.Char -> {
@@ -138,7 +135,7 @@ private fun processKeyNameInputEvent(
             val mapElement = state.config.getByPath(mode.mapPath)
             if (mapElement is JsonObject && mapElement.containsKey(mode.buffer)) return state
             val newConfig = state.config.setByPath("${mode.mapPath}.${mode.buffer}", JsonObject(emptyMap()))
-            val newItems = buildItems(descriptors, newConfig)
+            val newItems = buildItems(state.descriptors, newConfig)
             state.copy(
                 config = newConfig,
                 items = newItems,
@@ -161,12 +158,11 @@ private fun processConfirmDeleteEvent(
     state: EditorState,
     event: EditorEvent,
     mode: EditMode.ConfirmDelete,
-    descriptors: List<ConfigPropertyDescriptor>,
 ): EditorState =
     when (event) {
         EditorEvent.Delete -> {
             val newConfig = state.config.removeByPath("${mode.mapPath}.${mode.key}")
-            val newItems = buildItems(descriptors, newConfig)
+            val newItems = buildItems(state.descriptors, newConfig)
             state.copy(
                 config = newConfig,
                 items = newItems,

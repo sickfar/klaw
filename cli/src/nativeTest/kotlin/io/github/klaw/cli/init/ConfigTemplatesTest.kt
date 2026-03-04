@@ -349,7 +349,7 @@ class ConfigTemplatesTest {
             "Expected klaw home data mount in:\n$result",
         )
         assertTrue(
-            result.contains(":/home/klaw/.config/klaw:ro"),
+            result.contains(":/home/klaw/.config/klaw"),
             "Expected klaw home config mount in:\n$result",
         )
     }

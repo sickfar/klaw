@@ -45,6 +45,7 @@ class ConfigEditorTest {
             editMode = EditMode.Navigation,
             modified = false,
             config = config,
+            descriptors = descriptors,
         )
     }
 
@@ -1441,7 +1442,7 @@ class ConfigEditorTest {
                 found = true
                 break
             }
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
         assertTrue(found, "Expected to land on a MapKeyHeader via navigation")
     }
@@ -1462,7 +1463,7 @@ class ConfigEditorTest {
                 item is EditorItem.SectionDivider,
                 "Cursor landed on SectionDivider at index ${state.cursorIndex}",
             )
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
     }
 
@@ -1481,7 +1482,7 @@ class ConfigEditorTest {
         assertEquals(0, state.cursorIndex)
         assertTrue(state.items[0] is EditorItem.MapSectionHeader)
 
-        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Add)
         assertTrue(state.editMode is EditMode.KeyNameInput)
         val mode = state.editMode
         assertEquals("providers", mode.mapPath)
@@ -1494,7 +1495,7 @@ class ConfigEditorTest {
         val config = buildJsonObject { put("llm", buildJsonObject { put("model", JsonPrimitive("gpt-4")) }) }
         val state = stateWith(descriptors, config)
 
-        val newState = processEvent(state, EditorEvent.Add, descriptors)
+        val newState = processEvent(state, EditorEvent.Add)
         assertEquals(EditMode.Navigation, newState.editMode)
     }
 
@@ -1507,11 +1508,11 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Add)
         assertTrue(state.editMode is EditMode.KeyNameInput)
 
-        state = processEvent(state, EditorEvent.Char('m'), descriptors)
-        state = processEvent(state, EditorEvent.Char('y'), descriptors)
+        state = processEvent(state, EditorEvent.Char('m'))
+        state = processEvent(state, EditorEvent.Char('y'))
         assertEquals("my", (state.editMode as EditMode.KeyNameInput).buffer)
     }
 
@@ -1524,10 +1525,10 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
-        state = processEvent(state, EditorEvent.Char('a'), descriptors)
-        state = processEvent(state, EditorEvent.Char('b'), descriptors)
-        state = processEvent(state, EditorEvent.Backspace, descriptors)
+        state = processEvent(state, EditorEvent.Add)
+        state = processEvent(state, EditorEvent.Char('a'))
+        state = processEvent(state, EditorEvent.Char('b'))
+        state = processEvent(state, EditorEvent.Backspace)
         assertEquals("a", (state.editMode as EditMode.KeyNameInput).buffer)
     }
 
@@ -1540,11 +1541,11 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
-        state = processEvent(state, EditorEvent.Char('n'), descriptors)
-        state = processEvent(state, EditorEvent.Char('e'), descriptors)
-        state = processEvent(state, EditorEvent.Char('w'), descriptors)
-        state = processEvent(state, EditorEvent.Enter, descriptors)
+        state = processEvent(state, EditorEvent.Add)
+        state = processEvent(state, EditorEvent.Char('n'))
+        state = processEvent(state, EditorEvent.Char('e'))
+        state = processEvent(state, EditorEvent.Char('w'))
+        state = processEvent(state, EditorEvent.Enter)
 
         assertEquals(EditMode.Navigation, state.editMode)
         assertTrue(state.modified)
@@ -1560,9 +1561,9 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Add)
         // buffer is empty, pressing Enter should be no-op
-        state = processEvent(state, EditorEvent.Enter, descriptors)
+        state = processEvent(state, EditorEvent.Enter)
         assertTrue(state.editMode is EditMode.KeyNameInput)
     }
 
@@ -1583,11 +1584,11 @@ class ConfigEditorTest {
                 )
             }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
-        state = processEvent(state, EditorEvent.Char('z'), descriptors)
-        state = processEvent(state, EditorEvent.Char('a'), descriptors)
-        state = processEvent(state, EditorEvent.Char('i'), descriptors)
-        state = processEvent(state, EditorEvent.Enter, descriptors)
+        state = processEvent(state, EditorEvent.Add)
+        state = processEvent(state, EditorEvent.Char('z'))
+        state = processEvent(state, EditorEvent.Char('a'))
+        state = processEvent(state, EditorEvent.Char('i'))
+        state = processEvent(state, EditorEvent.Enter)
 
         // Duplicate key — should remain in KeyNameInput
         assertTrue(state.editMode is EditMode.KeyNameInput)
@@ -1602,8 +1603,8 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
-        state = processEvent(state, EditorEvent.Escape, descriptors)
+        state = processEvent(state, EditorEvent.Add)
+        state = processEvent(state, EditorEvent.Escape)
         assertEquals(EditMode.Navigation, state.editMode)
     }
 
@@ -1616,11 +1617,11 @@ class ConfigEditorTest {
             )
         val config = buildJsonObject { put("providers", buildJsonObject {}) }
         var state = stateWith(descriptors, config)
-        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Add)
         for (c in "mynewprovider") {
-            state = processEvent(state, EditorEvent.Char(c), descriptors)
+            state = processEvent(state, EditorEvent.Char(c))
         }
-        state = processEvent(state, EditorEvent.Enter, descriptors)
+        state = processEvent(state, EditorEvent.Enter)
 
         val keyHeaders = state.items.filterIsInstance<EditorItem.MapKeyHeader>()
         assertTrue(keyHeaders.any { it.key == "mynewprovider" && it.mapPath == "providers" })
@@ -1652,11 +1653,11 @@ class ConfigEditorTest {
                 found = true
                 break
             }
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
         assertTrue(found, "Expected to find a MapKeyHeader to navigate to")
 
-        state = processEvent(state, EditorEvent.Delete, descriptors)
+        state = processEvent(state, EditorEvent.Delete)
         assertTrue(state.editMode is EditMode.ConfirmDelete)
         val mode = state.editMode
         assertEquals("providers", mode.mapPath)
@@ -1669,7 +1670,7 @@ class ConfigEditorTest {
         val config = buildJsonObject { put("llm", buildJsonObject { put("model", JsonPrimitive("gpt-4")) }) }
         val state = stateWith(descriptors, config)
 
-        val newState = processEvent(state, EditorEvent.Delete, descriptors)
+        val newState = processEvent(state, EditorEvent.Delete)
         assertEquals(EditMode.Navigation, newState.editMode)
     }
 
@@ -1693,11 +1694,11 @@ class ConfigEditorTest {
 
         for (i in 0 until state.items.size) {
             if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) break
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
 
-        state = processEvent(state, EditorEvent.Delete, descriptors) // → ConfirmDelete
-        state = processEvent(state, EditorEvent.Delete, descriptors) // confirm
+        state = processEvent(state, EditorEvent.Delete) // → ConfirmDelete
+        state = processEvent(state, EditorEvent.Delete) // confirm
 
         assertEquals(EditMode.Navigation, state.editMode)
         assertTrue(state.modified)
@@ -1724,15 +1725,137 @@ class ConfigEditorTest {
 
         for (i in 0 until state.items.size) {
             if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) break
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
 
-        state = processEvent(state, EditorEvent.Delete, descriptors) // → ConfirmDelete
-        state = processEvent(state, EditorEvent.Escape, descriptors) // cancel
+        state = processEvent(state, EditorEvent.Delete) // → ConfirmDelete
+        state = processEvent(state, EditorEvent.Escape) // cancel
 
         assertEquals(EditMode.Navigation, state.editMode)
         assertFalse(state.modified)
         assertTrue(state.items.any { it is EditorItem.MapKeyHeader && it.key == "zai" })
+    }
+
+    // ── Tree structure preservation after value edits ─────────────────────
+
+    @Test
+    fun `inline edit of property inside map section preserves tree structure`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        // Precondition: initial items contain map tree structure
+        assertTrue(state.items.any { it is EditorItem.MapSectionHeader }, "Initial state must have MapSectionHeader")
+        assertTrue(state.items.any { it is EditorItem.MapKeyHeader }, "Initial state must have MapKeyHeader")
+
+        // Navigate to the providers.zai.type Property (items: [0]=MapSectionHeader, [1]=MapKeyHeader, [2]=Property)
+        state = processEvent(state, EditorEvent.MoveDown)
+        state = processEvent(state, EditorEvent.MoveDown)
+        assertTrue(state.items[state.cursorIndex] is EditorItem.Property, "Cursor must be on a Property")
+
+        // Start inline edit
+        state = processEvent(state, EditorEvent.Enter)
+        assertTrue(state.editMode is EditMode.InlineEdit, "Must be in InlineEdit mode")
+
+        // Type 'n' and commit
+        state = processEvent(state, EditorEvent.Char('n'))
+        state = processEvent(state, EditorEvent.Enter)
+
+        // After commit, tree structure must be preserved
+        assertEquals(EditMode.Navigation, state.editMode)
+        assertTrue(state.modified)
+        assertTrue(
+            state.items.any { it is EditorItem.MapSectionHeader },
+            "MapSectionHeader must persist after inline edit",
+        )
+        assertTrue(
+            state.items.any { it is EditorItem.MapKeyHeader },
+            "MapKeyHeader must persist after inline edit",
+        )
+    }
+
+    @Test
+    fun `toggleBoolean inside map section preserves tree structure`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.enabled", type = ConfigValueType.BOOLEAN),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("enabled", JsonPrimitive(true)) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        // Navigate to the providers.zai.enabled Property
+        state = processEvent(state, EditorEvent.MoveDown)
+        state = processEvent(state, EditorEvent.MoveDown)
+        assertTrue(state.items[state.cursorIndex] is EditorItem.Property, "Cursor must be on a Property")
+
+        // Toggle boolean via MoveLeft
+        state = processEvent(state, EditorEvent.MoveLeft)
+
+        assertTrue(
+            state.items.any { it is EditorItem.MapSectionHeader },
+            "MapSectionHeader must persist after toggleBoolean",
+        )
+        assertTrue(
+            state.items.any { it is EditorItem.MapKeyHeader },
+            "MapKeyHeader must persist after toggleBoolean",
+        )
+    }
+
+    @Test
+    fun `cycleEnum inside map section preserves tree structure`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.mode", possibleValues = listOf("a", "b", "c")),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("mode", JsonPrimitive("a")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        // Navigate to the providers.zai.mode Property
+        state = processEvent(state, EditorEvent.MoveDown)
+        state = processEvent(state, EditorEvent.MoveDown)
+        assertTrue(state.items[state.cursorIndex] is EditorItem.Property, "Cursor must be on a Property")
+
+        // Cycle enum via MoveRight
+        state = processEvent(state, EditorEvent.MoveRight)
+
+        assertTrue(
+            state.items.any { it is EditorItem.MapSectionHeader },
+            "MapSectionHeader must persist after cycleEnum",
+        )
+        assertTrue(
+            state.items.any { it is EditorItem.MapKeyHeader },
+            "MapKeyHeader must persist after cycleEnum",
+        )
     }
 
     @Test
@@ -1758,12 +1881,12 @@ class ConfigEditorTest {
         for (i in 0 until state.items.size) {
             val item = state.items[state.cursorIndex]
             if (item is EditorItem.MapKeyHeader && item.key == "alpha") break
-            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+            state = processEvent(state, EditorEvent.MoveDown)
         }
         assertTrue(state.items[state.cursorIndex].let { it is EditorItem.MapKeyHeader && it.key == "alpha" })
 
-        state = processEvent(state, EditorEvent.Delete, descriptors)
-        state = processEvent(state, EditorEvent.Delete, descriptors)
+        state = processEvent(state, EditorEvent.Delete)
+        state = processEvent(state, EditorEvent.Delete)
 
         // alpha gone, beta still there
         assertFalse(state.items.any { it is EditorItem.MapKeyHeader && it.key == "alpha" })

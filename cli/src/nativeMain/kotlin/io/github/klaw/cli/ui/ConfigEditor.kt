@@ -128,6 +128,7 @@ internal class ConfigEditor(
                 editMode = EditMode.Navigation,
                 modified = false,
                 config = config,
+                descriptors = descriptors,
             )
 
         var escState: EditorEscState = EditorEscState.None
@@ -143,7 +144,7 @@ internal class ConfigEditor(
                 escState = newEscState
                 if (event == null) continue
 
-                state = processEvent(state, event, descriptors)
+                state = processEvent(state, event)
 
                 when (state.pendingAction) {
                     EditorAction.SAVE -> return state.config
