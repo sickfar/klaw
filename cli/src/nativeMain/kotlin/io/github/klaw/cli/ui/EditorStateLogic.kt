@@ -1,81 +1,21 @@
 package io.github.klaw.cli.ui
 
 import io.github.klaw.common.config.ConfigPropertyDescriptor
-import io.github.klaw.common.config.ConfigValueType
-import io.github.klaw.common.config.formatConfigValue
 import io.github.klaw.common.config.getByPath
+import io.github.klaw.common.config.removeByPath
+import io.github.klaw.common.config.setByPath
 import kotlinx.serialization.json.JsonObject
-
-internal fun expandWildcardDescriptors(
-    descriptors: List<ConfigPropertyDescriptor>,
-    config: JsonObject,
-): List<ConfigPropertyDescriptor> {
-    val result = mutableListOf<ConfigPropertyDescriptor>()
-    for (d in descriptors) {
-        val starIdx = d.path.indexOf('*')
-        if (starIdx < 0) {
-            result.add(d)
-            continue
-        }
-        val parentPath = d.path.substring(0, starIdx).trimEnd('.')
-        val childSuffix = d.path.substring(starIdx + 1).trimStart('.')
-        val mapElement = if (parentPath.isEmpty()) config else config.getByPath(parentPath)
-        if (mapElement !is JsonObject) continue
-        for (key in mapElement.keys) {
-            val concretePath = if (childSuffix.isEmpty()) "$parentPath.$key" else "$parentPath.$key.$childSuffix"
-            result.add(d.copy(path = concretePath))
-        }
-    }
-    return result
-}
-
-internal fun buildItems(
-    descriptors: List<ConfigPropertyDescriptor>,
-    config: JsonObject,
-): List<EditorItem> {
-    val expanded = expandWildcardDescriptors(descriptors, config)
-    val editable =
-        expanded.filter { d ->
-            d.type != ConfigValueType.MAP_SECTION && d.type != ConfigValueType.LIST_STRING
-        }
-
-    val explicit = mutableListOf<EditorItem.Property>()
-    val defaults = mutableListOf<EditorItem.Property>()
-
-    for (d in editable) {
-        val element = config.getByPath(d.path)
-        val isExplicit = element != null
-        val displayValue =
-            if (isExplicit) {
-                formatConfigValue(element, d.type, d.sensitive)
-            } else {
-                d.defaultValue ?: ""
-            }
-        val item =
-            EditorItem.Property(
-                descriptor = d,
-                isExplicit = isExplicit,
-                displayValue = displayValue,
-            )
-        if (isExplicit) explicit.add(item) else defaults.add(item)
-    }
-
-    val result = mutableListOf<EditorItem>()
-    result.addAll(explicit)
-    if (explicit.isNotEmpty() && defaults.isNotEmpty()) {
-        result.add(EditorItem.SectionDivider("--- Defaults (not set) ---"))
-    }
-    result.addAll(defaults)
-    return result
-}
 
 internal fun processEvent(
     state: EditorState,
     event: EditorEvent,
+    descriptors: List<ConfigPropertyDescriptor> = emptyList(),
 ): EditorState =
     when (state.editMode) {
         is EditMode.Navigation -> processNavigationEvent(state, event)
         is EditMode.InlineEdit -> processInlineEditEvent(state, event)
+        is EditMode.KeyNameInput -> processKeyNameInputEvent(state, event, state.editMode, descriptors)
+        is EditMode.ConfirmDelete -> processConfirmDeleteEvent(state, event, state.editMode, descriptors)
     }
 
 private fun processNavigationEvent(
@@ -92,8 +32,36 @@ private fun processNavigationEvent(
         EditorEvent.Quit -> state.copy(pendingAction = EditorAction.QUIT)
         EditorEvent.PageUp -> moveCursorPage(state, -1)
         EditorEvent.PageDown -> moveCursorPage(state, 1)
+        EditorEvent.Add -> handleAddOnCurrentItem(state)
+        EditorEvent.Delete -> handleDeleteOnCurrentItem(state)
         else -> state
     }
+
+private fun handleAddOnCurrentItem(state: EditorState): EditorState {
+    val item = state.items.getOrNull(state.cursorIndex) ?: return state
+    return when (item) {
+        is EditorItem.MapSectionHeader -> {
+            state.copy(editMode = EditMode.KeyNameInput(buffer = "", mapPath = item.mapPath))
+        }
+
+        else -> {
+            state
+        }
+    }
+}
+
+private fun handleDeleteOnCurrentItem(state: EditorState): EditorState {
+    val item = state.items.getOrNull(state.cursorIndex) ?: return state
+    return when (item) {
+        is EditorItem.MapKeyHeader -> {
+            state.copy(editMode = EditMode.ConfirmDelete(mapPath = item.mapPath, key = item.key))
+        }
+
+        else -> {
+            state
+        }
+    }
+}
 
 private fun processInlineEditEvent(
     state: EditorState,
@@ -144,6 +112,78 @@ private fun processInlineEditEvent(
         }
     }
 }
+
+private fun processKeyNameInputEvent(
+    state: EditorState,
+    event: EditorEvent,
+    mode: EditMode.KeyNameInput,
+    descriptors: List<ConfigPropertyDescriptor>,
+): EditorState =
+    when (event) {
+        is EditorEvent.Char -> {
+            if (event.c != '.' && !event.c.isWhitespace()) {
+                state.copy(editMode = mode.copy(buffer = mode.buffer + event.c))
+            } else {
+                state
+            }
+        }
+
+        EditorEvent.Backspace -> {
+            val newBuffer = if (mode.buffer.isNotEmpty()) mode.buffer.dropLast(1) else mode.buffer
+            state.copy(editMode = mode.copy(buffer = newBuffer))
+        }
+
+        EditorEvent.Enter -> {
+            if (mode.buffer.isEmpty()) return state
+            val mapElement = state.config.getByPath(mode.mapPath)
+            if (mapElement is JsonObject && mapElement.containsKey(mode.buffer)) return state
+            val newConfig = state.config.setByPath("${mode.mapPath}.${mode.buffer}", JsonObject(emptyMap()))
+            val newItems = buildItems(descriptors, newConfig)
+            state.copy(
+                config = newConfig,
+                items = newItems,
+                editMode = EditMode.Navigation,
+                modified = true,
+                cursorIndex = state.cursorIndex.coerceAtMost(newItems.lastIndex.coerceAtLeast(0)),
+            )
+        }
+
+        EditorEvent.Escape -> {
+            state.copy(editMode = EditMode.Navigation)
+        }
+
+        else -> {
+            state
+        }
+    }
+
+private fun processConfirmDeleteEvent(
+    state: EditorState,
+    event: EditorEvent,
+    mode: EditMode.ConfirmDelete,
+    descriptors: List<ConfigPropertyDescriptor>,
+): EditorState =
+    when (event) {
+        EditorEvent.Delete -> {
+            val newConfig = state.config.removeByPath("${mode.mapPath}.${mode.key}")
+            val newItems = buildItems(descriptors, newConfig)
+            state.copy(
+                config = newConfig,
+                items = newItems,
+                editMode = EditMode.Navigation,
+                modified = true,
+                cursorIndex = state.cursorIndex.coerceAtMost(newItems.lastIndex.coerceAtLeast(0)),
+            )
+        }
+
+        EditorEvent.Escape -> {
+            state.copy(editMode = EditMode.Navigation)
+        }
+
+        else -> {
+            state
+        }
+    }
 
 private fun handleInlineBackspace(
     state: EditorState,

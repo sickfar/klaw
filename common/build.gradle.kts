@@ -34,7 +34,11 @@ val generateSchemas by tasks.registering(JavaExec::class) {
     val jvmMain = kotlin.jvm().compilations["main"]
     classpath = jvmMain.output.allOutputs + jvmMain.runtimeDependencyFiles!!
     mainClass.set("io.github.klaw.common.config.schema.SchemaGeneratorMainKt")
-    val generatedDir = layout.buildDirectory.dir("generated/schemas").get().asFile
+    val generatedDir =
+        layout.buildDirectory
+            .dir("generated/schemas")
+            .get()
+            .asFile
     val kotlinDir = file("src/commonMain/kotlin/io/github/klaw/common/config/schema")
     args = listOf(generatedDir.absolutePath, kotlinDir.absolutePath)
 }

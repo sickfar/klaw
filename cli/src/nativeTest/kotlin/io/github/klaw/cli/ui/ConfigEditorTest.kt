@@ -1297,4 +1297,473 @@ class ConfigEditorTest {
         val items = buildItems(descriptors, config)
         assertTrue(items.filterIsInstance<EditorItem.Property>().isEmpty())
     }
+
+    // ── Map section / key header tests ──────────────────────────────────────
+
+    @Test
+    fun `buildItems emits MapSectionHeader for MAP_SECTION descriptor`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+
+        val items = buildItems(descriptors, config)
+        assertTrue(items.any { it is EditorItem.MapSectionHeader && it.mapPath == "providers" })
+    }
+
+    @Test
+    fun `buildItems emits MapKeyHeader for each key in config map`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                        put("deepseek", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                    },
+                )
+            }
+
+        val items = buildItems(descriptors, config)
+        val keyHeaders = items.filterIsInstance<EditorItem.MapKeyHeader>()
+        assertEquals(2, keyHeaders.size)
+        assertTrue(keyHeaders.any { it.key == "zai" })
+        assertTrue(keyHeaders.any { it.key == "deepseek" })
+    }
+
+    @Test
+    fun `buildItems map key properties use short display path`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                    },
+                )
+            }
+
+        val items = buildItems(descriptors, config)
+        val props = items.filterIsInstance<EditorItem.Property>().filter { it.descriptor.path == "providers.zai.type" }
+        assertEquals(1, props.size)
+        // displayPath should be short, not the full descriptor path
+        assertFalse(props[0].displayPath == "providers.zai.type")
+        assertTrue(props[0].displayPath.contains("type"))
+    }
+
+    @Test
+    fun `buildItems emits MapSectionHeader even when map absent from config`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = JsonObject(emptyMap())
+
+        val items = buildItems(descriptors, config)
+        assertTrue(items.any { it is EditorItem.MapSectionHeader && it.mapPath == "providers" })
+        assertTrue(items.filterIsInstance<EditorItem.MapKeyHeader>().isEmpty())
+    }
+
+    @Test
+    fun `buildItems non-map properties still sorted explicit-first after map sections`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+                descriptor("processing.debounceMs", defaultValue = "0"),
+                descriptor("processing.maxConcurrentLlm"),
+            )
+        val config =
+            buildJsonObject {
+                put("processing", buildJsonObject { put("debounceMs", JsonPrimitive(100)) })
+            }
+
+        val items = buildItems(descriptors, config)
+        // Map section should appear
+        assertTrue(items.any { it is EditorItem.MapSectionHeader })
+        // Explicit non-map property before defaults
+        val explicitIdx = items.indexOfFirst { it is EditorItem.Property && it.isExplicit }
+        val defaultIdx = items.indexOfLast { it is EditorItem.Property && !it.isExplicit }
+        assertTrue(explicitIdx >= 0 && defaultIdx >= 0)
+        assertTrue(explicitIdx < defaultIdx)
+    }
+
+    // ── Navigation through new item types ────────────────────────────────────
+
+    @Test
+    fun `cursor can land on MapSectionHeader`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        val state = stateWith(descriptors, config)
+
+        // With map sections first in buildItems, index 0 should be a MapSectionHeader
+        assertTrue(state.items[state.cursorIndex] is EditorItem.MapSectionHeader)
+    }
+
+    @Test
+    fun `cursor can land on MapKeyHeader`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("openai-compatible")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        var found = false
+        for (i in 0 until state.items.size) {
+            if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) {
+                found = true
+                break
+            }
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+        assertTrue(found, "Expected to land on a MapKeyHeader via navigation")
+    }
+
+    @Test
+    fun `cursor skips SectionDivider during navigation`() {
+        val descriptors =
+            listOf(
+                descriptor("llm.model"),
+                descriptor("llm.endpoint"),
+            )
+        val config = buildJsonObject { put("llm", buildJsonObject { put("model", JsonPrimitive("gpt-4")) }) }
+        var state = stateWith(descriptors, config)
+
+        for (i in 0 until state.items.size + 2) {
+            val item = state.items[state.cursorIndex]
+            assertFalse(item is EditorItem.SectionDivider, "Cursor landed on SectionDivider at index ${state.cursorIndex}")
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+    }
+
+    // ── Add flow (KeyNameInput mode) ──────────────────────────────────────────
+
+    @Test
+    fun `pressing A on MapSectionHeader enters KeyNameInput mode`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+
+        assertEquals(0, state.cursorIndex)
+        assertTrue(state.items[0] is EditorItem.MapSectionHeader)
+
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        assertTrue(state.editMode is EditMode.KeyNameInput)
+        val mode = state.editMode
+        assertEquals("providers", mode.mapPath)
+        assertEquals("", mode.buffer)
+    }
+
+    @Test
+    fun `pressing A on Property is no-op`() {
+        val descriptors = listOf(descriptor("llm.model"))
+        val config = buildJsonObject { put("llm", buildJsonObject { put("model", JsonPrimitive("gpt-4")) }) }
+        val state = stateWith(descriptors, config)
+
+        val newState = processEvent(state, EditorEvent.Add, descriptors)
+        assertEquals(EditMode.Navigation, newState.editMode)
+    }
+
+    @Test
+    fun `char input in KeyNameInput mode appends to buffer`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        assertTrue(state.editMode is EditMode.KeyNameInput)
+
+        state = processEvent(state, EditorEvent.Char('m'), descriptors)
+        state = processEvent(state, EditorEvent.Char('y'), descriptors)
+        assertEquals("my", (state.editMode as EditMode.KeyNameInput).buffer)
+    }
+
+    @Test
+    fun `backspace in KeyNameInput mode removes last char`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Char('a'), descriptors)
+        state = processEvent(state, EditorEvent.Char('b'), descriptors)
+        state = processEvent(state, EditorEvent.Backspace, descriptors)
+        assertEquals("a", (state.editMode as EditMode.KeyNameInput).buffer)
+    }
+
+    @Test
+    fun `enter with non-empty buffer adds key to config and rebuilds items`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Char('n'), descriptors)
+        state = processEvent(state, EditorEvent.Char('e'), descriptors)
+        state = processEvent(state, EditorEvent.Char('w'), descriptors)
+        state = processEvent(state, EditorEvent.Enter, descriptors)
+
+        assertEquals(EditMode.Navigation, state.editMode)
+        assertTrue(state.modified)
+        assertTrue(state.items.any { it is EditorItem.MapKeyHeader && it.key == "new" })
+    }
+
+    @Test
+    fun `enter with empty buffer is no-op in KeyNameInput`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        // buffer is empty, pressing Enter should be no-op
+        state = processEvent(state, EditorEvent.Enter, descriptors)
+        assertTrue(state.editMode is EditMode.KeyNameInput)
+    }
+
+    @Test
+    fun `enter with duplicate key is no-op in KeyNameInput`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Char('z'), descriptors)
+        state = processEvent(state, EditorEvent.Char('a'), descriptors)
+        state = processEvent(state, EditorEvent.Char('i'), descriptors)
+        state = processEvent(state, EditorEvent.Enter, descriptors)
+
+        // Duplicate key — should remain in KeyNameInput
+        assertTrue(state.editMode is EditMode.KeyNameInput)
+    }
+
+    @Test
+    fun `escape in KeyNameInput cancels and returns to Navigation`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        state = processEvent(state, EditorEvent.Escape, descriptors)
+        assertEquals(EditMode.Navigation, state.editMode)
+    }
+
+    @Test
+    fun `new key from KeyNameInput appears as MapKeyHeader in rebuilt items`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config = buildJsonObject { put("providers", buildJsonObject {}) }
+        var state = stateWith(descriptors, config)
+        state = processEvent(state, EditorEvent.Add, descriptors)
+        for (c in "mynewprovider") {
+            state = processEvent(state, EditorEvent.Char(c), descriptors)
+        }
+        state = processEvent(state, EditorEvent.Enter, descriptors)
+
+        val keyHeaders = state.items.filterIsInstance<EditorItem.MapKeyHeader>()
+        assertTrue(keyHeaders.any { it.key == "mynewprovider" && it.mapPath == "providers" })
+    }
+
+    // ── Delete flow (ConfirmDelete mode) ─────────────────────────────────────
+
+    @Test
+    fun `pressing D on MapKeyHeader enters ConfirmDelete mode`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        var found = false
+        for (i in 0 until state.items.size) {
+            if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) {
+                found = true
+                break
+            }
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+        assertTrue(found, "Expected to find a MapKeyHeader to navigate to")
+
+        state = processEvent(state, EditorEvent.Delete, descriptors)
+        assertTrue(state.editMode is EditMode.ConfirmDelete)
+        val mode = state.editMode
+        assertEquals("providers", mode.mapPath)
+        assertEquals("zai", mode.key)
+    }
+
+    @Test
+    fun `pressing D on Property is no-op`() {
+        val descriptors = listOf(descriptor("llm.model"))
+        val config = buildJsonObject { put("llm", buildJsonObject { put("model", JsonPrimitive("gpt-4")) }) }
+        val state = stateWith(descriptors, config)
+
+        val newState = processEvent(state, EditorEvent.Delete, descriptors)
+        assertEquals(EditMode.Navigation, newState.editMode)
+    }
+
+    @Test
+    fun `pressing D in ConfirmDelete mode removes key from config and rebuilds items`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        for (i in 0 until state.items.size) {
+            if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) break
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+
+        state = processEvent(state, EditorEvent.Delete, descriptors) // → ConfirmDelete
+        state = processEvent(state, EditorEvent.Delete, descriptors) // confirm
+
+        assertEquals(EditMode.Navigation, state.editMode)
+        assertTrue(state.modified)
+        assertFalse(state.items.any { it is EditorItem.MapKeyHeader && it.key == "zai" })
+    }
+
+    @Test
+    fun `escape in ConfirmDelete mode cancels`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("zai", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        for (i in 0 until state.items.size) {
+            if (state.items[state.cursorIndex] is EditorItem.MapKeyHeader) break
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+
+        state = processEvent(state, EditorEvent.Delete, descriptors) // → ConfirmDelete
+        state = processEvent(state, EditorEvent.Escape, descriptors) // cancel
+
+        assertEquals(EditMode.Navigation, state.editMode)
+        assertFalse(state.modified)
+        assertTrue(state.items.any { it is EditorItem.MapKeyHeader && it.key == "zai" })
+    }
+
+    @Test
+    fun `deleted key's MapKeyHeader absent from rebuilt items`() {
+        val descriptors =
+            listOf(
+                descriptor("providers.*", type = ConfigValueType.MAP_SECTION),
+                descriptor("providers.*.type"),
+            )
+        val config =
+            buildJsonObject {
+                put(
+                    "providers",
+                    buildJsonObject {
+                        put("alpha", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                        put("beta", buildJsonObject { put("type", JsonPrimitive("oc")) })
+                    },
+                )
+            }
+        var state = stateWith(descriptors, config)
+
+        // Navigate to 'alpha' MapKeyHeader
+        for (i in 0 until state.items.size) {
+            val item = state.items[state.cursorIndex]
+            if (item is EditorItem.MapKeyHeader && item.key == "alpha") break
+            state = processEvent(state, EditorEvent.MoveDown, descriptors)
+        }
+        assertTrue(state.items[state.cursorIndex].let { it is EditorItem.MapKeyHeader && it.key == "alpha" })
+
+        state = processEvent(state, EditorEvent.Delete, descriptors)
+        state = processEvent(state, EditorEvent.Delete, descriptors)
+
+        // alpha gone, beta still there
+        assertFalse(state.items.any { it is EditorItem.MapKeyHeader && it.key == "alpha" })
+        assertTrue(state.items.any { it is EditorItem.MapKeyHeader && it.key == "beta" })
+    }
 }
