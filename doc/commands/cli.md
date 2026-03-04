@@ -65,6 +65,8 @@ klaw config edit gateway
 - **Left/Right arrows** — cycle boolean and enum values
 - **Enter** — edit a text/number value inline
 - **Escape** — cancel inline edit
+- **A** — add a new key to the map section under the cursor
+- **D** — delete the map key under the cursor (press D again to confirm)
 - **S** — save changes (validates against JSON schema before writing)
 - **Q** — quit without saving
 
@@ -73,6 +75,11 @@ klaw config edit gateway
 - Boolean and enum values show `◂ value ▸` indicators
 - Sensitive values (API keys, tokens) are masked as `***` unless they contain an env var pattern like `${API_KEY}`
 - The current property's description is shown in the status bar
+
+**Map sections** (e.g. `providers`, `models`):
+- Map section headers show `── providers ──── [A]dd`; press **A** to add a new key
+- Each key within a section shows `  ▸ keyname ──── [D]`; press **D** to delete it
+- Deleting a key requires a second **D** to confirm; **Escape** cancels
 
 **Validation:** On save, the editor validates the modified config against the JSON schema. If validation fails, errors are displayed and changes are not written until fixed.
 
