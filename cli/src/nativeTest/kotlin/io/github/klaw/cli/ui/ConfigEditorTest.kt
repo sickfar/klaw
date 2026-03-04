@@ -1458,7 +1458,10 @@ class ConfigEditorTest {
 
         for (i in 0 until state.items.size + 2) {
             val item = state.items[state.cursorIndex]
-            assertFalse(item is EditorItem.SectionDivider, "Cursor landed on SectionDivider at index ${state.cursorIndex}")
+            assertFalse(
+                item is EditorItem.SectionDivider,
+                "Cursor landed on SectionDivider at index ${state.cursorIndex}",
+            )
             state = processEvent(state, EditorEvent.MoveDown, descriptors)
         }
     }
