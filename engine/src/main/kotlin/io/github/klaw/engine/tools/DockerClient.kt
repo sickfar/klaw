@@ -65,7 +65,7 @@ data class ExecutionResult(
 )
 
 interface DockerClient {
-    suspend fun run(options: DockerRunOptions): String
+    suspend fun run(options: DockerRunOptions): ExecutionResult
 
     suspend fun exec(
         containerId: String,
@@ -80,29 +80,54 @@ interface DockerClient {
 
 @Singleton
 class ProcessDockerClient : DockerClient {
-    override suspend fun run(options: DockerRunOptions): String =
+    override suspend fun run(options: DockerRunOptions): ExecutionResult =
         withContext(Dispatchers.VT) {
             val cmd = buildRunCommand(options)
-            logger.trace { "docker run: ${cmd.size} args" }
+            logger.trace {
+                "docker run: image=${options.image} name=${options.name} " +
+                    "volumes=${options.volumes.size} network=${options.networkMode} " +
+                    "detach=${options.detach} remove=${options.remove} cmdArgs=${cmd.size}"
+            }
             val process =
                 ProcessBuilder(cmd)
                     .redirectErrorStream(false)
                     .start()
-            val stdout =
-                process.inputStream
-                    .bufferedReader()
-                    .readText()
-                    .trim()
-            val stderr =
-                process.errorStream
-                    .bufferedReader()
-                    .readText()
-                    .trim()
+            // Drain streams concurrently to avoid pipe buffer deadlock
+            var stdout = ""
+            var stderr = ""
+            val stdoutThread =
+                Thread {
+                    stdout =
+                        process.inputStream
+                            .bufferedReader()
+                            .readText()
+                            .trim()
+                }
+            val stderrThread =
+                Thread {
+                    stderr =
+                        process.errorStream
+                            .bufferedReader()
+                            .readText()
+                            .trim()
+                }
+            stdoutThread.start()
+            stderrThread.start()
             val exitCode = process.waitFor()
-            if (exitCode != 0) {
+            stdoutThread.join(STREAM_JOIN_TIMEOUT_MS)
+            stderrThread.join(STREAM_JOIN_TIMEOUT_MS)
+            if (isDockerInfrastructureError(exitCode, stderr)) {
+                logger.debug {
+                    "docker run infrastructure error: exitCode=$exitCode " +
+                        "stderrLen=${stderr.length} image=${options.image}"
+                }
                 throwTypedRunException(stderr, options.image)
             }
-            stdout
+            ExecutionResult(
+                stdout = stdout,
+                stderr = stderr,
+                exitCode = exitCode,
+            )
         }
 
     override suspend fun exec(
@@ -190,6 +215,21 @@ class ProcessDockerClient : DockerClient {
     companion object {
         private const val STREAM_JOIN_TIMEOUT_MS = 5000L
         private const val TIMEOUT_EXIT_CODE = 137
+        private const val DOCKER_DAEMON_ERROR_EXIT = 125
+
+        /**
+         * Docker exits with 125 for daemon/infrastructure errors.
+         * Exit codes 126, 127, and others come from the container command itself.
+         */
+        internal fun isDockerInfrastructureError(
+            exitCode: Int,
+            stderr: String,
+        ): Boolean {
+            if (exitCode == DOCKER_DAEMON_ERROR_EXIT) return true
+            val lower = stderr.lowercase()
+            return lower.contains("cannot connect to the docker daemon") ||
+                lower.contains("is docker installed")
+        }
 
         @Suppress("ThrowsCount", "ComplexCondition")
         internal fun throwTypedRunException(
@@ -202,20 +242,24 @@ class ProcessDockerClient : DockerClient {
                     lower.contains("is docker installed") ||
                     lower.contains("command not found") ||
                     (lower.contains("no such file or directory") && lower.contains("docker")) -> {
+                    logger.debug { "docker error classified as DockerUnavailable, stderrLen=${stderr.length}" }
                     throw SandboxExecutionException.DockerUnavailable()
                 }
 
                 lower.contains("no such image") ||
                     lower.contains("pull access denied") ||
                     lower.contains("manifest unknown") -> {
+                    logger.debug { "docker error classified as ImageNotFound, image=$image" }
                     throw SandboxExecutionException.ImageNotFound(image)
                 }
 
                 lower.contains("permission denied") -> {
+                    logger.debug { "docker error classified as PermissionDenied, stderrLen=${stderr.length}" }
                     throw SandboxExecutionException.PermissionDenied()
                 }
 
                 else -> {
+                    logger.debug { "docker error classified as ContainerStartFailure, stderrLen=${stderr.length}" }
                     throw SandboxExecutionException.ContainerStartFailure(
                         sanitizeErrorDetail(stderr),
                     )

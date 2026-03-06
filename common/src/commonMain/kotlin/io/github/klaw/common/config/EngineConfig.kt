@@ -218,7 +218,7 @@ data class CodeExecutionConfig(
     val maxCpus: String = "1.0",
     @ConfigDoc("Mount the container root filesystem as read-only")
     val readOnlyRootfs: Boolean = true,
-    @ConfigDoc("Keep sandbox container alive between executions")
+    @ConfigDoc("Keep sandbox container alive between executions (reuses container for faster execution and state persistence)")
     val keepAlive: Boolean = false,
     @ConfigDoc("Idle timeout in minutes before stopping a kept-alive container")
     val keepAliveIdleTimeoutMin: Int = 5,

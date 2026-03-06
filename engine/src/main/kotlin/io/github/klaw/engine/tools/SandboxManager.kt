@@ -58,8 +58,12 @@ class SandboxManager(
         val cmd = listOf("timeout", timeout.toString(), "bash", "-c", code)
         val options = buildRunOptions(name, remove = true, command = cmd)
         logger.trace { "Oneshot run: name=$name" }
-        val output = docker.run(options)
-        return SandboxExecOutput(stdout = output, stderr = "", exitCode = 0)
+        val result = docker.run(options)
+        return SandboxExecOutput(
+            stdout = result.stdout,
+            stderr = result.stderr,
+            exitCode = result.exitCode,
+        )
     }
 
     private suspend fun getOrCreateContainer(): String {
@@ -75,7 +79,8 @@ class SandboxManager(
             }
             val name = "klaw-sandbox-${UUID.randomUUID()}"
             val options = buildRunOptions(name, detach = true)
-            val id = docker.run(options)
+            val result = docker.run(options)
+            val id = result.stdout
             containerId = id
             executionCount = 0
             lastExecutionTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())

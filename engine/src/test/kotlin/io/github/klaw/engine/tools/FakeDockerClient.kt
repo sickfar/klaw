@@ -6,7 +6,7 @@ class FakeDockerClient : DockerClient {
     val stopCalls = mutableListOf<String>()
     val rmCalls = mutableListOf<String>()
 
-    var nextRunResult: String = "fake-container-id"
+    var nextRunResult: ExecutionResult = ExecutionResult(stdout = "fake-container-id", stderr = "", exitCode = 0)
     var nextRunException: Exception? = null
     var nextExecResult: ExecutionResult = ExecutionResult(stdout = "", stderr = "", exitCode = 0)
     var nextExecException: Exception? = null
@@ -17,7 +17,7 @@ class FakeDockerClient : DockerClient {
         val timeout: Int,
     )
 
-    override suspend fun run(options: DockerRunOptions): String {
+    override suspend fun run(options: DockerRunOptions): ExecutionResult {
         runCalls.add(options)
         nextRunException?.let { throw it }
         return nextRunResult
