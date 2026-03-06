@@ -207,7 +207,7 @@ data class LoggingConfig(
 @Serializable
 data class CodeExecutionConfig(
     @ConfigDoc("Docker image used for code execution sandbox")
-    val dockerImage: String = "python:3.12-slim",
+    val dockerImage: String = "python:3.12-slim-bookworm",
     @ConfigDoc("Maximum execution timeout in seconds")
     val timeout: Int = 30,
     @ConfigDoc("Allow network access inside the sandbox container")
@@ -321,8 +321,8 @@ data class HostExecutionConfig(
     val notifyList: List<String> = emptyList(),
     @ConfigDoc("Pre-validation settings for host command safety checks")
     val preValidation: PreValidationConfig = PreValidationConfig(),
-    @ConfigDoc("Timeout in minutes for user confirmation prompts")
-    val askTimeoutMin: Int = 5,
+    @ConfigDoc("Timeout in minutes for user confirmation prompts (0 = infinite, no timeout)")
+    val askTimeoutMin: Int = 0,
 )
 
 @Serializable

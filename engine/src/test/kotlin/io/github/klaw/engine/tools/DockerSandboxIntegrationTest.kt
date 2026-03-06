@@ -49,7 +49,7 @@ class DockerSandboxIntegrationTest {
     fun `python code executes and returns output`() =
         runTest {
             val sb = sandbox()
-            val result = sb.execute("python", "print('hello from sandbox')", 10)
+            val result = sb.execute("python3 -c \"print('hello from sandbox')\"", 10)
             assertEquals(0, result.exitCode)
             assertTrue(result.stdout.contains("hello from sandbox"))
             assertFalse(result.timedOut)
@@ -59,7 +59,7 @@ class DockerSandboxIntegrationTest {
     fun `bash code executes and returns output`() =
         runTest {
             val sb = sandbox()
-            val result = sb.execute("bash", "echo 'bash works'", 10)
+            val result = sb.execute("echo 'bash works'", 10)
             assertEquals(0, result.exitCode)
             assertTrue(result.stdout.contains("bash works"))
             assertFalse(result.timedOut)
@@ -69,7 +69,7 @@ class DockerSandboxIntegrationTest {
     fun `python computation returns correct result`() =
         runTest {
             val sb = sandbox()
-            val result = sb.execute("python", "print(sum(range(1, 101)))", 10)
+            val result = sb.execute("python3 -c 'print(sum(range(1, 101)))'", 10)
             assertEquals(0, result.exitCode)
             assertTrue(result.stdout.trim().contains("5050"))
         }
@@ -78,7 +78,7 @@ class DockerSandboxIntegrationTest {
     fun `stderr captured on python error`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val result = sb.execute("python", "import sys; sys.stderr.write('err msg\\n'); print('out')", 10)
+            val result = sb.execute("python3 -c \"import sys; sys.stderr.write('err msg\\n'); print('out')\"", 10)
             assertEquals(0, result.exitCode)
             assertTrue(result.stdout.contains("out"))
             assertTrue(result.stderr.contains("err msg"))
@@ -88,7 +88,7 @@ class DockerSandboxIntegrationTest {
     fun `non-zero exit code on python syntax error`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val result = sb.execute("python", "def invalid(", 10)
+            val result = sb.execute("python3 -c 'def invalid('", 10)
             assertTrue(result.exitCode != 0, "Should have non-zero exit code for syntax error")
             assertTrue(result.stderr.isNotEmpty(), "Should have stderr for syntax error")
         }
@@ -97,7 +97,7 @@ class DockerSandboxIntegrationTest {
     fun `timeout enforced for infinite loop`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val result = sb.execute("python", "import time\nwhile True: time.sleep(0.1)", 3)
+            val result = sb.execute("python3 -c 'import time\nwhile True: time.sleep(0.1)'", 3)
             assertTrue(result.timedOut, "Should timeout for infinite loop")
         }
 
@@ -105,11 +105,11 @@ class DockerSandboxIntegrationTest {
     fun `keep-alive mode reuses container`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val r1 = sb.execute("python", "print('run1')", 10)
+            val r1 = sb.execute("python3 -c \"print('run1')\"", 10)
             assertEquals(0, r1.exitCode)
             assertTrue(r1.stdout.contains("run1"))
 
-            val r2 = sb.execute("python", "print('run2')", 10)
+            val r2 = sb.execute("python3 -c \"print('run2')\"", 10)
             assertEquals(0, r2.exitCode)
             assertTrue(r2.stdout.contains("run2"))
         }
@@ -118,7 +118,7 @@ class DockerSandboxIntegrationTest {
     fun `read-only rootfs prevents writes outside tmpfs`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val result = sb.execute("bash", "touch /opt/testfile 2>&1; echo \"exit:\$?\"", 10)
+            val result = sb.execute("touch /opt/testfile 2>&1; echo \"exit:\$?\"", 10)
             assertTrue(
                 result.stdout.contains("exit:1") ||
                     result.stdout.contains("Read-only") ||
@@ -131,7 +131,7 @@ class DockerSandboxIntegrationTest {
     fun `tmpfs writable at tmp`() =
         runTest {
             val sb = sandbox(keepAlive = true)
-            val result = sb.execute("bash", "echo 'data' > /tmp/test.txt && cat /tmp/test.txt", 10)
+            val result = sb.execute("echo 'data' > /tmp/test.txt && cat /tmp/test.txt", 10)
             assertEquals(0, result.exitCode)
             assertTrue(result.stdout.contains("data"))
         }
@@ -144,7 +144,7 @@ class DockerSandboxIntegrationTest {
             @Suppress("MaxLineLength")
             val code =
                 "import socket,sys\ntry:\n socket.create_connection(('1.1.1.1',80),timeout=2)\n print('connected')\nexcept Exception as e:\n print(f'blocked:{type(e).__name__}')\n sys.exit(1)"
-            val result = sb.execute("python", code, 10)
+            val result = sb.execute("python3 -c \"$code\"", 10)
             assertTrue(
                 result.exitCode != 0 ||
                     result.stdout.contains("blocked:"),
@@ -156,7 +156,7 @@ class DockerSandboxIntegrationTest {
     fun `formatForLlm produces readable output`() =
         runTest {
             val sb = sandbox()
-            val result = sb.execute("python", "print('formatted output test')", 10)
+            val result = sb.execute("python3 -c \"print('formatted output test')\"", 10)
             val formatted = result.formatForLlm()
             assertTrue(formatted.contains("formatted output test"))
         }

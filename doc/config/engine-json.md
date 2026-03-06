@@ -115,7 +115,7 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
     "subagentConversations": true
   },
   "codeExecution": {
-    "dockerImage": "python:3.12-slim",
+    "dockerImage": "python:3.12-slim-bookworm",
     "timeout": 30,
     "allowNetwork": false,
     "maxMemory": "256m",

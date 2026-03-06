@@ -27,7 +27,7 @@ Commands pass through a 4-step validation cascade. The first matching step deter
 
 3. **LLM pre-validation** — If enabled, an LLM evaluates the command's risk score (0-10). Commands scoring below `riskThreshold` execute without asking. Commands at or above the threshold proceed to step 4.
 
-4. **User approval** — An inline-keyboard approval request is sent to the user in the originating chat. The user can approve or reject. If no response is received within `askTimeoutMin` minutes, the command is rejected.
+4. **User approval** — An inline-keyboard approval request is sent to the user in the originating chat. The user can approve or reject. If `askTimeoutMin` is 0 (the default), the engine waits indefinitely for a response. If set to a positive value, the command is rejected after that many minutes.
 
 ## Configuration
 
@@ -45,7 +45,7 @@ In `engine.json` under `hostExecution`:
       "riskThreshold": 5,
       "timeoutMs": 5000
     },
-    "askTimeoutMin": 5
+    "askTimeoutMin": 0
   }
 }
 ```
@@ -59,7 +59,7 @@ In `engine.json` under `hostExecution`:
 | `preValidation.model` | LLM model ID for risk assessment |
 | `preValidation.riskThreshold` | Risk score threshold (0-10); below = auto-approve |
 | `preValidation.timeoutMs` | Timeout for LLM risk assessment call |
-| `askTimeoutMin` | Minutes to wait for user approval before timeout |
+| `askTimeoutMin` | Minutes to wait for user approval (0 = infinite, no timeout) |
 
 ## Glob Pattern Matching
 

@@ -57,14 +57,37 @@ class ApprovalServiceTest {
         }
 
     @Test
-    fun `timeout completes with false`() =
+    fun `zero timeout means infinite wait - awaits until response`() =
         runTest {
             val service = ApprovalService(sender)
 
-            // Use 0 timeout to immediately timeout
-            val result = service.requestApproval("chat_1", "cmd", 5, timeoutMin = 0)
+            val result =
+                async {
+                    service.requestApproval("chat_1", "cmd", 5, timeoutMin = 0)
+                }
 
-            assertFalse(result)
+            delay(10)
+            val sent = sentMessages[0] as ApprovalRequestMessage
+            service.handleResponse(ApprovalResponseMessage(sent.id, approved = true))
+
+            assertTrue(result.await())
+        }
+
+    @Test
+    fun `negative timeout means infinite wait - awaits until response`() =
+        runTest {
+            val service = ApprovalService(sender)
+
+            val result =
+                async {
+                    service.requestApproval("chat_1", "cmd", 5, timeoutMin = -1)
+                }
+
+            delay(10)
+            val sent = sentMessages[0] as ApprovalRequestMessage
+            service.handleResponse(ApprovalResponseMessage(sent.id, approved = false))
+
+            assertFalse(result.await())
         }
 
     @Test

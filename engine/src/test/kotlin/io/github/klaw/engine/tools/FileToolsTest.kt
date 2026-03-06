@@ -17,9 +17,18 @@ class FileToolsTest {
     @TempDir
     lateinit var stateDir: Path
 
-    private fun tools(maxSize: Long = 10_000L): FileTools = FileTools(listOf(workspace), maxSize)
+    private fun tools(maxSize: Long = 10_000L): FileTools =
+        FileTools(listOf(workspace), maxSize, mapOf("\$WORKSPACE" to workspace.toString()))
 
-    private fun toolsMultiPath(maxSize: Long = 10_000L): FileTools = FileTools(listOf(workspace, stateDir), maxSize)
+    private fun toolsMultiPath(maxSize: Long = 10_000L): FileTools =
+        FileTools(
+            listOf(workspace, stateDir),
+            maxSize,
+            mapOf(
+                "\$WORKSPACE" to workspace.toString(),
+                "\$STATE" to stateDir.toString(),
+            ),
+        )
 
     @Test
     fun `file_read reads file from workspace`() =
@@ -355,5 +364,48 @@ class FileToolsTest {
             Files.writeString(logFile, "old content")
             val result = toolsMultiPath().patch(logFile.toAbsolutePath().toString(), "old", "new")
             assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    // --- Placeholder expansion tests ---
+
+    @Test
+    fun `file_read with WORKSPACE placeholder resolves to workspace`() =
+        runTest {
+            Files.writeString(workspace.resolve("foo.txt"), "hello placeholder")
+            val result = toolsMultiPath().read("\$WORKSPACE/foo.txt")
+            assertEquals("hello placeholder", result)
+        }
+
+    @Test
+    fun `file_read with STATE placeholder resolves to state dir`() =
+        runTest {
+            val logsDir = stateDir.resolve("logs").also { Files.createDirectories(it) }
+            Files.writeString(logsDir.resolve("engine.log"), "log data here")
+            val result = toolsMultiPath().read("\$STATE/logs/engine.log")
+            assertEquals("log data here", result)
+        }
+
+    @Test
+    fun `file_read with STATE placeholder and traversal attack is blocked`() =
+        runTest {
+            val result = toolsMultiPath().read("\$STATE/../../../etc/passwd")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    @Test
+    fun `file_list with STATE placeholder works`() =
+        runTest {
+            val logsDir = stateDir.resolve("logs").also { Files.createDirectories(it) }
+            Files.writeString(logsDir.resolve("engine.log"), "log data")
+            val result = toolsMultiPath().list("\$STATE/logs")
+            assertTrue(result.contains("engine.log"), "Expected engine.log in: $result")
+        }
+
+    @Test
+    fun `literal paths without placeholders still work`() =
+        runTest {
+            Files.writeString(workspace.resolve("plain.txt"), "plain content")
+            val result = tools().read("plain.txt")
+            assertEquals("plain content", result)
         }
 }

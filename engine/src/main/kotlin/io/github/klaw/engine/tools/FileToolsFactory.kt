@@ -18,6 +18,14 @@ class FileToolsFactory {
                 Path.of(KlawPaths.config),
                 Path.of(KlawPaths.cache),
             )
-        return FileTools(allowedPaths, config.files.maxFileSizeBytes)
+        val placeholders =
+            mapOf(
+                "\$WORKSPACE" to KlawPaths.workspace,
+                "\$STATE" to KlawPaths.state,
+                "\$DATA" to KlawPaths.data,
+                "\$CONFIG" to KlawPaths.config,
+                "\$CACHE" to KlawPaths.cache,
+            )
+        return FileTools(allowedPaths, config.files.maxFileSizeBytes, placeholders)
     }
 }

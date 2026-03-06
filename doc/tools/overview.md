@@ -59,7 +59,7 @@ See [subagent.md](subagent.md).
 ### Code Execution Tools (2)
 | Tool | Description |
 |------|-------------|
-| `sandbox_exec` | Execute Python or bash code in an isolated Docker container |
+| `sandbox_exec` | Execute bash scripts in an isolated Docker container |
 | `host_exec` | Execute a shell command on the host with access control |
 
 See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).

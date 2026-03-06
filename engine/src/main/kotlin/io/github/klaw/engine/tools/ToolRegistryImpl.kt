@@ -17,6 +17,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
@@ -65,6 +66,8 @@ class ToolRegistryImpl(
                         Json.parseToJsonElement(call.arguments).jsonObject
                     }
                 dispatch(call.name, args)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.warn(e) { "execute failed: tool=${call.name}" }
                 "Error: ${e.message}"
@@ -171,7 +174,6 @@ class ToolRegistryImpl(
 
             "sandbox_exec" -> {
                 sandboxExecTool.execute(
-                    args.str("language"),
                     args.str("code"),
                     args.intOrNull("timeout") ?: config.codeExecution.timeout,
                 )
@@ -422,12 +424,11 @@ class ToolRegistryImpl(
                 @Suppress("MaxLineLength")
                 ToolDef(
                     "sandbox_exec",
-                    "PREFERRED tool for code execution. Runs Python or bash in an isolated Docker container with workspace access ($SANDBOX_WORKSPACE_PATH). Use for: data processing, downloading files (curl/wget), file transformations, computations, parsing, working with workspace files, testing scripts. Project workspace is mounted at $SANDBOX_WORKSPACE_PATH — code can read and write workspace files.",
+                    "Execute bash scripts in an isolated Docker container with workspace access ($SANDBOX_WORKSPACE_PATH). Use for: data processing, downloading files (curl/wget), file transformations, computations, parsing, working with workspace files, testing scripts. python3 is available in the container (call from bash). Project workspace is mounted at $SANDBOX_WORKSPACE_PATH — code can read and write workspace files.",
                     toolParams(
-                        listOf("language", "code"),
+                        listOf("code"),
                         mapOf(
-                            "language" to stringProp("Language: python or bash"),
-                            "code" to stringProp("Code to execute"),
+                            "code" to stringProp("Bash script to execute"),
                             "timeout" to intProp("Timeout in seconds (default 30)"),
                         ),
                     ),

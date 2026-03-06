@@ -9,36 +9,36 @@ import kotlin.time.Instant
 private val logger = KotlinLogging.logger {}
 
 const val SANDBOX_WORKSPACE_PATH = "/workspace"
+private const val MAX_OUTPUT_CHARS = 10_000
 
 class SandboxManager(
     private val config: CodeExecutionConfig,
     private val docker: DockerClient,
     private val workspacePath: String? = null,
+    private val hostWorkspacePath: String? = null,
 ) {
     private var containerId: String? = null
     private var executionCount = 0
     private var lastExecutionTime: Instant = Instant.DISTANT_PAST
 
     suspend fun execute(
-        language: String,
         code: String,
         timeout: Int,
     ): SandboxExecOutput =
         if (config.keepAlive) {
-            executeKeepAlive(language, code, timeout)
+            executeKeepAlive(code, timeout)
         } else {
-            executeOneshot(language, code, timeout)
+            executeOneshot(code, timeout)
         }
 
     private suspend fun executeKeepAlive(
-        language: String,
         code: String,
         timeout: Int,
     ): SandboxExecOutput {
         val id = getOrCreateContainer()
         executionCount++
         lastExecutionTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())
-        val cmd = buildExecCommand(language, code)
+        val cmd = listOf("bash", "-c", code)
         val raw = docker.exec(id, cmd, timeout)
         val result = ProcessDockerClient.classifyExecResult(raw, config.maxMemory)
         logger.trace { "Keep-alive exec completed: exitCode=${result.exitCode}, timedOut=${result.timedOut}" }
@@ -51,12 +51,11 @@ class SandboxManager(
     }
 
     private suspend fun executeOneshot(
-        language: String,
         code: String,
         timeout: Int,
     ): SandboxExecOutput {
         val name = "klaw-sandbox-${UUID.randomUUID()}"
-        val cmd = buildOneshotCommand(language, code, timeout)
+        val cmd = listOf("timeout", timeout.toString(), "bash", "-c", code)
         val options = buildRunOptions(name, remove = true, command = cmd)
         logger.trace { "Oneshot run: name=$name" }
         val output = docker.run(options)
@@ -117,7 +116,8 @@ class SandboxManager(
     ): DockerRunOptions {
         val safeVolumes = filterVolumes(config.volumeMounts).toMutableList()
         if (workspacePath != null) {
-            safeVolumes.add("$workspacePath:$SANDBOX_WORKSPACE_PATH:rw")
+            val volumeSource = hostWorkspacePath ?: workspacePath
+            safeVolumes.add("$volumeSource:$SANDBOX_WORKSPACE_PATH:rw")
         }
         return DockerRunOptions(
             image = config.dockerImage,
@@ -134,22 +134,6 @@ class SandboxManager(
         )
     }
 
-    private fun buildExecCommand(
-        language: String,
-        code: String,
-    ): List<String> =
-        when (language) {
-            "python" -> listOf("python3", "-c", code)
-            "bash" -> listOf("bash", "-c", code)
-            else -> throw IllegalArgumentException("Unsupported language: $language")
-        }
-
-    private fun buildOneshotCommand(
-        language: String,
-        code: String,
-        timeout: Int,
-    ): List<String> = listOf("timeout", timeout.toString()) + buildExecCommand(language, code)
-
     companion object {
         fun filterVolumes(volumes: List<String>): List<String> =
             volumes.filter { vol ->
@@ -165,8 +149,7 @@ data class SandboxExecOutput(
     val exitCode: Int,
     val timedOut: Boolean = false,
 ) {
-    @Suppress("MagicNumber")
-    fun formatForLlm(maxChars: Int = 10000): String {
+    fun formatForLlm(maxChars: Int = MAX_OUTPUT_CHARS): String {
         val parts = mutableListOf<String>()
 
         if (timedOut) {

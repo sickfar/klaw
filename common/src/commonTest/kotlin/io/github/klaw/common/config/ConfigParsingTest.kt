@@ -468,7 +468,7 @@ class ConfigParsingTest {
         assertEquals("", config.hostExecution.preValidation.model)
         assertEquals(5, config.hostExecution.preValidation.riskThreshold)
         assertEquals(5000L, config.hostExecution.preValidation.timeoutMs)
-        assertEquals(5, config.hostExecution.askTimeoutMin)
+        assertEquals(0, config.hostExecution.askTimeoutMin)
     }
 
     @Test

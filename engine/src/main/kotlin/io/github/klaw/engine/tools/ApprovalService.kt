@@ -42,7 +42,7 @@ class ApprovalService(
 
         return try {
             if (timeoutMin <= 0) {
-                false
+                deferred.await()
             } else {
                 withTimeout(timeoutMin.minutes) { deferred.await() }
             }

@@ -21,7 +21,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker)
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertFalse(call.privileged, "privileged must never be true")
@@ -37,7 +37,7 @@ class SecurityConstraintsTest {
                 )
             val docker = FakeDockerClient()
             val manager = SandboxManager(configWithSocket, docker)
-            manager.execute("bash", "echo test", 30)
+            manager.execute("echo test", 30)
 
             docker.runCalls.forEach { call ->
                 call.volumes.forEach { vol ->
@@ -54,7 +54,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker)
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertTrue(
@@ -69,7 +69,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker)
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertTrue(call.readOnly, "readOnly rootfs must always be true")
@@ -81,7 +81,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker)
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertFalse(call.pidHost, "pidHost must never be true")
@@ -93,7 +93,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker, workspacePath = "/home/klaw/workspace")
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertTrue(
@@ -108,7 +108,7 @@ class SecurityConstraintsTest {
         runTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config, docker, workspacePath = "/home/klaw/workspace")
-            manager.execute("bash", "echo test", 30)
+            manager.execute("echo test", 30)
 
             docker.runCalls.forEach { call ->
                 val workspaceVol = call.volumes.first { it.contains(SANDBOX_WORKSPACE_PATH) }
@@ -122,7 +122,7 @@ class SecurityConstraintsTest {
             val configNoVols = config.copy(volumeMounts = emptyList())
             val docker = FakeDockerClient()
             val manager = SandboxManager(configNoVols, docker, workspacePath = null)
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
 
             docker.runCalls.forEach { call ->
                 assertFalse(

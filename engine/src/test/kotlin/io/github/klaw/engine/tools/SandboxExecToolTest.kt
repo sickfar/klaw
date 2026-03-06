@@ -16,21 +16,6 @@ class SandboxExecToolTest {
         )
 
     @Test
-    fun `executes python code via sandbox manager`() =
-        runTest {
-            val docker = FakeDockerClient()
-            docker.nextExecResult = ExecutionResult(stdout = "42\n", stderr = "", exitCode = 0)
-            val manager = SandboxManager(config, docker)
-            val tool = SandboxExecTool(manager, config)
-
-            val result = tool.execute("python", "print(42)")
-
-            assertEquals("42\n", result)
-            assertEquals(1, docker.execCalls.size)
-            assertTrue(docker.execCalls[0].cmd.contains("python3"))
-        }
-
-    @Test
     fun `executes bash code via sandbox manager`() =
         runTest {
             val docker = FakeDockerClient()
@@ -38,7 +23,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            val result = tool.execute("bash", "echo hello")
+            val result = tool.execute("echo hello")
 
             assertEquals("hello\n", result)
             assertTrue(docker.execCalls[0].cmd.contains("bash"))
@@ -52,7 +37,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            tool.execute("python", "print(1)", timeout = 60)
+            tool.execute("echo 1", timeout = 60)
 
             assertEquals(60, docker.execCalls[0].timeout)
         }
@@ -65,7 +50,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            tool.execute("python", "print(1)")
+            tool.execute("echo 1")
 
             assertEquals(config.timeout, docker.execCalls[0].timeout)
         }
@@ -78,23 +63,11 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            val result = tool.execute("python", "print(1)")
+            val result = tool.execute("echo 1")
 
             assertTrue(result.contains("result"), "Should contain stdout")
             assertTrue(result.contains("warn"), "Should contain stderr")
             assertTrue(result.contains("exit code: 1"), "Should contain exit code")
-        }
-
-    @Test
-    fun `returns error for unsupported language`() =
-        runTest {
-            val docker = FakeDockerClient()
-            val manager = SandboxManager(config, docker)
-            val tool = SandboxExecTool(manager, config)
-
-            val result = tool.execute("ruby", "puts 1")
-
-            assertTrue(result.contains("Unsupported language"), "Should report unsupported language")
         }
 
     @Test
@@ -106,7 +79,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(oneshotConfig, docker)
             val tool = SandboxExecTool(manager, oneshotConfig)
 
-            val result = tool.execute("python", "print(1)")
+            val result = tool.execute("echo 1")
 
             assertTrue(result.contains("Docker is not available"), "Should report Docker unavailable: $result")
         }
@@ -120,7 +93,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(oneshotConfig, docker)
             val tool = SandboxExecTool(manager, oneshotConfig)
 
-            val result = tool.execute("python", "print(1)")
+            val result = tool.execute("echo 1")
 
             assertTrue(
                 result.contains("image 'klaw-sandbox:latest' not found"),
@@ -136,7 +109,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            val result = tool.execute("python", "x = [0] * 10**9")
+            val result = tool.execute("python3 -c 'x = [0] * 10**9'")
 
             assertTrue(result.contains("ran out of memory"), "Should report OOM: $result")
         }
@@ -149,7 +122,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            val result = tool.execute("python", "open('/etc/shadow')")
+            val result = tool.execute("cat /etc/shadow")
 
             assertTrue(result.contains("Permission denied"), "Should report permission denied: $result")
         }
@@ -163,7 +136,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(oneshotConfig, docker)
             val tool = SandboxExecTool(manager, oneshotConfig)
 
-            val result = tool.execute("python", "print(1)")
+            val result = tool.execute("echo 1")
 
             assertTrue(
                 result.contains("Failed to start sandbox container"),
@@ -179,7 +152,7 @@ class SandboxExecToolTest {
             val manager = SandboxManager(config, docker)
             val tool = SandboxExecTool(manager, config)
 
-            val result = tool.execute("python", "import time; time.sleep(999)")
+            val result = tool.execute("sleep 999")
 
             assertTrue(result.contains("timed out"), "Timeout should not be classified as OOM: $result")
         }

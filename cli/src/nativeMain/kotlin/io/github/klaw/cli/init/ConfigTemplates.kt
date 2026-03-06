@@ -114,6 +114,7 @@ internal object ConfigTemplates {
                                     mapOf(
                                         "HOME" to "/home/klaw",
                                         "KLAW_WORKSPACE" to "/workspace",
+                                        "KLAW_HOST_WORKSPACE" to workspacePath,
                                         "KLAW_ENGINE_BIND" to "0.0.0.0",
                                     ),
                                 volumes =

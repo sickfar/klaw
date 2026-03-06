@@ -14,18 +14,23 @@ private val logger = KotlinLogging.logger {}
 class FileTools(
     private val allowedPaths: List<Path>,
     private val maxFileSizeBytes: Long,
+    private val placeholders: Map<String, String> = emptyMap(),
 ) {
     // First allowed path is the workspace — the only writable path
     private val workspace: Path get() = allowedPaths.first()
+
+    private fun expandPlaceholders(path: String): String =
+        placeholders.entries.fold(path) { p, (k, v) -> p.replace(k, v) }
 
     private fun safePath(
         userPath: String,
         writeAccess: Boolean = false,
     ): Result<Path> {
         return try {
+            val expanded = expandPlaceholders(userPath)
             val basePaths = if (writeAccess) listOf(workspace) else allowedPaths
             for (base in basePaths) {
-                val resolved = base.resolve(userPath).normalize()
+                val resolved = base.resolve(expanded).normalize()
                 if (!resolved.startsWith(base)) continue
                 // Check for symlinks at the path itself
                 if (Files.isSymbolicLink(resolved)) {

@@ -26,8 +26,8 @@ class SandboxManagerTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config(keepAlive = false), docker)
 
-            manager.execute("python", "print(1)", 30)
-            manager.execute("python", "print(2)", 30)
+            manager.execute("echo 1", 30)
+            manager.execute("echo 2", 30)
 
             assertEquals(2, docker.runCalls.size, "Expected 2 docker run calls for oneshot mode")
             assertEquals(0, docker.execCalls.size, "Expected 0 docker exec calls for oneshot mode")
@@ -40,8 +40,8 @@ class SandboxManagerTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
 
-            manager.execute("python", "print(1)", 30)
-            manager.execute("python", "print(2)", 30)
+            manager.execute("echo 1", 30)
+            manager.execute("echo 2", 30)
 
             assertEquals(1, docker.runCalls.size, "Expected 1 docker run call for keep-alive")
             assertEquals(2, docker.execCalls.size, "Expected 2 docker exec calls for keep-alive")
@@ -53,9 +53,9 @@ class SandboxManagerTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config(keepAlive = true, maxExecutions = 2), docker)
 
-            manager.execute("python", "print(1)", 30)
-            manager.execute("python", "print(2)", 30)
-            manager.execute("python", "print(3)", 30)
+            manager.execute("echo 1", 30)
+            manager.execute("echo 2", 30)
+            manager.execute("echo 3", 30)
 
             assertEquals(2, docker.runCalls.size, "Expected 2 docker run calls after maxExecutions")
             assertEquals(1, docker.stopCalls.size, "Expected 1 stop call when recreating container")
@@ -67,7 +67,7 @@ class SandboxManagerTest {
             val docker = FakeDockerClient()
             val manager = SandboxManager(config(keepAlive = true), docker)
 
-            manager.execute("python", "print(1)", 30)
+            manager.execute("echo 1", 30)
             manager.shutdown()
 
             assertEquals(1, docker.stopCalls.size, "Expected 1 stop call on shutdown")
@@ -95,7 +95,7 @@ class SandboxManagerTest {
             val manager = SandboxManager(config(keepAlive = false), docker)
 
             try {
-                manager.execute("python", "print(1)", 30)
+                manager.execute("echo 1", 30)
                 fail("Should have thrown DockerUnavailable")
             } catch (e: SandboxExecutionException.DockerUnavailable) {
                 // expected
@@ -111,7 +111,7 @@ class SandboxManagerTest {
             val manager = SandboxManager(config(keepAlive = false), docker)
 
             try {
-                manager.execute("python", "print(1)", 30)
+                manager.execute("echo 1", 30)
                 fail("Should have thrown ImageNotFound")
             } catch (e: SandboxExecutionException.ImageNotFound) {
                 assertTrue(e.message!!.contains("klaw-sandbox:latest"))
@@ -127,7 +127,7 @@ class SandboxManagerTest {
             val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
 
             try {
-                manager.execute("python", "x = [0]*10**9", 30)
+                manager.execute("python3 -c 'x = [0]*10**9'", 30)
                 fail("Should have thrown OutOfMemory")
             } catch (e: SandboxExecutionException.OutOfMemory) {
                 assertTrue(e.message!!.contains("memory"))
@@ -143,10 +143,51 @@ class SandboxManagerTest {
             val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
 
             try {
-                manager.execute("python", "open('/etc/shadow')", 30)
+                manager.execute("cat /etc/shadow", 30)
                 fail("Should have thrown PermissionDenied")
             } catch (e: SandboxExecutionException.PermissionDenied) {
                 // expected
             }
+        }
+
+    @Test
+    fun `hostWorkspacePath used in volume mount when set`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(
+                    config(keepAlive = false),
+                    docker,
+                    workspacePath = "/workspace",
+                    hostWorkspacePath = "/home/pi/klaw-workspace",
+                )
+
+            manager.execute("echo 1", 30)
+
+            val volumes = docker.runCalls[0].volumes
+            assertTrue(
+                volumes.any { it.startsWith("/home/pi/klaw-workspace:/workspace") },
+                "Expected host workspace path in volume mount, got: $volumes",
+            )
+        }
+
+    @Test
+    fun `fallback to workspacePath when hostWorkspacePath is null`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(
+                    config(keepAlive = false),
+                    docker,
+                    workspacePath = "/workspace",
+                )
+
+            manager.execute("echo 1", 30)
+
+            val volumes = docker.runCalls[0].volumes
+            assertTrue(
+                volumes.any { it.startsWith("/workspace:/workspace") },
+                "Expected workspacePath in volume mount, got: $volumes",
+            )
         }
 }

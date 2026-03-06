@@ -11,7 +11,13 @@ class SandboxFactory {
     fun sandboxManager(
         config: EngineConfig,
         docker: DockerClient,
-    ): SandboxManager = SandboxManager(config.codeExecution, docker, workspacePath = KlawPaths.workspace)
+    ): SandboxManager =
+        SandboxManager(
+            config.codeExecution,
+            docker,
+            workspacePath = KlawPaths.workspace,
+            hostWorkspacePath = System.getenv("KLAW_HOST_WORKSPACE"),
+        )
 
     @Singleton
     fun sandboxExecTool(

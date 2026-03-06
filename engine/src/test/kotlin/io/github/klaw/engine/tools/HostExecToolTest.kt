@@ -166,14 +166,14 @@ class HostExecToolTest {
                 HostExecTool(
                     config(
                         preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
-                        askTimeoutMin = 0,
+                        askTimeoutMin = 1,
                     ),
                     failingLlmRouter(),
                     approval,
                 )
 
             val result = t.execute("some-command", "chat_1")
-            // With askTimeoutMin=0, timeout should happen immediately → rejected
+            // With askTimeoutMin=1, timeout should happen after 1 minute (virtual time) → rejected
             assertTrue(
                 result.contains("timed out") || result.contains("rejected"),
                 "Should fall back to ask and timeout: $result",
@@ -225,7 +225,7 @@ class HostExecToolTest {
         runTest {
             val t =
                 tool(
-                    config(preValidation = PreValidationConfig(enabled = false), askTimeoutMin = 0),
+                    config(preValidation = PreValidationConfig(enabled = false), askTimeoutMin = 1),
                 )
 
             val result = t.execute("some-command", "chat_1")

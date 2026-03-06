@@ -281,6 +281,22 @@ class ConfigTemplatesTest {
     }
 
     @Test
+    fun `dockerComposeJson engine has KLAW_HOST_WORKSPACE env var`() {
+        val result =
+            ConfigTemplates.dockerComposeJson(
+                statePath = "/state",
+                dataPath = "/data",
+                configPath = "/config",
+                workspacePath = "/home/pi/workspace",
+                imageTag = "latest",
+            )
+        val config = parseComposeConfig(result)
+        val engineEnv = config.services["engine"]?.environment
+        assertNotNull(engineEnv)
+        assertEquals("/home/pi/workspace", engineEnv["KLAW_HOST_WORKSPACE"])
+    }
+
+    @Test
     fun `dockerComposeJson does NOT contain cli service`() {
         val result =
             ConfigTemplates.dockerComposeJson(
