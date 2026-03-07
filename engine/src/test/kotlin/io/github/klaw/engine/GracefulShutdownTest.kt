@@ -18,7 +18,7 @@ class GracefulShutdownTest {
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
             val scheduler = mockk<KlawScheduler>(relaxed = true)
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler, mockk(relaxed = true))
             lifecycle.shutdown()
 
             verify { messageProcessor.close() }
@@ -32,7 +32,7 @@ class GracefulShutdownTest {
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
             val scheduler = mockk<KlawScheduler>(relaxed = true)
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler, mockk(relaxed = true))
             lifecycle.shutdown()
 
             verifyOrder {
@@ -49,7 +49,7 @@ class GracefulShutdownTest {
             val scheduler = mockk<KlawScheduler>(relaxed = true)
             every { messageProcessor.close() } throws RuntimeException("close failed")
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler, mockk(relaxed = true))
             lifecycle.shutdown()
 
             verify { socketServer.stop() }
@@ -62,7 +62,7 @@ class GracefulShutdownTest {
             val messageProcessor = mockk<MessageProcessor>(relaxed = true)
             val scheduler = mockk<KlawScheduler>(relaxed = true)
 
-            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler)
+            val lifecycle = EngineLifecycle(socketServer, messageProcessor, scheduler, mockk(relaxed = true))
             lifecycle.shutdown()
             lifecycle.shutdown()
 

@@ -53,4 +53,60 @@ class ShutdownControllerTest {
         val elapsed = System.currentTimeMillis() - startMs
         assertTrue(elapsed >= 150, "Expected at least 150ms delay, got ${elapsed}ms")
     }
+
+    @Test
+    fun `requestRestart sets pending flag without immediate shutdown`() {
+        val controller = ShutdownController()
+        var exitCalled = false
+        controller.exitFn = { _ -> exitCalled = true }
+
+        controller.requestRestart()
+
+        Thread.sleep(100)
+        assertFalse(exitCalled, "Exit should not be called by requestRestart")
+        assertTrue(controller.hasPendingRestart())
+    }
+
+    @Test
+    fun `executePendingRestart triggers shutdown when restart was requested`() {
+        val latch = CountDownLatch(1)
+        val controller = ShutdownController()
+        controller.exitFn = { _ -> latch.countDown() }
+
+        controller.requestRestart()
+        controller.executePendingRestart()
+
+        assertTrue(latch.await(2, TimeUnit.SECONDS), "Exit should be called after executePendingRestart")
+        assertFalse(controller.hasPendingRestart(), "Flag should be cleared")
+    }
+
+    @Test
+    fun `executePendingRestart does nothing when no restart was requested`() {
+        val controller = ShutdownController()
+        var exitCalled = false
+        controller.exitFn = { _ -> exitCalled = true }
+
+        controller.executePendingRestart()
+
+        Thread.sleep(100)
+        assertFalse(exitCalled, "Exit should not be called without prior requestRestart")
+    }
+
+    @Test
+    fun `requestGatewayRestart sets pending gateway flag`() {
+        val controller = ShutdownController()
+
+        assertFalse(controller.hasPendingGatewayRestart())
+        controller.requestGatewayRestart()
+        assertTrue(controller.hasPendingGatewayRestart())
+    }
+
+    @Test
+    fun `consumePendingGatewayRestart returns true once then clears`() {
+        val controller = ShutdownController()
+
+        controller.requestGatewayRestart()
+        assertTrue(controller.consumePendingGatewayRestart())
+        assertFalse(controller.consumePendingGatewayRestart())
+    }
 }

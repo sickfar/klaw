@@ -1,9 +1,5 @@
 package io.github.klaw.engine.tools
 
-import io.github.klaw.common.protocol.RestartRequestSocketMessage
-import io.github.klaw.engine.socket.EngineSocketServer
-import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
@@ -19,7 +15,6 @@ class ConfigToolsTest {
     lateinit var configDir: File
 
     private lateinit var shutdownController: ShutdownController
-    private lateinit var socketServer: EngineSocketServer
     private lateinit var configTools: ConfigTools
 
     private val engineJson =
@@ -47,7 +42,6 @@ class ConfigToolsTest {
                 }
             },
             "context": {
-                "slidingWindow": 20,
                 "defaultBudgetTokens": 4096,
                 "subagentHistory": 5
             },
@@ -82,8 +76,7 @@ class ConfigToolsTest {
         File(configDir, "gateway.json").writeText(gatewayJson)
 
         shutdownController = mockk(relaxed = true)
-        socketServer = mockk(relaxed = true)
-        configTools = ConfigTools(configDir.absolutePath, shutdownController) { socketServer }
+        configTools = ConfigTools(configDir.absolutePath, shutdownController)
     }
 
     // ---- config_get ----
@@ -159,19 +152,20 @@ class ConfigToolsTest {
             assertTrue(result.contains("restarting") || result.contains("updated"), "Expected restart message: $result")
             val written = File(configDir, "engine.json").readText()
             assertTrue(written.contains("glm-4-flash"), "Expected new value in file: $written")
-            verify { shutdownController.scheduleShutdown(any()) }
+            verify { shutdownController.requestRestart() }
+            verify(exactly = 0) { shutdownController.scheduleShutdown(any()) }
         }
 
     @Test
     fun `config_set engine invalid value type returns error and does not write`() =
         runTest {
             val originalContent = File(configDir, "engine.json").readText()
-            val result = configTools.configSet("engine", "context.slidingWindow", "not-a-number")
+            val result = configTools.configSet("engine", "context.defaultBudgetTokens", "not-a-number")
 
             assertTrue(result.contains("Invalid") || result.contains("invalid"), "Expected error: $result")
             val written = File(configDir, "engine.json").readText()
             assertTrue(written == originalContent, "File must not be modified on type error")
-            verify(exactly = 0) { shutdownController.scheduleShutdown(any()) }
+            verify(exactly = 0) { shutdownController.requestRestart() }
         }
 
     @Test
@@ -182,22 +176,22 @@ class ConfigToolsTest {
 
             assertTrue(result.contains("Unknown") || result.contains("unknown"), "Expected unknown path error: $result")
             assertTrue(File(configDir, "engine.json").readText() == originalContent, "File must not be modified")
-            verify(exactly = 0) { shutdownController.scheduleShutdown(any()) }
+            verify(exactly = 0) { shutdownController.requestRestart() }
         }
 
     @Test
     fun `config_set engine validation failure returns errors and does not write`() =
         runTest {
             val originalContent = File(configDir, "engine.json").readText()
-            // context.slidingWindow has exclusiveMinimum: 0, so 0 is invalid
-            val result = configTools.configSet("engine", "context.slidingWindow", "0")
+            // context.defaultBudgetTokens has exclusiveMinimum: 0, so 0 is invalid
+            val result = configTools.configSet("engine", "context.defaultBudgetTokens", "0")
 
             assertTrue(
                 result.contains("Validation") || result.contains("validation") || result.contains("failed"),
                 "Expected validation error: $result",
             )
             assertTrue(File(configDir, "engine.json").readText() == originalContent, "File must not be modified")
-            verify(exactly = 0) { shutdownController.scheduleShutdown(any()) }
+            verify(exactly = 0) { shutdownController.requestRestart() }
         }
 
     @Test
@@ -205,27 +199,25 @@ class ConfigToolsTest {
         runTest {
             val result = configTools.configSet("engine", "providers", "invalid")
             assertTrue(result.contains("Cannot set") || result.contains("section"), "Expected section error: $result")
-            verify(exactly = 0) { shutdownController.scheduleShutdown(any()) }
+            verify(exactly = 0) { shutdownController.requestRestart() }
         }
 
     // ---- config_set gateway ----
 
     @Test
-    fun `config_set gateway channels path writes value and sends restart request`() =
+    fun `config_set gateway channels path writes value and requests gateway restart`() =
         runTest {
-            coEvery { socketServer.pushMessage(any()) } returns Unit
             val result = configTools.configSet("gateway", "channels.telegram.token", "new-bot-token")
 
             assertTrue(result.contains("restarting") || result.contains("restart"), "Expected restart: $result")
             val written = File(configDir, "gateway.json").readText()
             assertTrue(written.contains("new-bot-token"), "Expected new token in file: $written")
-            coVerify { socketServer.pushMessage(RestartRequestSocketMessage) }
+            verify { shutdownController.requestGatewayRestart() }
         }
 
     @Test
     fun `config_set gateway non-channels path writes value without restart`() =
         runTest {
-            // Add a non-channels gateway field by modifying gateway.json to include engineBindAddress
             File(configDir, "gateway.json").writeText(
                 """
                 {
@@ -238,22 +230,16 @@ class ConfigToolsTest {
                 }
                 """.trimIndent(),
             )
-            // channels.console.enabled is a channels.* path → restart
-            // For non-channels: let's test that setting channels.console.port doesn't match
-            // Actually, let's verify the message says "no restart needed" for channels.console.enabled=false
-            // Since channels.console.* is a channels.* path, it WILL send restart.
-            // For a true non-channels path, we'd need a field at the root level that's not channels.
-            // Let's verify the logic: non-channels path just doesn't send pushMessage
             val result = configTools.configSet("gateway", "channels.console.enabled", "true")
             assertTrue(
                 result.contains("restarting") || result.contains("restart"),
                 "Expected restart for channels path: $result",
             )
-            coVerify { socketServer.pushMessage(RestartRequestSocketMessage) }
+            verify { shutdownController.requestGatewayRestart() }
         }
 
     @Test
-    fun `config_set gateway channels console enabled sends restart`() =
+    fun `config_set gateway channels console enabled requests gateway restart`() =
         runTest {
             File(configDir, "gateway.json").writeText(
                 """
@@ -270,6 +256,6 @@ class ConfigToolsTest {
             val result = configTools.configSet("gateway", "channels.console.enabled", "true")
 
             assertTrue(result.isNotBlank())
-            coVerify { socketServer.pushMessage(RestartRequestSocketMessage) }
+            verify { shutdownController.requestGatewayRestart() }
         }
 }

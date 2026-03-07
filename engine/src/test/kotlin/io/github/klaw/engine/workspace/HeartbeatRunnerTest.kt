@@ -65,7 +65,6 @@ class HeartbeatRunnerTest {
             context =
                 io.github.klaw.common.config.ContextConfig(
                     defaultBudgetTokens = 4096,
-                    slidingWindow = 10,
                     subagentHistory = 5,
                 ),
             processing =

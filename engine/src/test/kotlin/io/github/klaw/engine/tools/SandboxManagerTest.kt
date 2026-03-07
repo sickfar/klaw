@@ -3,11 +3,17 @@ package io.github.klaw.engine.tools
 import io.github.klaw.common.config.CodeExecutionConfig
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 class SandboxManagerTest {
+    @TempDir
+    lateinit var stateDir: File
+
     private fun config(
         keepAlive: Boolean = true,
         maxExecutions: Int = 3,
@@ -24,7 +30,7 @@ class SandboxManagerTest {
     fun `keepAlive=false uses oneshot for each execution`() =
         runTest {
             val docker = FakeDockerClient()
-            val manager = SandboxManager(config(keepAlive = false), docker)
+            val manager = SandboxManager(config(keepAlive = false), docker, stateDir = stateDir.absolutePath)
 
             manager.execute("echo 1", 30)
             manager.execute("echo 2", 30)
@@ -38,7 +44,8 @@ class SandboxManagerTest {
     fun `keepAlive=true reuses container`() =
         runTest {
             val docker = FakeDockerClient()
-            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
 
             manager.execute("echo 1", 30)
             manager.execute("echo 2", 30)
@@ -51,7 +58,8 @@ class SandboxManagerTest {
     fun `container recreated after maxExecutions`() =
         runTest {
             val docker = FakeDockerClient()
-            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 2), docker)
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 2), docker, stateDir = stateDir.absolutePath)
 
             manager.execute("echo 1", 30)
             manager.execute("echo 2", 30)
@@ -65,7 +73,7 @@ class SandboxManagerTest {
     fun `shutdown stops container`() =
         runTest {
             val docker = FakeDockerClient()
-            val manager = SandboxManager(config(keepAlive = true), docker)
+            val manager = SandboxManager(config(keepAlive = true), docker, stateDir = stateDir.absolutePath)
 
             manager.execute("echo 1", 30)
             manager.shutdown()
@@ -78,7 +86,7 @@ class SandboxManagerTest {
     fun `shutdown with no container is no-op`() =
         runTest {
             val docker = FakeDockerClient()
-            val manager = SandboxManager(config(keepAlive = true), docker)
+            val manager = SandboxManager(config(keepAlive = true), docker, stateDir = stateDir.absolutePath)
 
             manager.shutdown()
 
@@ -92,7 +100,7 @@ class SandboxManagerTest {
         runTest {
             val docker = FakeDockerClient()
             docker.nextRunException = SandboxExecutionException.DockerUnavailable()
-            val manager = SandboxManager(config(keepAlive = false), docker)
+            val manager = SandboxManager(config(keepAlive = false), docker, stateDir = stateDir.absolutePath)
 
             try {
                 manager.execute("echo 1", 30)
@@ -108,7 +116,7 @@ class SandboxManagerTest {
         runTest {
             val docker = FakeDockerClient()
             docker.nextRunException = SandboxExecutionException.ImageNotFound("klaw-sandbox:latest")
-            val manager = SandboxManager(config(keepAlive = false), docker)
+            val manager = SandboxManager(config(keepAlive = false), docker, stateDir = stateDir.absolutePath)
 
             try {
                 manager.execute("echo 1", 30)
@@ -124,7 +132,8 @@ class SandboxManagerTest {
         runTest {
             val docker = FakeDockerClient()
             docker.nextExecResult = ExecutionResult(stdout = "", stderr = "Killed", exitCode = 137)
-            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
 
             try {
                 manager.execute("python3 -c 'x = [0]*10**9'", 30)
@@ -140,7 +149,8 @@ class SandboxManagerTest {
         runTest {
             val docker = FakeDockerClient()
             docker.nextExecResult = ExecutionResult(stdout = "", stderr = "permission denied", exitCode = 1)
-            val manager = SandboxManager(config(keepAlive = true, maxExecutions = 10), docker)
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
 
             try {
                 manager.execute("cat /etc/shadow", 30)
@@ -160,6 +170,7 @@ class SandboxManagerTest {
                     docker,
                     workspacePath = "/workspace",
                     hostWorkspacePath = "/home/pi/klaw-workspace",
+                    stateDir = stateDir.absolutePath,
                 )
 
             manager.execute("echo 1", 30)
@@ -180,6 +191,7 @@ class SandboxManagerTest {
                     config(keepAlive = false),
                     docker,
                     workspacePath = "/workspace",
+                    stateDir = stateDir.absolutePath,
                 )
 
             manager.execute("echo 1", 30)
@@ -189,5 +201,76 @@ class SandboxManagerTest {
                 volumes.any { it.startsWith("/workspace:/workspace") },
                 "Expected workspacePath in volume mount, got: $volumes",
             )
+        }
+
+    @Test
+    fun `keepAlive persists container ID to state file`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            val pidFile = File(stateDir, "sandbox.pid")
+            assertTrue(pidFile.exists(), "sandbox.pid should exist after container creation")
+            assertEquals("fake-container-id", pidFile.readText().trim())
+        }
+
+    @Test
+    fun `shutdown deletes state file`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager = SandboxManager(config(keepAlive = true), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+            manager.shutdown()
+
+            val pidFile = File(stateDir, "sandbox.pid")
+            assertFalse(pidFile.exists(), "sandbox.pid should be deleted after shutdown")
+        }
+
+    @Test
+    fun `new manager recovers orphaned container from state file and destroys it`() =
+        runTest {
+            val pidFile = File(stateDir, "sandbox.pid")
+            pidFile.writeText("orphaned-container-id")
+
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            assertTrue(docker.stopCalls.contains("orphaned-container-id"), "Orphaned container should be stopped")
+            assertTrue(docker.rmCalls.contains("orphaned-container-id"), "Orphaned container should be removed")
+            assertEquals("fake-container-id", pidFile.readText().trim(), "New container ID should be persisted")
+        }
+
+    @Test
+    fun `container recreated after maxExecutions deletes and recreates state file`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 2), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+            manager.execute("echo 2", 30)
+            manager.execute("echo 3", 30)
+
+            val pidFile = File(stateDir, "sandbox.pid")
+            assertTrue(pidFile.exists(), "sandbox.pid should exist after recreation")
+        }
+
+    @Test
+    fun `oneshot mode does not create state file`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager = SandboxManager(config(keepAlive = false), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            val pidFile = File(stateDir, "sandbox.pid")
+            assertFalse(pidFile.exists(), "sandbox.pid should not exist in oneshot mode")
         }
 }

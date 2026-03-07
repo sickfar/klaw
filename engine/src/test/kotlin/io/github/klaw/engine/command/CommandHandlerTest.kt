@@ -58,7 +58,7 @@ class CommandHandlerTest {
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, slidingWindow = 10, subagentHistory = 5),
+            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             llm =
                 LlmRetryConfig(
@@ -186,7 +186,7 @@ class CommandHandlerTest {
         }
 
     @Test
-    fun `slash_status returns session info`() =
+    fun `slash_status returns session info and context usage`() =
         runTest {
             val handler = makeHandler()
             val session = makeSession(model = "test/model")
@@ -195,6 +195,8 @@ class CommandHandlerTest {
 
             assertTrue(result.contains("chat-1"), "Response should contain chatId, got: $result")
             assertTrue(result.contains("test/model"), "Response should contain model name, got: $result")
+            assertTrue(result.contains("Context:"), "Response should contain context usage, got: $result")
+            assertTrue(result.contains("tokens"), "Response should contain token info, got: $result")
         }
 
     @Test

@@ -22,7 +22,7 @@ class ConfigCommandTest {
               "models": {"test/test-model": {"maxTokens": 4096}},
               "routing": {"default": "glm/glm-4-plus", "fallback": [], "tasks": {"summarization": "test/test-model", "subagent": "test/test-model"}},
               "memory": {"embedding": {"type": "onnx", "model": "all-MiniLM-L6-v2"}, "chunking": {"size": 512, "overlap": 64}, "search": {"topK": 10}},
-              "context": {"defaultBudgetTokens": 4096, "slidingWindow": 10, "subagentHistory": 5},
+              "context": {"defaultBudgetTokens": 4096, "subagentHistory": 5},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 2, "maxToolCallRounds": 5}
             }
             """.trimIndent()

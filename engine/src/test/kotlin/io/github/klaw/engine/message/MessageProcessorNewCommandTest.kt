@@ -56,7 +56,7 @@ class MessageProcessorNewCommandTest {
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, slidingWindow = 20, subagentHistory = 10),
+            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 10),
             processing = ProcessingConfig(debounceMs = 10L, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             llm =
                 LlmRetryConfig(
@@ -116,6 +116,7 @@ class MessageProcessorNewCommandTest {
             messageEmbeddingService,
             cliCommandDispatcher,
             approvalService,
+            shutdownController = mockk(relaxed = true),
         )
     }
 

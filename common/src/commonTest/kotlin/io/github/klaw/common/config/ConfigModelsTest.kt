@@ -103,7 +103,6 @@ class ConfigModelsTest {
                 context =
                     ContextConfig(
                         defaultBudgetTokens = 8000,
-                        slidingWindow = 20,
                         subagentHistory = 5,
                     ),
                 processing =
@@ -202,14 +201,7 @@ class ConfigModelsTest {
     @Test
     fun `ContextConfig rejects zero defaultBudgetTokens`() {
         assertFailsWith<IllegalArgumentException> {
-            ContextConfig(defaultBudgetTokens = 0, slidingWindow = 10, subagentHistory = 5)
-        }
-    }
-
-    @Test
-    fun `ContextConfig rejects zero slidingWindow`() {
-        assertFailsWith<IllegalArgumentException> {
-            ContextConfig(defaultBudgetTokens = 8000, slidingWindow = 0, subagentHistory = 5)
+            ContextConfig(defaultBudgetTokens = 0, subagentHistory = 5)
         }
     }
 

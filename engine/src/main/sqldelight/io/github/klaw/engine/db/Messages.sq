@@ -6,23 +6,21 @@ CREATE TABLE IF NOT EXISTS messages (
     type TEXT NOT NULL,
     content TEXT NOT NULL,
     metadata TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    tokens INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages (chat_id);
 
 insertMessage:
-INSERT OR REPLACE INTO messages (id, channel, chat_id, role, type, content, metadata, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO messages (id, channel, chat_id, role, type, content, metadata, created_at, tokens)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getWindowMessages:
-SELECT row_id, id, channel, chat_id, role, type, content, metadata, created_at FROM (
-    SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at
-    FROM messages
-    WHERE chat_id = ? AND created_at >= ?
-    ORDER BY created_at DESC, rowid DESC
-    LIMIT ?
-) ORDER BY created_at ASC, row_id ASC;
+SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
+FROM messages
+WHERE chat_id = ? AND created_at >= ?
+ORDER BY created_at DESC, rowid DESC;
 
 getLastMessageId:
 SELECT id FROM messages
@@ -45,9 +43,12 @@ lastInsertRowId:
 SELECT last_insert_rowid();
 
 getAllMessages:
-SELECT rowid AS rowid, id, channel, chat_id, role, type, content, metadata, created_at
+SELECT rowid AS rowid, id, channel, chat_id, role, type, content, metadata, created_at, tokens
 FROM messages
 ORDER BY rowid ASC;
 
-countInSegment:
-SELECT COUNT(*) FROM messages WHERE chat_id = :chatId AND created_at >= :segmentStart;
+sumTokensInSegment:
+SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND created_at >= :segmentStart;
+
+updateTokensById:
+UPDATE messages SET tokens = :tokens WHERE id = :id;

@@ -63,6 +63,7 @@ class MemoryServiceImplTest {
                 content = "Kotlin programming language features",
                 metadata = null,
                 created_at = "2026-01-01T00:00:00Z",
+                tokens = 0,
             )
 
             val result = service.search("kotlin", 5)
@@ -96,6 +97,7 @@ class MemoryServiceImplTest {
                 content = "Important information about memory systems",
                 metadata = null,
                 created_at = "2026-01-01T00:00:00Z",
+                tokens = 0,
             )
 
             val result = service.search("memory systems", 5)

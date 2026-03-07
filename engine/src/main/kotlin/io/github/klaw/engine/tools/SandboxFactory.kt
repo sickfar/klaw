@@ -17,6 +17,7 @@ class SandboxFactory {
             docker,
             workspacePath = KlawPaths.workspace,
             hostWorkspacePath = System.getenv("KLAW_HOST_WORKSPACE"),
+            stateDir = "${KlawPaths.state}/run",
         )
 
     @Singleton

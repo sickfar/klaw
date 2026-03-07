@@ -171,15 +171,6 @@ object GeneratedConfigDescriptors {
                 true,
             ),
             ConfigPropertyDescriptor(
-                "context.slidingWindow",
-                ConfigValueType.INT,
-                "Number of recent messages to always include in context",
-                null,
-                null,
-                false,
-                true,
-            ),
-            ConfigPropertyDescriptor(
                 "context.subagentHistory",
                 ConfigValueType.INT,
                 "Maximum number of history runs to include for subagents",

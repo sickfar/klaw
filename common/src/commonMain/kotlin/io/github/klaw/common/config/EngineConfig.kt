@@ -13,7 +13,7 @@ data class EngineConfig(
     val routing: RoutingConfig,
     @ConfigDoc("Memory system configuration: embeddings, chunking, and search")
     val memory: MemoryConfig,
-    @ConfigDoc("Context window budget and sliding window settings")
+    @ConfigDoc("Context window budget settings")
     val context: ContextConfig,
     @ConfigDoc("Message processing pipeline settings")
     val processing: ProcessingConfig,
@@ -143,16 +143,13 @@ data class SearchConfig(
 
 @Serializable
 data class ContextConfig(
-    @ConfigDoc("Default token budget for the context window")
-    val defaultBudgetTokens: Int,
-    @ConfigDoc("Number of recent messages to always include in context")
-    val slidingWindow: Int,
+    @ConfigDoc("Default token budget for historical messages in the context window")
+    val defaultBudgetTokens: Int = 100_000,
     @ConfigDoc("Maximum number of history runs to include for subagents")
     val subagentHistory: Int,
 ) {
     init {
         require(defaultBudgetTokens > 0) { "defaultBudgetTokens must be > 0, got $defaultBudgetTokens" }
-        require(slidingWindow > 0) { "slidingWindow must be > 0, got $slidingWindow" }
         require(subagentHistory > 0) { "subagentHistory must be > 0, got $subagentHistory" }
     }
 }
@@ -207,7 +204,7 @@ data class LoggingConfig(
 @Serializable
 data class CodeExecutionConfig(
     @ConfigDoc("Docker image used for code execution sandbox")
-    val dockerImage: String = "python:3.12-slim-bookworm",
+    val dockerImage: String = "ghcr.io/sickfar/klaw-sandbox:latest",
     @ConfigDoc("Maximum execution timeout in seconds")
     val timeout: Int = 30,
     @ConfigDoc("Allow network access inside the sandbox container")
@@ -218,7 +215,9 @@ data class CodeExecutionConfig(
     val maxCpus: String = "1.0",
     @ConfigDoc("Mount the container root filesystem as read-only")
     val readOnlyRootfs: Boolean = true,
-    @ConfigDoc("Keep sandbox container alive between executions (reuses container for faster execution and state persistence)")
+    @ConfigDoc(
+        "Keep sandbox container alive between executions (reuses container for faster execution and state persistence)",
+    )
     val keepAlive: Boolean = false,
     @ConfigDoc("Idle timeout in minutes before stopping a kept-alive container")
     val keepAliveIdleTimeoutMin: Int = 5,

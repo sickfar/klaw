@@ -21,7 +21,7 @@ class ConfigValidatorTest {
           "models": {},
           "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
           "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-          "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+          "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
           "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
         }
         """,
@@ -43,7 +43,7 @@ class ConfigValidatorTest {
               "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost"}},
               "models": {},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -68,7 +68,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": "not-a-number", "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -91,7 +91,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": -1, "overlap": 0}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -111,7 +111,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -133,7 +133,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
               "someUnknownField": "hello"
             }
@@ -157,7 +157,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -177,7 +177,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
               "compatibility": null
             }
@@ -198,7 +198,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -220,7 +220,7 @@ class ConfigValidatorTest {
               "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost"}},
               "models": {},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": "bad", "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
@@ -240,7 +240,7 @@ class ConfigValidatorTest {
               "models": {},
               "routing": {"default": "p/m", "fallback": [123], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-              "context": {"defaultBudgetTokens": 100, "slidingWindow": 5, "subagentHistory": 3},
+              "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,

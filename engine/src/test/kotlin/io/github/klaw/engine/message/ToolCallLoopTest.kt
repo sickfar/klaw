@@ -9,6 +9,7 @@ import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmResponse
+import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.engine.db.KlawDatabase
@@ -485,5 +486,200 @@ class ToolCallLoopTest {
             assertEquals("tool", toolResultMsgs[0].role)
             assertEquals("tool output", toolResultMsgs[0].content)
             assertEquals("call-1", toolResultMsgs[0].metadata)
+        }
+
+    @Test
+    fun `firstPromptTokens exposed from first LLM response`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returns
+                LlmResponse(
+                    content = "Answer",
+                    toolCalls = null,
+                    usage = TokenUsage(promptTokens = 150, completionTokens = 30, totalTokens = 180),
+                    finishReason = FinishReason.STOP,
+                )
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Hello"))
+            runner.run(context, testSession)
+
+            assertEquals(150, runner.firstPromptTokens)
+        }
+
+    @Test
+    fun `tool result tokens corrected using promptTokens delta`() =
+        runTest {
+            val driver = JdbcSqliteDriver("jdbc:sqlite:")
+            KlawDatabase.Schema.create(driver)
+            val db = KlawDatabase(driver)
+            val messageRepository = MessageRepository(db)
+
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "my_tool", arguments = "{}")
+
+            // Round 1: LLM returns tool call with usage
+            // Round 2: LLM returns final answer — promptTokens includes tool result tokens
+            // Delta: 350 - 100 - 50 = 200 tokens for tool results
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(
+                        content = null,
+                        toolCalls = listOf(toolCall),
+                        usage = TokenUsage(promptTokens = 100, completionTokens = 50, totalTokens = 150),
+                        finishReason = FinishReason.TOOL_CALLS,
+                    ),
+                    LlmResponse(
+                        content = "Done",
+                        toolCalls = null,
+                        usage = TokenUsage(promptTokens = 350, completionTokens = 20, totalTokens = 370),
+                        finishReason = FinishReason.STOP,
+                    ),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = "some tool output"))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    messageRepository = messageRepository,
+                    channel = "telegram",
+                    chatId = "chat-test",
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Hello"))
+            runner.run(context, testSession)
+
+            val messages = messageRepository.getWindowMessages("chat-test", "2000-01-01T00:00:00Z", 100_000)
+            val toolResultMsg = messages.first { it.type == "tool_result" }
+
+            // Corrected: 350 - 100 - 50 = 200
+            assertEquals(200, toolResultMsg.tokens, "Tool result tokens should be corrected via promptTokens delta")
+        }
+
+    @Test
+    fun `multiple tool results in same round share delta proportionally`() =
+        runTest {
+            val driver = JdbcSqliteDriver("jdbc:sqlite:")
+            KlawDatabase.Schema.create(driver)
+            val db = KlawDatabase(driver)
+            val messageRepository = MessageRepository(db)
+
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCalls =
+                listOf(
+                    ToolCall(id = "call-1", name = "tool_a", arguments = "{}"),
+                    ToolCall(id = "call-2", name = "tool_b", arguments = "{}"),
+                )
+
+            // Delta: 500 - 100 - 60 = 340 total for 2 tool results
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(
+                        content = null,
+                        toolCalls = toolCalls,
+                        usage = TokenUsage(promptTokens = 100, completionTokens = 60, totalTokens = 160),
+                        finishReason = FinishReason.TOOL_CALLS,
+                    ),
+                    LlmResponse(
+                        content = "Done",
+                        toolCalls = null,
+                        usage = TokenUsage(promptTokens = 500, completionTokens = 15, totalTokens = 515),
+                        finishReason = FinishReason.STOP,
+                    ),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(
+                    ToolResult(callId = "call-1", content = "result a"),
+                    ToolResult(callId = "call-2", content = "result b"),
+                )
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    messageRepository = messageRepository,
+                    channel = "telegram",
+                    chatId = "chat-test",
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Run both"))
+            runner.run(context, testSession)
+
+            val messages = messageRepository.getWindowMessages("chat-test", "2000-01-01T00:00:00Z", 100_000)
+            val toolResults = messages.filter { it.type == "tool_result" }
+
+            assertEquals(2, toolResults.size)
+            val totalCorrected = toolResults.sumOf { it.tokens }
+            // 340 total distributed evenly (170 each)
+            assertEquals(340, totalCorrected, "Total corrected tokens should equal delta")
+        }
+
+    @Test
+    fun `no correction when usage is null`() =
+        runTest {
+            val driver = JdbcSqliteDriver("jdbc:sqlite:")
+            KlawDatabase.Schema.create(driver)
+            val db = KlawDatabase(driver)
+            val messageRepository = MessageRepository(db)
+
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "my_tool", arguments = "{}")
+
+            // No usage info — tokens should remain as approximate
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = "tool output here"))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    messageRepository = messageRepository,
+                    channel = "telegram",
+                    chatId = "chat-test",
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Hello"))
+            runner.run(context, testSession)
+
+            val messages = messageRepository.getWindowMessages("chat-test", "2000-01-01T00:00:00Z", 100_000)
+            val toolResultMsg = messages.first { it.type == "tool_result" }
+
+            // Should remain as approximateTokenCount("tool output here") — not zero, not corrected
+            assertTrue(toolResultMsg.tokens > 0, "Should have approximate tokens, not zero")
         }
 }

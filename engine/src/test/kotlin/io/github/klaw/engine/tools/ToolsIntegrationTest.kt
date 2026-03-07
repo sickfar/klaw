@@ -52,7 +52,7 @@ class ToolsIntegrationTest {
                     chunking = ChunkingConfig(512, 64),
                     search = SearchConfig(10),
                 ),
-            context = ContextConfig(8000, 20, 5),
+            context = ContextConfig(8000, 5),
             processing = ProcessingConfig(100, 2, 5),
             llm = LlmRetryConfig(1, 5000, 100, 2.0),
             logging = LoggingConfig(false),

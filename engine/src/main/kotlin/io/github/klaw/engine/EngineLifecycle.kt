@@ -3,11 +3,13 @@ package io.github.klaw.engine
 import io.github.klaw.engine.message.MessageProcessor
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.socket.EngineSocketServer
+import io.github.klaw.engine.tools.SandboxManager
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.context.event.StartupEvent
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
@@ -22,8 +24,9 @@ private val logger = KotlinLogging.logger {}
  * Shutdown sequence:
  * 1. Quartz scheduler shutdown (waits for running jobs to complete)
  * 2. Close MessageProcessor (cancels in-flight processing)
- * 3. Stop EngineSocketServer (sends ShutdownMessage to gateway, closes channel, deletes socket)
- * 4. (Database close handled by driver/DI lifecycle)
+ * 3. Stop SandboxManager (stops keep-alive container, cleans up state)
+ * 4. Stop EngineSocketServer (sends ShutdownMessage to gateway, closes channel, deletes socket)
+ * 5. (Database close handled by driver/DI lifecycle)
  *
  * Scheduler MUST shut down before MessageProcessor to avoid in-flight scheduled jobs
  * calling handleScheduledMessage on a closed processor.
@@ -33,6 +36,7 @@ class EngineLifecycle(
     private val socketServer: EngineSocketServer,
     private val messageProcessor: MessageProcessor,
     private val scheduler: KlawScheduler,
+    private val sandboxManager: SandboxManager,
 ) : ApplicationEventListener<StartupEvent> {
     private val shutdownOnce = AtomicBoolean(false)
 
@@ -57,6 +61,12 @@ class EngineLifecycle(
             messageProcessor.close()
         } catch (_: Exception) {
             // Best-effort: continue shutdown even if processor close fails
+        }
+
+        try {
+            runBlocking { sandboxManager.shutdown() }
+        } catch (_: Exception) {
+            // Best-effort
         }
 
         try {

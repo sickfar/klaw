@@ -16,6 +16,7 @@ Klaw uses two SQLite databases. All data is cache/index and can be rebuilt from 
 | content | TEXT | Message body |
 | metadata | TEXT | JSON blob (nullable) |
 | created_at | TEXT | ISO-8601 timestamp |
+| tokens | INTEGER | Token count for context budget tracking |
 
 Index: `idx_messages_chat_id(chat_id)`.
 

@@ -62,7 +62,7 @@ class MessageRepositoryTest {
     fun `getWindowMessages includes rowId in MessageRow`() =
         runBlocking {
             repo.saveAndGetRowId("id1", "telegram", "chat1", "user", "text", "hello there")
-            val messages = repo.getWindowMessages("chat1", "2000-01-01T00:00:00Z", 10L)
+            val messages = repo.getWindowMessages("chat1", "2000-01-01T00:00:00Z", 100_000)
             assertEquals(1, messages.size)
             assertTrue(messages[0].rowId > 0L, "rowId should be positive")
         }
@@ -74,10 +74,33 @@ class MessageRepositoryTest {
             repo.saveAndGetRowId("id2", "telegram", "chat1", "user", "text", "in segment")
             repo.saveAndGetRowId("id3", "telegram", "chat2", "user", "text", "other chat")
 
-            val allMessages = repo.getWindowMessages("chat1", "2000-01-01T00:00:00Z", 10L)
+            val allMessages = repo.getWindowMessages("chat1", "2000-01-01T00:00:00Z", 100_000)
             assertEquals(2, allMessages.size)
 
-            val chat2Messages = repo.getWindowMessages("chat2", "2000-01-01T00:00:00Z", 10L)
+            val chat2Messages = repo.getWindowMessages("chat2", "2000-01-01T00:00:00Z", 100_000)
             assertEquals(1, chat2Messages.size)
+        }
+
+    @Test
+    fun `updateTokens changes stored token count`() =
+        runBlocking {
+            repo.save("id1", "telegram", "chat1", "user", "text", "hello", tokens = 10)
+            repo.updateTokens("id1", 42)
+
+            val messages = repo.getWindowMessages("chat1", "2000-01-01T00:00:00Z", 100_000)
+            assertEquals(1, messages.size)
+            assertEquals(42, messages[0].tokens)
+        }
+
+    @Test
+    fun `updateTokens affects sumTokensInSegment`() =
+        runBlocking {
+            repo.save("id1", "telegram", "chat1", "user", "text", "hello", tokens = 10)
+            repo.save("id2", "telegram", "chat1", "user", "text", "world", tokens = 20)
+
+            assertEquals(30L, repo.sumTokensInSegment("chat1", "2000-01-01T00:00:00Z"))
+
+            repo.updateTokens("id1", 50)
+            assertEquals(70L, repo.sumTokensInSegment("chat1", "2000-01-01T00:00:00Z"))
         }
 }

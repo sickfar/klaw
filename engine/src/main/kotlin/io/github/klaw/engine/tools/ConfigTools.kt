@@ -9,10 +9,7 @@ import io.github.klaw.common.config.schema.GeneratedConfigDescriptors
 import io.github.klaw.common.config.schema.GeneratedSchemas
 import io.github.klaw.common.config.schema.validateConfig
 import io.github.klaw.common.config.setByPath
-import io.github.klaw.common.protocol.RestartRequestSocketMessage
-import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.inject.Provider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
@@ -26,12 +23,9 @@ private val logger = KotlinLogging.logger {}
 
 private val ENV_VAR_PATTERN = Regex("""\$\{[A-Z_]+\}""")
 
-private const val ENGINE_RESTART_DELAY_MS = 2000L
-
 class ConfigTools(
     private val configDir: String,
     private val shutdownController: ShutdownController,
-    private val socketServerProvider: Provider<EngineSocketServer>,
 ) {
     suspend fun configGet(
         target: String,
@@ -104,14 +98,14 @@ class ConfigTools(
 
         return if (isGateway) {
             if (path.startsWith("channels.")) {
-                socketServerProvider.get().pushMessage(RestartRequestSocketMessage)
-                "Gateway config updated. Gateway is restarting to apply channel changes..."
+                shutdownController.requestGatewayRestart()
+                "Gateway config updated. Gateway will restart after this response is delivered..."
             } else {
                 "Gateway config updated. Change applied immediately (no restart needed)."
             }
         } else {
-            shutdownController.scheduleShutdown(ENGINE_RESTART_DELAY_MS)
-            "Engine config updated. Engine is restarting in ~2 seconds to apply changes..."
+            shutdownController.requestRestart()
+            "Engine config updated. Engine will restart after this response is delivered..."
         }
     }
 

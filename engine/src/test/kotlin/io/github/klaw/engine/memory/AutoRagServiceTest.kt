@@ -68,6 +68,7 @@ class AutoRagServiceTest {
             content = content,
             metadata = null,
             created_at = createdAt,
+            tokens = 0,
         )
     }
 
@@ -148,7 +149,7 @@ class AutoRagServiceTest {
         }
 
     @Test
-    fun `search excludes rowIds in slidingWindowRowIds`() =
+    fun `search excludes rowIds in windowRowIds`() =
         runBlocking {
             insertMessage(
                 id = "m1",

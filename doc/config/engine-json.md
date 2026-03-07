@@ -103,7 +103,6 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
   },
   "context": {
     "defaultBudgetTokens": 6144,
-    "slidingWindow": 20,
     "subagentHistory": 10
   },
   "processing": {

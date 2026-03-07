@@ -27,6 +27,10 @@ import java.util.UUID
  *
  * When [maxRounds] is exhausted, injects a limit notification into [context]
  * and makes one final LLM call with no tools so the model can summarize gracefully.
+ *
+ * Token precision: after each LLM call, uses the delta between consecutive
+ * [promptTokens] values to retroactively correct tool result token counts
+ * that were initially saved with approximate estimates.
  */
 @Suppress("LongParameterList")
 internal class ToolCallLoopRunner(
@@ -41,12 +45,20 @@ internal class ToolCallLoopRunner(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    /** promptTokens from the first LLM call — used by [MessageProcessor] to correct user message tokens. */
+    var firstPromptTokens: Int? = null
+        private set
+
     suspend fun run(
         context: MutableList<LlmMessage>,
         session: Session,
         tools: List<ToolDef> = emptyList(),
     ): LlmResponse {
         var rounds = 0
+        var prevPromptTokens: Int? = null
+        var prevCompletionTokens: Int? = null
+        var prevToolResultIds: List<String> = emptyList()
+
         while (rounds < maxRounds) {
             val response =
                 llmRouter.chat(
@@ -54,6 +66,13 @@ internal class ToolCallLoopRunner(
                     session.model,
                 )
             rounds++
+
+            correctToolResultTokens(response, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
+
+            if (rounds == 1) {
+                firstPromptTokens = response.usage?.promptTokens
+            }
+
             if (response.toolCalls.isNullOrEmpty()) return response
             val toolCalls = response.toolCalls!!
             checkContextBudget(context, rounds)
@@ -63,9 +82,61 @@ internal class ToolCallLoopRunner(
                 val safeContent = buildSafeToolContent(result.callId, result.content, maxToolOutputChars)
                 context.add(LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId))
             }
-            persistToolCallResults(toolCalls, results)
+            val savedIds = persistToolCallResults(toolCalls, results, response)
+
+            prevPromptTokens = response.usage?.promptTokens
+            prevCompletionTokens = response.usage?.completionTokens
+            prevToolResultIds = savedIds
         }
-        return requestGracefulSummary(context, session)
+
+        val summaryResponse = requestGracefulSummary(context, session)
+        correctToolResultTokens(summaryResponse, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
+        return summaryResponse
+    }
+
+    /**
+     * Uses the delta between consecutive LLM calls' [promptTokens] to compute
+     * exact token counts for tool results saved in the previous round.
+     *
+     * Formula: totalToolResultTokens = currentPromptTokens - prevPromptTokens - prevCompletionTokens
+     * The prevCompletionTokens covers the assistant tool_call message that was also added to context.
+     */
+    private suspend fun correctToolResultTokens(
+        currentResponse: LlmResponse,
+        prevPromptTokens: Int?,
+        prevCompletionTokens: Int?,
+        prevToolResultIds: List<String>,
+    ) {
+        if (messageRepository == null) return
+        if (prevPromptTokens == null || prevCompletionTokens == null) return
+        if (prevToolResultIds.isEmpty()) return
+        val currentPromptTokens = currentResponse.usage?.promptTokens ?: return
+
+        val totalToolResultTokens = currentPromptTokens - prevPromptTokens - prevCompletionTokens
+        if (totalToolResultTokens <= 0) return
+
+        distributeTokens(prevToolResultIds, totalToolResultTokens)
+    }
+
+    /**
+     * Distributes [totalTokens] across [ids] proportionally based on approximate token counts
+     * stored in the DB. Falls back to even distribution if approximates sum to zero.
+     */
+    private suspend fun distributeTokens(
+        ids: List<String>,
+        totalTokens: Int,
+    ) {
+        if (ids.size == 1) {
+            messageRepository!!.updateTokens(ids[0], totalTokens)
+            return
+        }
+        // Even distribution — individual tool result precision is less critical than total accuracy
+        val perResult = totalTokens / ids.size
+        val remainder = totalTokens % ids.size
+        ids.forEachIndexed { i, id ->
+            val tokens = perResult + if (i < remainder) 1 else 0
+            messageRepository!!.updateTokens(id, tokens)
+        }
     }
 
     private fun checkContextBudget(
@@ -113,11 +184,18 @@ internal class ToolCallLoopRunner(
         return llmRouter.chat(LlmRequest(messages = context, tools = null), session.model)
     }
 
+    /**
+     * Persists tool call and tool result messages to the database.
+     * Returns the list of saved tool result message IDs (for later token correction).
+     */
     private suspend fun persistToolCallResults(
         toolCalls: List<ToolCall>,
         results: List<ToolResult>,
-    ) {
-        if (messageRepository == null || channel == null || chatId == null) return
+        response: LlmResponse,
+    ): List<String> {
+        if (messageRepository == null || channel == null || chatId == null) return emptyList()
+        val toolCallJson = Json.encodeToString(toolCalls)
+        val toolCallTokens = response.usage?.completionTokens ?: approximateTokenCount(toolCallJson)
         messageRepository.save(
             id = UUID.randomUUID().toString(),
             channel = channel,
@@ -125,19 +203,25 @@ internal class ToolCallLoopRunner(
             role = "assistant",
             type = "tool_call",
             content = "",
-            metadata = Json.encodeToString(toolCalls),
+            metadata = toolCallJson,
+            tokens = toolCallTokens,
         )
+        val savedIds = mutableListOf<String>()
         results.forEach { result ->
+            val id = UUID.randomUUID().toString()
             messageRepository.save(
-                id = UUID.randomUUID().toString(),
+                id = id,
                 channel = channel,
                 chatId = chatId,
                 role = "tool",
                 type = "tool_result",
                 content = result.content,
                 metadata = result.callId,
+                tokens = approximateTokenCount(result.content),
             )
+            savedIds.add(id)
         }
+        return savedIds
     }
 
     /** Wraps tool output in XML delimiters and truncates to [limit] chars for prompt injection mitigation. */

@@ -1,0 +1,8 @@
+{
+    "glm-5":    { "contextLength": 200000, "maxOutput": 128000, "image": false, "video": false, "audio": false },
+    "glm-4.7":  { "contextLength": 200000, "maxOutput": 128000, "image": false, "video": false, "audio": false },
+    "glm-4.6":  { "contextLength": 200000, "maxOutput": 128000, "image": false, "video": false, "audio": false },
+    "glm-4.5":  { "contextLength": 128000, "maxOutput":  96000, "image": false, "video": false, "audio": false },
+    "glm-4.6v": { "contextLength": 128000,                     "image": true,  "video": true,  "audio": false },
+    "glm-4.5v": { "contextLength": 128000, "maxOutput":  16000, "image": true,  "video": true,  "audio": false }
+}

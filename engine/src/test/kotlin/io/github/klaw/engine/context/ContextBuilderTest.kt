@@ -50,7 +50,6 @@ class ContextBuilderTest {
 
     private fun buildConfig(
         contextBudget: Int = 4096,
-        slidingWindow: Int = 10,
         subagentHistory: Int = 5,
         modelContextBudget: Int? = null,
         skills: SkillsConfig = SkillsConfig(),
@@ -79,7 +78,6 @@ class ContextBuilderTest {
             context =
                 ContextConfig(
                     defaultBudgetTokens = contextBudget,
-                    slidingWindow = slidingWindow,
                     subagentHistory = subagentHistory,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
@@ -166,12 +164,12 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `sliding window respects contextBudget`() =
+    fun `token budget trims oldest messages when total exceeds budget`() =
         runTest {
-            // Insert 15 messages into DB, but window is 10 by default
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
 
+            // Insert 15 messages, each 100 tokens → total 1500 tokens
             for (i in 1..15) {
                 val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
                 db.messagesQueries.insertMessage(
@@ -183,34 +181,25 @@ class ContextBuilderTest {
                     "Message $i",
                     null,
                     ts,
+                    100,
                 )
             }
 
-            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10))
+            // Budget = 1000 → fits 10 messages (10 * 100 = 1000)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1000))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            // system + up to 10 history messages
-            val historyMessages = result.messages.drop(1) // remove system message
-            val maxHistory = 10
-            assertTrue(
-                historyMessages.size <= maxHistory,
-                "Should have at most $maxHistory history messages but got ${historyMessages.size}",
-            )
+            val historyMessages = result.messages.drop(1)
+            assertEquals(10, historyMessages.size, "Should fit exactly 10 messages within 1000-token budget")
 
             // Verify we got the NEWEST 10 messages (6-15), not the oldest (1-10)
             val contents = historyMessages.map { it.content }
             assertFalse(
                 contents.any { it == "Message 1" || it == "Message 5" },
-                "Oldest messages (1-5) should NOT be in the sliding window",
+                "Oldest messages (1-5) should NOT be in the window",
             )
-            assertTrue(
-                contents.contains("Message 15"),
-                "Most recent message (15) should be in the sliding window",
-            )
-            assertTrue(
-                contents.contains("Message 6"),
-                "Message 6 (oldest of newest 10) should be in the sliding window",
-            )
+            assertTrue(contents.contains("Message 15"), "Most recent message should be in the window")
+            assertTrue(contents.contains("Message 6"), "Message 6 should be in the window")
         }
 
     @Test
@@ -226,6 +215,7 @@ class ContextBuilderTest {
                 "Old message before segment",
                 null,
                 "2024-01-01T09:00:00Z",
+                0,
             )
             db.messagesQueries.insertMessage(
                 "old-msg-2",
@@ -236,6 +226,7 @@ class ContextBuilderTest {
                 "Old reply before segment",
                 null,
                 "2024-01-01T09:30:00Z",
+                0,
             )
 
             // Insert messages AFTER segmentStart (should be included)
@@ -249,6 +240,7 @@ class ContextBuilderTest {
                 "Hello in new segment",
                 null,
                 "2024-01-01T10:01:00Z",
+                0,
             )
             db.messagesQueries.insertMessage(
                 "new-msg-2",
@@ -259,6 +251,7 @@ class ContextBuilderTest {
                 "Hi there in new segment",
                 null,
                 "2024-01-01T10:02:00Z",
+                0,
             )
 
             val session = buildSession(chatId = "chat-seg", segmentStart = segmentStart)
@@ -283,7 +276,7 @@ class ContextBuilderTest {
                 )
             coEvery { subagentHistoryLoader.loadHistory("my-task", any()) } returns historyFromLoader
 
-            val contextBuilder = buildContextBuilder(buildConfig(slidingWindow = 10, subagentHistory = 5))
+            val contextBuilder = buildContextBuilder(buildConfig(subagentHistory = 5))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = true, taskName = "my-task")
 
             // SubagentHistoryLoader messages appear in context
@@ -366,17 +359,12 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `10 percent safety margin applied to contextBudget`() =
+    fun `token budget strictly limits history messages`() =
         runTest {
-            // Use a very small context budget to force token trimming
-            // Budget = 100 tokens, 10% safety = 90 effective tokens
-            // System prompt uses some tokens, remaining is small
-            // Insert messages that would exceed budget
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
 
-            // A very large message that would exceed a tiny budget
-            val bigContent = "word ".repeat(200) // ~57 tokens from approximateTokenCount
+            // Insert 5 messages, each 60 tokens
             for (i in 1..5) {
                 val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
                 db.messagesQueries.insertMessage(
@@ -385,24 +373,20 @@ class ContextBuilderTest {
                     "chat-1",
                     "user",
                     "text",
-                    bigContent,
+                    "Big message $i",
                     null,
                     ts,
+                    60,
                 )
             }
 
-            // Budget of 100 tokens with 10% safety = 90 tokens effective
-            // Each big message ~57 tokens means we cannot fit more than 1
+            // Budget = 100 → fits 1 message (60 ≤ 100), but not 2 (120 > 100)
             val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.drop(1)
-            // With 90 effective tokens and ~57 tokens per message, at most 1 message should fit
-            // (system message content is empty since systemPrompt/memory are empty mocks)
-            assertTrue(
-                historyMessages.size <= 2,
-                "With tight budget, should trim messages. Got ${historyMessages.size}",
-            )
+            assertEquals(1, historyMessages.size, "Should fit exactly 1 message within 100-token budget")
+            assertEquals("Big message 5", historyMessages[0].content, "Should be the newest message")
         }
 
     @Test
@@ -411,7 +395,7 @@ class ContextBuilderTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
 
-            // Message 1: small (oldest)
+            // Message 1: small (oldest) — 10 tokens
             db.messagesQueries.insertMessage(
                 "sm-1",
                 "telegram",
@@ -421,20 +405,21 @@ class ContextBuilderTest {
                 "Small old message",
                 null,
                 "2024-01-01T00:01:00Z",
+                10,
             )
-            // Message 2: very large (middle) — should stop here
-            val hugeContent = "word ".repeat(500) // ~143 tokens
+            // Message 2: very large (middle) — 500 tokens, should stop budget here
             db.messagesQueries.insertMessage(
                 "big-2",
                 "telegram",
                 "chat-1",
                 "user",
                 "text",
-                hugeContent,
+                "Huge middle message",
                 null,
                 "2024-01-01T00:02:00Z",
+                500,
             )
-            // Message 3: small (newest)
+            // Message 3: small (newest) — 10 tokens
             db.messagesQueries.insertMessage(
                 "sm-3",
                 "telegram",
@@ -444,29 +429,29 @@ class ContextBuilderTest {
                 "Small new message",
                 null,
                 "2024-01-01T00:03:00Z",
+                10,
             )
 
-            // Budget allows ~50 tokens for messages (enough for 2 small but not the big one)
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 60))
+            // Budget = 50, newest msg (10) fits, then big msg (500) would exceed → stop
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 50))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val history = result.messages.drop(1)
             val contents = history.map { it.content }
             assertTrue(contents.contains("Small new message"), "Newest small message should be kept")
-            // Old message should NOT be included because the large message in between breaks contiguity
-            assertTrue(
-                !contents.contains("Small old message"),
+            assertFalse(
+                contents.contains("Small old message"),
                 "Old message should be excluded — contiguous newest history stops at the oversized message",
             )
         }
 
     @Test
-    fun `pending message tokens subtracted from context budget`() =
+    fun `pending messages appended unconditionally after budget-selected history`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
 
-            // Insert small messages in DB
+            // Insert 5 messages, each 100 tokens
             for (i in 1..5) {
                 val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
                 db.messagesQueries.insertMessage(
@@ -478,31 +463,24 @@ class ContextBuilderTest {
                     "History message $i",
                     null,
                     ts,
+                    100,
                 )
             }
 
-            // Large pending messages that consume most of the budget
-            val largePending = "word ".repeat(200) // ~57 tokens each
-            val pendingMessages = listOf(largePending, largePending)
+            val pendingMessages = listOf("Pending 1", "Pending 2")
 
-            // Budget = 200 tokens, system ~0, pending ~114 tokens, remaining ~66 tokens
-            // History messages are small (~3 tokens each), but budget is tight
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 200))
+            // Budget = 300 → fits 3 history messages; pending are extra (unconditional)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 300))
             val result = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
+
+            // system + 3 history + 2 pending = 6
+            val historyMessages = result.messages.drop(1).dropLast(2)
+            assertEquals(3, historyMessages.size, "Budget 300 should fit 3 × 100-token messages")
 
             // Verify pending messages are at the end
             val lastTwo = result.messages.takeLast(2)
-            assertEquals("user", lastTwo[0].role)
-            assertEquals(largePending, lastTwo[0].content)
-
-            // Total context should respect budget: system + history + pending all fit within budget
-            // The key assertion: history should be reduced because pending tokens are accounted for
-            val historyWithoutSystemAndPending = result.messages.drop(1).dropLast(2)
-            assertTrue(
-                historyWithoutSystemAndPending.size < 5,
-                "History should be trimmed when large pending messages consume budget, " +
-                    "got ${historyWithoutSystemAndPending.size}",
-            )
+            assertEquals("Pending 1", lastTwo[0].content)
+            assertEquals("Pending 2", lastTwo[1].content)
         }
 
     @Test

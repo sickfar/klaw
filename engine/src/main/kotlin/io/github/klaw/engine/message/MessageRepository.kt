@@ -12,7 +12,7 @@ class MessageRepository(
     private val db: KlawDatabase,
 ) {
     data class MessageRow(
-        val rowId: Long, // SQLite implicit rowid for vec_messages FK
+        val rowId: Long,
         val id: String,
         val channel: String,
         val chatId: String,
@@ -21,6 +21,7 @@ class MessageRepository(
         val content: String,
         val metadata: String?,
         val createdAt: String,
+        val tokens: Int,
     )
 
     @Suppress("LongParameterList")
@@ -32,10 +33,11 @@ class MessageRepository(
         type: String,
         content: String,
         metadata: String? = null,
+        tokens: Int = 0,
     ): Unit =
         withContext(Dispatchers.VT) {
             val now = Clock.System.now().toString()
-            db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
+            db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now, tokens.toLong())
         }
 
     @Suppress("LongParameterList")
@@ -47,42 +49,76 @@ class MessageRepository(
         type: String,
         content: String,
         metadata: String? = null,
+        tokens: Int = 0,
     ): Long =
         withContext(Dispatchers.VT) {
             db.transactionWithResult {
                 val now = Clock.System.now().toString()
-                db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now)
+                db.messagesQueries.insertMessage(
+                    id,
+                    channel,
+                    chatId,
+                    role,
+                    type,
+                    content,
+                    metadata,
+                    now,
+                    tokens.toLong(),
+                )
                 db.messagesQueries.lastInsertRowId().executeAsOne()
             }
         }
 
+    /**
+     * Fetches recent messages in the segment, ordered newest-first (DESC).
+     * Accumulates tokens until [budgetTokens] is exceeded, then stops.
+     * Returns matching messages in chronological order (ASC).
+     */
     suspend fun getWindowMessages(
         chatId: String,
         segmentStart: String,
-        limit: Long,
+        budgetTokens: Int,
     ): List<MessageRow> =
         withContext(Dispatchers.VT) {
-            db.messagesQueries.getWindowMessages(chatId, segmentStart, limit).executeAsList().map {
-                MessageRow(
-                    rowId = it.row_id,
-                    id = it.id,
-                    channel = it.channel,
-                    chatId = it.chat_id,
-                    role = it.role,
-                    type = it.type,
-                    content = it.content,
-                    metadata = it.metadata,
-                    createdAt = it.created_at,
+            val allDesc = db.messagesQueries.getWindowMessages(chatId, segmentStart).executeAsList()
+            var accumulated = 0L
+            val kept = mutableListOf<MessageRow>()
+            for (row in allDesc) {
+                val rowTokens = row.tokens.toInt()
+                if (accumulated + rowTokens > budgetTokens) break
+                accumulated += rowTokens
+                kept.add(
+                    MessageRow(
+                        rowId = row.row_id,
+                        id = row.id,
+                        channel = row.channel,
+                        chatId = row.chat_id,
+                        role = row.role,
+                        type = row.type,
+                        content = row.content,
+                        metadata = row.metadata,
+                        createdAt = row.created_at,
+                        tokens = rowTokens,
+                    ),
                 )
             }
+            kept.reversed() // return in chronological order (ASC)
         }
 
-    suspend fun countInSegment(
+    suspend fun sumTokensInSegment(
         chatId: String,
         segmentStart: String,
     ): Long =
         withContext(Dispatchers.VT) {
-            db.messagesQueries.countInSegment(chatId, segmentStart).executeAsOne()
+            db.messagesQueries.sumTokensInSegment(chatId, segmentStart).executeAsOne()
+        }
+
+    suspend fun updateTokens(
+        id: String,
+        tokens: Int,
+    ): Unit =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.updateTokensById(tokens.toLong(), id)
         }
 
     suspend fun appendSessionBreak(chatId: String): Unit =
@@ -98,6 +134,7 @@ class MessageRepository(
                 "",
                 null,
                 now.toString(),
+                0,
             )
         }
 }

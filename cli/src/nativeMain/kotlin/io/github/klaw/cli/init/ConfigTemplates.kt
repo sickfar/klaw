@@ -227,7 +227,7 @@ private fun buildConfigProviders(
     )
 
 private fun buildConfigModels(modelId: String): Map<String, ModelConfig> =
-    mapOf(modelId to ModelConfig(maxTokens = 8192, contextBudget = 16384))
+    mapOf(modelId to ModelConfig(maxTokens = 8192))
 
 private fun buildConfigRouting(modelId: String): RoutingConfig =
     RoutingConfig(
@@ -238,8 +238,7 @@ private fun buildConfigRouting(modelId: String): RoutingConfig =
 
 private fun buildConfigContext(): ContextConfig =
     ContextConfig(
-        slidingWindow = 20,
-        defaultBudgetTokens = 4096,
+        defaultBudgetTokens = 100_000,
         subagentHistory = 10,
     )
 

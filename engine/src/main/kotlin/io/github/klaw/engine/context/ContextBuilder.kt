@@ -2,7 +2,7 @@ package io.github.klaw.engine.context
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.LlmMessage
-import io.github.klaw.common.util.approximateTokenCount
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
@@ -29,10 +29,6 @@ class ContextBuilder(
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
 ) {
-    companion object {
-        private const val CONTEXT_SAFETY_MARGIN = 0.9
-    }
-
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
         session: Session,
@@ -91,49 +87,38 @@ class ContextBuilder(
             )
         }
 
-        val contextBudget =
+        val budgetTokens =
             config.models[session.model]?.contextBudget
+                ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
-        val fixedTokens = approximateTokenCount(systemContent)
-        val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
-        val remaining = (contextBudget * CONTEXT_SAFETY_MARGIN).toInt() - fixedTokens - pendingTokens
 
-        // Fetch sliding window from DB
-        val windowLimit = config.context.slidingWindow
+        // Fetch messages fitting within token budget from DB
         val dbMessages =
             messageRepository.getWindowMessages(
                 chatId = session.chatId,
                 segmentStart = session.segmentStart,
-                limit = windowLimit.toLong(),
+                budgetTokens = budgetTokens,
             )
 
-        // Initial fit for rowId deduplication in auto-RAG
-        val initialFitting = trimToTokenBudget(dbMessages, remaining)
-
-        // Auto-RAG guard: only for interactive (non-subagent) path when segment exceeds sliding window
+        // Auto-RAG guard: only for interactive path when segment tokens exceed budget (messages being trimmed)
         val autoRagResults: List<AutoRagResult> =
             if (
                 !isSubagent &&
                 config.autoRag.enabled &&
-                messageRepository.countInSegment(session.chatId, session.segmentStart) > config.context.slidingWindow
+                messageRepository.sumTokensInSegment(session.chatId, session.segmentStart) > budgetTokens
             ) {
-                val slidingWindowRowIds = initialFitting.map { it.rowId }.toSet()
+                val windowRowIds = dbMessages.map { it.rowId }.toSet()
                 val userQuery = pendingMessages.joinToString(" ")
                 autoRagService.search(
                     userQuery,
                     session.chatId,
                     session.segmentStart,
-                    slidingWindowRowIds,
+                    windowRowIds,
                     config.autoRag,
                 )
             } else {
                 emptyList()
             }
-
-        // Adjust budget for auto-RAG tokens and compute final fit
-        val autoRagTokens = autoRagResults.sumOf { approximateTokenCount(it.content) }
-        val adjustedRemaining = remaining - autoRagTokens
-        val fittingMessages = trimToTokenBudget(dbMessages, adjustedRemaining)
 
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContent))
@@ -150,7 +135,7 @@ class ContextBuilder(
             messages.add(LlmMessage(role = "system", content = autoRagContent))
         }
 
-        fittingMessages.forEach { msg ->
+        dbMessages.forEach { msg ->
             if (msg.role != "session_break") {
                 messages.add(LlmMessage(role = msg.role, content = msg.content))
             }
@@ -177,24 +162,6 @@ class ContextBuilder(
         messages.addAll(historyMessages)
         pendingMessages.forEach { messages.add(LlmMessage(role = "user", content = it)) }
         return messages
-    }
-
-    private fun trimToTokenBudget(
-        msgs: List<MessageRepository.MessageRow>,
-        budget: Int,
-    ): List<MessageRepository.MessageRow> {
-        var tokens = 0
-        val kept = mutableListOf<MessageRepository.MessageRow>()
-        for (msg in msgs.reversed()) {
-            val msgTokens = approximateTokenCount(msg.content)
-            if (tokens + msgTokens <= budget) {
-                tokens += msgTokens
-                kept.add(0, msg)
-            } else {
-                break
-            }
-        }
-        return kept
     }
 
     private fun buildSystemContent(

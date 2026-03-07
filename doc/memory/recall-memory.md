@@ -2,25 +2,35 @@
 
 ## What recall memory is
 
-Recall memory is the last N messages from the current segment, automatically included in every context assembly. N is `slidingWindow` from `engine.json` (default: 20 messages).
+Recall memory is the most recent messages from the current segment that fit within the token budget, automatically included in every context assembly.
 
 ## Segment boundary
 
-Only messages since the last `/new` command are in the sliding window. Messages before `/new` are preserved in the JSONL log on disk but are not included in context.
+Only messages since the last `/new` command are in the context window. Messages before `/new` are preserved in the JSONL log on disk but are not included in context.
+
+## Token budget
+
+The context window is governed by a token budget (default 100,000 tokens, configurable per model via `contextBudget` or globally via `context.defaultBudgetTokens`). Messages are included newest-first until the budget is exhausted. Oldest messages are dropped first.
+
+## Token precision
+
+Each message stored in the database has a `tokens` column tracking its token cost:
+
+- **Assistant messages** and **tool call messages**: exact token count from the LLM API's `completionTokens`.
+- **Tool result messages**: exact token count derived from the delta between consecutive API `promptTokens` values across tool call loop iterations.
+- **User messages**: corrected after the first LLM call using the API's `promptTokens` minus the approximate token count of non-pending context messages.
+
+This approach maximises precision by using API-reported token counts wherever available, falling back to `approximateTokenCount()` only for the system prompt portion of the context.
 
 ## What counts as a message
 
-Each of the following is one message slot in the sliding window:
+Each of the following consumes tokens in the budget:
 - A user message
 - An assistant response
 - A tool call (assistant turn)
 - A tool result (tool turn)
 
-A single tool call + result pair uses two window slots.
-
-## When the window shrinks
-
-If N messages exceed the remaining context budget after fixed sections are placed, the window shrinks silently to fit. No notification is sent to the user. Oldest messages are dropped first.
+A single tool call + result pair consumes tokens for both messages.
 
 ## Accessing messages outside the window
 

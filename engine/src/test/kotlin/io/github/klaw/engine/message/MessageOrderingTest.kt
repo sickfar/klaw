@@ -8,13 +8,12 @@ import org.junit.jupiter.api.Test
 
 /**
  * Verifies ordering behavior of getWindowMessages:
- * - rowid ASC tiebreaker for identical timestamps
- * - LIMIT returns newest N messages (not oldest)
- * - results are in chronological order
+ * - rowid DESC tiebreaker for identical timestamps
+ * - results are returned in created_at DESC, rowid DESC order
  */
 class MessageOrderingTest {
     @Test
-    fun `getWindowMessages returns messages in insertion order when created_at is identical`() {
+    fun `getWindowMessages returns messages in DESC order when created_at is identical`() {
         val driver = JdbcSqliteDriver("jdbc:sqlite:")
         KlawDatabase.Schema.create(driver)
         val db = KlawDatabase(driver)
@@ -23,14 +22,35 @@ class MessageOrderingTest {
         val chatId = "test-ordering"
 
         // Insert two messages with the same created_at — only rowid differentiates them
-        db.messagesQueries.insertMessage("msg-A", "test", chatId, "user", "text", "first message", null, sameTimestamp)
-        db.messagesQueries.insertMessage("msg-B", "test", chatId, "user", "text", "second message", null, sameTimestamp)
+        db.messagesQueries.insertMessage(
+            "msg-A",
+            "test",
+            chatId,
+            "user",
+            "text",
+            "first message",
+            null,
+            sameTimestamp,
+            0,
+        )
+        db.messagesQueries.insertMessage(
+            "msg-B",
+            "test",
+            chatId,
+            "user",
+            "text",
+            "second message",
+            null,
+            sameTimestamp,
+            0,
+        )
 
-        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 100).executeAsList()
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z").executeAsList()
 
         assertEquals(2, messages.size)
-        assertEquals("first message", messages[0].content, "First inserted message should come first")
-        assertEquals("second message", messages[1].content, "Second inserted message should come second")
+        // DESC order: newest rowid first
+        assertEquals("second message", messages[0].content, "Newest rowid should come first in DESC order")
+        assertEquals("first message", messages[1].content, "Oldest rowid should come second in DESC order")
     }
 
     @Test
@@ -42,26 +62,28 @@ class MessageOrderingTest {
         val sameTimestamp = "2025-06-01T12:00:00Z"
         val chatId = "test-ordering-bulk"
 
-        val expectedOrder = (1..10).map { "message-$it" }
-        expectedOrder.forEachIndexed { i, content ->
-            db.messagesQueries.insertMessage("id-$i", "test", chatId, "user", "text", content, null, sameTimestamp)
+        val insertOrder = (1..10).map { "message-$it" }
+        insertOrder.forEachIndexed { i, content ->
+            db.messagesQueries.insertMessage("id-$i", "test", chatId, "user", "text", content, null, sameTimestamp, 0)
         }
 
-        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 100).executeAsList()
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z").executeAsList()
 
-        assertEquals(expectedOrder.size, messages.size)
-        expectedOrder.forEachIndexed { i, expectedContent ->
-            assertEquals(expectedContent, messages[i].content, "Position $i should be $expectedContent")
+        assertEquals(insertOrder.size, messages.size)
+        // DESC order: last inserted first
+        val expectedDesc = insertOrder.reversed()
+        expectedDesc.forEachIndexed { i, expectedContent ->
+            assertEquals(expectedContent, messages[i].content, "Position $i should be $expectedContent (DESC)")
         }
     }
 
     @Test
-    fun `getWindowMessages with LIMIT returns newest N messages not oldest`() {
+    fun `getWindowMessages returns all messages in segment`() {
         val driver = JdbcSqliteDriver("jdbc:sqlite:")
         KlawDatabase.Schema.create(driver)
         val db = KlawDatabase(driver)
 
-        val chatId = "test-newest-window"
+        val chatId = "test-all-messages"
 
         // Insert 20 messages with distinct timestamps
         for (i in 1..20) {
@@ -75,53 +97,45 @@ class MessageOrderingTest {
                 "Message $i",
                 null,
                 ts,
+                0,
             )
         }
 
-        // Request only 10 messages — should get messages 11-20 (newest), NOT 1-10 (oldest)
-        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 10).executeAsList()
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z").executeAsList()
 
-        assertEquals(10, messages.size, "Should return exactly 10 messages")
+        assertEquals(20, messages.size, "Should return all 20 messages")
 
-        // Verify we got the NEWEST 10 messages
-        for (i in 0 until 10) {
-            val expectedIndex = i + 11
-            assertEquals(
-                "msg-$expectedIndex",
-                messages[i].id,
-                "Position $i should be msg-$expectedIndex (newest 10)",
-            )
-            assertEquals("Message $expectedIndex", messages[i].content)
-        }
+        // Verify DESC order (newest first)
+        assertEquals("msg-20", messages[0].id, "First result should be newest message")
+        assertEquals("msg-1", messages[19].id, "Last result should be oldest message")
 
-        // Verify chronological order (ASC)
+        // Verify consistent DESC order
         for (i in 1 until messages.size) {
             assertTrue(
-                messages[i].created_at >= messages[i - 1].created_at,
-                "Messages should be in chronological order",
+                messages[i].created_at <= messages[i - 1].created_at,
+                "Messages should be in reverse chronological order",
             )
         }
     }
 
     @Test
-    fun `getWindowMessages returns all messages when LIMIT exceeds count`() {
+    fun `getWindowMessages filters by segmentStart`() {
         val driver = JdbcSqliteDriver("jdbc:sqlite:")
         KlawDatabase.Schema.create(driver)
         val db = KlawDatabase(driver)
 
-        val chatId = "test-limit-exceeds"
+        val chatId = "test-segment-filter"
 
         for (i in 1..5) {
             val ts = "2025-01-01T00:${i.toString().padStart(2, '0')}:00Z"
-            db.messagesQueries.insertMessage("msg-$i", "test", chatId, "user", "text", "Message $i", null, ts)
+            db.messagesQueries.insertMessage("msg-$i", "test", chatId, "user", "text", "Message $i", null, ts, 0)
         }
 
-        // LIMIT 100 but only 5 messages — should return all 5
-        val messages = db.messagesQueries.getWindowMessages(chatId, "2000-01-01T00:00:00Z", 100).executeAsList()
+        // Only messages at or after 00:03:00Z
+        val messages = db.messagesQueries.getWindowMessages(chatId, "2025-01-01T00:03:00Z").executeAsList()
 
-        assertEquals(5, messages.size)
-        for (i in 1..5) {
-            assertEquals("msg-$i", messages[i - 1].id)
-        }
+        assertEquals(3, messages.size)
+        assertEquals("msg-5", messages[0].id)
+        assertEquals("msg-3", messages[2].id)
     }
 }

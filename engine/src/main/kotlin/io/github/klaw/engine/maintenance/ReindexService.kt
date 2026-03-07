@@ -89,6 +89,7 @@ class ReindexService(
                                         Json.encodeToString(MessageMeta.serializer(), it)
                                     },
                                 created_at = msg.ts,
+                                tokens = approximateTokenCount(msg.content).toLong(),
                             )
                         } catch (_: Exception) {
                             // Skip malformed lines gracefully

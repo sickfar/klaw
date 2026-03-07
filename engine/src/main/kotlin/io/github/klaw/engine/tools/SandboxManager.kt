@@ -2,6 +2,7 @@ package io.github.klaw.engine.tools
 
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.File
 import java.util.UUID
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -10,12 +11,14 @@ private val logger = KotlinLogging.logger {}
 
 const val SANDBOX_WORKSPACE_PATH = "/workspace"
 private const val MAX_OUTPUT_CHARS = 10_000
+private const val PID_FILE_NAME = "sandbox.pid"
 
 class SandboxManager(
     private val config: CodeExecutionConfig,
     private val docker: DockerClient,
     private val workspacePath: String? = null,
     private val hostWorkspacePath: String? = null,
+    private val stateDir: String? = null,
 ) {
     private var containerId: String? = null
     private var executionCount = 0
@@ -67,9 +70,11 @@ class SandboxManager(
     }
 
     private suspend fun getOrCreateContainer(): String {
-        val current = containerId
+        val current = containerId ?: recoverPersistedContainer()
+        val isOrphaned = containerId == null && current != null
         val shouldRecreate =
             current == null ||
+                isOrphaned ||
                 executionCount >= config.keepAliveMaxExecutions ||
                 isIdleTimeoutExpired()
 
@@ -84,10 +89,32 @@ class SandboxManager(
             containerId = id
             executionCount = 0
             lastExecutionTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+            persistContainerId(id)
             logger.debug { "Created keep-alive container" }
             return id
         }
         return current
+    }
+
+    private fun recoverPersistedContainer(): String? {
+        val dir = stateDir ?: return null
+        val pidFile = File(dir, PID_FILE_NAME)
+        if (!pidFile.exists()) return null
+        val id = pidFile.readText().trim()
+        if (id.isEmpty()) return null
+        logger.debug { "Recovered orphaned sandbox container from state file" }
+        return id
+    }
+
+    private fun persistContainerId(id: String) {
+        val dir = stateDir ?: return
+        File(dir, PID_FILE_NAME).writeText(id)
+    }
+
+    private fun deletePersistedContainerId() {
+        val dir = stateDir ?: return
+        val pidFile = File(dir, PID_FILE_NAME)
+        pidFile.delete()
     }
 
     private fun isIdleTimeoutExpired(): Boolean {
@@ -101,6 +128,7 @@ class SandboxManager(
         val id = containerId ?: return
         destroyContainer(id)
         containerId = null
+        deletePersistedContainerId()
         logger.debug { "SandboxManager shutdown complete" }
     }
 
@@ -111,6 +139,7 @@ class SandboxManager(
         } catch (_: Exception) {
             logger.trace { "Container cleanup completed with warnings" }
         }
+        deletePersistedContainerId()
     }
 
     private fun buildRunOptions(
@@ -134,6 +163,7 @@ class SandboxManager(
             tmpfs = mapOf("/tmp" to "rw,size=64m"),
             volumes = safeVolumes,
             command = command,
+            entrypoint = "",
             detach = detach,
             remove = remove,
         )

@@ -46,12 +46,12 @@ class ContextBuilderAutoRagTest {
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
 
     private fun buildConfig(
-        slidingWindow: Int = 3,
+        budgetTokens: Int = 4096,
         autoRagEnabled: Boolean = true,
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
-            models = mapOf("test/model" to ModelConfig(contextBudget = 4096)),
+            models = mapOf("test/model" to ModelConfig(contextBudget = null)),
             routing =
                 RoutingConfig(
                     default = "test/model",
@@ -66,8 +66,7 @@ class ContextBuilderAutoRagTest {
                 ),
             context =
                 ContextConfig(
-                    defaultBudgetTokens = 4096,
-                    slidingWindow = slidingWindow,
+                    defaultBudgetTokens = budgetTokens,
                     subagentHistory = 5,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
@@ -145,6 +144,7 @@ class ContextBuilderAutoRagTest {
     private fun insertMessages(
         chatId: String,
         count: Int,
+        tokensPerMessage: Long = 100,
     ) {
         for (i in 1..count) {
             val ts = "2024-01-01T01:${i.toString().padStart(2, '0')}:00Z"
@@ -157,17 +157,18 @@ class ContextBuilderAutoRagTest {
                 "Message content $i",
                 null,
                 ts,
+                tokensPerMessage,
             )
         }
     }
 
     @Test
-    fun `auto-RAG skipped when segment message count does not exceed slidingWindow`() =
+    fun `auto-RAG skipped when segment tokens do not exceed budget`() =
         runTest {
-            val config = buildConfig(slidingWindow = 5)
+            // Budget = 4096, insert 5 messages * 100 tokens = 500 < 4096 → skip
+            val config = buildConfig(budgetTokens = 4096)
             val session = buildSession()
-            // Insert exactly slidingWindow messages — count == window, not >, so skip
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             buildContextBuilder(config).buildContext(session, listOf("query"), isSubagent = false)
 
@@ -177,10 +178,10 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG skipped when isSubagent is true`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            // Insert more than slidingWindow messages — but subagent path, so auto-RAG skipped
-            insertMessages(session.chatId, 5)
+            // Insert messages exceeding budget — but subagent path, so auto-RAG skipped
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             // With taskName=null (no early-return), isSubagent=true falls through but auto-RAG guard
             // requires !isSubagent, so search is skipped
@@ -192,9 +193,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG skipped when autoRag enabled=false in config`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2, autoRagEnabled = false)
+            val config = buildConfig(budgetTokens = 200, autoRagEnabled = false)
             val session = buildSession()
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             buildContextBuilder(config).buildContext(session, listOf("query"), isSubagent = false)
 
@@ -204,10 +205,10 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG results inserted between system message and sliding window`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            // Insert more than slidingWindow to trigger auto-RAG
-            insertMessages(session.chatId, 5)
+            // Insert messages exceeding budget to trigger auto-RAG
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("msg-1", "Earlier content", "user", "2024-01-01T00:01:00Z"))
 
@@ -223,9 +224,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG block absent when autoRagService returns empty list`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
             // autoRagService returns empty (default mock)
 
             val result = buildContextBuilder(config).buildContext(session, emptyList(), isSubagent = false)
@@ -245,9 +246,9 @@ class ContextBuilderAutoRagTest {
     fun `sliding window budget reduced by auto-RAG token count`() =
         runTest {
             // With a very small budget, auto-RAG consuming tokens should leave less room for history
-            val config = buildConfig(slidingWindow = 10)
+            val config = buildConfig(budgetTokens = 4096)
             val session = buildSession()
-            // Insert many short messages, more than slidingWindow
+            // Insert many short messages exceeding budget
             for (i in 1..15) {
                 val ts = "2024-01-01T01:${i.toString().padStart(2, '0')}:00Z"
                 db.messagesQueries.insertMessage(
@@ -259,6 +260,7 @@ class ContextBuilderAutoRagTest {
                     "Short $i",
                     null,
                     ts,
+                    500,
                 )
             }
 
@@ -275,7 +277,7 @@ class ContextBuilderAutoRagTest {
                 )
 
             // Now test without RAG (disabled)
-            val configNoRag = buildConfig(slidingWindow = 10, autoRagEnabled = false)
+            val configNoRag = buildConfig(budgetTokens = 4096, autoRagEnabled = false)
             val resultNoRag =
                 buildContextBuilder(configNoRag).buildContext(
                     session,
@@ -295,11 +297,11 @@ class ContextBuilderAutoRagTest {
         }
 
     @Test
-    fun `slidingWindowRowIds passed to autoRagService for deduplication`() =
+    fun `windowRowIds passed to autoRagService for deduplication`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             var capturedRowIds: Set<Long>? = null
             coEvery {
@@ -334,9 +336,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG block starts with correct header text`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("msg-old", "Earlier relevant content", "assistant", "2024-01-01T00:01:00Z"))
 
@@ -350,9 +352,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `context order is system then auto-RAG then sliding window then pending`() =
         runTest {
-            val config = buildConfig(slidingWindow = 2)
+            val config = buildConfig(budgetTokens = 200)
             val session = buildSession()
-            insertMessages(session.chatId, 5)
+            insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("old-msg", "Old content", "user", "2024-01-01T00:00:01Z"))
 

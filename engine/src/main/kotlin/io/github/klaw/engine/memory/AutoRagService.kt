@@ -57,7 +57,7 @@ class AutoRagService(
     /**
      * Hybrid search over message history of the current segment.
      * Scoped to [chatId] messages with created_at >= [segmentStart].
-     * Excludes [slidingWindowRowIds] (already in context).
+     * Excludes [windowRowIds] (already in context).
      * Returns empty list on any exception (fail-safe).
      */
     @Suppress("ReturnCount", "TooGenericExceptionCaught")
@@ -65,7 +65,7 @@ class AutoRagService(
         query: String,
         chatId: String,
         segmentStart: String,
-        slidingWindowRowIds: Set<Long>,
+        windowRowIds: Set<Long>,
         config: AutoRagConfig,
     ): List<AutoRagResult> {
         if (!config.enabled) return emptyList()
@@ -81,7 +81,7 @@ class AutoRagService(
             logger.trace { "Auto-RAG: vec=${vecResults.size} fts=${ftsResults.size} before merge" }
 
             val merged = rrfMerge(vecResults, ftsResults, k = 60)
-            val filtered = merged.filter { it.rowId !in slidingWindowRowIds }
+            val filtered = merged.filter { it.rowId !in windowRowIds }
 
             // Relevance threshold: applies only when vec results are available.
             // FTS-only mode has no semantic distance metric, so threshold is intentionally skipped.

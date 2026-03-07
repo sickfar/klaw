@@ -98,7 +98,6 @@ class MessageProcessorIntegrationTest {
             context =
                 ContextConfig(
                     defaultBudgetTokens = 4096,
-                    slidingWindow = 20,
                     subagentHistory = 10,
                 ),
             processing =
@@ -205,6 +204,7 @@ class MessageProcessorIntegrationTest {
             messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
+            shutdownController = mockk(relaxed = true),
         )
     }
 

@@ -5,6 +5,7 @@ import io.github.klaw.common.config.encodeEngineConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -85,8 +86,20 @@ class CommandHandler(
         }
     }
 
-    private fun showStatus(session: Session): String =
-        "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}"
+    private suspend fun showStatus(session: Session): String {
+        val budgetTokens =
+            config.models[session.model]?.contextBudget
+                ?: ModelRegistry.contextLength(session.model)
+                ?: config.context.defaultBudgetTokens
+        val usedTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
+        val pct = if (budgetTokens > 0) usedTokens * PERCENT_MULTIPLIER / budgetTokens else 0
+        return "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}\n" +
+            "Context: $usedTokens/$budgetTokens tokens ($pct%)"
+    }
+
+    companion object {
+        private const val PERCENT_MULTIPLIER = 100
+    }
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun handleUseForHeartbeat(

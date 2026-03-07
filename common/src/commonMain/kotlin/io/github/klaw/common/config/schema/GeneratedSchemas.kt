@@ -149,18 +149,13 @@ object GeneratedSchemas {
                             "type": "integer",
                             "exclusiveMinimum": 0
                         },
-                        "slidingWindow": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        },
+
                         "subagentHistory": {
                             "type": "integer",
                             "exclusiveMinimum": 0
                         }
                     },
                     "required": [
-                        "defaultBudgetTokens",
-                        "slidingWindow",
                         "subagentHistory"
                     ],
                     "additionalProperties": false

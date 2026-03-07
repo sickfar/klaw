@@ -1,0 +1,90 @@
+package io.github.klaw.common.registry
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class ModelRegistryTest {
+    @Test
+    fun `known model returns capabilities`() {
+        val caps = ModelRegistry.get("glm-5")
+        assertNotNull(caps)
+        assertEquals(200000, caps.contextLength)
+        assertEquals(128000, caps.maxOutput)
+        assertFalse(caps.image)
+    }
+
+    @Test
+    fun `lookup strips provider prefix`() {
+        val caps = ModelRegistry.get("zai/glm-5")
+        assertNotNull(caps)
+        assertEquals(200000, caps.contextLength)
+    }
+
+    @Test
+    fun `unknown model returns null`() {
+        assertNull(ModelRegistry.get("unknown-model"))
+        assertNull(ModelRegistry.get("provider/unknown-model"))
+    }
+
+    @Test
+    fun `contextLength shortcut works`() {
+        assertEquals(200000, ModelRegistry.contextLength("glm-4.7"))
+        assertEquals(128000, ModelRegistry.contextLength("zai/glm-4.5"))
+        assertNull(ModelRegistry.contextLength("nonexistent"))
+    }
+
+    @Test
+    fun `glm-4_5 has 128k context and 96k output`() {
+        val caps = ModelRegistry.get("glm-4.5")
+        assertNotNull(caps)
+        assertEquals(128000, caps.contextLength)
+        assertEquals(96000, caps.maxOutput)
+    }
+
+    @Test
+    fun `glm-5 and glm-4_7 and glm-4_6 have 200k context`() {
+        listOf("glm-5", "glm-4.7", "glm-4.6").forEach { modelId ->
+            assertEquals(200000, ModelRegistry.contextLength(modelId), "Wrong contextLength for $modelId")
+        }
+    }
+
+    @Test
+    fun `vision models support image and video`() {
+        listOf("glm-4.6v", "glm-4.5v").forEach { modelId ->
+            val caps = ModelRegistry.get(modelId)
+            assertNotNull(caps, "Missing entry for $modelId")
+            assertTrue(caps.image, "$modelId should support image")
+            assertTrue(caps.video, "$modelId should support video")
+            assertFalse(caps.audio, "$modelId should not support audio")
+        }
+    }
+
+    @Test
+    fun `glm-4_5v has 16k max output`() {
+        val caps = ModelRegistry.get("glm-4.5v")
+        assertNotNull(caps)
+        assertEquals(16000, caps.maxOutput)
+    }
+
+    @Test
+    fun `all registered models have positive contextLength`() {
+        val knownModels =
+            listOf(
+                "glm-5",
+                "glm-4.7",
+                "glm-4.6",
+                "glm-4.5",
+                "glm-4.6v",
+                "glm-4.5v",
+            )
+        knownModels.forEach { modelId ->
+            val ctx = ModelRegistry.contextLength(modelId)
+            assertNotNull(ctx, "Missing contextLength for $modelId")
+            assertTrue(ctx > 0, "contextLength for $modelId should be positive")
+        }
+    }
+}

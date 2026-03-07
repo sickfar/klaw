@@ -51,6 +51,7 @@ data class DockerRunOptions(
     val tmpfs: Map<String, String> = emptyMap(),
     val volumes: List<String> = emptyList(),
     val command: List<String> = listOf("sleep", "infinity"),
+    val entrypoint: String? = null,
     val detach: Boolean = false,
     val remove: Boolean = false,
     val privileged: Boolean = false,
@@ -207,6 +208,7 @@ class ProcessDockerClient : DockerClient {
         options.volumes.forEach { vol ->
             cmd.addAll(listOf("-v", vol))
         }
+        options.entrypoint?.let { cmd.addAll(listOf("--entrypoint", it)) }
         cmd.add(options.image)
         cmd.addAll(options.command)
         return cmd

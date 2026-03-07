@@ -3,6 +3,34 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val generateModelRegistryNative by tasks.registering {
+    description = "Generate ModelRegistryNative.kt from model-registry.json for native targets"
+    group = "generation"
+    val jsonFile = file("src/commonMain/resources/model-registry.json")
+    val outputDir = layout.buildDirectory.dir("generated/native-registry")
+    inputs.file(jsonFile)
+    outputs.dir(outputDir)
+    doLast {
+        val json =
+            jsonFile
+                .readText()
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+        val dir = outputDir.get().asFile.resolve("io/github/klaw/common/registry")
+        dir.mkdirs()
+        dir.resolve("ModelRegistryNative.kt").writeText(
+            """
+            |package io.github.klaw.common.registry
+            |
+            |internal actual fun loadRegistryJson(): String =
+            |    "$json"
+            |
+            """.trimMargin(),
+        )
+    }
+}
+
 kotlin {
     jvm()
     linuxArm64()
@@ -23,6 +51,9 @@ kotlin {
             dependencies {
                 implementation(libs.jtokkit)
             }
+        }
+        nativeMain {
+            kotlin.srcDir(generateModelRegistryNative.map { it.outputs.files.singleFile })
         }
     }
 }

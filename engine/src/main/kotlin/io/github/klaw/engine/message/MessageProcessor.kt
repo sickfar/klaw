@@ -8,6 +8,9 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.RestartRequestSocketMessage
+import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ToolRegistry
@@ -17,6 +20,7 @@ import io.github.klaw.engine.socket.CliCommandDispatcher
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.socket.SocketMessageHandler
 import io.github.klaw.engine.tools.ApprovalService
+import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.klaw.engine.workspace.ScheduleDeliverContext
 import io.github.klaw.engine.workspace.ScheduleDeliverSink
@@ -57,6 +61,7 @@ class MessageProcessor(
     private val messageEmbeddingService: MessageEmbeddingService,
     private val cliCommandDispatcher: CliCommandDispatcher,
     private val approvalService: ApprovalService,
+    private val shutdownController: ShutdownController,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -152,6 +157,7 @@ class MessageProcessor(
                                 role = "user",
                                 type = "text",
                                 content = message.message,
+                                tokens = approximateTokenCount(message.message),
                             )
                         messageEmbeddingService.embedAsync(
                             userRowId,
@@ -185,6 +191,8 @@ class MessageProcessor(
                     val content = response.content ?: ""
 
                     // Persist assistant response
+                    val subagentAssistantTokens =
+                        response.usage?.completionTokens ?: approximateTokenCount(content)
                     if (config.logging.subagentConversations) {
                         val assistantRowId =
                             messageRepository.saveAndGetRowId(
@@ -194,6 +202,7 @@ class MessageProcessor(
                                 role = "assistant",
                                 type = "text",
                                 content = content,
+                                tokens = subagentAssistantTokens,
                             )
                         messageEmbeddingService.embedAsync(
                             assistantRowId,
@@ -223,6 +232,7 @@ class MessageProcessor(
                                 role = "assistant",
                                 type = "text",
                                 content = deliveryMessage,
+                                tokens = approximateTokenCount(deliveryMessage),
                             )
                         messageEmbeddingService.embedAsync(
                             injectedRowId,
@@ -257,7 +267,7 @@ class MessageProcessor(
                     val session = sessionManager.getOrCreate(chatId, config.routing.default)
                     val pendingTexts = messages.map { it.content }
 
-                    // Persist user messages before building context so countInSegment is accurate
+                    // Persist user messages before building context so sumTokensInSegment is accurate
                     messages.forEach { msg ->
                         val rowId =
                             messageRepository.saveAndGetRowId(
@@ -267,6 +277,7 @@ class MessageProcessor(
                                 role = "user",
                                 type = "text",
                                 content = msg.content,
+                                tokens = approximateTokenCount(msg.content),
                             )
                         messageEmbeddingService.embedAsync(
                             rowId,
@@ -287,6 +298,7 @@ class MessageProcessor(
 
                     val contextBudget =
                         config.models[session.model]?.contextBudget
+                            ?: ModelRegistry.contextLength(session.model)
                             ?: config.context.defaultBudgetTokens
                     val runner =
                         ToolCallLoopRunner(
@@ -301,8 +313,12 @@ class MessageProcessor(
                         )
                     val response = runner.run(contextResult.messages.toMutableList(), session, tools)
 
+                    correctUserMessageTokens(runner.firstPromptTokens, contextResult.messages, messages)
+
                     // Persist assistant response to DB
                     val content = response.content ?: ""
+                    val assistantTokens =
+                        response.usage?.completionTokens ?: approximateTokenCount(content)
                     val assistantRowId =
                         messageRepository.saveAndGetRowId(
                             id = UUID.randomUUID().toString(),
@@ -311,6 +327,7 @@ class MessageProcessor(
                             role = "assistant",
                             type = "text",
                             content = content,
+                            tokens = assistantTokens,
                         )
                     messageEmbeddingService.embedAsync(
                         assistantRowId,
@@ -348,6 +365,53 @@ class MessageProcessor(
             }
         } finally {
             activeProcessingJobs.remove(chatId, currentJob)
+            executeDeferredRestarts()
         }
+    }
+
+    /**
+     * Corrects user message token counts using the API-reported [firstPromptTokens].
+     *
+     * The first LLM call's promptTokens covers the entire context sent (system + history + pending).
+     * By subtracting approximate tokens for non-pending messages, we get the actual total for
+     * pending user messages, then distribute proportionally.
+     */
+    private suspend fun correctUserMessageTokens(
+        firstPromptTokens: Int?,
+        contextMessages: List<io.github.klaw.common.llm.LlmMessage>,
+        userMessages: List<InboundSocketMessage>,
+    ) {
+        if (firstPromptTokens == null || userMessages.isEmpty()) return
+
+        val pendingCount = userMessages.size
+        val nonPendingMessages = contextMessages.dropLast(pendingCount)
+        val nonPendingApproxTokens = nonPendingMessages.sumOf { approximateTokenCount(it.content ?: "") }
+        val actualPendingTotal = firstPromptTokens - nonPendingApproxTokens
+
+        if (actualPendingTotal <= 0) return
+
+        if (userMessages.size == 1) {
+            messageRepository.updateTokens(userMessages[0].id, actualPendingTotal)
+            return
+        }
+
+        val approxTokens = userMessages.map { approximateTokenCount(it.content) }
+        val approxTotal = approxTokens.sum()
+        if (approxTotal <= 0) return
+
+        val remainder = actualPendingTotal % userMessages.size
+        userMessages.forEachIndexed { i, msg ->
+            val proportional = (approxTokens[i].toLong() * actualPendingTotal / approxTotal).toInt()
+            val adjusted = proportional + if (i < remainder && proportional == 0) 1 else 0
+            messageRepository.updateTokens(msg.id, adjusted)
+        }
+    }
+
+    private suspend fun executeDeferredRestarts() {
+        if (shutdownController.consumePendingGatewayRestart()) {
+            logger.debug { "Executing deferred gateway restart" }
+            socketServerProvider.get().pushMessage(RestartRequestSocketMessage)
+        }
+        shutdownController.executePendingRestart()
     }
 }

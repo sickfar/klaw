@@ -29,6 +29,7 @@ import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
+import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.ToolExecutor
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -59,7 +60,7 @@ class MessageProcessorTest {
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, slidingWindow = 10, subagentHistory = 5),
+            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             llm =
                 LlmRetryConfig(
@@ -134,6 +135,7 @@ class MessageProcessorTest {
         socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
         commandHandler: CommandHandler = mockk(relaxed = true),
         messageEmbeddingService: MessageEmbeddingService = mockk(relaxed = true),
+        shutdownController: ShutdownController = mockk(relaxed = true),
     ): MessageProcessor =
         MessageProcessor(
             sessionManager = sessionManager,
@@ -148,6 +150,7 @@ class MessageProcessorTest {
             messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = mockk(relaxed = true),
             approvalService = mockk(relaxed = true),
+            shutdownController = shutdownController,
         )
 
     @Test
@@ -173,7 +176,9 @@ class MessageProcessorTest {
             coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
             val toolExecutor = ScheduleDeliverAwareToolExecutor()
             val messageRepository = mockk<MessageRepository>(relaxed = true)
-            coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 42L
+            coEvery {
+                messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any(), any())
+            } returns 42L
 
             val processor =
                 buildProcessor(
@@ -216,6 +221,7 @@ class MessageProcessorTest {
                     type = "text",
                     content = "Buy milk",
                     metadata = null,
+                    tokens = any(),
                 )
             }
         }
