@@ -6,6 +6,7 @@ import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
+import io.github.klaw.engine.mcp.McpToolRegistry
 import io.github.klaw.engine.workspace.HeartbeatDeliverContext
 import io.github.klaw.engine.workspace.ScheduleDeliverContext
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -36,6 +37,7 @@ class ToolRegistryImpl(
     private val hostExecTool: HostExecTool,
     private val configTools: ConfigTools,
     private val config: EngineConfig,
+    private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
     override suspend fun listTools(
         includeSkillList: Boolean,
@@ -51,6 +53,7 @@ class ToolRegistryImpl(
         if (!includeSendMessage) result = result.filter { it.name != SEND_MESSAGE_TOOL_NAME }
         if (includeHeartbeatDeliver) result = result + HEARTBEAT_DELIVER_DEF
         if (includeScheduleDeliver) result = result + SCHEDULE_DELIVER_DEF
+        result = result + mcpToolRegistry.listTools()
         return result
     }
 
@@ -209,8 +212,12 @@ class ToolRegistryImpl(
             }
 
             else -> {
-                logger.warn { "unknown tool: '$name'" }
-                "Error: unknown tool '$name'"
+                if (mcpToolRegistry.canHandle(name)) {
+                    mcpToolRegistry.execute(name, args)
+                } else {
+                    logger.warn { "unknown tool: '$name'" }
+                    "Error: unknown tool '$name'"
+                }
             }
         }
 

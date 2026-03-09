@@ -18,6 +18,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.engine.context.ToolRegistry
+import io.github.klaw.engine.mcp.McpToolRegistry
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -78,6 +79,7 @@ class ToolsIntegrationTest {
             hostExecTool = mockk(),
             configTools = mockk(),
             config = testEngineConfig(),
+            mcpToolRegistry = McpToolRegistry(),
         )
 
     @Test

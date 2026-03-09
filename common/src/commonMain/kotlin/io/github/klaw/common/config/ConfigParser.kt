@@ -36,6 +36,10 @@ fun encodeEngineConfigMinimal(config: EngineConfig): String =
 fun encodeGatewayConfigMinimal(config: GatewayConfig): String =
     klawMinimalJson.encodeToString(GatewayConfig.serializer(), config)
 
+fun parseMcpConfig(jsonString: String): McpConfig = klawJson.decodeFromString(McpConfig.serializer(), jsonString)
+
+fun encodeMcpConfig(config: McpConfig): String = klawPrettyJson.encodeToString(McpConfig.serializer(), config)
+
 fun parseComposeConfig(jsonString: String): ComposeConfig =
     klawJson.decodeFromString(ComposeConfig.serializer(), jsonString)
 

@@ -18,6 +18,7 @@ import io.github.klaw.common.config.klawPrettyJson
 import io.github.klaw.common.config.parseComposeConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig
+import io.github.klaw.common.config.parseMcpConfig
 import io.github.klaw.common.config.schema.composeJsonSchema
 import io.github.klaw.common.config.schema.engineJsonSchema
 import io.github.klaw.common.config.schema.gatewayJsonSchema
@@ -63,6 +64,7 @@ internal class DoctorCommand(
         checkGatewayWebSocket(deployConfig)
         checkModels()
         checkWorkspace()
+        checkMcpConfig(deployConfig)
 
         if (deployConfig.mode != DeployMode.NATIVE) {
             checkDocker()
@@ -190,6 +192,90 @@ internal class DoctorCommand(
         }
     }
 
+    private fun checkMcpConfig(deployConfig: io.github.klaw.cli.init.DeployConfig) {
+        val mcpFile = "$configDir/mcp.json"
+        if (!fileExists(mcpFile)) return
+        val content = readFileText(mcpFile)
+        if (content == null) {
+            echo("\u2717 mcp.json: unreadable ($mcpFile)")
+            return
+        }
+        val config =
+            try {
+                parseMcpConfig(content)
+            } catch (e: SerializationException) {
+                echo("\u2717 mcp.json: parse error (${e::class.simpleName})")
+                return
+            }
+        if (config.servers.isEmpty()) {
+            echo("\u2713 mcp.json: valid (no servers)")
+            return
+        }
+        echo("\u2713 mcp.json: valid (${config.servers.size} server(s))")
+        for ((name, server) in config.servers) {
+            checkMcpServer(name, server, deployConfig)
+        }
+    }
+
+    private fun checkMcpServer(
+        name: String,
+        server: io.github.klaw.common.config.McpServerConfig,
+        deployConfig: io.github.klaw.cli.init.DeployConfig,
+    ) {
+        if (!server.enabled) {
+            echo("  - $name: disabled")
+            return
+        }
+        when (server.transport) {
+            "stdio" -> checkMcpStdioServer(name, server, deployConfig)
+            "http" -> checkMcpHttpServer(name, server)
+            else -> echo("  \u2717 $name: unknown transport '${server.transport}'")
+        }
+    }
+
+    private fun checkMcpStdioServer(
+        name: String,
+        server: io.github.klaw.common.config.McpServerConfig,
+        deployConfig: io.github.klaw.cli.init.DeployConfig,
+    ) {
+        val cmd = server.command
+        if (cmd == null) {
+            echo("  \u2717 $name: stdio transport requires 'command'")
+            return
+        }
+        if (deployConfig.mode == DeployMode.NATIVE) {
+            echo("  \u2713 $name: stdio ($cmd)")
+            return
+        }
+        when {
+            cmd == "docker" -> {
+                echo("  \u2713 $name: stdio via user docker command")
+            }
+
+            STDIO_DOCKER_IMAGES.containsKey(cmd) -> {
+                echo("  \u2713 $name: stdio via ${STDIO_DOCKER_IMAGES[cmd]}")
+            }
+
+            else -> {
+                echo(
+                    "  \u26a0 $name: command '$cmd' has no known Docker image — " +
+                        "will be skipped. Use HTTP transport or wrap in a docker command",
+                )
+            }
+        }
+    }
+
+    private fun checkMcpHttpServer(
+        name: String,
+        server: io.github.klaw.common.config.McpServerConfig,
+    ) {
+        if (server.url == null) {
+            echo("  \u2717 $name: http transport requires 'url'")
+        } else {
+            echo("  \u2713 $name: http (${server.url})")
+        }
+    }
+
     private fun checkDocker() {
         val composeFile = "$configDir/docker-compose.json"
 
@@ -235,5 +321,16 @@ internal class DoctorCommand(
         } else {
             echo("\u2717 Container $service: stopped")
         }
+    }
+
+    companion object {
+        private val STDIO_DOCKER_IMAGES =
+            mapOf(
+                "npx" to "node:22-alpine",
+                "node" to "node:22-alpine",
+                "uvx" to "python:3.12-slim",
+                "python" to "python:3.12-slim",
+                "python3" to "python:3.12-slim",
+            )
     }
 }

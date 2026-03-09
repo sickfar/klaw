@@ -2,6 +2,7 @@ package io.github.klaw.common.config
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -485,5 +486,150 @@ class ConfigParsingTest {
             """.trimIndent()
         val config = parseEngineConfig(json)
         assertEquals("a/b", config.routing.default)
+    }
+
+    @Test
+    fun parseMcpConfig_fullConfig() {
+        val json =
+            """
+{
+  "servers": {
+    "home-assistant": {
+      "transport": "http",
+      "url": "http://ha-mcp:8080/mcp",
+      "apiKey": "${'$'}{HA_MCP_API_KEY}"
+    },
+    "filesystem": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+    },
+    "disabled-server": {
+      "enabled": false,
+      "transport": "http",
+      "url": "http://unused:8080/mcp"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseMcpConfig(json)
+        assertEquals(3, config.servers.size)
+
+        val ha = config.servers["home-assistant"]!!
+        assertTrue(ha.enabled)
+        assertEquals("http", ha.transport)
+        assertEquals("http://ha-mcp:8080/mcp", ha.url)
+        assertEquals("\${HA_MCP_API_KEY}", ha.apiKey)
+        assertNull(ha.command)
+
+        val fs = config.servers["filesystem"]!!
+        assertTrue(fs.enabled)
+        assertEquals("stdio", fs.transport)
+        assertEquals("npx", fs.command)
+        assertEquals(listOf("-y", "@modelcontextprotocol/server-filesystem", "/workspace"), fs.args)
+        assertNull(fs.url)
+        assertNull(fs.apiKey)
+
+        val disabled = config.servers["disabled-server"]!!
+        assertFalse(disabled.enabled)
+    }
+
+    @Test
+    fun parseMcpConfig_emptyServers() {
+        val config = parseMcpConfig("""{"servers": {}}""")
+        assertTrue(config.servers.isEmpty())
+    }
+
+    @Test
+    fun parseMcpConfig_defaults() {
+        val json =
+            """
+{
+  "servers": {
+    "test": {
+      "transport": "stdio",
+      "command": "echo"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseMcpConfig(json)
+        val server = config.servers["test"]!!
+        assertTrue(server.enabled)
+        assertEquals(30_000, server.timeoutMs)
+        assertEquals(5_000, server.reconnectDelayMs)
+        assertEquals(0, server.maxReconnectAttempts)
+        assertTrue(server.args.isEmpty())
+        assertTrue(server.env.isEmpty())
+    }
+
+    @Test
+    fun parseMcpConfig_withEnvVars() {
+        val json =
+            """
+{
+  "servers": {
+    "test": {
+      "transport": "stdio",
+      "command": "node",
+      "env": {"API_KEY": "secret", "DEBUG": "true"}
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseMcpConfig(json)
+        val server = config.servers["test"]!!
+        assertEquals(mapOf("API_KEY" to "secret", "DEBUG" to "true"), server.env)
+    }
+
+    @Test
+    fun parseMcpConfig_ignoresUnknownKeys() {
+        val json =
+            """
+{
+  "unknownField": true,
+  "servers": {
+    "test": {
+      "transport": "http",
+      "url": "http://localhost:8080",
+      "futureField": 42
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseMcpConfig(json)
+        assertEquals(1, config.servers.size)
+    }
+
+    @Test
+    fun mcpConfigRoundTrip() {
+        val config =
+            McpConfig(
+                servers =
+                    mapOf(
+                        "test" to
+                            McpServerConfig(
+                                transport = "http",
+                                url = "http://localhost:8080",
+                            ),
+                    ),
+            )
+        val json = encodeMcpConfig(config)
+        val parsed = parseMcpConfig(json)
+        assertEquals(config.servers.size, parsed.servers.size)
+        assertEquals("http", parsed.servers["test"]!!.transport)
+        assertEquals("http://localhost:8080", parsed.servers["test"]!!.url)
+    }
+
+    @Test
+    fun parseMcpConfig_invalidServerNameWithDoubleUnderscore() {
+        val json = """{"servers": {"bad__name": {"transport": "http", "url": "http://localhost"}}}"""
+        assertFailsWith<IllegalArgumentException> { parseMcpConfig(json) }
+    }
+
+    @Test
+    fun parseMcpConfig_invalidServerNameStartsWithDash() {
+        val json = """{"servers": {"-bad": {"transport": "http", "url": "http://localhost"}}}"""
+        assertFailsWith<IllegalArgumentException> { parseMcpConfig(json) }
     }
 }

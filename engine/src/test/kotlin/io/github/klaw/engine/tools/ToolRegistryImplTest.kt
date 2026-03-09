@@ -18,13 +18,20 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.ToolCall
+import io.github.klaw.engine.mcp.FakeTransport
+import io.github.klaw.engine.mcp.McpClient
+import io.github.klaw.engine.mcp.McpToolDef
+import io.github.klaw.engine.mcp.McpToolRegistry
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -41,6 +48,7 @@ class ToolRegistryImplTest {
     private val sandboxExecTool = mockk<SandboxExecTool>()
     private val hostExecTool = mockk<HostExecTool>()
     private val configTools = mockk<ConfigTools>()
+    private val mcpToolRegistry = McpToolRegistry()
 
     @Suppress("LongMethod")
     private fun testEngineConfig(
@@ -87,6 +95,7 @@ class ToolRegistryImplTest {
             hostExecTool,
             configTools,
             testEngineConfig(docsEnabled = true, hostExecEnabled = true),
+            mcpToolRegistry,
         )
 
     @Test
@@ -220,6 +229,7 @@ class ToolRegistryImplTest {
                     hostExecTool,
                     configTools,
                     testEngineConfig(docsEnabled = false, hostExecEnabled = true),
+                    mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
@@ -300,6 +310,7 @@ class ToolRegistryImplTest {
                     hostExecTool,
                     configTools,
                     testEngineConfig(hostExecEnabled = false),
+                    mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
@@ -339,6 +350,7 @@ class ToolRegistryImplTest {
                     hostExecTool,
                     configTools,
                     testEngineConfig(hostExecEnabled = true),
+                    mcpToolRegistry,
                 )
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
@@ -414,5 +426,90 @@ class ToolRegistryImplTest {
                     )
                 }
             assertEquals("OK", result.content)
+        }
+
+    @Test
+    fun `listTools includes MCP tools when registered`() =
+        runTest {
+            val mcpReg = McpToolRegistry()
+            mcpReg.registerTools(
+                "srv",
+                listOf(
+                    McpToolDef(
+                        "remote_read",
+                        "Read remote",
+                        buildJsonObject { put("type", "object") },
+                    ),
+                ),
+            )
+            val reg =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    configTools,
+                    testEngineConfig(docsEnabled = true, hostExecEnabled = true),
+                    mcpReg,
+                )
+            val tools = reg.listTools()
+            assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
+            assertEquals(21, tools.size)
+        }
+
+    @Test
+    fun `dispatch delegates MCP tool calls`() =
+        runTest {
+            val transport = FakeTransport()
+            val client = McpClient(transport, "srv")
+            val mcpReg = McpToolRegistry()
+            mcpReg.registerClient("srv", client)
+            mcpReg.registerTools(
+                "srv",
+                listOf(
+                    McpToolDef(
+                        "echo",
+                        "Echo tool",
+                        buildJsonObject { put("type", "object") },
+                    ),
+                ),
+            )
+            val callResult =
+                buildJsonObject {
+                    put(
+                        "content",
+                        Json.parseToJsonElement(
+                            """[{"type":"text","text":"echoed"}]""",
+                        ),
+                    )
+                    put("isError", false)
+                }
+            transport.enqueueResult(1, callResult)
+
+            val reg =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    configTools,
+                    testEngineConfig(docsEnabled = true, hostExecEnabled = true),
+                    mcpReg,
+                )
+            val result =
+                reg.execute(
+                    ToolCall(id = "99", name = "mcp__srv__echo", arguments = """{"msg":"hi"}"""),
+                )
+            assertEquals("echoed", result.content)
         }
 }

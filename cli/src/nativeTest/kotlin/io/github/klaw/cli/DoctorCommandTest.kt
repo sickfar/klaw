@@ -27,6 +27,7 @@ class DoctorCommandTest {
         listOf(
             "$tmpDir/gateway.json",
             "$tmpDir/engine.json",
+            "$tmpDir/mcp.json",
             "$tmpDir/deploy.conf",
             "$tmpDir/docker-compose.json",
             "$tmpDir/models/test.onnx",
@@ -396,5 +397,84 @@ class DoctorCommandTest {
 
         private val MINIMAL_COMPOSE_JSON =
             """{"services": {"engine": {"image": "test:latest"}}}"""
+    }
+
+    @Test
+    fun `doctor skips mcp when file missing`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result = cli().test("doctor")
+        // mcp.json not mentioned when missing (optional)
+        assertTrue(!result.output.contains("mcp.json"))
+    }
+
+    @Test
+    fun `doctor reports valid mcp config`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile(
+            "$tmpDir/mcp.json",
+            """{"servers": {"test": {"transport": "http", "url": "http://localhost:8080"}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "mcp.json: valid")
+        assertContains(result.output, "test: http")
+    }
+
+    @Test
+    fun `doctor reports mcp parse error`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile("$tmpDir/mcp.json", "{invalid json")
+        val result = cli().test("doctor")
+        assertContains(result.output, "mcp.json: parse error")
+    }
+
+    @Test
+    fun `doctor reports disabled mcp server`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile(
+            "$tmpDir/mcp.json",
+            """{"servers": {"off": {"enabled": false, "transport": "http", "url": "http://x"}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "off: disabled")
+    }
+
+    @Test
+    fun `doctor reports missing command for stdio`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile(
+            "$tmpDir/mcp.json",
+            """{"servers": {"bad": {"transport": "stdio"}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "bad: stdio transport requires 'command'")
+    }
+
+    @Test
+    fun `doctor reports missing url for http`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile(
+            "$tmpDir/mcp.json",
+            """{"servers": {"bad": {"transport": "http"}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "bad: http transport requires 'url'")
+    }
+
+    @Test
+    fun `doctor reports unknown transport`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        writeFile(
+            "$tmpDir/mcp.json",
+            """{"servers": {"bad": {"transport": "websocket"}}}""",
+        )
+        val result = cli().test("doctor")
+        assertContains(result.output, "bad: unknown transport 'websocket'")
     }
 }
