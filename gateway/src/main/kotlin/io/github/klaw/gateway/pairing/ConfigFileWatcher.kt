@@ -22,9 +22,13 @@ class ConfigFileWatcher(
 
     fun startWatching(onConfigChanged: (GatewayConfig) -> Unit) {
         if (watchThread != null) return
+        val dirPath: Path = Path.of(configDir)
+        if (!java.nio.file.Files.isDirectory(dirPath)) {
+            logger.debug { "Config directory $configDir does not exist, skipping file watcher" }
+            return
+        }
         val ws = FileSystems.getDefault().newWatchService()
         watchService = ws
-        val dirPath: Path = Path.of(configDir)
         dirPath.register(ws, StandardWatchEventKinds.ENTRY_MODIFY)
         logger.debug { "ConfigFileWatcher started on $configDir" }
 
