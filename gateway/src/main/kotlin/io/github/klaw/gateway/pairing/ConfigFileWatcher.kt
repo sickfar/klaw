@@ -8,6 +8,7 @@ import java.nio.file.FileSystems
 import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchService
+import java.nio.file.Files as NioFiles
 
 private val logger = KotlinLogging.logger {}
 
@@ -23,7 +24,7 @@ class ConfigFileWatcher(
     fun startWatching(onConfigChanged: (GatewayConfig) -> Unit) {
         if (watchThread != null) return
         val dirPath: Path = Path.of(configDir)
-        if (!java.nio.file.Files.isDirectory(dirPath)) {
+        if (!NioFiles.isDirectory(dirPath)) {
             logger.debug { "Config directory $configDir does not exist, skipping file watcher" }
             return
         }
