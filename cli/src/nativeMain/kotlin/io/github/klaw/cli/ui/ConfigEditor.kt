@@ -4,7 +4,9 @@ import io.github.klaw.common.config.ConfigPropertyDescriptor
 import io.github.klaw.common.config.ConfigValueType
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.serialization.json.JsonObject
+import platform.posix.STDIN_FILENO
 import platform.posix.fflush
+import platform.posix.isatty
 import platform.posix.stdout
 
 // ── Rendering ───────────────────────────────────────────────────────────
@@ -111,6 +113,8 @@ internal class ConfigEditor(
     private val printer: (String) -> Unit = { print(it) },
 ) {
     fun run(): JsonObject? {
+        if (isatty(STDIN_FILENO) == 0) return null
+
         val hasEditable =
             descriptors.any {
                 it.type != ConfigValueType.MAP_SECTION && it.type != ConfigValueType.LIST_STRING
