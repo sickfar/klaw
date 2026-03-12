@@ -639,6 +639,167 @@ class ToolCallLoopTest {
         }
 
     @Test
+    fun `model limit stops loop with graceful summary`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "big_tool", arguments = "{}")
+            // Large tool result that pushes context past 90% of model limit
+            val largeResult = "word ".repeat(500)
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse(
+                        "Summary: I was stopped because context is too large.",
+                        null,
+                        null,
+                        FinishReason.STOP,
+                    ),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = largeResult))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 10,
+                    modelContextLimit = 500, // Small limit — context will exceed 90% after tool result
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Run big tool"))
+            val response = runner.run(context, testSession)
+
+            // Should get graceful summary, not continue looping
+            assertNotNull(response.content)
+            // Context should contain the model limit notification
+            val limitMsg = context.find { it.role == "user" && it.content?.contains("context limit") == true }
+            assertNotNull(limitMsg, "Context must contain model limit notification message")
+        }
+
+    @Test
+    fun `model limit zero means no hard guard`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "my_tool", arguments = "{}")
+            val largeResult = "word ".repeat(500)
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = largeResult))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    contextBudgetTokens = 50, // Small budget, but modelContextLimit=0 (default)
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Run tool"))
+            val response = runner.run(context, testSession)
+
+            // Loop continues normally despite exceeding engine budget (soft guard only)
+            assertEquals("Done", response.content)
+            // No model limit notification injected
+            val limitMsg = context.find { it.role == "user" && it.content?.contains("context limit") == true }
+            assertEquals(null, limitMsg, "No model limit notification when modelContextLimit=0")
+        }
+
+    @Test
+    fun `model limit takes priority over remaining rounds`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "big_tool", arguments = "{}")
+            val largeResult = "word ".repeat(500)
+
+            // Round 1 returns tool call, then model limit triggers and graceful summary call gets response 2
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Model limit summary", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = largeResult))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 10,
+                    modelContextLimit = 100, // Very small — will trigger after round 1
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Loop"))
+            val response = runner.run(context, testSession)
+
+            assertEquals("Model limit summary", response.content)
+            // Should have stopped after round 1 (model limit triggered) + 1 graceful summary = 2 LLM calls
+            // Definitely less than 10 rounds
+            coVerify(atMost = 4) { mockClient.chat(any(), any(), any()) }
+            // Verify model limit message, not tool call limit
+            val limitMsg = context.find { it.role == "user" && it.content?.contains("context limit") == true }
+            assertNotNull(limitMsg, "Should stop due to model limit, not maxRounds")
+        }
+
+    @Test
+    fun `maxRounds graceful summary mentions tool call limit`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "loop_tool", arguments = "{}")
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Limit reached summary", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = "result"))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 2,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Loop forever"))
+            runner.run(context, testSession)
+
+            val limitMsg = context.find { it.role == "user" && it.content?.contains("[System]") == true }
+            assertNotNull(limitMsg, "Must have system notification")
+            assertTrue(
+                limitMsg!!.content!!.contains("tool call limit"),
+                "maxRounds exhaustion message should mention 'tool call limit'",
+            )
+        }
+
+    @Test
     fun `no correction when usage is null`() =
         runTest {
             val driver = JdbcSqliteDriver("jdbc:sqlite:")

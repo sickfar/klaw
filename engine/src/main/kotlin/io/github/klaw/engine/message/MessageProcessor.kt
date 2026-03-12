@@ -171,12 +171,14 @@ class MessageProcessor(
                         )
                     }
 
+                    val scheduledModelContextLimit = ModelRegistry.contextLength(model) ?: 0
                     val runner =
                         ToolCallLoopRunner(
                             llmRouter,
                             toolExecutor,
                             config.processing.maxToolCallRounds,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
+                            modelContextLimit = scheduledModelContextLimit,
                         )
                     // ScheduleDeliverContext propagates through ToolCallLoopRunner's internal
                     // withContext(ChatContext(...)) because CoroutineContext merges elements by key —
@@ -216,35 +218,7 @@ class MessageProcessor(
                         )
                     }
 
-                    val deliveryMessage = sink?.consumeMessage()
-                    if (deliveryMessage != null) {
-                        socketServerProvider.get().pushToGateway(
-                            OutboundSocketMessage(
-                                channel = message.channel ?: "engine",
-                                chatId = message.injectInto!!,
-                                content = deliveryMessage,
-                            ),
-                        )
-                        // Record in interactive session so user can follow up naturally
-                        val injectedRowId =
-                            messageRepository.saveAndGetRowId(
-                                id = UUID.randomUUID().toString(),
-                                channel = message.channel ?: "engine",
-                                chatId = message.injectInto,
-                                role = "assistant",
-                                type = "text",
-                                content = deliveryMessage,
-                                tokens = approximateTokenCount(deliveryMessage),
-                            )
-                        messageEmbeddingService.embedAsync(
-                            injectedRowId,
-                            "assistant",
-                            "text",
-                            deliveryMessage,
-                            config.autoRag,
-                            processingScope,
-                        )
-                    }
+                    deliverScheduledResult(sink, message)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -252,6 +226,39 @@ class MessageProcessor(
                 }
             }
         }
+    }
+
+    private suspend fun deliverScheduledResult(
+        sink: ScheduleDeliverSink?,
+        message: ScheduledMessage,
+    ) {
+        val deliveryMessage = sink?.consumeMessage() ?: return
+        socketServerProvider.get().pushToGateway(
+            OutboundSocketMessage(
+                channel = message.channel ?: "engine",
+                chatId = message.injectInto!!,
+                content = deliveryMessage,
+            ),
+        )
+        // Record in interactive session so user can follow up naturally
+        val injectedRowId =
+            messageRepository.saveAndGetRowId(
+                id = UUID.randomUUID().toString(),
+                channel = message.channel ?: "engine",
+                chatId = message.injectInto,
+                role = "assistant",
+                type = "text",
+                content = deliveryMessage,
+                tokens = approximateTokenCount(deliveryMessage),
+            )
+        messageEmbeddingService.embedAsync(
+            injectedRowId,
+            "assistant",
+            "text",
+            deliveryMessage,
+            config.autoRag,
+            processingScope,
+        )
     }
 
     @Suppress("TooGenericExceptionCaught", "LongMethod")
@@ -270,26 +277,7 @@ class MessageProcessor(
                     val pendingTexts = messages.map { it.content }
 
                     // Persist user messages before building context so sumTokensInSegment is accurate
-                    messages.forEach { msg ->
-                        val rowId =
-                            messageRepository.saveAndGetRowId(
-                                id = msg.id,
-                                channel = msg.channel,
-                                chatId = msg.chatId,
-                                role = "user",
-                                type = "text",
-                                content = msg.content,
-                                tokens = approximateTokenCount(msg.content),
-                            )
-                        messageEmbeddingService.embedAsync(
-                            rowId,
-                            "user",
-                            "text",
-                            msg.content,
-                            config.autoRag,
-                            processingScope,
-                        )
-                    }
+                    persistInboundMessages(messages)
 
                     val contextResult = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
                     val tools: List<ToolDef> =
@@ -298,10 +286,16 @@ class MessageProcessor(
                             includeSkillLoad = contextResult.includeSkillLoad,
                         )
 
-                    val contextBudget =
+                    val rawBudget =
                         config.models[session.model]?.contextBudget
                             ?: ModelRegistry.contextLength(session.model)
                             ?: config.context.defaultBudgetTokens
+                    val systemPromptTokens =
+                        contextResult.messages
+                            .firstOrNull()
+                            ?.let { approximateTokenCount(it.content ?: "") } ?: 0
+                    val contextBudget = maxOf(0, rawBudget - systemPromptTokens)
+                    val modelContextLimit = ModelRegistry.contextLength(session.model) ?: 0
                     val runner =
                         ToolCallLoopRunner(
                             llmRouter,
@@ -312,33 +306,13 @@ class MessageProcessor(
                             chatId,
                             contextBudgetTokens = contextBudget,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
+                            modelContextLimit = modelContextLimit,
                         )
                     val response = runner.run(contextResult.messages.toMutableList(), session, tools)
 
                     correctUserMessageTokens(runner.firstPromptTokens, contextResult.messages, messages)
 
-                    // Persist assistant response to DB
-                    val content = response.content ?: ""
-                    val assistantTokens =
-                        response.usage?.completionTokens ?: approximateTokenCount(content)
-                    val assistantRowId =
-                        messageRepository.saveAndGetRowId(
-                            id = UUID.randomUUID().toString(),
-                            channel = channel,
-                            chatId = chatId,
-                            role = "assistant",
-                            type = "text",
-                            content = content,
-                            tokens = assistantTokens,
-                        )
-                    messageEmbeddingService.embedAsync(
-                        assistantRowId,
-                        "assistant",
-                        "text",
-                        content,
-                        config.autoRag,
-                        processingScope,
-                    )
+                    val content = persistAssistantResponse(response, channel, chatId)
 
                     if (!isSilent(content)) {
                         socketServerProvider.get().pushToGateway(
@@ -381,6 +355,57 @@ class MessageProcessor(
         } finally {
             activeProcessingJobs.remove(chatId, currentJob)
             executeDeferredRestarts()
+        }
+    }
+
+    private suspend fun persistAssistantResponse(
+        response: io.github.klaw.common.llm.LlmResponse,
+        channel: String,
+        chatId: String,
+    ): String {
+        val content = response.content ?: ""
+        val assistantTokens = response.usage?.completionTokens ?: approximateTokenCount(content)
+        val assistantRowId =
+            messageRepository.saveAndGetRowId(
+                id = UUID.randomUUID().toString(),
+                channel = channel,
+                chatId = chatId,
+                role = "assistant",
+                type = "text",
+                content = content,
+                tokens = assistantTokens,
+            )
+        messageEmbeddingService.embedAsync(
+            assistantRowId,
+            "assistant",
+            "text",
+            content,
+            config.autoRag,
+            processingScope,
+        )
+        return content
+    }
+
+    private suspend fun persistInboundMessages(messages: List<InboundSocketMessage>) {
+        messages.forEach { msg ->
+            val rowId =
+                messageRepository.saveAndGetRowId(
+                    id = msg.id,
+                    channel = msg.channel,
+                    chatId = msg.chatId,
+                    role = "user",
+                    type = "text",
+                    content = msg.content,
+                    tokens = approximateTokenCount(msg.content),
+                )
+            messageEmbeddingService.embedAsync(
+                rowId,
+                "user",
+                "text",
+                msg.content,
+                config.autoRag,
+                processingScope,
+            )
         }
     }
 

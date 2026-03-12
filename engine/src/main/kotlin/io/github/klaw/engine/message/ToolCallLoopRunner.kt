@@ -16,6 +16,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
+private const val MODEL_LIMIT_SAFETY_FRACTION = 0.9
+
 /**
  * Executes the LLM ↔ tool call loop for a given conversation context.
  *
@@ -42,6 +44,7 @@ internal class ToolCallLoopRunner(
     private val chatId: String? = null,
     private val contextBudgetTokens: Int = 0,
     private val maxToolOutputChars: Int = 8000,
+    private val modelContextLimit: Int = 0,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -75,7 +78,6 @@ internal class ToolCallLoopRunner(
 
             if (response.toolCalls.isNullOrEmpty()) return response
             val toolCalls = response.toolCalls!!
-            checkContextBudget(context, rounds)
             val results = executeToolCalls(toolCalls)
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->
@@ -84,12 +86,20 @@ internal class ToolCallLoopRunner(
             }
             val savedIds = persistToolCallResults(toolCalls, results, response)
 
+            if (checkContextBudget(context, rounds)) {
+                val summaryResponse =
+                    requestGracefulSummary(context, session, "context limit (approaching model context window)")
+                correctToolResultTokens(summaryResponse, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
+                return summaryResponse
+            }
+
             prevPromptTokens = response.usage?.promptTokens
             prevCompletionTokens = response.usage?.completionTokens
             prevToolResultIds = savedIds
         }
 
-        val summaryResponse = requestGracefulSummary(context, session)
+        val summaryResponse =
+            requestGracefulSummary(context, session, "tool call limit ($maxRounds rounds)")
         correctToolResultTokens(summaryResponse, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
         return summaryResponse
     }
@@ -142,12 +152,18 @@ internal class ToolCallLoopRunner(
     private fun checkContextBudget(
         context: List<LlmMessage>,
         rounds: Int,
-    ) {
-        if (contextBudgetTokens <= 0) return
+    ): Boolean {
         val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
-        if (currentTokens > contextBudgetTokens) {
+        if (modelContextLimit > 0 && currentTokens > (modelContextLimit * MODEL_LIMIT_SAFETY_FRACTION).toInt()) {
+            logger.warn {
+                "Context $currentTokens tokens approaching model limit $modelContextLimit at round $rounds"
+            }
+            return true
+        }
+        if (contextBudgetTokens > 0 && currentTokens > contextBudgetTokens) {
             logger.warn { "Context $currentTokens tokens exceeds budget $contextBudgetTokens at round $rounds" }
         }
+        return false
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -170,13 +186,14 @@ internal class ToolCallLoopRunner(
     private suspend fun requestGracefulSummary(
         context: MutableList<LlmMessage>,
         session: Session,
+        reason: String,
     ): LlmResponse {
-        logger.warn { "Tool call loop exhausted after $maxRounds rounds, requesting graceful summary" }
+        logger.warn { "Requesting graceful summary: $reason" }
         context.add(
             LlmMessage(
                 role = "user",
                 content =
-                    "[System] You have reached the tool call limit ($maxRounds rounds). " +
+                    "[System] You have reached the $reason. " +
                         "Please summarize what you have accomplished and provide your final response now, " +
                         "without calling any more tools.",
             ),

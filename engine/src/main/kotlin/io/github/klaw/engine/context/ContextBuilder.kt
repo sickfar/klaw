@@ -3,6 +3,7 @@ package io.github.klaw.engine.context
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
@@ -86,22 +87,27 @@ class ContextBuilder(
             )
         }
 
+        // Build system content early so we can deduct its tokens from the history budget
+        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
+        val systemPromptTokens = approximateTokenCount(systemContent)
+
         val budgetTokens =
             config.models[session.model]?.contextBudget
                 ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
+        val adjustedBudget = maxOf(0, budgetTokens - systemPromptTokens)
 
         // Summarization: compute summary budget, fetch summaries, adjust raw message budget
         val summaries: List<SummaryText>
         val rawMessageBudget: Int
         if (config.summarization.enabled) {
-            val summaryBudget = (budgetTokens * config.summarization.summaryBudgetFraction).toInt()
+            val summaryBudget = (adjustedBudget * config.summarization.summaryBudgetFraction).toInt()
             summaries = summaryService.getSummariesForContext(session.chatId, summaryBudget)
             val summaryTokensUsed = summaries.sumOf { it.tokens }
-            rawMessageBudget = budgetTokens - summaryTokensUsed
+            rawMessageBudget = adjustedBudget - summaryTokensUsed
         } else {
             summaries = emptyList()
-            rawMessageBudget = budgetTokens
+            rawMessageBudget = adjustedBudget
         }
 
         // Fetch messages fitting within token budget from DB
@@ -114,15 +120,12 @@ class ContextBuilder(
 
         val windowStartCreatedAt = dbMessages.firstOrNull()?.createdAt
 
-        // Build system content (without old getLastSummary — summaries now injected as separate message)
-        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
-
         // Auto-RAG guard: only for interactive path when segment tokens exceed budget (messages being trimmed)
         val autoRagResults: List<AutoRagResult> =
             if (
                 !isSubagent &&
                 config.autoRag.enabled &&
-                messageRepository.sumTokensInSegment(session.chatId, session.segmentStart) > budgetTokens
+                messageRepository.sumTokensInSegment(session.chatId, session.segmentStart) > adjustedBudget
             ) {
                 val windowRowIds = dbMessages.map { it.rowId }.toSet()
                 val userQuery = pendingMessages.joinToString(" ")

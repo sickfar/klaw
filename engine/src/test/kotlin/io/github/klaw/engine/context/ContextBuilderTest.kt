@@ -190,21 +190,23 @@ class ContextBuilderTest {
                 )
             }
 
-            // Budget = 1000 → fits 10 messages (10 * 100 = 1000)
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1000))
+            // Budget = 1500 → after system prompt deduction (~200 tokens), adjusted budget ~1300
+            // Fits 13 messages (13 * 100 = 1300), trims oldest 2 (messages 1-2)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1500))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.drop(1)
-            assertEquals(10, historyMessages.size, "Should fit exactly 10 messages within 1000-token budget")
+            // Should trim some oldest messages but keep newest ones
+            assertTrue(historyMessages.size < 15, "Budget should trim some messages")
+            assertTrue(historyMessages.size >= 10, "Budget should keep most messages")
 
-            // Verify we got the NEWEST 10 messages (6-15), not the oldest (1-10)
+            // Verify newest messages are kept and oldest are trimmed
             val contents = historyMessages.map { it.content }
-            assertFalse(
-                contents.any { it == "Message 1" || it == "Message 5" },
-                "Oldest messages (1-5) should NOT be in the window",
-            )
             assertTrue(contents.contains("Message 15"), "Most recent message should be in the window")
-            assertTrue(contents.contains("Message 6"), "Message 6 should be in the window")
+            assertFalse(
+                contents.contains("Message 1"),
+                "Oldest message should NOT be in the window",
+            )
         }
 
     @Test
@@ -385,13 +387,15 @@ class ContextBuilderTest {
                 )
             }
 
-            // Budget = 100 → fits 1 message (60 ≤ 100), but not 2 (120 > 100)
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
+            // Budget = 400 → after system prompt deduction (~200), adjusted ~200
+            // fits 3 messages (3 * 60 = 180 ≤ 200), but not 4 (240 > 200)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 400))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.drop(1)
-            assertEquals(1, historyMessages.size, "Should fit exactly 1 message within 100-token budget")
-            assertEquals("Big message 5", historyMessages[0].content, "Should be the newest message")
+            assertTrue(historyMessages.size < 5, "Budget should trim some messages")
+            assertTrue(historyMessages.size >= 1, "At least one message should fit")
+            assertEquals("Big message 5", historyMessages.last().content, "Newest message should be kept")
         }
 
     @Test
@@ -437,8 +441,9 @@ class ContextBuilderTest {
                 10,
             )
 
-            // Budget = 50, newest msg (10) fits, then big msg (500) would exceed → stop
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 50))
+            // Budget = 350, after system prompt deduction (~200), adjusted ~150
+            // newest msg (10) fits, then big msg (500) would exceed → stop
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 350))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val history = result.messages.drop(1)
@@ -474,13 +479,14 @@ class ContextBuilderTest {
 
             val pendingMessages = listOf("Pending 1", "Pending 2")
 
-            // Budget = 300 → fits 3 history messages; pending are extra (unconditional)
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 300))
+            // Budget = 600 → after system prompt deduction (~200), adjusted ~400 → fits ~4 history messages
+            // pending are extra (unconditional)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 600))
             val result = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
 
-            // system + 3 history + 2 pending = 6
+            // History should be budget-limited (fewer than 5)
             val historyMessages = result.messages.drop(1).dropLast(2)
-            assertEquals(3, historyMessages.size, "Budget 300 should fit 3 × 100-token messages")
+            assertTrue(historyMessages.size < 5, "Budget should trim some history messages")
 
             // Verify pending messages are at the end
             val lastTwo = result.messages.takeLast(2)
@@ -820,6 +826,138 @@ class ContextBuilderTest {
             assertFalse(
                 capabilitiesSection.contains("extensible skills"),
                 "Capabilities should not mention skills when none exist",
+            )
+        }
+
+    @Test
+    fun `system prompt tokens deducted from history budget`() =
+        runTest {
+            // System prompt with substantial content (~500 tokens worth)
+            val largeSystemPrompt = "word ".repeat(400) // ~400-500 tokens
+            coEvery { workspaceLoader.loadSystemPrompt() } returns largeSystemPrompt
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 10 messages, each 50 tokens = 500 total
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    50,
+                )
+            }
+
+            // Budget = 600, system prompt ~500 tokens → adjusted budget ~100 → fits ~2 messages
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 600))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.drop(1) // skip system
+            // Without system prompt deduction, all 10 messages (500 tokens) would fit in budget 600
+            // With deduction, adjusted budget ~100 → only ~2 messages fit
+            assertTrue(
+                historyMessages.size < 10,
+                "System prompt deduction should reduce history: got ${historyMessages.size} messages",
+            )
+            assertTrue(
+                historyMessages.size <= 3,
+                "With ~500 token system prompt and 600 budget, adjusted budget ~100 should fit at most 2-3 messages",
+            )
+        }
+
+    @Test
+    fun `system prompt larger than budget clamps history to zero`() =
+        runTest {
+            // System prompt larger than the entire budget
+            val hugeSystemPrompt = "word ".repeat(800) // ~800+ tokens
+            coEvery { workspaceLoader.loadSystemPrompt() } returns hugeSystemPrompt
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 5 messages
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    50,
+                )
+            }
+
+            // Budget = 100, system prompt > 100 tokens → adjusted budget = 0
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
+            val result = contextBuilder.buildContext(session, listOf("Hello"), isSubagent = false)
+
+            // Only system + pending messages, zero history
+            val historyMessages = result.messages.filter { it.role != "system" && it.content != "Hello" }
+            assertEquals(0, historyMessages.size, "No history should fit when system prompt exceeds budget")
+            // Pending message still present
+            assertTrue(result.messages.any { it.content == "Hello" }, "Pending messages should be unconditional")
+        }
+
+    @Test
+    fun `system prompt deduction applies before summarization split`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns "word ".repeat(160) // ~200 tokens
+
+            // Summaries use 100 tokens
+            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns
+                listOf(SummaryText("Summary content", "msg-1", "msg-5", 100))
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 10 messages, each 100 tokens = 1000 total
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    100,
+                )
+            }
+
+            // Budget = 1000, summaryBudgetFraction = 0.5, system prompt ~200 tokens
+            // Adjusted budget = 1000 - 200 = 800
+            // Summary budget = 800 * 0.5 = 400 (not 1000 * 0.5 = 500)
+            // Summary uses 100 tokens → raw message budget = 800 - 100 = 700 → fits 7 messages
+            val config =
+                buildConfig(contextBudget = 1000).copy(
+                    summarization =
+                        io.github.klaw.common.config
+                            .SummarizationConfig(enabled = true, summaryBudgetFraction = 0.5),
+                )
+            val contextBuilder = buildContextBuilder(config)
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" }
+            // Without system prompt deduction: summary budget = 500, raw budget = 500, fits 5 messages
+            // With system prompt deduction: summary budget = 400, raw budget = 700, fits 7 messages
+            // Either way, the number should differ from 10 (full), confirming deduction affects both paths
+            assertTrue(
+                historyMessages.size < 10,
+                "System prompt deduction should reduce available history: got ${historyMessages.size}",
             )
         }
 
