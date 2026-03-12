@@ -1,16 +1,15 @@
 package io.github.klaw.engine.db
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CompletableFuture
 
 class NativeSqliteVecLoaderTest {
     @Test
-    fun `isAvailable returns false when classpath resource is absent`() {
-        // /native/vec0 is not on the test classpath
+    fun `isAvailable returns true when classpath resource is present`() {
         val loader = NativeSqliteVecLoader()
-        assertFalse(loader.isAvailable())
+        assertTrue(loader.isAvailable(), "vec0 resource should be on the classpath (bundled by downloadSqliteVec)")
     }
 
     @Test

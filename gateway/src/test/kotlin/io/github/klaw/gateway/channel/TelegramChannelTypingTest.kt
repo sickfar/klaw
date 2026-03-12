@@ -5,10 +5,12 @@ import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -131,13 +133,47 @@ class TelegramChannelTypingTest {
         }
 
     @Test
+    fun `stopTyping cancels typing job without leaking CancellationException`() =
+        runTest {
+            val channel = makeChannel()
+            val callCount = AtomicInteger(0)
+            channel.typingAction = { callCount.incrementAndGet() }
+            channel.typingScope = this
+
+            channel.startTyping("telegram_123", 123L)
+            advanceTimeBy(1)
+            assertEquals(1, callCount.get())
+
+            channel.stopTyping("telegram_123")
+
+            val job = channel.typingJobs["telegram_123"]
+            assertNull(job)
+            // If CancellationException leaked, the test framework would report it
+        }
+
+    @Test
+    fun `CancellationException from typingAction is rethrown not swallowed`() =
+        runTest {
+            val channel = makeChannel()
+            channel.typingAction = { throw CancellationException("coroutine cancelled") }
+            channel.typingScope = this
+
+            channel.startTyping("telegram_123", 123L)
+            advanceTimeBy(1)
+
+            val job = channel.typingJobs["telegram_123"]
+            assertNotNull(job)
+            assertTrue(job.isCancelled)
+        }
+
+    @Test
     fun `throwing typingAction does not cancel the typing loop`() =
         runTest {
             val channel = makeChannel()
             val callCount = AtomicInteger(0)
             channel.typingAction = {
                 callCount.incrementAndGet()
-                throw RuntimeException("network error")
+                throw IOException("network error")
             }
             channel.typingScope = this
 

@@ -40,8 +40,13 @@ class SocketProtocolLoopbackTest {
         val inboundCount = AtomicInteger(0)
         val commandCount = AtomicInteger(0)
         val cliCount = AtomicInteger(0)
+        var shouldThrowOnInbound = false
 
         override suspend fun handleInbound(message: InboundSocketMessage) {
+            if (shouldThrowOnInbound) {
+                shouldThrowOnInbound = false
+                throw IllegalStateException("simulated handler failure")
+            }
             inboundCount.incrementAndGet()
         }
 
@@ -175,6 +180,48 @@ class SocketProtocolLoopbackTest {
             assertNotNull(line)
             val received = json.decodeFromString<SocketMessage>(line!!)
             assertInstanceOf(PongMessage::class.java, received)
+
+            client.close()
+        }
+
+    @Test
+    fun `handler exception does not kill gateway connection`() =
+        runBlocking {
+            val client = connectClient()
+            val writer = writerFor(client)
+
+            writer.println(json.encodeToString<SocketMessage>(RegisterMessage("gateway")))
+            Thread.sleep(100)
+
+            // First message will throw in handleInbound
+            countingHandler.shouldThrowOnInbound = true
+            val failMsg =
+                InboundSocketMessage(
+                    id = "fail-1",
+                    channel = "telegram",
+                    chatId = "chat-1",
+                    content = "This will fail",
+                    ts = "2024-01-01T00:00:00Z",
+                )
+            writer.println(json.encodeToString<SocketMessage>(failMsg))
+            Thread.sleep(200)
+
+            // inboundCount should still be 0 because the handler threw before incrementing
+            assertEquals(0, countingHandler.inboundCount.get())
+
+            // Second message should succeed — connection must still be alive
+            val okMsg =
+                InboundSocketMessage(
+                    id = "ok-1",
+                    channel = "telegram",
+                    chatId = "chat-1",
+                    content = "This should succeed",
+                    ts = "2024-01-01T00:00:00Z",
+                )
+            writer.println(json.encodeToString<SocketMessage>(okMsg))
+            Thread.sleep(200)
+
+            assertEquals(1, countingHandler.inboundCount.get())
 
             client.close()
         }

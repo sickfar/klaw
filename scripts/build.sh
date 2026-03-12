@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 echo "Building Klaw artifacts..."
+# For Docker: sqlite-vec must be linux-aarch64; pass -PsqliteVecPlatform=linux-aarch64 to override
 ./gradlew assembleDist "$@"
 echo ""
 echo "Artifacts:"

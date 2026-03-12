@@ -255,10 +255,15 @@ class TelegramChannel(
             existingJob?.cancel()
             typingScope.launch {
                 while (isActive) {
-                    runCatching { typingAction(platformId) }
-                        .onFailure { e ->
-                            logger.warn(e) { "Typing action failed for chatId=$chatId: ${e::class.simpleName}" }
-                        }
+                    try {
+                        typingAction(platformId)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: CommonBotException) {
+                        logger.warn(e) { "Typing action failed for chatId=$chatId: ${e::class.simpleName}" }
+                    } catch (e: IOException) {
+                        logger.warn(e) { "Typing action failed for chatId=$chatId: ${e::class.simpleName}" }
+                    }
                     delay(TYPING_REFRESH_INTERVAL_MS)
                 }
             }

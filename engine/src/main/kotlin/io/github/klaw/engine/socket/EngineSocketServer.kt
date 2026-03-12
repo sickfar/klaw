@@ -11,6 +11,7 @@ import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +24,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.InetSocketAddress
@@ -212,17 +214,17 @@ class EngineSocketServer(
             when (val inMsg = json.decodeFromString<SocketMessage>(line)) {
                 is InboundSocketMessage -> {
                     logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
-                    messageHandler.handleInbound(inMsg)
+                    safeHandleMessage(inMsg::class.simpleName) { messageHandler.handleInbound(inMsg) }
                 }
 
                 is CommandSocketMessage -> {
                     logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
-                    messageHandler.handleCommand(inMsg)
+                    safeHandleMessage(inMsg::class.simpleName) { messageHandler.handleCommand(inMsg) }
                 }
 
                 is ApprovalResponseMessage -> {
                     logger.trace { "Gateway message dispatched: ${inMsg::class.simpleName}" }
-                    messageHandler.handleApprovalResponse(inMsg)
+                    safeHandleMessage(inMsg::class.simpleName) { messageHandler.handleApprovalResponse(inMsg) }
                 }
 
                 is PingMessage -> {
@@ -234,6 +236,25 @@ class EngineSocketServer(
             }
         } catch (_: SerializationException) {
             logger.warn { "EngineSocketServer: malformed gateway message, skipping" }
+        }
+    }
+
+    private suspend inline fun safeHandleMessage(
+        typeName: String?,
+        block: () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            logger.error(e) { "Failed to handle message: $typeName" }
+        } catch (e: IllegalStateException) {
+            logger.error(e) { "Failed to handle message: $typeName" }
+        } catch (e: IllegalArgumentException) {
+            logger.error(e) { "Failed to handle message: $typeName" }
+        } catch (e: SerializationException) {
+            logger.error(e) { "Failed to handle message: $typeName" }
         }
     }
 
