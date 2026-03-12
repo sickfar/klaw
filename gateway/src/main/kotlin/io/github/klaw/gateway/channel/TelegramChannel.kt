@@ -2,6 +2,7 @@ package io.github.klaw.gateway.channel
 
 import dev.inmo.kslog.common.filter.filtered
 import dev.inmo.tgbotapi.bot.TelegramBot
+import dev.inmo.tgbotapi.bot.exceptions.CommonBotException
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
 import dev.inmo.tgbotapi.extensions.api.send.sendActionTyping
@@ -20,6 +21,7 @@ import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +29,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
@@ -46,6 +49,11 @@ class TelegramChannel(
         bot?.sendActionTyping(ChatId(RawChatId(platformId)))
     }
     internal var typingScope: CoroutineScope = scope
+    internal var listenScope: CoroutineScope = scope
+    internal var pollOnce: (suspend (suspend (IncomingMessage) -> Unit) -> Unit)? = null
+    internal var sendAction: (suspend (Long, String) -> Unit)? = null
+    internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Unit)? = null
+    internal val pendingApprovalsForTest: Map<String, suspend (Boolean) -> Unit> get() = pendingApprovals
 
     override suspend fun start() {
         val telegramConfig =
@@ -74,8 +82,40 @@ class TelegramChannel(
     }
 
     override suspend fun listen(onMessage: suspend (IncomingMessage) -> Unit) {
-        val b = bot ?: return
+        val b = bot
+        if (b == null && pollOnce == null) return
         logger.debug { "TelegramChannel starting long polling" }
+        var backoff = INITIAL_POLL_BACKOFF_MS
+        while (listenScope.isActive) {
+            val startNanos = System.nanoTime()
+            try {
+                val poll = pollOnce
+                if (poll != null) {
+                    poll(onMessage)
+                } else {
+                    runLongPolling(b!!, onMessage)
+                }
+                logger.warn { "Telegram long polling ended, restarting in ${backoff}ms" }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                logger.warn { "Telegram long polling failed (${e::class.simpleName}), restarting in ${backoff}ms" }
+            } catch (e: CommonBotException) {
+                logger.warn { "Telegram long polling failed (${e::class.simpleName}), restarting in ${backoff}ms" }
+            }
+            val elapsedMs = (System.nanoTime() - startNanos) / NANOS_PER_MS
+            if (elapsedMs > BACKOFF_RESET_THRESHOLD_MS) {
+                backoff = INITIAL_POLL_BACKOFF_MS
+            }
+            delay(backoff)
+            backoff = minOf(backoff * 2, MAX_POLL_BACKOFF_MS)
+        }
+    }
+
+    private suspend fun runLongPolling(
+        b: TelegramBot,
+        onMessage: suspend (IncomingMessage) -> Unit,
+    ) {
         pollingJob =
             b.buildBehaviourWithLongPolling(scope = scope) {
                 onText { message ->
@@ -117,11 +157,10 @@ class TelegramChannel(
         response: OutgoingMessage,
     ) {
         stopTyping(chatId)
-        val b =
-            bot ?: run {
-                logger.warn { "TelegramChannel.send called but bot not started" }
-                return
-            }
+        if (bot == null && sendAction == null) {
+            logger.warn { "TelegramChannel.send called but bot not started" }
+            return
+        }
         val platformId =
             chatId.removePrefix("telegram_").toLongOrNull() ?: run {
                 logger.warn { "Invalid chatId format: $chatId" }
@@ -129,7 +168,14 @@ class TelegramChannel(
             }
         logger.trace { "Sending message to Telegram chatId=$chatId" }
         runCatching {
-            b.sendTextMessage(ChatId(RawChatId(platformId)), response.content)
+            withSendRetry {
+                val action = sendAction
+                if (action != null) {
+                    action(platformId, response.content)
+                } else {
+                    bot!!.sendTextMessage(ChatId(RawChatId(platformId)), response.content)
+                }
+            }
         }.onFailure { e ->
             logger.error(e) { "Failed to send Telegram message to chatId=$chatId" }
         }
@@ -141,11 +187,10 @@ class TelegramChannel(
         onResult: suspend (Boolean) -> Unit,
     ) {
         stopTyping(chatId)
-        val b =
-            bot ?: run {
-                logger.warn { "TelegramChannel.sendApproval called but bot not started" }
-                return
-            }
+        if (bot == null && sendApprovalAction == null) {
+            logger.warn { "TelegramChannel.sendApproval called but bot not started" }
+            return
+        }
         val platformId =
             chatId.removePrefix("telegram_").toLongOrNull() ?: run {
                 logger.warn { "Invalid chatId format for approval: $chatId" }
@@ -164,11 +209,20 @@ class TelegramChannel(
                             ),
                         ),
                 )
-            b.sendTextMessage(
-                chatId = ChatId(RawChatId(platformId)),
-                text = "Command approval requested:\n\n${request.command}\n\nRisk score: ${request.riskScore}/10",
-                replyMarkup = keyboard,
-            )
+            withSendRetry {
+                val action = sendApprovalAction
+                if (action != null) {
+                    action(platformId, request.command, keyboard)
+                } else {
+                    bot!!.sendTextMessage(
+                        chatId = ChatId(RawChatId(platformId)),
+                        text =
+                            "Command approval requested:\n\n${request.command}" +
+                                "\n\nRisk score: ${request.riskScore}/10",
+                        replyMarkup = keyboard,
+                    )
+                }
+            }
         }.onFailure { e ->
             pendingApprovals.remove(request.id)
             logger.error(e) { "Failed to send approval request to chatId=$chatId" }
@@ -229,5 +283,9 @@ class TelegramChannel(
     companion object {
         private const val APPROVAL_CALLBACK_PARTS = 3
         private const val TYPING_REFRESH_INTERVAL_MS = 4_000L
+        private const val INITIAL_POLL_BACKOFF_MS = 2_000L
+        private const val MAX_POLL_BACKOFF_MS = 60_000L
+        private const val BACKOFF_RESET_THRESHOLD_MS = 30_000L
+        private const val NANOS_PER_MS = 1_000_000L
     }
 }
