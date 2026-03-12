@@ -4,25 +4,29 @@
             "image": "ghcr.io/sickfar/klaw-engine:latest",
             "restart": "unless-stopped",
             "environment": {
+                "HOME": "/home/klaw",
                 "KLAW_WORKSPACE": "/workspace"
             },
             "volumes": [
-                "klaw-state:/root/.local/state/klaw",
-                "klaw-data:/root/.local/share/klaw",
+                "klaw-state:/home/klaw/.local/state/klaw",
+                "klaw-data:/home/klaw/.local/share/klaw",
                 "klaw-workspace:/workspace",
-                "klaw-config:/root/.config/klaw"
+                "klaw-config:/home/klaw/.config/klaw"
             ]
         },
         "gateway": {
             "image": "ghcr.io/sickfar/klaw-gateway:latest",
             "restart": "unless-stopped",
+            "environment": {
+                "HOME": "/home/klaw"
+            },
             "depends_on": [
                 "engine"
             ],
             "volumes": [
-                "klaw-state:/root/.local/state/klaw",
-                "klaw-data:/root/.local/share/klaw",
-                "klaw-config:/root/.config/klaw"
+                "klaw-state:/home/klaw/.local/state/klaw",
+                "klaw-data:/home/klaw/.local/share/klaw",
+                "klaw-config:/home/klaw/.config/klaw"
             ]
         }
     },

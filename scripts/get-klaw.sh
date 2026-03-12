@@ -8,9 +8,9 @@ fi
 
 IMAGE="ghcr.io/sickfar/klaw-cli:latest"
 VOLUMES="-v /var/run/docker.sock:/var/run/docker.sock \
-  -v klaw-config:/root/.config/klaw \
-  -v klaw-state:/root/.local/state/klaw \
-  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-config:/home/klaw/.config/klaw \
+  -v klaw-state:/home/klaw/.local/state/klaw \
+  -v klaw-data:/home/klaw/.local/share/klaw \
   -v klaw-workspace:/workspace"
 
 if [[ "${1:-}" == "install" ]]; then
@@ -20,9 +20,9 @@ if [[ "${1:-}" == "install" ]]; then
 #!/usr/bin/env bash
 exec docker run -it --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v klaw-config:/root/.config/klaw \
-  -v klaw-state:/root/.local/state/klaw \
-  -v klaw-data:/root/.local/share/klaw \
+  -v klaw-config:/home/klaw/.config/klaw \
+  -v klaw-state:/home/klaw/.local/state/klaw \
+  -v klaw-data:/home/klaw/.local/share/klaw \
   -v klaw-workspace:/workspace \
   ghcr.io/sickfar/klaw-cli:latest "$@"
 WRAPPER

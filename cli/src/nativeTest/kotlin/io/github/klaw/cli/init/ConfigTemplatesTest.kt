@@ -426,6 +426,24 @@ class ConfigTemplatesTest {
         assertEquals("engine", config.services["gateway"]?.environment?.get("KLAW_ENGINE_HOST"))
     }
 
+    @Test
+    fun `dockerComposeProd uses home klaw paths not root`() {
+        val result = ConfigTemplates.dockerComposeProd()
+        assertTrue(!result.contains("/root/"), "Expected no /root/ paths in prod compose, got:\n$result")
+        assertTrue(result.contains("/home/klaw/.local/state/klaw"), "Expected /home/klaw state path")
+        assertTrue(result.contains("/home/klaw/.local/share/klaw"), "Expected /home/klaw data path")
+        assertTrue(result.contains("/home/klaw/.config/klaw"), "Expected /home/klaw config path")
+        assertTrue(result.contains("/home/klaw/.cache/klaw"), "Expected /home/klaw cache path")
+    }
+
+    @Test
+    fun `dockerComposeProd sets HOME env var for both services`() {
+        val result = ConfigTemplates.dockerComposeProd()
+        val config = parseComposeConfig(result)
+        assertEquals("/home/klaw", config.services["engine"]?.environment?.get("HOME"))
+        assertEquals("/home/klaw", config.services["gateway"]?.environment?.get("HOME"))
+    }
+
     // --- deployConf ---
 
     // --- Minimal encoder: default sections omitted ---

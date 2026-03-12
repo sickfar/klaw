@@ -101,65 +101,59 @@ internal object ConfigTemplates {
         enableConsole: Boolean = false,
         consolePort: Int = 37474,
     ): String {
+        val engine = hybridEngineService(imageTag, statePath, dataPath, configPath, workspacePath)
+        val gateway =
+            ComposeServiceConfig(
+                image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
+                restart = "unless-stopped",
+                envFile = ".env",
+                dependsOn = listOf("engine"),
+                environment = mapOf("HOME" to "/home/klaw", "KLAW_ENGINE_HOST" to "engine"),
+                volumes =
+                    listOf(
+                        "$statePath:/home/klaw/.local/state/klaw",
+                        "$dataPath:/home/klaw/.local/share/klaw",
+                        "$configPath:/home/klaw/.config/klaw",
+                    ),
+                ports = if (enableConsole) listOf("127.0.0.1:$consolePort:$consolePort") else null,
+            )
         val config =
             ComposeConfig(
-                services =
-                    mapOf(
-                        "engine" to
-                            ComposeServiceConfig(
-                                image = "ghcr.io/sickfar/klaw-engine:$imageTag",
-                                restart = "unless-stopped",
-                                envFile = ".env",
-                                environment =
-                                    mapOf(
-                                        "HOME" to "/home/klaw",
-                                        "KLAW_WORKSPACE" to "/workspace",
-                                        "KLAW_HOST_WORKSPACE" to workspacePath,
-                                        "KLAW_ENGINE_BIND" to "0.0.0.0",
-                                    ),
-                                volumes =
-                                    listOf(
-                                        "$statePath:/home/klaw/.local/state/klaw",
-                                        "$dataPath:/home/klaw/.local/share/klaw",
-                                        "$configPath:/home/klaw/.config/klaw",
-                                        "$workspacePath:/workspace",
-                                        "klaw-cache:/home/klaw/.cache/klaw",
-                                        "/var/run/docker.sock:/var/run/docker.sock",
-                                    ),
-                                ports = listOf("127.0.0.1:7470:7470"),
-                            ),
-                        "gateway" to
-                            ComposeServiceConfig(
-                                image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
-                                restart = "unless-stopped",
-                                envFile = ".env",
-                                dependsOn = listOf("engine"),
-                                environment =
-                                    mapOf(
-                                        "HOME" to "/home/klaw",
-                                        "KLAW_ENGINE_HOST" to "engine",
-                                    ),
-                                volumes =
-                                    listOf(
-                                        "$statePath:/home/klaw/.local/state/klaw",
-                                        "$dataPath:/home/klaw/.local/share/klaw",
-                                        "$configPath:/home/klaw/.config/klaw",
-                                    ),
-                                ports =
-                                    if (enableConsole) {
-                                        listOf("127.0.0.1:$consolePort:$consolePort")
-                                    } else {
-                                        null
-                                    },
-                            ),
-                    ),
-                volumes =
-                    mapOf(
-                        "klaw-cache" to ComposeVolumeConfig(name = "klaw-cache"),
-                    ),
+                services = mapOf("engine" to engine, "gateway" to gateway),
+                volumes = mapOf("klaw-cache" to ComposeVolumeConfig(name = "klaw-cache")),
             )
         return encodeComposeConfig(config)
     }
+
+    private fun hybridEngineService(
+        imageTag: String,
+        statePath: String,
+        dataPath: String,
+        configPath: String,
+        workspacePath: String,
+    ): ComposeServiceConfig =
+        ComposeServiceConfig(
+            image = "ghcr.io/sickfar/klaw-engine:$imageTag",
+            restart = "unless-stopped",
+            envFile = ".env",
+            environment =
+                mapOf(
+                    "HOME" to "/home/klaw",
+                    "KLAW_WORKSPACE" to "/workspace",
+                    "KLAW_HOST_WORKSPACE" to workspacePath,
+                    "KLAW_ENGINE_BIND" to "0.0.0.0",
+                ),
+            volumes =
+                listOf(
+                    "$statePath:/home/klaw/.local/state/klaw",
+                    "$dataPath:/home/klaw/.local/share/klaw",
+                    "$configPath:/home/klaw/.config/klaw",
+                    "$workspacePath:/workspace",
+                    "klaw-cache:/home/klaw/.cache/klaw",
+                    "/var/run/docker.sock:/var/run/docker.sock",
+                ),
+            ports = listOf("127.0.0.1:7470:7470"),
+        )
 
     fun dockerComposeProd(imageTag: String = "latest"): String {
         val config =
@@ -172,16 +166,17 @@ internal object ConfigTemplates {
                                 restart = "unless-stopped",
                                 environment =
                                     mapOf(
+                                        "HOME" to "/home/klaw",
                                         "KLAW_WORKSPACE" to "/workspace",
                                         "KLAW_ENGINE_BIND" to "0.0.0.0",
                                     ),
                                 volumes =
                                     listOf(
-                                        "klaw-state:/root/.local/state/klaw",
-                                        "klaw-data:/root/.local/share/klaw",
-                                        "klaw-cache:/root/.cache/klaw",
+                                        "klaw-state:/home/klaw/.local/state/klaw",
+                                        "klaw-data:/home/klaw/.local/share/klaw",
+                                        "klaw-cache:/home/klaw/.cache/klaw",
                                         "klaw-workspace:/workspace",
-                                        "klaw-config:/root/.config/klaw",
+                                        "klaw-config:/home/klaw/.config/klaw",
                                         "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
                             ),
@@ -192,13 +187,14 @@ internal object ConfigTemplates {
                                 dependsOn = listOf("engine"),
                                 environment =
                                     mapOf(
+                                        "HOME" to "/home/klaw",
                                         "KLAW_ENGINE_HOST" to "engine",
                                     ),
                                 volumes =
                                     listOf(
-                                        "klaw-state:/root/.local/state/klaw",
-                                        "klaw-data:/root/.local/share/klaw",
-                                        "klaw-config:/root/.config/klaw",
+                                        "klaw-state:/home/klaw/.local/state/klaw",
+                                        "klaw-data:/home/klaw/.local/share/klaw",
+                                        "klaw-config:/home/klaw/.config/klaw",
                                     ),
                             ),
                     ),
