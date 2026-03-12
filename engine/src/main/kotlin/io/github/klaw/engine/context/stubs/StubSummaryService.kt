@@ -9,5 +9,6 @@ class StubSummaryService : SummaryService {
     override suspend fun getSummariesForContext(
         chatId: String,
         budgetTokens: Int,
+        segmentStart: String,
     ): List<SummaryText> = emptyList()
 }

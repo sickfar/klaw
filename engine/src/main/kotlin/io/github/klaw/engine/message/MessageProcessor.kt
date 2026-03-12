@@ -290,11 +290,6 @@ class MessageProcessor(
                         config.models[session.model]?.contextBudget
                             ?: ModelRegistry.contextLength(session.model)
                             ?: config.context.defaultBudgetTokens
-                    val systemPromptTokens =
-                        contextResult.messages
-                            .firstOrNull()
-                            ?.let { approximateTokenCount(it.content ?: "") } ?: 0
-                    val contextBudget = maxOf(0, rawBudget - systemPromptTokens)
                     val modelContextLimit = ModelRegistry.contextLength(session.model) ?: 0
                     val runner =
                         ToolCallLoopRunner(
@@ -304,7 +299,7 @@ class MessageProcessor(
                             messageRepository,
                             channel,
                             chatId,
-                            contextBudgetTokens = contextBudget,
+                            contextBudgetTokens = rawBudget,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
                             modelContextLimit = modelContextLimit,
                         )
@@ -324,7 +319,7 @@ class MessageProcessor(
                     contextResult.windowStartCreatedAt?.let { windowStart ->
                         processingScope.launch {
                             try {
-                                summarizationRunner.runIfNeeded(chatId, windowStart)
+                                summarizationRunner.runIfNeeded(chatId, windowStart, session.segmentStart)
                             } catch (
                                 @Suppress("TooGenericExceptionCaught") e: Exception,
                             ) {
@@ -332,12 +327,12 @@ class MessageProcessor(
                             }
                         }
                     }
-                } catch (_: KlawError) {
+                } catch (e: KlawError) {
                     socketServerProvider.get().pushToGateway(
                         OutboundSocketMessage(
                             channel = channel,
                             chatId = chatId,
-                            content = "Sorry, something went wrong.",
+                            content = userFacingMessage(e),
                         ),
                     )
                 } catch (e: CancellationException) {
@@ -453,5 +448,30 @@ class MessageProcessor(
             socketServerProvider.get().pushMessage(RestartRequestSocketMessage)
         }
         shutdownController.executePendingRestart()
+    }
+
+    companion object {
+        internal fun userFacingMessage(error: KlawError): String =
+            when (error) {
+                is KlawError.ProviderError -> {
+                    if (error.statusCode == null) {
+                        "LLM service is unreachable. Please try again later."
+                    } else {
+                        "LLM returned an error. Please try again later."
+                    }
+                }
+
+                is KlawError.AllProvidersFailedError -> {
+                    "All LLM providers are unreachable. Please try again later."
+                }
+
+                is KlawError.ContextLengthExceededError -> {
+                    "Message too long for the model's context window. Try /new to start a fresh session."
+                }
+
+                is KlawError.ToolCallError -> {
+                    "Sorry, something went wrong."
+                }
+            }
     }
 }

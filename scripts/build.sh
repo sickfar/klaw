@@ -13,6 +13,7 @@ if command -v docker &>/dev/null; then
   echo "Building Docker images..."
   docker build -t ghcr.io/sickfar/klaw-engine:latest -f docker/engine/Dockerfile .
   docker build -t ghcr.io/sickfar/klaw-gateway:latest -f docker/gateway/Dockerfile .
+  docker build -t ghcr.io/sickfar/klaw-sandbox:latest -f docker/klaw-sandbox/Dockerfile .
   if [ -f build/dist/klaw-linuxX64 ]; then
     docker build -t ghcr.io/sickfar/klaw-cli:latest -f docker/cli/Dockerfile .
   else

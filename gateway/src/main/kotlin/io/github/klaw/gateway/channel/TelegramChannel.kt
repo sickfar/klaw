@@ -166,18 +166,22 @@ class TelegramChannel(
                 logger.warn { "Invalid chatId format: $chatId" }
                 return
             }
-        logger.trace { "Sending message to Telegram chatId=$chatId" }
-        runCatching {
-            withSendRetry {
-                val action = sendAction
-                if (action != null) {
-                    action(platformId, response.content)
-                } else {
-                    bot!!.sendTextMessage(ChatId(RawChatId(platformId)), response.content)
+        val chunks = splitMessage(response.content)
+        logger.trace { "Sending message to Telegram chatId=$chatId chunks=${chunks.size}" }
+        for (chunk in chunks) {
+            runCatching {
+                withSendRetry {
+                    val action = sendAction
+                    if (action != null) {
+                        action(platformId, chunk)
+                    } else {
+                        bot!!.sendTextMessage(ChatId(RawChatId(platformId)), chunk)
+                    }
                 }
+            }.onFailure { e ->
+                logger.error(e) { "Failed to send Telegram message to chatId=$chatId" }
+                return
             }
-        }.onFailure { e ->
-            logger.error(e) { "Failed to send Telegram message to chatId=$chatId" }
         }
     }
 

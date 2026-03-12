@@ -20,8 +20,9 @@ class FileSummaryService(
     override suspend fun getSummariesForContext(
         chatId: String,
         budgetTokens: Int,
+        segmentStart: String,
     ): List<SummaryText> {
-        val rows = summaryRepository.getSummariesDesc(chatId)
+        val rows = summaryRepository.getSummariesDescAfter(chatId, segmentStart)
         if (rows.isEmpty()) return emptyList()
 
         // Read files and compute tokens, newest-first

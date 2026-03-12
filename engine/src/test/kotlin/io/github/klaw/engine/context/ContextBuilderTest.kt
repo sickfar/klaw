@@ -498,7 +498,7 @@ class ContextBuilderTest {
     fun `summaries included when available via getSummariesForContext`() =
         runTest {
             // Summaries are now injected via getSummariesForContext, not getLastSummary
-            coEvery { summaryService.getSummariesForContext("chat-sum", any()) } returns
+            coEvery { summaryService.getSummariesForContext("chat-sum", any(), any()) } returns
                 listOf(
                     SummaryText("Previously: User asked about weather.", "msg-1", "msg-5", 50),
                 )
@@ -915,7 +915,7 @@ class ContextBuilderTest {
             coEvery { workspaceLoader.loadSystemPrompt() } returns "word ".repeat(160) // ~200 tokens
 
             // Summaries use 100 tokens
-            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns
+            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
                 listOf(SummaryText("Summary content", "msg-1", "msg-5", 100))
 
             val segmentStart = "2024-01-01T00:00:00Z"

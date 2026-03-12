@@ -91,10 +91,11 @@ class CommandHandler(
             config.models[session.model]?.contextBudget
                 ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
-        val usedTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
-        val pct = if (budgetTokens > 0) usedTokens * PERCENT_MULTIPLIER / budgetTokens else 0
+        val windowTokens = messageRepository.getWindowTokenCount(session.chatId, session.segmentStart, budgetTokens)
+        val totalTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
+        val pct = if (budgetTokens > 0) windowTokens * PERCENT_MULTIPLIER / budgetTokens else 0
         return "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}\n" +
-            "Context: $usedTokens/$budgetTokens tokens ($pct%)"
+            "Context: $windowTokens/$budgetTokens tokens ($pct%) | Segment total: $totalTokens"
     }
 
     companion object {

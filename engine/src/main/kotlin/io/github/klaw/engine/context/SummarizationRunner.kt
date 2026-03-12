@@ -16,8 +16,6 @@ import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
-private const val EPOCH = "1970-01-01T00:00:00Z"
-
 private const val SUMMARIZATION_SYSTEM_PROMPT =
     "You are a conversation summarizer. Write a concise markdown summary of the " +
         "conversation below. Cover: key topics, decisions made, action items, and the user's " +
@@ -36,11 +34,12 @@ class SummarizationRunner(
     suspend fun runIfNeeded(
         chatId: String,
         windowStartCreatedAt: String,
+        segmentStart: String = SummaryService.EPOCH,
     ) {
         if (!config.summarization.enabled) return
 
-        val lastSummary = summaryRepository.getLastSummary(chatId)
-        val afterCreatedAt = lastSummary?.created_at ?: EPOCH
+        val lastSummary = summaryRepository.getLastSummaryAfter(chatId, segmentStart)
+        val afterCreatedAt = lastSummary?.created_at ?: segmentStart
 
         val fallenOutTokens =
             messageRepository.sumTokensBetween(chatId, afterCreatedAt, windowStartCreatedAt)

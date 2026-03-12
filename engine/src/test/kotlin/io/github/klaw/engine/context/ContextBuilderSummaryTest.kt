@@ -132,7 +132,7 @@ class ContextBuilderSummaryTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { summaryService.getSummariesForContext(any(), any()) } returns emptyList()
+        coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns emptyList()
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         every { skillRegistry.discover() } returns Unit
@@ -159,7 +159,7 @@ class ContextBuilderSummaryTest {
     @Test
     fun `one summary injected before raw messages`() =
         runTest {
-            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns
+            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
                 listOf(
                     SummaryText("Summary of early conversation", "msg-1", "msg-5", 50),
                 )
@@ -197,7 +197,7 @@ class ContextBuilderSummaryTest {
     @Test
     fun `multiple summaries injected oldest first`() =
         runTest {
-            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns
+            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
                 listOf(
                     SummaryText("First summary", "msg-1", "msg-5", 50),
                     SummaryText("Second summary", "msg-6", "msg-10", 50),
@@ -224,7 +224,7 @@ class ContextBuilderSummaryTest {
             // With budget=2000 and fraction=0.5, after system prompt deduction (~200 tokens),
             // adjusted budget ~1800, summaryBudget = ~900, raw gets the rest
             // If summaries use 200 tokens, raw budget = ~1800 - 200 = ~1600
-            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns
+            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
                 listOf(
                     SummaryText("A summary", "msg-1", "msg-5", 200),
                 )
@@ -307,7 +307,7 @@ class ContextBuilderSummaryTest {
     @Test
     fun `awareness section injected when summarization enabled`() =
         runTest {
-            coEvery { summaryService.getSummariesForContext(any(), any()) } returns
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
                 listOf(
                     SummaryText("A summary", "msg-1", "msg-5", 50),
                 )
@@ -351,7 +351,7 @@ class ContextBuilderSummaryTest {
             // Budget 2000, after system prompt deduction (~200), adjusted ~1800
             // fraction 0.5 => summary budget ~900
             // But no summaries exist, so all ~1800 goes to raw messages
-            coEvery { summaryService.getSummariesForContext("chat-1", any()) } returns emptyList()
+            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns emptyList()
 
             for (i in 1..10) {
                 db.messagesQueries.insertMessage(

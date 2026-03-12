@@ -683,7 +683,7 @@ class ToolCallLoopTest {
         }
 
     @Test
-    fun `model limit zero means no hard guard`() =
+    fun `budget exceeded triggers graceful summary`() =
         runTest {
             val mockClient = mockk<LlmClient>()
             val mockToolExecutor = mockk<ToolExecutor>()
@@ -696,7 +696,7 @@ class ToolCallLoopTest {
             } returnsMany
                 listOf(
                     LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
-                    LlmResponse("Done", null, null, FinishReason.STOP),
+                    LlmResponse("Summarized", null, null, FinishReason.STOP),
                 )
 
             coEvery { mockToolExecutor.executeAll(any()) } returns
@@ -707,17 +707,16 @@ class ToolCallLoopTest {
                     llmRouter = buildRouter { mockClient },
                     toolExecutor = mockToolExecutor,
                     maxRounds = 5,
-                    contextBudgetTokens = 50, // Small budget, but modelContextLimit=0 (default)
+                    contextBudgetTokens = 50, // Small budget triggers graceful summary
                 )
 
             val context = mutableListOf(LlmMessage(role = "user", content = "Run tool"))
             val response = runner.run(context, testSession)
 
-            // Loop continues normally despite exceeding engine budget (soft guard only)
-            assertEquals("Done", response.content)
-            // No model limit notification injected
+            // Budget exceeded triggers graceful summary
+            assertEquals("Summarized", response.content)
             val limitMsg = context.find { it.role == "user" && it.content?.contains("context limit") == true }
-            assertEquals(null, limitMsg, "No model limit notification when modelContextLimit=0")
+            assertNotNull(limitMsg, "Context must contain budget limit notification message")
         }
 
     @Test

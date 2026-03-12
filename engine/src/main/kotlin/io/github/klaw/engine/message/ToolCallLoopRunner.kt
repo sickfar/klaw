@@ -162,6 +162,7 @@ internal class ToolCallLoopRunner(
         }
         if (contextBudgetTokens > 0 && currentTokens > contextBudgetTokens) {
             logger.warn { "Context $currentTokens tokens exceeds budget $contextBudgetTokens at round $rounds" }
+            return true
         }
         return false
     }

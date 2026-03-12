@@ -9,6 +9,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.Properties
 
 @Factory
 class DatabaseFactory(
@@ -18,7 +19,9 @@ class DatabaseFactory(
     private val driver: JdbcSqliteDriver by lazy {
         val dbPath = KlawPaths.klawDb
         File(dbPath).parentFile?.mkdirs()
-        val d = JdbcSqliteDriver("jdbc:sqlite:$dbPath")
+        val props = Properties()
+        props["enable_load_extension"] = "true"
+        val d = JdbcSqliteDriver("jdbc:sqlite:$dbPath", props)
         KlawDatabase.Schema.create(d)
         sqliteVecLoader.loadExtension(d)
         VirtualTableSetup.createVirtualTables(d, sqliteVecLoader.isAvailable())

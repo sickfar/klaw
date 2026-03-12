@@ -105,6 +105,22 @@ class MessageRepository(
             kept.reversed() // return in chronological order (ASC)
         }
 
+    suspend fun getWindowTokenCount(
+        chatId: String,
+        segmentStart: String,
+        budgetTokens: Int,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            val allDesc = db.messagesQueries.getWindowMessages(chatId, segmentStart).executeAsList()
+            var accumulated = 0L
+            for (row in allDesc) {
+                val rowTokens = row.tokens
+                if (accumulated + rowTokens > budgetTokens) break
+                accumulated += rowTokens
+            }
+            accumulated
+        }
+
     suspend fun sumTokensInSegment(
         chatId: String,
         segmentStart: String,

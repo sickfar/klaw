@@ -197,6 +197,10 @@ class CommandHandlerTest {
             assertTrue(result.contains("test/model"), "Response should contain model name, got: $result")
             assertTrue(result.contains("Context:"), "Response should contain context usage, got: $result")
             assertTrue(result.contains("tokens"), "Response should contain token info, got: $result")
+            assertTrue(
+                result.contains("Segment total:"),
+                "Response should contain segment total, got: $result",
+            )
         }
 
     @Test

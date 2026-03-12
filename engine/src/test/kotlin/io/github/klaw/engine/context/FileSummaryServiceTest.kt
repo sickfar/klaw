@@ -112,4 +112,47 @@ class FileSummaryServiceTest {
             assertEquals("msg-5", result[0].toMessageId)
             assertTrue(result[0].tokens > 0)
         }
+
+    @Test
+    fun `respects segmentStart and filters out old summaries`() =
+        runBlocking {
+            val file1 = File(tempDir, "old.md").also { it.writeText("Old summary from previous session") }
+            val file2 = File(tempDir, "mid.md").also { it.writeText("Mid summary near boundary") }
+            val file3 = File(tempDir, "new.md").also { it.writeText("New summary in current segment") }
+
+            summaryRepository.insert("chat-1", "msg-1", "msg-5", file1.absolutePath, "2024-01-01T00:00:00Z")
+            summaryRepository.insert("chat-1", "msg-6", "msg-10", file2.absolutePath, "2024-01-01T02:00:00Z")
+            summaryRepository.insert("chat-1", "msg-11", "msg-15", file3.absolutePath, "2024-01-01T04:00:00Z")
+
+            // segmentStart between file2 and file3 — only file3 should be returned
+            val result = service.getSummariesForContext("chat-1", 100000, "2024-01-01T03:00:00Z")
+            assertEquals(1, result.size)
+            assertEquals("New summary in current segment", result[0].content)
+        }
+
+    @Test
+    fun `returns empty when all summaries are before segmentStart`() =
+        runBlocking {
+            val file1 = File(tempDir, "1.md").also { it.writeText("Old summary") }
+            val file2 = File(tempDir, "2.md").also { it.writeText("Also old summary") }
+
+            summaryRepository.insert("chat-1", "msg-1", "msg-5", file1.absolutePath, "2024-01-01T00:00:00Z")
+            summaryRepository.insert("chat-1", "msg-6", "msg-10", file2.absolutePath, "2024-01-01T01:00:00Z")
+
+            val result = service.getSummariesForContext("chat-1", 100000, "2024-01-01T02:00:00Z")
+            assertTrue(result.isEmpty())
+        }
+
+    @Test
+    fun `returns all summaries when segmentStart is epoch`() =
+        runBlocking {
+            val file1 = File(tempDir, "1.md").also { it.writeText("Summary 1") }
+            val file2 = File(tempDir, "2.md").also { it.writeText("Summary 2") }
+
+            summaryRepository.insert("chat-1", "msg-1", "msg-5", file1.absolutePath, "2024-01-01T00:00:00Z")
+            summaryRepository.insert("chat-1", "msg-6", "msg-10", file2.absolutePath, "2024-01-01T01:00:00Z")
+
+            val result = service.getSummariesForContext("chat-1", 100000, "1970-01-01T00:00:00Z")
+            assertEquals(2, result.size)
+        }
 }

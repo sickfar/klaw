@@ -103,4 +103,38 @@ class MessageRepositoryTest {
             repo.updateTokens("id1", 50)
             assertEquals(70L, repo.sumTokensInSegment("chat1", "2000-01-01T00:00:00Z"))
         }
+
+    @Test
+    fun `getWindowTokenCount returns accumulated tokens within budget`() =
+        runBlocking {
+            // Insert messages with known token counts (newest first in DESC order)
+            repo.save("id1", "telegram", "chat1", "user", "text", "msg1", tokens = 2000)
+            repo.save("id2", "telegram", "chat1", "user", "text", "msg2", tokens = 2000)
+            repo.save("id3", "telegram", "chat1", "user", "text", "msg3", tokens = 2000)
+            repo.save("id4", "telegram", "chat1", "user", "text", "msg4", tokens = 2000)
+            repo.save("id5", "telegram", "chat1", "user", "text", "msg5", tokens = 2000)
+            // Total = 10K tokens
+
+            // Budget of 6K: should accumulate newest messages until budget exceeded
+            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 6000)
+            assertEquals(6000L, count)
+        }
+
+    @Test
+    fun `getWindowTokenCount returns full total when all fit in budget`() =
+        runBlocking {
+            repo.save("id1", "telegram", "chat1", "user", "text", "msg1", tokens = 1000)
+            repo.save("id2", "telegram", "chat1", "user", "text", "msg2", tokens = 1000)
+            repo.save("id3", "telegram", "chat1", "user", "text", "msg3", tokens = 1000)
+
+            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 10000)
+            assertEquals(3000L, count)
+        }
+
+    @Test
+    fun `getWindowTokenCount returns zero for empty segment`() =
+        runBlocking {
+            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 6000)
+            assertEquals(0L, count)
+        }
 }

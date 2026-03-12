@@ -16,9 +16,25 @@ class SummaryRepository(
             db.summariesQueries.getLastByChatId(chatId).executeAsOneOrNull()
         }
 
+    suspend fun getLastSummaryAfter(
+        chatId: String,
+        segmentStart: String,
+    ): Summaries? =
+        withContext(Dispatchers.VT) {
+            db.summariesQueries.getLastByChatIdAfter(chatId, segmentStart).executeAsOneOrNull()
+        }
+
     suspend fun getSummariesDesc(chatId: String): List<Summaries> =
         withContext(Dispatchers.VT) {
             db.summariesQueries.getSummariesDesc(chatId).executeAsList()
+        }
+
+    suspend fun getSummariesDescAfter(
+        chatId: String,
+        segmentStart: String,
+    ): List<Summaries> =
+        withContext(Dispatchers.VT) {
+            db.summariesQueries.getSummariesDescAfter(chatId, segmentStart).executeAsList()
         }
 
     suspend fun insert(

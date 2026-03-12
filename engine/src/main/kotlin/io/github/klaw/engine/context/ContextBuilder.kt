@@ -102,7 +102,7 @@ class ContextBuilder(
         val rawMessageBudget: Int
         if (config.summarization.enabled) {
             val summaryBudget = (adjustedBudget * config.summarization.summaryBudgetFraction).toInt()
-            summaries = summaryService.getSummariesForContext(session.chatId, summaryBudget)
+            summaries = summaryService.getSummariesForContext(session.chatId, summaryBudget, session.segmentStart)
             val summaryTokensUsed = summaries.sumOf { it.tokens }
             rawMessageBudget = adjustedBudget - summaryTokensUsed
         } else {
