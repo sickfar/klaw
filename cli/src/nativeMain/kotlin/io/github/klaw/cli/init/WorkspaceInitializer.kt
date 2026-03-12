@@ -80,6 +80,7 @@ internal class WorkspaceInitializer(
                 "## Constraints\n" +
                 "- Never fabricate facts, citations, or URLs\n" +
                 "- If a request is ambiguous, ask one clarifying question rather than guessing\n" +
-                "- Keep conversation context in mind — don't repeat what was already discussed\n"
+                "- Keep conversation context in mind — don't repeat what was already discussed\n" +
+                "- When asked about yourself, your capabilities, or how you work — search documentation before saying you don't know\n"
     }
 }

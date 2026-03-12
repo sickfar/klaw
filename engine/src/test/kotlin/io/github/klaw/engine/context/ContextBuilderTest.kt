@@ -6,9 +6,11 @@ import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.CompatibilityConfig
 import io.github.klaw.common.config.ContextConfig
+import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
+import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
@@ -53,6 +55,8 @@ class ContextBuilderTest {
         subagentHistory: Int = 5,
         modelContextBudget: Int? = null,
         skills: SkillsConfig = SkillsConfig(),
+        docs: DocsConfig = DocsConfig(),
+        hostExecution: HostExecutionConfig = HostExecutionConfig(),
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
@@ -105,6 +109,8 @@ class ContextBuilderTest {
             compatibility = CompatibilityConfig(),
             autoRag = AutoRagConfig(enabled = false),
             skills = skills,
+            docs = docs,
+            hostExecution = hostExecution,
         )
 
     private fun buildSession(
@@ -689,6 +695,149 @@ class ContextBuilderTest {
             assertFalse(
                 systemMessage.content!!.contains("Scheduled Task Execution"),
                 "isSubagent=true with null taskName must NOT produce a scheduled task notice",
+            )
+        }
+
+    @Test
+    fun `capabilities section present in system prompt`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("## Your Capabilities"),
+                "System message should contain capabilities section",
+            )
+            assertTrue(
+                systemContent.contains("Klaw platform"),
+                "Capabilities should mention Klaw platform",
+            )
+            assertTrue(
+                systemContent.contains("long-term memory"),
+                "Capabilities should mention long-term memory",
+            )
+        }
+
+    @Test
+    fun `capabilities section mentions docs when enabled`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig(docs = DocsConfig(enabled = true)))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("documentation"),
+                "Capabilities should mention documentation when docs enabled",
+            )
+        }
+
+    @Test
+    fun `capabilities section omits docs when disabled`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig(docs = DocsConfig(enabled = false)))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val capabilitiesSection =
+                result.messages[0]
+                    .content!!
+                    .substringAfter("## Your Capabilities")
+                    .substringBefore("## ")
+            assertFalse(
+                capabilitiesSection.contains("documentation"),
+                "Capabilities should not mention documentation when docs disabled",
+            )
+        }
+
+    @Test
+    fun `capabilities section mentions host when enabled`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder =
+                buildContextBuilder(buildConfig(hostExecution = HostExecutionConfig(enabled = true)))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("host system"),
+                "Capabilities should mention host system when host execution enabled",
+            )
+        }
+
+    @Test
+    fun `capabilities section omits host when disabled`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder =
+                buildContextBuilder(buildConfig(hostExecution = HostExecutionConfig(enabled = false)))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val capabilitiesSection =
+                result.messages[0]
+                    .content!!
+                    .substringAfter("## Your Capabilities")
+                    .substringBefore("## ")
+            assertFalse(
+                capabilitiesSection.contains("host system"),
+                "Capabilities should not mention host system when host execution disabled",
+            )
+        }
+
+    @Test
+    fun `capabilities section mentions skills when skills exist`() =
+        runTest {
+            val skillsMeta = listOf(SkillMeta("test_skill", "A test skill"))
+            coEvery { skillRegistry.listAll() } returns skillsMeta
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("extensible skills"),
+                "Capabilities should mention skills when skills exist",
+            )
+        }
+
+    @Test
+    fun `capabilities section omits skills when none exist`() =
+        runTest {
+            coEvery { skillRegistry.listAll() } returns emptyList()
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val capabilitiesSection =
+                result.messages[0]
+                    .content!!
+                    .substringAfter("## Your Capabilities")
+                    .substringBefore("## ")
+            assertFalse(
+                capabilitiesSection.contains("extensible skills"),
+                "Capabilities should not mention skills when none exist",
+            )
+        }
+
+    @Test
+    fun `capabilities section appears before Current Time`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            val capIdx = systemContent.indexOf("## Your Capabilities")
+            val timeIdx = systemContent.indexOf("## Current Time")
+            assertTrue(capIdx >= 0, "Capabilities section should exist")
+            assertTrue(timeIdx >= 0, "Current Time section should exist")
+            assertTrue(
+                capIdx < timeIdx,
+                "Capabilities section should appear before Current Time",
             )
         }
 }

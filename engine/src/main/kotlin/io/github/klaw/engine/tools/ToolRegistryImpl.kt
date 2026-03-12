@@ -335,7 +335,9 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "memory_search",
-                    "Search long-term memory",
+                    "Search long-term memory for previously saved information. " +
+                        "Use when the user references something you should remember, " +
+                        "or when you need context from past interactions.",
                     toolParams(
                         listOf("query"),
                         mapOf(
@@ -346,7 +348,9 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "memory_save",
-                    "Save information to long-term memory",
+                    "Save information to long-term memory that persists across conversations. " +
+                        "Use when the user asks you to remember something " +
+                        "or when you learn important facts worth retaining.",
                     toolParams(
                         listOf("content"),
                         mapOf(
@@ -358,7 +362,9 @@ class ToolRegistryImpl(
                 ToolDef(
                     "history_search",
                     "Search past conversation messages semantically. " +
-                        "Returns matching messages from this chat's history with timestamps.",
+                        "Returns matching messages from this chat's history with timestamps. " +
+                        "Use when you need to recall what was discussed earlier " +
+                        "but the details are outside your current context window.",
                     toolParams(
                         listOf("query"),
                         mapOf(
@@ -369,7 +375,9 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "docs_search",
-                    "Search project documentation",
+                    "Search project documentation. " +
+                        "Use this when asked about your own capabilities, architecture, configuration, " +
+                        "available tools, or how you work — the docs contain this information.",
                     toolParams(
                         listOf("query"),
                         mapOf(
@@ -380,7 +388,7 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "docs_read",
-                    "Read a document by path",
+                    "Read a document by path. Use after docs_search to read full content of a relevant document.",
                     toolParams(
                         listOf("path"),
                         mapOf("path" to stringProp("Document path")),
@@ -388,7 +396,8 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "docs_list",
-                    "List available documents",
+                    "List all available documents in the documentation library. " +
+                        "Use to discover what documentation exists.",
                     toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
@@ -440,7 +449,9 @@ class ToolRegistryImpl(
                 ),
                 ToolDef(
                     "subagent_spawn",
-                    "Spawn a subagent to perform a task",
+                    "Spawn an independent subagent to perform a task in parallel. " +
+                        "The subagent runs with its own context and can use all tools. " +
+                        "Use for long-running or independent tasks that don't need your immediate attention.",
                     toolParams(
                         listOf("name", "message"),
                         mapOf(

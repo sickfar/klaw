@@ -66,7 +66,7 @@ class ContextBuilder(
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
-            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection)
+            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
             val scheduledSystemContent =
                 buildString {
                     append(systemContent)
@@ -115,7 +115,7 @@ class ContextBuilder(
         val windowStartCreatedAt = dbMessages.firstOrNull()?.createdAt
 
         // Build system content (without old getLastSummary — summaries now injected as separate message)
-        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection)
+        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
 
         // Auto-RAG guard: only for interactive path when segment tokens exceed budget (messages being trimmed)
         val autoRagResults: List<AutoRagResult> =
@@ -199,9 +199,11 @@ class ContextBuilder(
         systemPrompt: String,
         toolDescriptions: String,
         inlineSkillSection: String = "",
+        skillCount: Int = 0,
     ): String {
         val parts = mutableListOf<String>()
         if (systemPrompt.isNotBlank()) parts.add(systemPrompt)
+        parts.add(buildCapabilitiesSection(skillCount))
         val now = ZonedDateTime.now()
         val formatted = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"))
         parts.add("## Current Time\n$formatted")
@@ -218,4 +220,29 @@ class ContextBuilder(
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
     }
+
+    private fun buildCapabilitiesSection(skillCount: Int): String =
+        buildString {
+            append("## Your Capabilities\n")
+            append(
+                "You are a personal AI assistant running on the Klaw platform. " +
+                    "You have persistent long-term memory that survives across conversations, " +
+                    "can search your conversation history, and manage scheduled tasks and reminders. " +
+                    "You can execute code in an isolated sandbox, read and write files in your workspace, " +
+                    "and manage your own configuration at runtime. " +
+                    "You can delegate work to independent subagents for parallel execution.",
+            )
+            if (config.docs.enabled) {
+                append(
+                    " You have a documentation library — " +
+                        "when asked about yourself, your architecture, or how you work, search it first.",
+                )
+            }
+            if (config.hostExecution.enabled) {
+                append(" You can execute commands directly on the host system.")
+            }
+            if (skillCount > 0) {
+                append(" You have extensible skills that provide specialized workflows.")
+            }
+        }
 }
