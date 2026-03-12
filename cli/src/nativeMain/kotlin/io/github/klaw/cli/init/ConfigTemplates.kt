@@ -102,21 +102,7 @@ internal object ConfigTemplates {
         consolePort: Int = 37474,
     ): String {
         val engine = hybridEngineService(imageTag, statePath, dataPath, configPath, workspacePath)
-        val gateway =
-            ComposeServiceConfig(
-                image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
-                restart = "unless-stopped",
-                envFile = ".env",
-                dependsOn = listOf("engine"),
-                environment = mapOf("HOME" to "/home/klaw", "KLAW_ENGINE_HOST" to "engine"),
-                volumes =
-                    listOf(
-                        "$statePath:/home/klaw/.local/state/klaw",
-                        "$dataPath:/home/klaw/.local/share/klaw",
-                        "$configPath:/home/klaw/.config/klaw",
-                    ),
-                ports = if (enableConsole) listOf("127.0.0.1:$consolePort:$consolePort") else null,
-            )
+        val gateway = hybridGatewayService(imageTag, statePath, dataPath, configPath, enableConsole, consolePort)
         val config =
             ComposeConfig(
                 services = mapOf("engine" to engine, "gateway" to gateway),
@@ -124,6 +110,30 @@ internal object ConfigTemplates {
             )
         return encodeComposeConfig(config)
     }
+
+    @Suppress("LongParameterList")
+    private fun hybridGatewayService(
+        imageTag: String,
+        statePath: String,
+        dataPath: String,
+        configPath: String,
+        enableConsole: Boolean,
+        consolePort: Int,
+    ): ComposeServiceConfig =
+        ComposeServiceConfig(
+            image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
+            restart = "unless-stopped",
+            envFile = ".env",
+            dependsOn = listOf("engine"),
+            environment = mapOf("HOME" to "/home/klaw", "KLAW_ENGINE_HOST" to "engine"),
+            volumes =
+                listOf(
+                    "$statePath:/home/klaw/.local/state/klaw",
+                    "$dataPath:/home/klaw/.local/share/klaw",
+                    "$configPath:/home/klaw/.config/klaw",
+                ),
+            ports = if (enableConsole) listOf("127.0.0.1:$consolePort:$consolePort") else null,
+        )
 
     private fun hybridEngineService(
         imageTag: String,
