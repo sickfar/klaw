@@ -1,6 +1,8 @@
 complexity:
   LargeClass:
     threshold: 700
+    excludes:
+      - '**/config/schema/Generated*.kt'
   LongMethod:
     threshold: 60
   TooManyFunctions:

@@ -94,15 +94,16 @@ class ToolRegistryImplTest {
             sandboxExecTool,
             hostExecTool,
             configTools,
+            mockk<HistoryTools>(),
             testEngineConfig(docsEnabled = true, hostExecEnabled = true),
             mcpToolRegistry,
         )
 
     @Test
-    fun `listTools returns all 20 tool definitions`() =
+    fun `listTools returns all 21 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(20, tools.size)
+            assertEquals(21, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -228,12 +229,13 @@ class ToolRegistryImplTest {
                     sandboxExecTool,
                     hostExecTool,
                     configTools,
+                    mockk<HistoryTools>(),
                     testEngineConfig(docsEnabled = false, hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(17, tools.size)
+            assertEquals(18, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -291,7 +293,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(18, tools.size, "Should have 20 - 2 = 18 tools")
+            assertEquals(19, tools.size, "Should have 21 - 2 = 19 tools")
         }
 
     @Test
@@ -309,13 +311,14 @@ class ToolRegistryImplTest {
                     sandboxExecTool,
                     hostExecTool,
                     configTools,
+                    mockk<HistoryTools>(),
                     testEngineConfig(hostExecEnabled = false),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(19, tools.size, "Should have 20 - 1 = 19 tools")
+            assertEquals(20, tools.size, "Should have 21 - 1 = 20 tools")
         }
 
     @Test
@@ -349,13 +352,14 @@ class ToolRegistryImplTest {
                     sandboxExecTool,
                     hostExecTool,
                     configTools,
+                    mockk<HistoryTools>(),
                     testEngineConfig(hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(20, tools.size)
+            assertEquals(21, tools.size)
         }
 
     @Test
@@ -454,12 +458,13 @@ class ToolRegistryImplTest {
                     sandboxExecTool,
                     hostExecTool,
                     configTools,
+                    mockk<HistoryTools>(),
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(21, tools.size)
+            assertEquals(22, tools.size)
         }
 
     @Test
@@ -503,6 +508,7 @@ class ToolRegistryImplTest {
                     sandboxExecTool,
                     hostExecTool,
                     configTools,
+                    mockk<HistoryTools>(),
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )

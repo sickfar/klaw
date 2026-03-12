@@ -149,7 +149,6 @@ object GeneratedSchemas {
                             "type": "integer",
                             "exclusiveMinimum": 0
                         },
-
                         "subagentHistory": {
                             "type": "integer",
                             "exclusiveMinimum": 0
@@ -423,6 +422,21 @@ object GeneratedSchemas {
                         },
                         "channel": {
                             "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "summarization": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "tokenThreshold": {
+                            "type": "integer"
+                        },
+                        "summaryBudgetFraction": {
+                            "type": "number"
                         }
                     },
                     "additionalProperties": false

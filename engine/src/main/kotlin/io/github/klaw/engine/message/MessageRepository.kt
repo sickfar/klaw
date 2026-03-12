@@ -121,6 +121,45 @@ class MessageRepository(
             db.messagesQueries.updateTokensById(tokens.toLong(), id)
         }
 
+    data class SummaryMessageRow(
+        val id: String,
+        val role: String,
+        val type: String,
+        val content: String,
+        val createdAt: String,
+        val tokens: Int,
+    )
+
+    suspend fun sumTokensBetween(
+        chatId: String,
+        afterCreatedAt: String,
+        beforeCreatedAt: String,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.sumTokensAfter(chatId, afterCreatedAt, beforeCreatedAt).executeAsOne()
+        }
+
+    suspend fun getMessagesForSummary(
+        chatId: String,
+        afterCreatedAt: String,
+        beforeCreatedAt: String,
+    ): List<SummaryMessageRow> =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries
+                .getMessagesAfterForSummary(chatId, afterCreatedAt, beforeCreatedAt)
+                .executeAsList()
+                .map {
+                    SummaryMessageRow(
+                        id = it.id,
+                        role = it.role,
+                        type = it.type,
+                        content = it.content,
+                        createdAt = it.created_at,
+                        tokens = it.tokens.toInt(),
+                    )
+                }
+        }
+
     suspend fun appendSessionBreak(chatId: String): Unit =
         withContext(Dispatchers.VT) {
             val now = Clock.System.now()

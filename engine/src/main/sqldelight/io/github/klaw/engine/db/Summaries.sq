@@ -13,3 +13,12 @@ VALUES (?, ?, ?, ?, ?);
 
 getByChatId:
 SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at;
+
+getLastByChatId:
+SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at DESC LIMIT 1;
+
+getSummariesDesc:
+SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at DESC;
+
+countByChatId:
+SELECT COUNT(*) FROM summaries WHERE chat_id = ?;

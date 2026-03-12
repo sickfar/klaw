@@ -36,6 +36,7 @@ class ToolRegistryImpl(
     private val sandboxExecTool: SandboxExecTool,
     private val hostExecTool: HostExecTool,
     private val configTools: ConfigTools,
+    private val historyTools: HistoryTools,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -115,6 +116,15 @@ class ToolRegistryImpl(
 
             "memory_save" -> {
                 memoryTools.save(args.str("content"), args.strOrNull("source") ?: "manual")
+            }
+
+            "history_search" -> {
+                val ctx = kotlin.coroutines.coroutineContext[ChatContext]
+                historyTools.search(
+                    args.str("query"),
+                    ctx?.chatId ?: "unknown",
+                    args.intOrNull("topK") ?: DEFAULT_HISTORY_TOP_K,
+                )
             }
 
             "docs_search" -> {
@@ -233,6 +243,7 @@ class ToolRegistryImpl(
 
     companion object {
         private const val DEFAULT_MEMORY_TOP_K = 10
+        private const val DEFAULT_HISTORY_TOP_K = 10
         private const val DEFAULT_DOCS_TOP_K = 5
         private val DOCS_TOOL_NAMES = setOf("docs_search", "docs_read", "docs_list")
         private const val HOST_EXEC_TOOL_NAME = "host_exec"
@@ -341,6 +352,18 @@ class ToolRegistryImpl(
                         mapOf(
                             "content" to stringProp("Text to save"),
                             "source" to stringProp("Information source (default: manual)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "history_search",
+                    "Search past conversation messages semantically. " +
+                        "Returns matching messages from this chat's history with timestamps.",
+                    toolParams(
+                        listOf("query"),
+                        mapOf(
+                            "query" to stringProp("Search query"),
+                            "topK" to intProp("Number of results (default 10)"),
                         ),
                     ),
                 ),

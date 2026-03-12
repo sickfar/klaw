@@ -138,7 +138,6 @@ class ContextBuilderTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit
@@ -484,19 +483,32 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `summary included when available`() =
+    fun `summaries included when available via getSummariesForContext`() =
         runTest {
-            coEvery { summaryService.getLastSummary("chat-sum") } returns "Previously: User asked about weather."
+            // Summaries are now injected via getSummariesForContext, not getLastSummary
+            coEvery { summaryService.getSummariesForContext("chat-sum", any()) } returns
+                listOf(
+                    SummaryText("Previously: User asked about weather.", "msg-1", "msg-5", 50),
+                )
 
             val session = buildSession(chatId = "chat-sum")
-            val contextBuilder = buildContextBuilder(buildConfig())
+            val config = buildConfig()
+            // Enable summarization in config to trigger the new path
+            val configWithSummarization =
+                config.copy(
+                    summarization =
+                        io.github.klaw.common.config
+                            .SummarizationConfig(enabled = true),
+                )
+            val contextBuilder = buildContextBuilder(configWithSummarization)
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertEquals(1, result.messages.size)
-            val systemContent = result.messages[0].content!!
-            assertTrue(systemContent.contains("Last Summary"), "System message should contain summary section")
-            assertTrue(systemContent.contains("Previously: User asked about weather."))
+            // Second message should be the summary system message
+            assertTrue(result.messages.size >= 2)
+            val summaryMessage = result.messages[1]
+            assertEquals("system", summaryMessage.role)
+            assertTrue(summaryMessage.content!!.contains("Previously: User asked about weather."))
         }
 
     @Test

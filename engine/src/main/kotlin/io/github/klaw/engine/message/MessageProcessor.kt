@@ -13,6 +13,7 @@ import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
+import io.github.klaw.engine.context.SummarizationRunner
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
@@ -62,6 +63,7 @@ class MessageProcessor(
     private val cliCommandDispatcher: CliCommandDispatcher,
     private val approvalService: ApprovalService,
     private val shutdownController: ShutdownController,
+    private val summarizationRunner: SummarizationRunner,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -342,6 +344,19 @@ class MessageProcessor(
                         socketServerProvider.get().pushToGateway(
                             OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
                         )
+                    }
+
+                    // Fire-and-forget background summarization
+                    contextResult.windowStartCreatedAt?.let { windowStart ->
+                        processingScope.launch {
+                            try {
+                                summarizationRunner.runIfNeeded(chatId, windowStart)
+                            } catch (
+                                @Suppress("TooGenericExceptionCaught") e: Exception,
+                            ) {
+                                logger.error(e) { "Background summarization failed" }
+                            }
+                        }
                     }
                 } catch (_: KlawError) {
                     socketServerProvider.get().pushToGateway(

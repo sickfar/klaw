@@ -156,7 +156,7 @@ class MessageProcessorEmbeddingTest {
         val messageRepository = MessageRepository(db)
 
         val workspaceLoader = mockk<WorkspaceLoader> { coEvery { loadSystemPrompt() } returns "" }
-        val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
+        val summaryService = mockk<SummaryService>(relaxed = true)
         val skillRegistry =
             mockk<SkillRegistry> {
                 coEvery { listSkillDescriptions() } returns emptyList()
@@ -201,6 +201,7 @@ class MessageProcessorEmbeddingTest {
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
+            summarizationRunner = mockk(relaxed = true),
         )
     }
 

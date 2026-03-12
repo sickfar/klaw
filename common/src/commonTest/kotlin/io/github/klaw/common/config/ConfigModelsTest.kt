@@ -244,6 +244,87 @@ class ConfigModelsTest {
     }
 
     @Test
+    fun `SummarizationConfig defaults round-trip`() {
+        val config = SummarizationConfig()
+        val encoded = json.encodeToString(config)
+        val decoded = json.decodeFromString<SummarizationConfig>(encoded)
+        assertEquals(config, decoded)
+        assertEquals(false, decoded.enabled)
+        assertEquals(10_000, decoded.tokenThreshold)
+        assertEquals(0.5, decoded.summaryBudgetFraction)
+    }
+
+    @Test
+    fun `SummarizationConfig custom values round-trip`() {
+        val config = SummarizationConfig(enabled = true, tokenThreshold = 5000, summaryBudgetFraction = 0.3)
+        val encoded = json.encodeToString(config)
+        val decoded = json.decodeFromString<SummarizationConfig>(encoded)
+        assertEquals(config, decoded)
+    }
+
+    @Test
+    fun `SummarizationConfig rejects zero tokenThreshold`() {
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(tokenThreshold = 0)
+        }
+    }
+
+    @Test
+    fun `SummarizationConfig rejects negative tokenThreshold`() {
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(tokenThreshold = -1)
+        }
+    }
+
+    @Test
+    fun `SummarizationConfig rejects summaryBudgetFraction out of range`() {
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(summaryBudgetFraction = 0.0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(summaryBudgetFraction = 1.0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(summaryBudgetFraction = -0.1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SummarizationConfig(summaryBudgetFraction = 1.5)
+        }
+    }
+
+    @Test
+    fun `EngineConfig with summarization round-trip`() {
+        val config =
+            EngineConfig(
+                providers =
+                    mapOf(
+                        "glm" to ProviderConfig(type = "openai-compatible", endpoint = "https://example.com"),
+                    ),
+                models = emptyMap(),
+                routing =
+                    RoutingConfig(
+                        default = "glm/glm-5",
+                        tasks = TaskRoutingConfig(summarization = "glm/glm-5", subagent = "glm/glm-5"),
+                    ),
+                memory =
+                    MemoryConfig(
+                        embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
+                        chunking = ChunkingConfig(size = 400, overlap = 80),
+                        search = SearchConfig(topK = 10),
+                    ),
+                context = ContextConfig(defaultBudgetTokens = 8000, subagentHistory = 5),
+                processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
+                summarization = SummarizationConfig(enabled = true, tokenThreshold = 5000, summaryBudgetFraction = 0.4),
+            )
+        val encoded = json.encodeToString(config)
+        val decoded = json.decodeFromString<EngineConfig>(encoded)
+        assertEquals(config, decoded)
+        assertEquals(true, decoded.summarization.enabled)
+        assertEquals(5000, decoded.summarization.tokenThreshold)
+        assertEquals(0.4, decoded.summarization.summaryBudgetFraction)
+    }
+
+    @Test
     fun `CompatibilityConfig round-trip`() {
         val c =
             CompatibilityConfig(

@@ -154,7 +154,7 @@ class MessageProcessorIntegrationTest {
             mockk<WorkspaceLoader> {
                 coEvery { loadSystemPrompt() } returns "You are a helpful assistant."
             }
-        val summaryService = mockk<SummaryService> { coEvery { getLastSummary(any()) } returns null }
+        val summaryService = mockk<SummaryService>(relaxed = true)
         val skillRegistry =
             mockk<SkillRegistry> {
                 coEvery { listSkillDescriptions() } returns emptyList()
@@ -205,6 +205,7 @@ class MessageProcessorIntegrationTest {
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
+            summarizationRunner = mockk(relaxed = true),
         )
     }
 

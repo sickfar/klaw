@@ -39,6 +39,8 @@ data class EngineConfig(
     val hostExecution: HostExecutionConfig = HostExecutionConfig(),
     @ConfigDoc("Periodic heartbeat task settings")
     val heartbeat: HeartbeatConfig = HeartbeatConfig(),
+    @ConfigDoc("Background summarization of old conversation messages")
+    val summarization: SummarizationConfig = SummarizationConfig(),
 )
 
 @Serializable
@@ -347,3 +349,20 @@ data class HeartbeatConfig(
     @ConfigDoc("Channel to deliver heartbeat messages to")
     val channel: String? = null,
 )
+
+@Serializable
+data class SummarizationConfig(
+    @ConfigDoc("Enable background summarization of old messages")
+    val enabled: Boolean = false,
+    @ConfigDoc("Token threshold: summarize when this many tokens fall out of the sliding window")
+    val tokenThreshold: Int = 10_000,
+    @ConfigDoc("Fraction of context budget allocated to summaries (0.0 to 1.0, exclusive)")
+    val summaryBudgetFraction: Double = 0.5,
+) {
+    init {
+        require(tokenThreshold > 0) { "tokenThreshold must be > 0, got $tokenThreshold" }
+        require(summaryBudgetFraction > 0.0 && summaryBudgetFraction < 1.0) {
+            "summaryBudgetFraction must be in (0.0, 1.0), got $summaryBudgetFraction"
+        }
+    }
+}

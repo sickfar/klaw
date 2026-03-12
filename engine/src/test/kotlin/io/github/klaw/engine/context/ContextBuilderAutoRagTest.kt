@@ -132,7 +132,6 @@ class ContextBuilderAutoRagTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { summaryService.getLastSummary(any()) } returns null
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit

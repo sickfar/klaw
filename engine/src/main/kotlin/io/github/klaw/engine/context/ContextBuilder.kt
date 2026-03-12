@@ -15,6 +15,7 @@ data class ContextResult(
     val messages: List<LlmMessage>,
     val includeSkillList: Boolean,
     val includeSkillLoad: Boolean,
+    val windowStartCreatedAt: String? = null,
 )
 
 @Singleton
@@ -38,7 +39,6 @@ class ContextBuilder(
     ): ContextResult {
         skillRegistry.discover()
         val systemPrompt = workspaceLoader.loadSystemPrompt()
-        val summary = summaryService.getLastSummary(session.chatId) ?: ""
 
         val allSkills = skillRegistry.listAll()
         val skillCount = allSkills.size
@@ -64,10 +64,9 @@ class ContextBuilder(
                 ""
             }
 
-        val systemContent = buildSystemContent(systemPrompt, summary, toolDescriptions, inlineSkillSection)
-
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
+            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection)
             val scheduledSystemContent =
                 buildString {
                     append(systemContent)
@@ -92,13 +91,31 @@ class ContextBuilder(
                 ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
 
+        // Summarization: compute summary budget, fetch summaries, adjust raw message budget
+        val summaries: List<SummaryText>
+        val rawMessageBudget: Int
+        if (config.summarization.enabled) {
+            val summaryBudget = (budgetTokens * config.summarization.summaryBudgetFraction).toInt()
+            summaries = summaryService.getSummariesForContext(session.chatId, summaryBudget)
+            val summaryTokensUsed = summaries.sumOf { it.tokens }
+            rawMessageBudget = budgetTokens - summaryTokensUsed
+        } else {
+            summaries = emptyList()
+            rawMessageBudget = budgetTokens
+        }
+
         // Fetch messages fitting within token budget from DB
         val dbMessages =
             messageRepository.getWindowMessages(
                 chatId = session.chatId,
                 segmentStart = session.segmentStart,
-                budgetTokens = budgetTokens,
+                budgetTokens = rawMessageBudget,
             )
+
+        val windowStartCreatedAt = dbMessages.firstOrNull()?.createdAt
+
+        // Build system content (without old getLastSummary — summaries now injected as separate message)
+        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection)
 
         // Auto-RAG guard: only for interactive path when segment tokens exceed budget (messages being trimmed)
         val autoRagResults: List<AutoRagResult> =
@@ -123,7 +140,20 @@ class ContextBuilder(
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContent))
 
-        // Auto-RAG block inserted as a second system message after the main system message
+        // Summaries injected as a second system message, oldest first (chronological)
+        if (summaries.isNotEmpty()) {
+            val summaryContent =
+                buildString {
+                    append("## Conversation Summaries\n\n")
+                    summaries.forEachIndexed { index, summary ->
+                        if (index > 0) append("\n\n---\n\n")
+                        append(summary.content)
+                    }
+                }
+            messages.add(LlmMessage(role = "system", content = summaryContent))
+        }
+
+        // Auto-RAG block inserted after summaries
         if (autoRagResults.isNotEmpty()) {
             val autoRagContent =
                 buildString {
@@ -149,6 +179,7 @@ class ContextBuilder(
             messages = messages,
             includeSkillList = includeSkillList,
             includeSkillLoad = includeSkillLoad,
+            windowStartCreatedAt = windowStartCreatedAt,
         )
     }
 
@@ -166,7 +197,6 @@ class ContextBuilder(
 
     private fun buildSystemContent(
         systemPrompt: String,
-        summary: String,
         toolDescriptions: String,
         inlineSkillSection: String = "",
     ): String {
@@ -175,7 +205,15 @@ class ContextBuilder(
         val now = ZonedDateTime.now()
         val formatted = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"))
         parts.add("## Current Time\n$formatted")
-        if (summary.isNotBlank()) parts.add("## Last Summary\n" + summary)
+        if (config.summarization.enabled) {
+            parts.add(
+                "## Conversation History\n" +
+                    "You see a sliding window of the most recent messages, not the full conversation. " +
+                    "Older messages are automatically summarized — summaries are included above for " +
+                    "continuity. If you need exact details from earlier in the conversation, use " +
+                    "`history_search` to find specific past messages by topic.",
+            )
+        }
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")

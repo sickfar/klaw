@@ -52,3 +52,13 @@ SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND create
 
 updateTokensById:
 UPDATE messages SET tokens = :tokens WHERE id = :id;
+
+getMessagesAfterForSummary:
+SELECT id, role, type, content, created_at, tokens
+FROM messages
+WHERE chat_id = :chatId AND created_at > :afterCreatedAt AND created_at < :beforeCreatedAt AND role IN ('user', 'assistant')
+ORDER BY created_at ASC;
+
+sumTokensAfter:
+SELECT COALESCE(SUM(tokens), 0) FROM messages
+WHERE chat_id = :chatId AND created_at > :afterCreatedAt AND created_at < :beforeCreatedAt AND role IN ('user', 'assistant');
