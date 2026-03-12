@@ -216,11 +216,9 @@ klaw schedule add weekly "0 10 * * 1" "Weekly review" --model glm/glm-5
 
 Options:
 - `--model MODEL` — override model for this scheduled message (optional)
-- `--at DATETIME` — ISO-8601 datetime for a one-time trigger instead of cron (mutually exclusive with cron)
-- `--channel CHANNEL` — delivery channel (e.g. `telegram`, `discord`)
 - `--inject-into CHAT_ID` — chatId for delivering results to a user
 
-When using the LLM tool interface (`schedule_add`), `injectInto` and `channel` are auto-populated from context. The CLI allows explicit control via flags.
+When using the LLM tool interface (`schedule_add`), `injectInto` and `channel` are auto-populated from the conversation context. The `schedule_add` tool also supports an `at` parameter for one-time triggers (mutually exclusive with cron), but the CLI currently only supports cron scheduling.
 
 ### `klaw schedule remove NAME`
 

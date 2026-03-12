@@ -12,7 +12,7 @@ Klaw uses two SQLite databases. All data is cache/index and can be rebuilt from 
 | channel | TEXT | Source channel (telegram, cli, scheduler) |
 | chat_id | TEXT | Conversation identifier |
 | role | TEXT | user, assistant, system, tool |
-| type | TEXT | Message type |
+| type | TEXT NOT NULL | Message type |
 | content | TEXT | Message body |
 | metadata | TEXT | JSON blob (nullable) |
 | created_at | TEXT | ISO-8601 timestamp |
@@ -56,16 +56,18 @@ Index: `idx_messages_chat_id(chat_id)`.
 |--------|------|-------------|
 | id | INTEGER PK AUTO | Summary row ID |
 | chat_id | TEXT | Conversation identifier |
-| from_message_id | TEXT | First message in summarised range |
-| to_message_id | TEXT | Last message in summarised range |
-| file_path | TEXT | Path to summary JSONL |
-| created_at | TEXT | ISO-8601 |
+| from_message_id | TEXT NOT NULL | First message in summarised range |
+| to_message_id | TEXT NOT NULL | Last message in summarised range |
+| file_path | TEXT NOT NULL | Path to summary JSONL |
+| created_at | TEXT NOT NULL | ISO-8601 |
 
 ### Virtual tables
 
 - **messages_fts** — FTS5 virtual table over messages for full-text search.
+- **memory_chunks_fts** — FTS5 virtual table over memory_chunks for full-text search.
 - **vec_memory** — sqlite-vec virtual table, 384-dimensional float embeddings for memory chunks. Joined to `memory_chunks` on rowid.
 - **vec_docs** — sqlite-vec virtual table, 384-dimensional float embeddings for doc chunks. Joined to `doc_chunks` on rowid.
+- **vec_messages** — sqlite-vec virtual table, 384-dimensional float embeddings for messages. Used by auto-RAG and history search.
 
 ## scheduler.db
 

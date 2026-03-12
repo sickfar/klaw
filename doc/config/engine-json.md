@@ -84,8 +84,8 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
   },
   "llm": {
     "maxRetries": 3,
-    "requestTimeoutMs": 30000,
-    "initialBackoffMs": 1000,
+    "requestTimeoutMs": 90000,
+    "initialBackoffMs": 500,
     "backoffMultiplier": 2.0
   },
   "memory": {
@@ -102,19 +102,21 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
     }
   },
   "context": {
-    "defaultBudgetTokens": 6144,
+    "defaultBudgetTokens": 100000,
     "subagentHistory": 10
   },
   "processing": {
     "debounceMs": 500,
     "maxConcurrentLlm": 2,
-    "maxToolCallRounds": 10
+    "maxToolCallRounds": 10,
+    "maxToolOutputChars": 8000,
+    "maxDebounceEntries": 1000
   },
   "logging": {
-    "subagentConversations": true
+    "subagentConversations": false
   },
   "codeExecution": {
-    "dockerImage": "python:3.12-slim-bookworm",
+    "dockerImage": "ghcr.io/sickfar/klaw-sandbox:latest",
     "timeout": 30,
     "allowNetwork": false,
     "maxMemory": "256m",
@@ -163,6 +165,60 @@ Controls the built-in documentation service. Documentation is embedded in the en
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | bool | `true` | Enable or disable the docs service. When `false`, `docs_search`, `docs_read`, and `docs_list` tools return a disabled message. |
+
+## autoRag
+
+Automatic RAG retrieval injects relevant earlier messages into the context window when the conversation is long enough.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | Enable automatic RAG retrieval. |
+| `topK` | int | `3` | Number of top relevant messages to retrieve. |
+| `maxTokens` | int | `400` | Maximum tokens of auto-RAG context to inject. |
+| `relevanceThreshold` | double | `0.5` | Minimum relevance score threshold for including results. |
+| `minMessageTokens` | int | `10` | Minimum token count in a message to trigger auto-RAG. |
+
+## hostExecution
+
+Controls the `host_exec` tool — running shell commands directly on the host outside the Docker sandbox.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Enable host command execution. |
+| `allowList` | string[] | `[]` | Commands allowed without user confirmation. |
+| `notifyList` | string[] | `[]` | Commands that trigger a notification to the user. |
+| `preValidation.enabled` | bool | `true` | Enable LLM-based pre-validation of host commands. |
+| `preValidation.model` | string | `""` | Model used for pre-validation checks. |
+| `preValidation.riskThreshold` | int | `5` | Risk score threshold above which commands are blocked. |
+| `preValidation.timeoutMs` | long | `5000` | Timeout in milliseconds for the pre-validation LLM call. |
+| `askTimeoutMin` | int | `0` | Timeout in minutes for user confirmation prompts (0 = no timeout). |
+
+## skills
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `maxInlineSkills` | int | `5` | Maximum number of skills included inline in the system prompt. |
+
+## compatibility
+
+Third-party compatibility settings.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `openclaw.enabled` | bool | `false` | Enable OpenClaw compatibility mode. |
+| `openclaw.sync.memoryMd` | bool | `false` | Sync MEMORY.md file with OpenClaw. |
+| `openclaw.sync.dailyLogs` | bool | `false` | Sync daily log files with OpenClaw. |
+| `openclaw.sync.userMd` | bool | `false` | Sync USER.md file with OpenClaw. |
+
+## summarization
+
+Background summarization of old conversation messages that have fallen out of the sliding window.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Enable background summarization. |
+| `tokenThreshold` | int | `10000` | Summarize when this many tokens fall out of the sliding window. |
+| `summaryBudgetFraction` | double | `0.5` | Fraction of context budget allocated to summaries (0.0 to 1.0). |
 
 ## Notes
 

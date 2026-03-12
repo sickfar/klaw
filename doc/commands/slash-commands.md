@@ -30,6 +30,12 @@ Displays the contents of `MEMORY.md` from the workspace.
 
 Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
 
+## /use-for-heartbeat
+
+Sets the current chat as the delivery target for heartbeat results. The command persists the `channel` and `injectInto` fields to `engine.json` so the setting survives restarts.
+
+Requires heartbeat to be enabled (`interval` set to an ISO-8601 duration, not `"off"`). If heartbeat is disabled, the command returns an error with instructions to enable it first.
+
 ## /help
 
 Lists all configured commands with descriptions, as defined in `engine.json` under `commands:`.

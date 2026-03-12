@@ -45,7 +45,7 @@ data class EngineConfig(
 
 @Serializable
 data class ProviderConfig(
-    @ConfigDoc("Provider API type", possibleValues = ["openai"])
+    @ConfigDoc("Provider API type", possibleValues = ["openai-compatible"])
     val type: String,
     @ConfigDoc("API endpoint URL for this provider")
     val endpoint: String,
@@ -183,7 +183,7 @@ data class LlmRetryConfig(
     @ConfigDoc("Maximum number of retry attempts on transient API errors")
     val maxRetries: Int = 3,
     @ConfigDoc("HTTP request timeout in milliseconds")
-    val requestTimeoutMs: Long = 30_000,
+    val requestTimeoutMs: Long = 90_000,
     @ConfigDoc("Initial backoff delay in milliseconds before first retry")
     val initialBackoffMs: Long = 500,
     @ConfigDoc("Multiplier applied to backoff delay after each retry")
@@ -340,7 +340,7 @@ data class PreValidationConfig(
 
 @Serializable
 data class HeartbeatConfig(
-    @ConfigDoc("Heartbeat interval as a cron expression or 'off' to disable")
+    @ConfigDoc("Heartbeat interval as ISO-8601 duration (e.g. PT1H, PT30M) or 'off' to disable")
     val interval: String = "off",
     @ConfigDoc("Model reference used for heartbeat generation")
     val model: String? = null,

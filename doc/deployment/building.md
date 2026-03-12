@@ -6,7 +6,7 @@
 ./scripts/build.sh
 ```
 
-Runs `./gradlew assembleDist`, then builds Docker images if Docker is available.
+Runs `./gradlew assembleDist`, then builds Docker images if Docker is available. Images built: `klaw-engine`, `klaw-gateway`, `klaw-sandbox`, and `klaw-cli` (Linux only, requires `klaw-linuxX64` binary).
 
 ## Gradle tasks
 

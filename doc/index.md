@@ -14,13 +14,15 @@ Natural language queries work well. Example: `docs_search "how do I schedule a t
 
 ## What I can do
 
-1. Remember facts across sessions via memory tools (`memory_core_set`, `memory_save`, `memory_search`)
-2. Read and write files in the workspace (`file_read`, `file_write`, `file_list`)
-3. Run code in a Docker sandbox (`code_exec`)
+1. Remember facts across sessions via memory tools (`memory_save`, `memory_search`)
+2. Read and write files in the workspace (`file_read`, `file_write`, `file_list`, `file_patch`)
+3. Run code in a Docker sandbox (`sandbox_exec`) or on the host (`host_exec`)
 4. Schedule recurring tasks with cron expressions (`schedule_add`, `schedule_list`, `schedule_remove`)
 5. Load skill documentation on demand (`skill_load`, `skill_list`)
 6. Spawn subagents for parallel or background work (`subagent_spawn`)
-7. Send messages to other channels or users (`message_send`)
+7. Send messages to other channels or users (`send_message`)
+8. Search past conversation history (`history_search`)
+9. Read and update engine/gateway configuration (`config_get`, `config_set`)
 
 ## Deployment docs (for setup and maintenance questions)
 

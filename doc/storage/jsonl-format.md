@@ -5,15 +5,31 @@ Conversations are stored as JSONL (one JSON object per line) files on disk. Thes
 ## Location
 
 ```
-$XDG_DATA_HOME/klaw/conversations/{chatId}/{chatId}.jsonl
+$XDG_DATA_HOME/klaw/conversations/{chatId}/YYYY-MM-DD.jsonl
 ```
+
+A new file is created per day per chat (e.g. `2025-06-01.jsonl`).
 
 ## Record format
 
-Each line is a `ConversationMessage`:
+Each line is a JSON object. The Gateway writes two types of records: inbound (user messages) and outbound (assistant responses).
+
+### Inbound (user message)
 
 ```json
-{"id":"uuid","ts":"2025-06-01T12:00:00Z","role":"user","content":"Hello","type":"text","meta":{"channel":"telegram","chatId":"12345","model":"glm-5","tokensIn":12,"tokensOut":45,"source":"gateway","taskName":null,"tool":null}}
+{"id":"uuid","ts":"2025-06-01T12:00:00Z","role":"user","content":"Hello"}
+```
+
+### Outbound (assistant response)
+
+```json
+{"id":"uuid","ts":"2025-06-01T12:00:01Z","role":"assistant","content":"Hi there!","model":"zai/glm-5"}
+```
+
+Commands are written with a `type` field:
+
+```json
+{"id":"uuid","ts":"2025-06-01T12:00:02Z","role":"user","content":"/new","type":"command"}
 ```
 
 ### Fields
@@ -22,23 +38,10 @@ Each line is a `ConversationMessage`:
 |-------|------|----------|-------------|
 | id | string | yes | Message UUID |
 | ts | string | yes | ISO-8601 timestamp |
-| role | string | yes | user, assistant, system, tool |
+| role | string | yes | `user` or `assistant` |
 | content | string | yes | Message body |
-| type | string | no | Message type (text, tool_call, tool_result) |
-| meta | MessageMeta | no | Metadata object |
-
-### MessageMeta
-
-| Field | Type | Description |
-|-------|------|-------------|
-| channel | string | Source channel (telegram, cli, scheduler) |
-| chatId | string | Conversation ID |
-| model | string | LLM model used for this response |
-| tokensIn | int | Input token count |
-| tokensOut | int | Output token count |
-| source | string | Origin (gateway, engine, scheduler) |
-| taskName | string | Scheduled task name if applicable |
-| tool | string | Tool name if this is a tool message |
+| type | string | no | `command` for slash commands, omitted otherwise |
+| model | string | no | LLM model used (outbound messages only, top-level field) |
 
 ## Write ownership
 

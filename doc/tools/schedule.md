@@ -15,7 +15,7 @@ No parameters. Returns all active scheduled tasks.
 - Morning Check
   Cron: 0 0 9 * * ?
   Message: Check email and report important messages
-  Model: glm/glm-4-plus
+  Model: zai/glm-5
   InjectInto: telegram_123456
   Channel: telegram
   Next: Mon Feb 27 09:00:00 UTC 2026
@@ -109,10 +109,10 @@ Check email and report urgent messages. If there are urgent messages, call sched
 
 ## Model selection
 
-If `model` is omitted, the task uses `routing.tasks.subagent` from `engine.json` (default: `glm/glm-4-plus`).
+If `model` is omitted, the task uses `routing.tasks.subagent` from `engine.json` (default: `zai/glm-5`).
 
 Recommendations:
-- **Heavy analysis** (weekly reports, complex summaries): `glm/glm-4-plus` or `deepseek-chat`
+- **Heavy analysis** (weekly reports, complex summaries): `zai/glm-5` or `deepseek-chat`
 - **Routine checks** (email scan, weather check): `ollama/qwen3:8b` (local, free)
 - **Quick status** (uptime ping, file check): `ollama/qwen3:4b`
 

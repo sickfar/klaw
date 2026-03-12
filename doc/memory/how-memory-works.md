@@ -11,15 +11,15 @@
 Four layers are assembled in this order:
 
 1. System prompt (~1000 tokens) — workspace identity files (SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md)
-2. Last summary (~500 tokens)
-3. Sliding window — last N messages (~3000 tokens)
+2. Summaries (if enabled) — condensed versions of older messages that fell out of the sliding window. Token budget is a configurable fraction of the total context budget (`summarization.summaryBudgetFraction`, default 0.5). Only present when background summarization is enabled.
+3. Sliding window — last N messages from the current segment (fills remaining budget)
 4. Tool descriptions (~500 tokens) — available tools and loaded skills
 
-Default total: approximately 5000 tokens.
+The total budget is controlled by `context.defaultBudgetTokens` (default: 100,000 tokens) or per-model `contextBudget` overrides.
 
 ## Context budget
 
-Each model has a `contextBudget` in `engine.json`. The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
+Each model can have a `contextBudget` in `engine.json` (under `models`). If not set, the engine uses `context.defaultBudgetTokens` (default: 100,000). The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
 
 ## Why archival memory is on-demand
 

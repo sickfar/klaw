@@ -52,7 +52,7 @@ klaw init
 1. **Docker image tag** — default: `latest` (Docker mode is auto-detected; no mode selection prompt)
 2. **LLM provider base URL** — default: `https://api.z.ai/api/coding/paas/v4` (GLM)
 3. **LLM API key**
-4. **Model ID** — default: `glm/glm-4-plus`
+4. **Model ID** — default: `zai/glm-5`
 5. **Telegram bot token**
 6. **Allowed chat IDs** — comma-separated, or leave blank to allow all
 7. **Agent name** — default: `Klaw`

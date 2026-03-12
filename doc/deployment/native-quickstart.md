@@ -47,7 +47,7 @@ Add the above line to `~/.bashrc` or `~/.zshrc` to make it permanent.
 2. **Docker image tag** (hybrid mode only) — default: `latest`
 3. **LLM provider base URL** — default: `https://api.z.ai/api/coding/paas/v4` (GLM)
 4. **LLM API key**
-5. **Model ID** — default: `glm/glm-4-plus`
+5. **Model ID** — default: `zai/glm-5`
 6. **Telegram bot token**
 7. **Allowed chat IDs** — comma-separated, or leave blank to allow all
 8. **Agent name** — default: `Klaw`

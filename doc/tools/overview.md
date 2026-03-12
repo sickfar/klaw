@@ -1,6 +1,6 @@
 # Built-in Tools Overview
 
-Klaw Engine provides 18 standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides 21 standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
@@ -64,6 +64,21 @@ See [subagent.md](subagent.md).
 
 See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 
+### History Tools (1)
+| Tool | Description |
+|------|-------------|
+| `history_search` | Search past conversation messages semantically |
+
+See [history-search.md](history-search.md).
+
+### Configuration Tools (2)
+| Tool | Description |
+|------|-------------|
+| `config_get` | Read current engine or gateway configuration |
+| `config_set` | Update a configuration field |
+
+See [config.md](config.md).
+
 ### Utility Tools (1)
 | Tool | Description |
 |------|-------------|
@@ -85,6 +100,6 @@ Engine enforces a `maxToolCallRounds` limit (configured in `engine.json` under `
 ## Architecture
 
 - `ToolRegistry` interface (in `engine/context/`) lists available tool definitions.
-- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 18 `ToolDef` entries and dispatches execution to the appropriate tool class.
+- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 21 `ToolDef` entries and dispatches execution to the appropriate tool class.
 - `DispatchingToolExecutor` executes tool calls concurrently via `coroutineScope { async {} }`.
 - Dependency services (memory, docs, scheduler) are injected as interfaces with stub implementations replaced by real ones in later phases.
