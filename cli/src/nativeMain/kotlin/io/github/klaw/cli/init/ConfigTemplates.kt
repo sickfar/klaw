@@ -123,6 +123,7 @@ internal object ConfigTemplates {
                                         "$dataPath:/home/klaw/.local/share/klaw",
                                         "$configPath:/home/klaw/.config/klaw",
                                         "$workspacePath:/workspace",
+                                        "klaw-cache:/home/klaw/.cache/klaw",
                                         "/var/run/docker.sock:/var/run/docker.sock",
                                     ),
                                 ports = listOf("127.0.0.1:7470:7470"),
@@ -152,6 +153,10 @@ internal object ConfigTemplates {
                                     },
                             ),
                     ),
+                volumes =
+                    mapOf(
+                        "klaw-cache" to ComposeVolumeConfig(name = "klaw-cache"),
+                    ),
             )
         return encodeComposeConfig(config)
     }
@@ -174,6 +179,7 @@ internal object ConfigTemplates {
                                     listOf(
                                         "klaw-state:/root/.local/state/klaw",
                                         "klaw-data:/root/.local/share/klaw",
+                                        "klaw-cache:/root/.cache/klaw",
                                         "klaw-workspace:/workspace",
                                         "klaw-config:/root/.config/klaw",
                                         "/var/run/docker.sock:/var/run/docker.sock",
@@ -200,6 +206,7 @@ internal object ConfigTemplates {
                     mapOf(
                         "klaw-state" to ComposeVolumeConfig(name = "klaw-state"),
                         "klaw-data" to ComposeVolumeConfig(name = "klaw-data"),
+                        "klaw-cache" to ComposeVolumeConfig(name = "klaw-cache"),
                         "klaw-workspace" to ComposeVolumeConfig(name = "klaw-workspace"),
                         "klaw-config" to ComposeVolumeConfig(name = "klaw-config"),
                     ),

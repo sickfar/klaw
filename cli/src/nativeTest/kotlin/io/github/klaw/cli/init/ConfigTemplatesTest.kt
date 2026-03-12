@@ -218,7 +218,7 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `dockerComposeJson has no top-level volumes`() {
+    fun `dockerComposeJson has klaw-cache named volume`() {
         val result =
             ConfigTemplates.dockerComposeJson(
                 statePath = "/state",
@@ -228,7 +228,9 @@ class ConfigTemplatesTest {
                 imageTag = "latest",
             )
         val config = parseComposeConfig(result)
-        assertTrue(config.volumes == null, "Expected no top-level volumes")
+        assertNotNull(config.volumes)
+        assertEquals(1, config.volumes!!.size, "Expected 1 named volume (klaw-cache)")
+        assertTrue(config.volumes!!.containsKey("klaw-cache"))
     }
 
     @Test
@@ -388,14 +390,15 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `dockerComposeProd contains 4 named volumes`() {
+    fun `dockerComposeProd contains 5 named volumes`() {
         val result = ConfigTemplates.dockerComposeProd()
         val config = parseComposeConfig(result)
         val volumes = config.volumes
         assertNotNull(volumes)
-        assertEquals(4, volumes.size, "Expected 4 named volumes, got: ${volumes.keys}")
+        assertEquals(5, volumes.size, "Expected 5 named volumes, got: ${volumes.keys}")
         assertTrue(volumes.containsKey("klaw-state"))
         assertTrue(volumes.containsKey("klaw-data"))
+        assertTrue(volumes.containsKey("klaw-cache"))
         assertTrue(volumes.containsKey("klaw-workspace"))
         assertTrue(volumes.containsKey("klaw-config"))
     }

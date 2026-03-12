@@ -18,6 +18,7 @@ docker run -it --rm \
   -v klaw-config:/home/klaw/.config/klaw \
   -v klaw-state:/home/klaw/.local/state/klaw \
   -v klaw-data:/home/klaw/.local/share/klaw \
+  -v klaw-cache:/home/klaw/.cache/klaw \
   -v klaw-workspace:/workspace \
   ghcr.io/sickfar/klaw-cli:latest init
 ```
@@ -71,6 +72,7 @@ After answering, it writes config files (including `deploy.conf`) to the `klaw-c
 | `klaw-config` | `/home/klaw/.config/klaw` | `engine.json`, `gateway.json`, `.env` (API keys) |
 | `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
 | `klaw-data` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
+| `klaw-cache` | `/home/klaw/.cache/klaw` | ONNX embedding model (~80 MB, auto-downloaded) |
 | `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `skills/` |
 
 Volumes persist across container restarts. Data is never lost when stopping or upgrading.
