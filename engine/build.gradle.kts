@@ -91,65 +91,67 @@ ktlint {
     }
 }
 
-val sqliteVecVersion = "0.1.6"
+val sqliteVecVersion = "0.1.7-alpha.10"
 
 val downloadSqliteVec by tasks.registering {
-    description = "Downloads sqlite-vec loadable extension for the current (or overridden) platform"
+    description = "Downloads sqlite-vec loadable extension for the current platform and linux-aarch64 (Docker)"
 
     val nativeDir = file("src/main/resources/native")
-    val outputFile = File(nativeDir, "vec0")
-    outputs.file(outputFile)
-
-    // Allow platform override for cross-compilation (e.g., -PsqliteVecPlatform=linux-aarch64)
-    val platformProp = providers.gradleProperty("sqliteVecPlatform")
-    inputs.property("sqliteVecPlatform", platformProp.orElse("auto"))
+    outputs.dir(nativeDir)
 
     doLast {
-        val platform =
-            platformProp.orNull ?: run {
-                val osName = System.getProperty("os.name").lowercase()
-                val archName = System.getProperty("os.arch").lowercase()
-                val os =
-                    when {
-                        "mac" in osName || "darwin" in osName -> "macos"
-                        "linux" in osName -> "linux"
-                        else -> error("Unsupported OS: $osName")
-                    }
-                val arch =
-                    when {
-                        archName == "aarch64" || archName == "arm64" -> "aarch64"
-                        archName == "amd64" || archName == "x86_64" -> "x86_64"
-                        else -> error("Unsupported architecture: $archName")
-                    }
-                "$os-$arch"
+        val osName = System.getProperty("os.name").lowercase()
+        val archName = System.getProperty("os.arch").lowercase()
+        val hostOs =
+            when {
+                "mac" in osName || "darwin" in osName -> "macos"
+                "linux" in osName -> "linux"
+                else -> error("Unsupported OS: $osName")
+            }
+        val hostArch =
+            when {
+                archName == "aarch64" || archName == "arm64" -> "aarch64"
+                archName == "amd64" || archName == "x86_64" -> "x86_64"
+                else -> error("Unsupported architecture: $archName")
+            }
+        val hostPlatform = "$hostOs-$hostArch"
+
+        // Download both host platform and linux-aarch64 (Docker target)
+        val platforms = setOf(hostPlatform, "linux-aarch64")
+        nativeDir.mkdirs()
+
+        for (platform in platforms) {
+            val suffix = if (platform.startsWith("macos")) ".dylib" else ".so"
+            val outputFile = File(nativeDir, "vec0$suffix")
+            if (outputFile.exists()) {
+                logger.lifecycle("sqlite-vec $platform already present: ${outputFile.name}")
+                continue
             }
 
-        val archiveName = "sqlite-vec-$sqliteVecVersion-loadable-$platform.tar.gz"
-        val url = "https://github.com/asg017/sqlite-vec/releases/download/v$sqliteVecVersion/$archiveName"
+            val archiveName = "sqlite-vec-$sqliteVecVersion-loadable-$platform.tar.gz"
+            val url = "https://github.com/asg017/sqlite-vec/releases/download/v$sqliteVecVersion/$archiveName"
+            logger.lifecycle("Downloading sqlite-vec $sqliteVecVersion for $platform...")
 
-        logger.lifecycle("Downloading sqlite-vec $sqliteVecVersion for $platform...")
+            val tempDir = File(temporaryDir, platform)
+            tempDir.mkdirs()
+            val tempArchive = File(tempDir, archiveName)
+            URI(url).toURL().openStream().use { input ->
+                tempArchive.outputStream().use { output -> input.copyTo(output) }
+            }
 
-        nativeDir.mkdirs()
-        val tempDir = temporaryDir
-        val tempArchive = File(tempDir, archiveName)
-        URI(url).toURL().openStream().use { input ->
-            tempArchive.outputStream().use { output -> input.copyTo(output) }
+            val exitCode =
+                ProcessBuilder("tar", "xzf", tempArchive.absolutePath, "-C", tempDir.absolutePath)
+                    .start()
+                    .waitFor()
+            if (exitCode != 0) error("tar extraction failed with exit code $exitCode")
+
+            val extracted =
+                tempDir.listFiles()?.firstOrNull { it.name.startsWith("vec0.") }
+                    ?: error("vec0 binary not found after extracting $archiveName")
+            extracted.copyTo(outputFile, overwrite = true)
+            outputFile.setExecutable(true)
+            logger.lifecycle("Extracted ${extracted.name} -> ${outputFile.name}")
         }
-
-        // Extract the vec0 binary (vec0.so or vec0.dylib) from the tar.gz
-        val exitCode =
-            ProcessBuilder("tar", "xzf", tempArchive.absolutePath, "-C", tempDir.absolutePath)
-                .start()
-                .waitFor()
-        if (exitCode != 0) error("tar extraction failed with exit code $exitCode")
-
-        // Find the extracted vec0 file (vec0.so on Linux, vec0.dylib on macOS)
-        val extracted =
-            tempDir.listFiles()?.firstOrNull { it.name.startsWith("vec0.") }
-                ?: error("vec0 binary not found after extracting $archiveName")
-        extracted.copyTo(outputFile, overwrite = true)
-        outputFile.setExecutable(true)
-        logger.lifecycle("Extracted ${extracted.name} -> ${outputFile.path}")
     }
 }
 

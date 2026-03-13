@@ -11,10 +11,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 class NativeSqliteVecLoader : SqliteVecLoader {
     private val logger = KotlinLogging.logger {}
 
+    private val suffix: String =
+        if (System.getProperty("os.name").lowercase().contains("mac")) ".dylib" else ".so"
+
+    private val resourceName: String = "/native/vec0$suffix"
+
     private val resourcePresent: Boolean by lazy {
         @Suppress("TooGenericExceptionCaught")
         try {
-            javaClass.getResource("/native/vec0") != null
+            javaClass.getResource(resourceName) != null
         } catch (_: Exception) {
             false
         }
@@ -29,10 +34,7 @@ class NativeSqliteVecLoader : SqliteVecLoader {
     override fun loadExtension(driver: JdbcSqliteDriver) {
         if (!isAvailable()) return
         try {
-            val resource = javaClass.getResourceAsStream("/native/vec0") ?: return
-            // Create temp file with owner-only rwx permissions before writing the binary.
-            // This prevents local users from reading or replacing the library between creation and load.
-            val suffix = if (System.getProperty("os.name").lowercase().contains("mac")) ".dylib" else ".so"
+            val resource = javaClass.getResourceAsStream(resourceName) ?: return
             val tempPath =
                 runCatching {
                     Files.createTempFile(
@@ -44,13 +46,9 @@ class NativeSqliteVecLoader : SqliteVecLoader {
             val tempFile = tempPath.toFile()
             tempFile.deleteOnExit()
             resource.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-            // Use two-arg load_extension(path, entrypoint) — when entrypoint is specified,
-            // SQLite does NOT auto-append a platform suffix to the path, avoiding .so.so errors.
-            driver.execute(
-                null,
-                "SELECT load_extension('${tempFile.absolutePath}', 'sqlite3_vec_init')",
-                0,
-            )
+            // Strip the suffix — load_extension() SQL function always auto-appends .so/.dylib.
+            val pathWithoutSuffix = tempFile.absolutePath.removeSuffix(suffix)
+            driver.execute(null, "SELECT load_extension('$pathWithoutSuffix')", 0)
             logger.info { "sqlite-vec extension loaded successfully" }
         } catch (e: Exception) {
             logger.warn(e) { "Failed to load sqlite-vec extension" }
