@@ -61,11 +61,23 @@ jobs:
           retention-days: 1
 
   publish-docker:
-    name: Publish Docker Images
+    name: Docker ${{ matrix.image }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: engine
+            file: docker/engine/Dockerfile
+          - image: gateway
+            file: docker/gateway/Dockerfile
+          - image: cli
+            file: docker/cli/Dockerfile
+          - image: sandbox
+            file: docker/klaw-sandbox/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -80,45 +92,15 @@ jobs:
         id: version
         run: echo "tag=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Build and push engine
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/engine/Dockerfile
+          file: ${{ matrix.file }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/klaw-engine:latest
-            ghcr.io/${{ github.repository_owner }}/klaw-engine:${{ steps.version.outputs.tag }}
-
-      - name: Build and push gateway
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/gateway/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/klaw-gateway:latest
-            ghcr.io/${{ github.repository_owner }}/klaw-gateway:${{ steps.version.outputs.tag }}
-
-      - name: Build and push CLI
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/cli/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/klaw-cli:latest
-            ghcr.io/${{ github.repository_owner }}/klaw-cli:${{ steps.version.outputs.tag }}
-
-      - name: Build and push sandbox
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/klaw-sandbox/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/klaw-sandbox:latest
-            ghcr.io/${{ github.repository_owner }}/klaw-sandbox:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:latest
+            ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:${{ steps.version.outputs.tag }}
 
   release:
     name: Publish GitHub Release

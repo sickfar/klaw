@@ -38,13 +38,25 @@ jobs:
         run: ./gradlew ktlintCheck detekt
 
   publish-docker:
-    name: Publish Docker Images (unstable)
+    name: Docker ${{ matrix.image }}
     needs: [build]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: engine
+            file: docker/engine/Dockerfile
+          - image: gateway
+            file: docker/gateway/Dockerfile
+          - image: cli
+            file: docker/cli/Dockerfile
+          - image: sandbox
+            file: docker/klaw-sandbox/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -55,34 +67,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push engine
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/engine/Dockerfile
+          file: ${{ matrix.file }}
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/klaw-engine:unstable
-
-      - name: Build and push gateway
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/gateway/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/klaw-gateway:unstable
-
-      - name: Build and push CLI
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/cli/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/klaw-cli:unstable
-
-      - name: Build and push sandbox
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/klaw-sandbox/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/klaw-sandbox:unstable
+          tags: ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:unstable
