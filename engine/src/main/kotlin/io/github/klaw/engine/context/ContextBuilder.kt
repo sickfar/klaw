@@ -2,9 +2,7 @@ package io.github.klaw.engine.context
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.LlmMessage
-import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.registry.ModelRegistry
-import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
@@ -17,7 +15,8 @@ data class ContextResult(
     val messages: List<LlmMessage>,
     val includeSkillList: Boolean,
     val includeSkillLoad: Boolean,
-    val windowStartCreatedAt: String? = null,
+    val uncoveredMessageTokens: Long = 0,
+    val budget: Int = 0,
 )
 
 @Singleton
@@ -32,10 +31,6 @@ class ContextBuilder(
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
 ) {
-    companion object {
-        private const val TOOL_SCHEMA_OVERHEAD_PER_TOOL = 15
-    }
-
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
         session: Session,
@@ -92,46 +87,37 @@ class ContextBuilder(
             )
         }
 
-        // Build system content early so we can deduct its tokens from the history budget
         val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
-        val systemPromptTokens = approximateTokenCount(systemContent)
 
         val budgetTokens =
             config.models[session.model]?.contextBudget
                 ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
-        val toolSchemaTokens = estimateToolSchemaTokens(tools)
-        val adjustedBudget = maxOf(0, budgetTokens - systemPromptTokens - toolSchemaTokens)
-
-        // Summarization: compute summary budget, fetch summaries, adjust raw message budget
-        val summaries: List<SummaryText>
-        val rawMessageBudget: Int
+        // Summarization: compute summary budget, fetch summaries with coverage info
+        val summaryResult: SummaryContextResult
         if (config.summarization.enabled) {
-            val summaryBudget = (adjustedBudget * config.summarization.summaryBudgetFraction).toInt()
-            summaries = summaryService.getSummariesForContext(session.chatId, summaryBudget, session.segmentStart)
-            val summaryTokensUsed = summaries.sumOf { it.tokens }
-            rawMessageBudget = adjustedBudget - summaryTokensUsed
+            val summaryBudget = (budgetTokens * config.summarization.summaryBudgetFraction).toInt()
+            summaryResult = summaryService.getSummariesForContext(session.chatId, summaryBudget, session.segmentStart)
         } else {
-            summaries = emptyList()
-            rawMessageBudget = adjustedBudget
+            summaryResult = SummaryContextResult(emptyList(), null, false)
         }
 
-        // Fetch messages fitting within token budget from DB
+        // Fetch messages: coverage-based (no budget trimming — zero gap guarantee)
         val dbMessages =
-            messageRepository.getWindowMessages(
-                chatId = session.chatId,
-                segmentStart = session.segmentStart,
-                budgetTokens = rawMessageBudget,
-            )
+            if (summaryResult.coverageEnd != null) {
+                messageRepository.getUncoveredMessages(session.chatId, session.segmentStart, summaryResult.coverageEnd)
+            } else {
+                messageRepository.getAllMessagesInSegment(session.chatId, session.segmentStart)
+            }
 
-        val windowStartCreatedAt = dbMessages.firstOrNull()?.createdAt
+        val uncoveredMessageTokens = dbMessages.sumOf { it.tokens.toLong() }
 
-        // Auto-RAG guard: only for interactive path when segment tokens exceed budget (messages being trimmed)
+        // Auto-RAG guard: triggers when summaries have been evicted (model lost summarized access)
         val autoRagResults: List<AutoRagResult> =
             if (
                 !isSubagent &&
                 config.autoRag.enabled &&
-                messageRepository.sumTokensInSegment(session.chatId, session.segmentStart) > adjustedBudget
+                summaryResult.hasEvictedSummaries
             ) {
                 val windowRowIds = dbMessages.map { it.rowId }.toSet()
                 val userQuery = pendingMessages.joinToString(" ")
@@ -150,11 +136,11 @@ class ContextBuilder(
         messages.add(LlmMessage(role = "system", content = systemContent))
 
         // Summaries injected as a second system message, oldest first (chronological)
-        if (summaries.isNotEmpty()) {
+        if (summaryResult.summaries.isNotEmpty()) {
             val summaryContent =
                 buildString {
                     append("## Conversation Summaries\n\n")
-                    summaries.forEachIndexed { index, summary ->
+                    summaryResult.summaries.forEachIndexed { index, summary ->
                         if (index > 0) append("\n\n---\n\n")
                         append(summary.content)
                     }
@@ -188,7 +174,8 @@ class ContextBuilder(
             messages = messages,
             includeSkillList = includeSkillList,
             includeSkillLoad = includeSkillLoad,
-            windowStartCreatedAt = windowStartCreatedAt,
+            uncoveredMessageTokens = uncoveredMessageTokens,
+            budget = budgetTokens,
         )
     }
 
@@ -228,13 +215,6 @@ class ContextBuilder(
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
-    }
-
-    private fun estimateToolSchemaTokens(tools: List<ToolDef>): Int {
-        if (tools.isEmpty()) return 0
-        return tools.sumOf { tool ->
-            approximateTokenCount(tool.parameters.toString()) + TOOL_SCHEMA_OVERHEAD_PER_TOOL
-        }
     }
 
     private fun buildCapabilitiesSection(skillCount: Int): String =

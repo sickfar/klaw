@@ -11,7 +11,7 @@
 Four layers are assembled in this order:
 
 1. System prompt (~1000 tokens) — workspace identity files (SOUL.md, IDENTITY.md, USER.md, AGENTS.md, TOOLS.md)
-2. Summaries (if enabled) — condensed versions of older messages that fell out of the sliding window. Token budget is a configurable fraction of the total context budget (`summarization.summaryBudgetFraction`, default 0.5). Only present when background summarization is enabled.
+2. Summaries (if enabled) — condensed versions of older messages produced by background compaction. Token budget is `summarization.summaryBudgetFraction` (default 0.25) of the context budget. When summaries exceed that budget, the oldest are evicted and auto-RAG activates to compensate.
 3. Sliding window — last N messages from the current segment (fills remaining budget)
 4. Tool descriptions (~500 tokens) — available tools and loaded skills
 

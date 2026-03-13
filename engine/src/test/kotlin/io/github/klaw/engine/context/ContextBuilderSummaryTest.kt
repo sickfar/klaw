@@ -29,8 +29,6 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -51,7 +49,7 @@ class ContextBuilderSummaryTest {
     private fun buildConfig(
         contextBudget: Int = 4096,
         summarizationEnabled: Boolean = false,
-        summaryBudgetFraction: Double = 0.5,
+        summaryBudgetFraction: Double = 0.25,
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
@@ -132,7 +130,8 @@ class ContextBuilderSummaryTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
-        coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns emptyList()
+        coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+            SummaryContextResult(emptyList(), null, false)
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         every { skillRegistry.discover() } returns Unit
@@ -160,11 +159,23 @@ class ContextBuilderSummaryTest {
     fun `one summary injected before raw messages`() =
         runTest {
             coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
-                listOf(
-                    SummaryText("Summary of early conversation", "msg-1", "msg-5", 50),
+                SummaryContextResult(
+                    summaries =
+                        listOf(
+                            SummaryText(
+                                "Summary of early conversation",
+                                "msg-1",
+                                "msg-5",
+                                "2024-01-01T00:00:00Z",
+                                "2024-01-01T00:30:00Z",
+                                50,
+                            ),
+                        ),
+                    coverageEnd = "2024-01-01T00:30:00Z",
+                    hasEvictedSummaries = false,
                 )
 
-            // Insert a message in the window
+            // Insert a message after coverage end
             db.messagesQueries.insertMessage(
                 "msg-10",
                 "telegram",
@@ -198,9 +209,28 @@ class ContextBuilderSummaryTest {
     fun `multiple summaries injected oldest first`() =
         runTest {
             coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
-                listOf(
-                    SummaryText("First summary", "msg-1", "msg-5", 50),
-                    SummaryText("Second summary", "msg-6", "msg-10", 50),
+                SummaryContextResult(
+                    summaries =
+                        listOf(
+                            SummaryText(
+                                "First summary",
+                                "msg-1",
+                                "msg-5",
+                                "2024-01-01T00:00:00Z",
+                                "2024-01-01T00:10:00Z",
+                                50,
+                            ),
+                            SummaryText(
+                                "Second summary",
+                                "msg-6",
+                                "msg-10",
+                                "2024-01-01T00:10:00Z",
+                                "2024-01-01T00:20:00Z",
+                                50,
+                            ),
+                        ),
+                    coverageEnd = "2024-01-01T00:20:00Z",
+                    hasEvictedSummaries = false,
                 )
 
             val config = buildConfig(contextBudget = 4096, summarizationEnabled = true)
@@ -219,18 +249,57 @@ class ContextBuilderSummaryTest {
         }
 
     @Test
-    fun `summary budget reduces raw message budget`() =
+    fun `all messages returned when summaries have coverage - zero gap`() =
         runTest {
-            // With budget=2000 and fraction=0.5, after system prompt deduction (~200 tokens),
-            // adjusted budget ~1800, summaryBudget = ~900, raw gets the rest
-            // If summaries use 200 tokens, raw budget = ~1800 - 200 = ~1600
+            // Coverage ends at 00:05, messages after that are all included (no budget trimming)
             coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns
-                listOf(
-                    SummaryText("A summary", "msg-1", "msg-5", 200),
+                SummaryContextResult(
+                    summaries =
+                        listOf(
+                            SummaryText(
+                                "A summary",
+                                "msg-1",
+                                "msg-5",
+                                "2024-01-01T00:00:00Z",
+                                "2024-01-01T00:05:00Z",
+                                200,
+                            ),
+                        ),
+                    coverageEnd = "2024-01-01T00:05:00Z",
+                    hasEvictedSummaries = false,
                 )
 
-            // Insert 20 messages, each 100 tokens = 2000 total
+            // Insert 20 messages after coverage end
             for (i in 1..20) {
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    "2024-01-01T00:${(5 + i).toString().padStart(2, '0')}:00Z",
+                    100,
+                )
+            }
+
+            val config = buildConfig(contextBudget = 500, summarizationEnabled = true, summaryBudgetFraction = 0.25)
+            val contextBuilder = buildContextBuilder(config)
+            val session = buildSession()
+
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            // All 20 messages should be present (zero gap - no budget trimming)
+            val historyMessages = result.messages.filter { it.role == "user" }
+            assertEquals(20, historyMessages.size, "All uncovered messages should be included (zero gap)")
+        }
+
+    @Test
+    fun `uncoveredMessageTokens reflects total tokens of uncovered messages`() =
+        runTest {
+            // Insert 5 messages, each 100 tokens
+            for (i in 1..5) {
                 db.messagesQueries.insertMessage(
                     "msg-$i",
                     "telegram",
@@ -244,56 +313,17 @@ class ContextBuilderSummaryTest {
                 )
             }
 
-            val config = buildConfig(contextBudget = 2000, summarizationEnabled = true, summaryBudgetFraction = 0.5)
-            val contextBuilder = buildContextBuilder(config)
-            val session = buildSession()
-
-            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
-
-            // Raw message budget is reduced by summary tokens, so fewer than all 20 messages fit
-            val historyMessages = result.messages.filter { it.role == "user" }
-            assertTrue(historyMessages.size < 20, "Summary tokens should reduce available raw message budget")
-            assertTrue(historyMessages.size > 10, "Most messages should still fit with large budget")
-        }
-
-    @Test
-    fun `windowStartCreatedAt populated from oldest window message`() =
-        runTest {
-            db.messagesQueries.insertMessage(
-                "msg-1",
-                "telegram",
-                "chat-1",
-                "user",
-                "text",
-                "Old msg",
-                null,
-                "2024-01-01T00:01:00Z",
-                100,
-            )
-            db.messagesQueries.insertMessage(
-                "msg-2",
-                "telegram",
-                "chat-1",
-                "user",
-                "text",
-                "New msg",
-                null,
-                "2024-01-01T00:02:00Z",
-                100,
-            )
-
             val config = buildConfig(contextBudget = 4096, summarizationEnabled = true)
             val contextBuilder = buildContextBuilder(config)
             val session = buildSession()
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertNotNull(result.windowStartCreatedAt)
-            assertEquals("2024-01-01T00:01:00Z", result.windowStartCreatedAt)
+            assertEquals(500L, result.uncoveredMessageTokens, "Should sum all uncovered message tokens")
         }
 
     @Test
-    fun `windowStartCreatedAt null when no window messages`() =
+    fun `budget field reflects raw budget tokens`() =
         runTest {
             val config = buildConfig(contextBudget = 4096, summarizationEnabled = true)
             val contextBuilder = buildContextBuilder(config)
@@ -301,15 +331,27 @@ class ContextBuilderSummaryTest {
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertNull(result.windowStartCreatedAt)
+            assertEquals(4096, result.budget, "Budget should reflect raw contextBudget")
         }
 
     @Test
     fun `awareness section injected when summarization enabled`() =
         runTest {
             coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
-                listOf(
-                    SummaryText("A summary", "msg-1", "msg-5", 50),
+                SummaryContextResult(
+                    summaries =
+                        listOf(
+                            SummaryText(
+                                "A summary",
+                                "msg-1",
+                                "msg-5",
+                                "2024-01-01T00:00:00Z",
+                                "2024-01-01T00:10:00Z",
+                                50,
+                            ),
+                        ),
+                    coverageEnd = "2024-01-01T00:10:00Z",
+                    hasEvictedSummaries = false,
                 )
 
             val config = buildConfig(contextBudget = 4096, summarizationEnabled = true)
@@ -346,13 +388,8 @@ class ContextBuilderSummaryTest {
         }
 
     @Test
-    fun `unused summary budget flows back to raw messages`() =
+    fun `all messages included when no summaries exist - zero gap`() =
         runTest {
-            // Budget 2000, after system prompt deduction (~200), adjusted ~1800
-            // fraction 0.5 => summary budget ~900
-            // But no summaries exist, so all ~1800 goes to raw messages
-            coEvery { summaryService.getSummariesForContext("chat-1", any(), any()) } returns emptyList()
-
             for (i in 1..10) {
                 db.messagesQueries.insertMessage(
                     "msg-$i",
@@ -367,14 +404,14 @@ class ContextBuilderSummaryTest {
                 )
             }
 
-            val config = buildConfig(contextBudget = 2000, summarizationEnabled = true, summaryBudgetFraction = 0.5)
+            val config = buildConfig(contextBudget = 200, summarizationEnabled = true, summaryBudgetFraction = 0.25)
             val contextBuilder = buildContextBuilder(config)
             val session = buildSession()
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            // With no summaries, full adjusted budget (~1800) goes to raw messages: all 10 fit
+            // All messages should be present regardless of budget (zero gap)
             val historyMessages = result.messages.filter { it.role == "user" }
-            assertEquals(10, historyMessages.size, "Full adjusted budget should flow to raw messages when no summaries")
+            assertEquals(10, historyMessages.size, "All messages should be included (zero gap, no budget trimming)")
         }
 }

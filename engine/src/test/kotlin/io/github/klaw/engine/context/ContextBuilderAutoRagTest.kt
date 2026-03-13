@@ -17,6 +17,7 @@ import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
+import io.github.klaw.common.config.SummarizationConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.memory.AutoRagResult
@@ -45,9 +46,11 @@ class ContextBuilderAutoRagTest {
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
 
+    @Suppress("LongMethod")
     private fun buildConfig(
         budgetTokens: Int = 4096,
         autoRagEnabled: Boolean = true,
+        summarizationEnabled: Boolean = false,
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
@@ -100,6 +103,7 @@ class ContextBuilderAutoRagTest {
                     relevanceThreshold = 0.5,
                     minMessageTokens = 10,
                 ),
+            summarization = SummarizationConfig(enabled = summarizationEnabled),
         )
 
     private fun buildSession(
@@ -132,6 +136,8 @@ class ContextBuilderAutoRagTest {
         messageRepository = MessageRepository(db)
 
         coEvery { workspaceLoader.loadSystemPrompt() } returns ""
+        coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+            SummaryContextResult(emptyList(), null, false)
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit
@@ -162,9 +168,11 @@ class ContextBuilderAutoRagTest {
     }
 
     @Test
-    fun `auto-RAG skipped when segment tokens do not exceed budget`() =
+    fun `auto-RAG skipped when no summaries evicted`() =
         runTest {
-            // Budget = 4096, insert 5 messages * 100 tokens = 500 < 4096 → skip
+            // hasEvictedSummaries = false → auto-RAG skipped
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, false)
             val config = buildConfig(budgetTokens = 4096)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
@@ -177,9 +185,10 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG skipped when isSubagent is true`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, summarizationEnabled = true)
             val session = buildSession()
-            // Insert messages exceeding budget — but subagent path, so auto-RAG skipped
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             // With taskName=null (no early-return), isSubagent=true falls through but auto-RAG guard
@@ -192,7 +201,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG skipped when autoRag enabled=false in config`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200, autoRagEnabled = false)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, autoRagEnabled = false, summarizationEnabled = true)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
@@ -202,11 +213,13 @@ class ContextBuilderAutoRagTest {
         }
 
     @Test
-    fun `auto-RAG results inserted between system message and sliding window`() =
+    fun `auto-RAG triggered when summaries have been evicted`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            // hasEvictedSummaries = true triggers auto-RAG (requires summarization enabled)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), "2024-01-01T00:30:00Z", hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 4096, summarizationEnabled = true)
             val session = buildSession()
-            // Insert messages exceeding budget to trigger auto-RAG
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
                 listOf(AutoRagResult("msg-1", "Earlier content", "user", "2024-01-01T00:01:00Z"))
@@ -223,7 +236,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG block absent when autoRagService returns empty list`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, summarizationEnabled = true)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
             // autoRagService returns empty (default mock)
@@ -242,81 +257,15 @@ class ContextBuilderAutoRagTest {
         }
 
     @Test
-    fun `sliding window budget reduced by auto-RAG token count`() =
-        runTest {
-            // With a very small budget, auto-RAG consuming tokens should leave less room for history
-            val config = buildConfig(budgetTokens = 4096)
-            val session = buildSession()
-            // Insert many short messages exceeding budget
-            for (i in 1..15) {
-                val ts = "2024-01-01T01:${i.toString().padStart(2, '0')}:00Z"
-                db.messagesQueries.insertMessage(
-                    "m-$i",
-                    "telegram",
-                    session.chatId,
-                    "user",
-                    "text",
-                    "Short $i",
-                    null,
-                    ts,
-                    500,
-                )
-            }
-
-            // Auto-RAG returns a long result that consumes token budget
-            val longContent = "word ".repeat(100).trim() // ~28 tokens
-            coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
-                listOf(AutoRagResult("old-msg", longContent, "user", "2024-01-01T00:00:01Z"))
-
-            val resultWithRag =
-                buildContextBuilder(config).buildContext(
-                    session,
-                    emptyList(),
-                    isSubagent = false,
-                )
-
-            // Now test without RAG (disabled)
-            val configNoRag = buildConfig(budgetTokens = 4096, autoRagEnabled = false)
-            val resultNoRag =
-                buildContextBuilder(configNoRag).buildContext(
-                    session,
-                    emptyList(),
-                    isSubagent = false,
-                )
-
-            val historyWithRag = resultWithRag.messages.filter { it.role == "user" }
-            val historyNoRag = resultNoRag.messages.filter { it.role == "user" }
-
-            // With RAG consuming tokens, fewer history messages should fit (or equal at most)
-            assertTrue(
-                historyWithRag.size <= historyNoRag.size,
-                "RAG should reduce available budget for history. " +
-                    "withRag=${historyWithRag.size}, noRag=${historyNoRag.size}",
-            )
-        }
-
-    @Test
     fun `windowRowIds passed to autoRagService for deduplication`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, summarizationEnabled = true)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
 
             var capturedRowIds: Set<Long>? = null
-            coEvery {
-                autoRagService.search(
-                    any(),
-                    any(),
-                    any(),
-                    capture(
-                        mutableListOf<Set<Long>>().also {
-                            // use answer slot instead
-                        },
-                    ),
-                    any(),
-                )
-            } returns emptyList()
-
             // Use coEvery with answer to capture args
             coEvery {
                 autoRagService.search(any(), eq(session.chatId), eq(session.segmentStart), any(), any())
@@ -335,7 +284,9 @@ class ContextBuilderAutoRagTest {
     @Test
     fun `auto-RAG block starts with correct header text`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, summarizationEnabled = true)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns
@@ -349,9 +300,11 @@ class ContextBuilderAutoRagTest {
         }
 
     @Test
-    fun `context order is system then auto-RAG then sliding window then pending`() =
+    fun `context order is system then auto-RAG then messages then pending`() =
         runTest {
-            val config = buildConfig(budgetTokens = 200)
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, hasEvictedSummaries = true)
+            val config = buildConfig(budgetTokens = 200, summarizationEnabled = true)
             val session = buildSession()
             insertMessages(session.chatId, 5, tokensPerMessage = 100)
             coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns

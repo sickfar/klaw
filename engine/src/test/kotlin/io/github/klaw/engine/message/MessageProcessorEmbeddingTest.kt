@@ -201,7 +201,7 @@ class MessageProcessorEmbeddingTest {
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
-            summarizationRunner = mockk(relaxed = true),
+            compactionRunner = mockk(relaxed = true),
         )
     }
 

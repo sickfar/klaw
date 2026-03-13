@@ -33,10 +33,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-class SummarizationRunnerTest {
+class CompactionRunnerTest {
     private lateinit var db: KlawDatabase
     private lateinit var summaryRepository: SummaryRepository
     private lateinit var messageRepository: MessageRepository
+    private lateinit var compactionTracker: CompactionTracker
     private val llmRouter = mockk<LlmRouter>()
     private val memoryService = mockk<MemoryService>()
 
@@ -45,7 +46,8 @@ class SummarizationRunnerTest {
 
     private fun buildConfig(
         enabled: Boolean = true,
-        tokenThreshold: Int = 100,
+        compactionThresholdFraction: Double = 0.5,
+        summaryBudgetFraction: Double = 0.25,
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
@@ -72,7 +74,12 @@ class SummarizationRunnerTest {
                 ),
             logging = LoggingConfig(subagentConversations = false),
             autoRag = AutoRagConfig(enabled = false),
-            summarization = SummarizationConfig(enabled = enabled, tokenThreshold = tokenThreshold),
+            summarization =
+                SummarizationConfig(
+                    enabled = enabled,
+                    compactionThresholdFraction = compactionThresholdFraction,
+                    summaryBudgetFraction = summaryBudgetFraction,
+                ),
         )
 
     @BeforeEach
@@ -82,17 +89,19 @@ class SummarizationRunnerTest {
         db = KlawDatabase(driver)
         summaryRepository = SummaryRepository(db)
         messageRepository = MessageRepository(db)
+        compactionTracker = CompactionTracker()
 
         coEvery { memoryService.save(any(), any()) } returns "Saved"
     }
 
-    private fun buildRunner(config: EngineConfig): SummarizationRunner {
+    private fun buildRunner(config: EngineConfig): CompactionRunner {
         val runner =
-            SummarizationRunner(
+            CompactionRunner(
                 summaryRepository = summaryRepository,
                 messageRepository = messageRepository,
                 llmRouter = llmRouter,
                 memoryService = memoryService,
+                compactionTracker = compactionTracker,
                 config = config,
             )
         runner.dataDir = tempDir.absolutePath
@@ -103,39 +112,27 @@ class SummarizationRunnerTest {
     fun `returns early when disabled`() =
         runBlocking {
             val runner = buildRunner(buildConfig(enabled = false))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
-
-            // No LLM call should be made
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 5000, 4096)
             coVerify(exactly = 0) { llmRouter.chat(any(), any()) }
         }
 
     @Test
-    fun `returns early when fallen-out tokens below threshold`() =
+    fun `returns early when below trigger threshold`() =
         runBlocking {
-            // Insert a message between epoch and windowStart, but with very few tokens
-            db.messagesQueries.insertMessage(
-                "msg-1",
-                "telegram",
-                "chat-1",
-                "user",
-                "text",
-                "Hello",
-                null,
-                "2024-01-01T00:30:00Z",
-                10,
-            )
-
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
-
+            // budget=1000, SF=0.25, CF=0.5 → trigger when tokens > 750
+            // uncoveredMessageTokens=500 < 750 → no trigger
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 500, 1000)
             coVerify(exactly = 0) { llmRouter.chat(any(), any()) }
         }
 
     @Test
-    @Suppress("LongMethod")
-    fun `calls LLM and creates summary when threshold exceeded`() =
+    fun `triggers compaction when threshold exceeded`() =
         runBlocking {
-            // Insert messages that fell out of window (before windowStart)
+            // budget=1000, SF=0.25, CF=0.5 → trigger when tokens > 750
+            // uncoveredMessageTokens=800 > 750 → trigger
+
+            // Insert messages to be compacted
             for (i in 1..5) {
                 db.messagesQueries.insertMessage(
                     "msg-$i",
@@ -146,10 +143,9 @@ class SummarizationRunnerTest {
                     "Message $i content",
                     null,
                     "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z",
-                    50,
+                    100,
                 )
             }
-            // Total = 250 tokens, threshold = 100, should trigger
 
             coEvery { llmRouter.chat(any(), any()) } returns
                 LlmResponse(
@@ -159,10 +155,9 @@ class SummarizationRunnerTest {
                     finishReason = FinishReason.STOP,
                 )
 
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
 
-            // LLM called with summarization model
             coVerify(exactly = 1) { llmRouter.chat(any(), "test/model") }
 
             // Summary file created
@@ -172,99 +167,130 @@ class SummarizationRunnerTest {
             assertEquals(1, files?.size)
             assertEquals("Summary: discussed topics 1-5", files!![0].readText())
 
-            // DB row inserted
+            // DB row with from_created_at and to_created_at
             val lastSummary = summaryRepository.getLastSummary("chat-1")
             assertEquals("msg-1", lastSummary?.from_message_id)
-            assertEquals("msg-5", lastSummary?.to_message_id)
+            assertTrue(lastSummary?.from_created_at != null)
+            assertTrue(lastSummary?.to_created_at != null)
 
             // Memory indexed
             coVerify(exactly = 1) { memoryService.save("Summary: discussed topics 1-5", "summary:chat-1") }
+
+            // Tracker should be IDLE after completion
+            assertEquals(CompactionTracker.Status.IDLE, compactionTracker.status("chat-1"))
         }
 
     @Test
-    fun `works when no prior summary exists - uses epoch as start`() =
+    fun `does not start when tracker says already running`() =
         runBlocking {
-            // Insert messages before window
-            for (i in 1..3) {
-                db.messagesQueries.insertMessage(
-                    "msg-$i",
-                    "telegram",
-                    "chat-1",
-                    "user",
-                    "text",
-                    "Message $i",
-                    null,
-                    "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z",
-                    100,
-                )
-            }
-            // 300 tokens > 100 threshold
+            compactionTracker.tryStart("chat-1") // Already running
 
-            coEvery { llmRouter.chat(any(), any()) } returns
-                LlmResponse(
-                    content = "Summary of all messages",
-                    toolCalls = null,
-                    usage = null,
-                    finishReason = FinishReason.STOP,
-                )
-
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
-
-            coVerify(exactly = 1) { llmRouter.chat(any(), any()) }
-        }
-
-    @Test
-    fun `uses last summary created_at as start boundary`() =
-        runBlocking {
-            // Insert a prior summary
-            summaryRepository.insert(
-                "chat-1",
+            // Insert some messages
+            db.messagesQueries.insertMessage(
                 "msg-1",
-                "msg-3",
-                "/old/summary.md",
-                "2024-01-01T00:30:00Z",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "Message",
+                null,
+                "2024-01-01T00:01:00Z",
+                100,
             )
 
-            // Insert messages AFTER the prior summary but BEFORE window start
-            for (i in 4..8) {
-                db.messagesQueries.insertMessage(
-                    "msg-$i",
-                    "telegram",
-                    "chat-1",
-                    "user",
-                    "text",
-                    "Message $i",
-                    null,
-                    "2024-01-01T00:${(30 + i).toString().padStart(2, '0')}:00Z",
-                    50,
-                )
-            }
-            // 250 tokens > 100 threshold
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
+
+            coVerify(exactly = 0) { llmRouter.chat(any(), any()) }
+            // Should have queued
+            assertEquals(CompactionTracker.Status.QUEUED, compactionTracker.status("chat-1"))
+        }
+
+    @Test
+    fun `queues when already running`() =
+        runBlocking {
+            compactionTracker.tryStart("chat-1")
+
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
+
+            assertEquals(CompactionTracker.Status.QUEUED, compactionTracker.status("chat-1"))
+        }
+
+    @Test
+    fun `round-snaps to complete assistant round`() =
+        runBlocking {
+            // Insert a user-assistant-user-assistant sequence
+            // With low compaction zone (budget=200, CF=0.5 → zone=100 tokens)
+            // First user (50 tok) fits in zone, but we should include the following assistant to complete the round
+            db.messagesQueries.insertMessage(
+                "msg-1",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "User 1",
+                null,
+                "2024-01-01T00:01:00Z",
+                50,
+            )
+            db.messagesQueries.insertMessage(
+                "msg-2",
+                "telegram",
+                "chat-1",
+                "assistant",
+                "text",
+                "Assistant 1",
+                null,
+                "2024-01-01T00:02:00Z",
+                50,
+            )
+            db.messagesQueries.insertMessage(
+                "msg-3",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "User 2",
+                null,
+                "2024-01-01T00:03:00Z",
+                50,
+            )
+            db.messagesQueries.insertMessage(
+                "msg-4",
+                "telegram",
+                "chat-1",
+                "assistant",
+                "text",
+                "Assistant 2",
+                null,
+                "2024-01-01T00:04:00Z",
+                50,
+            )
 
             coEvery { llmRouter.chat(any(), any()) } returns
                 LlmResponse(
-                    content = "New summary",
+                    content = "Summary of round 1",
                     toolCalls = null,
                     usage = null,
                     finishReason = FinishReason.STOP,
                 )
 
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+            val runner = buildRunner(buildConfig(compactionThresholdFraction = 0.5, summaryBudgetFraction = 0.25))
+            // uncoveredMessageTokens=250 > 200*(0.25+0.5)=150 → trigger
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 250, 200)
 
             coVerify(exactly = 1) { llmRouter.chat(any(), any()) }
 
-            // Should have 2 summaries now
-            val summaries = summaryRepository.getSummariesDesc("chat-1")
-            assertEquals(2, summaries.size)
-            // Newest first
-            assertEquals("msg-4", summaries[0].from_message_id)
-            assertEquals("msg-8", summaries[0].to_message_id)
+            val summary = summaryRepository.getLastSummary("chat-1")
+            // Round snapping: zone=100 tokens, msg-1(50)+msg-2(50)=100 reaches zone,
+            // msg-2 is assistant text followed by user msg-3 → complete round at msg-2
+            assertEquals("msg-1", summary?.from_message_id)
+            assertEquals("msg-2", summary?.to_message_id)
         }
 
     @Test
-    fun `skips tool_call messages but includes tool_result in summary input`() =
+    fun `skips tool_call messages in summary input`() =
         runBlocking {
             db.messagesQueries.insertMessage(
                 "msg-1",
@@ -272,10 +298,10 @@ class SummarizationRunnerTest {
                 "chat-1",
                 "user",
                 "text",
-                "User question",
+                "Search for X",
                 null,
                 "2024-01-01T00:01:00Z",
-                60,
+                50,
             )
             db.messagesQueries.insertMessage(
                 "msg-2",
@@ -286,7 +312,7 @@ class SummarizationRunnerTest {
                 "{}",
                 null,
                 "2024-01-01T00:02:00Z",
-                60,
+                50,
             )
             db.messagesQueries.insertMessage(
                 "msg-3",
@@ -294,10 +320,10 @@ class SummarizationRunnerTest {
                 "chat-1",
                 "tool",
                 "tool_result",
-                "Tool output: found 42 results",
+                "Found 42 results",
                 null,
                 "2024-01-01T00:03:00Z",
-                60,
+                50,
             )
             db.messagesQueries.insertMessage(
                 "msg-4",
@@ -305,12 +331,11 @@ class SummarizationRunnerTest {
                 "chat-1",
                 "assistant",
                 "text",
-                "Answer based on tool",
+                "Here are your results",
                 null,
                 "2024-01-01T00:04:00Z",
-                60,
+                50,
             )
-            // 240 tokens > 100 threshold
 
             coEvery { llmRouter.chat(any(), any()) } returns
                 LlmResponse(
@@ -320,20 +345,14 @@ class SummarizationRunnerTest {
                     finishReason = FinishReason.STOP,
                 )
 
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
 
             coVerify(exactly = 1) {
                 llmRouter.chat(
                     match { request ->
-                        val userMsg = request.messages.last().content!!
-                        // tool_call message should NOT be in the summary input
-                        !userMsg.contains("{}") &&
-                            // tool_result message SHOULD be included
-                            userMsg.contains("Tool output: found 42 results") &&
-                            // user and assistant text messages should be included
-                            userMsg.contains("User question") &&
-                            userMsg.contains("Answer based on tool")
+                        val content = request.messages.last().content!!
+                        !content.contains("{}") && content.contains("Found 42 results")
                     },
                     any(),
                 )
@@ -341,69 +360,50 @@ class SummarizationRunnerTest {
         }
 
     @Test
-    fun `counts tool result tokens in threshold check`() =
+    fun `cleans up tracker on exception`() =
         runBlocking {
-            // Insert only tool result messages — their tokens should count toward threshold
             db.messagesQueries.insertMessage(
                 "msg-1",
                 "telegram",
                 "chat-1",
                 "user",
                 "text",
-                "Search for patterns",
+                "Message",
                 null,
                 "2024-01-01T00:01:00Z",
-                30,
+                100,
             )
-            db.messagesQueries.insertMessage(
-                "msg-2",
-                "telegram",
-                "chat-1",
-                "assistant",
-                "tool_call",
-                "{}",
-                null,
-                "2024-01-01T00:02:00Z",
-                10,
-            )
-            db.messagesQueries.insertMessage(
-                "msg-3",
-                "telegram",
-                "chat-1",
-                "tool",
-                "tool_result",
-                "Large tool output with many results",
-                null,
-                "2024-01-01T00:03:00Z",
-                80,
-            )
-            // Without tool: 30 (user) + 10 (assistant tool_call) = 40 < 100 threshold
-            // With tool: 30 + 10 + 80 = 120 > 100 threshold → should trigger
 
-            coEvery { llmRouter.chat(any(), any()) } returns
-                LlmResponse(
-                    content = "Summary of search",
-                    toolCalls = null,
-                    usage = null,
-                    finishReason = FinishReason.STOP,
-                )
+            coEvery { llmRouter.chat(any(), any()) } throws RuntimeException("LLM is down")
 
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
 
-            // Should trigger because tool result tokens push total over threshold
-            coVerify(exactly = 1) { llmRouter.chat(any(), any()) }
+            // Tracker should be back to IDLE despite failure
+            assertEquals(CompactionTracker.Status.IDLE, compactionTracker.status("chat-1"))
         }
 
     @Test
-    fun `handles LLM failure gracefully`() =
+    fun `uses coverageEnd from existing summaries`() =
         runBlocking {
-            for (i in 1..3) {
+            // Insert an existing summary
+            summaryRepository.insert(
+                "chat-1",
+                "msg-1",
+                "msg-3",
+                "2024-01-01T00:01:00Z",
+                "2024-01-01T00:03:00Z",
+                "/old/summary.md",
+                "2024-01-01T00:10:00Z",
+            )
+
+            // Insert messages after the summary coverage
+            for (i in 4..6) {
                 db.messagesQueries.insertMessage(
                     "msg-$i",
                     "telegram",
                     "chat-1",
-                    "user",
+                    if (i % 2 == 0) "user" else "assistant",
                     "text",
                     "Message $i",
                     null,
@@ -412,14 +412,21 @@ class SummarizationRunnerTest {
                 )
             }
 
-            coEvery { llmRouter.chat(any(), any()) } throws RuntimeException("LLM is down")
+            coEvery { llmRouter.chat(any(), any()) } returns
+                LlmResponse(
+                    content = "New summary",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = FinishReason.STOP,
+                )
 
-            val runner = buildRunner(buildConfig(tokenThreshold = 100))
-            // Should not throw
-            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+            val runner = buildRunner(buildConfig())
+            runner.runIfNeeded("chat-1", "1970-01-01T00:00:00Z", 800, 1000)
 
-            // No summary should be created
-            val lastSummary = summaryRepository.getLastSummary("chat-1")
-            assertEquals(null, lastSummary)
+            coVerify(exactly = 1) { llmRouter.chat(any(), any()) }
+            val summaries = summaryRepository.getSummariesDesc("chat-1")
+            assertEquals(2, summaries.size)
+            // Newest summary should start from msg-4 (after coverage)
+            assertEquals("msg-4", summaries[0].from_message_id)
         }
 }

@@ -16,14 +16,6 @@ class SummaryRepository(
             db.summariesQueries.getLastByChatId(chatId).executeAsOneOrNull()
         }
 
-    suspend fun getLastSummaryAfter(
-        chatId: String,
-        segmentStart: String,
-    ): Summaries? =
-        withContext(Dispatchers.VT) {
-            db.summariesQueries.getLastByChatIdAfter(chatId, segmentStart).executeAsOneOrNull()
-        }
-
     suspend fun getSummariesDesc(chatId: String): List<Summaries> =
         withContext(Dispatchers.VT) {
             db.summariesQueries.getSummariesDesc(chatId).executeAsList()
@@ -37,14 +29,36 @@ class SummaryRepository(
             db.summariesQueries.getSummariesDescAfter(chatId, segmentStart).executeAsList()
         }
 
+    @Suppress("LongParameterList")
     suspend fun insert(
         chatId: String,
         fromMessageId: String,
         toMessageId: String,
+        fromCreatedAt: String,
+        toCreatedAt: String,
         filePath: String,
         createdAt: String,
     ): Unit =
         withContext(Dispatchers.VT) {
-            db.summariesQueries.insert(chatId, fromMessageId, toMessageId, filePath, createdAt)
+            db.summariesQueries.insert(
+                chatId,
+                fromMessageId,
+                toMessageId,
+                fromCreatedAt,
+                toCreatedAt,
+                filePath,
+                createdAt,
+            )
+        }
+
+    suspend fun maxCoverageEnd(
+        chatId: String,
+        segmentStart: String,
+    ): String? =
+        withContext(Dispatchers.VT) {
+            db.summariesQueries
+                .maxCoverageEnd(chatId, segmentStart)
+                .executeAsOneOrNull()
+                ?.MAX
         }
 }

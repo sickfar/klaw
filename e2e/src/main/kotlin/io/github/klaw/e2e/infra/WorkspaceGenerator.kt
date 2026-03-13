@@ -1,0 +1,19 @@
+package io.github.klaw.e2e.infra
+
+import java.io.File
+import kotlin.io.path.createTempDirectory
+
+object WorkspaceGenerator {
+    fun createWorkspace(baseDir: File? = null): File {
+        val dir =
+            if (baseDir != null) {
+                baseDir.apply { mkdirs() }
+            } else {
+                createTempDirectory("klaw-e2e-workspace").toFile()
+            }
+
+        File(dir, "SOUL.md").writeText("You are a test assistant. Be brief.")
+        File(dir, "IDENTITY.md").writeText("E2E Test Bot")
+        return dir
+    }
+}

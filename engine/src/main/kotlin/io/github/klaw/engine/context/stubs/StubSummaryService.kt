@@ -1,7 +1,7 @@
 package io.github.klaw.engine.context.stubs
 
+import io.github.klaw.engine.context.SummaryContextResult
 import io.github.klaw.engine.context.SummaryService
-import io.github.klaw.engine.context.SummaryText
 import jakarta.inject.Singleton
 
 @Singleton
@@ -10,5 +10,10 @@ class StubSummaryService : SummaryService {
         chatId: String,
         budgetTokens: Int,
         segmentStart: String,
-    ): List<SummaryText> = emptyList()
+    ): SummaryContextResult =
+        SummaryContextResult(
+            summaries = emptyList(),
+            coverageEnd = null,
+            hasEvictedSummaries = false,
+        )
 }

@@ -151,7 +151,7 @@ class MessageProcessorTest {
             cliCommandDispatcher = mockk(relaxed = true),
             approvalService = mockk(relaxed = true),
             shutdownController = shutdownController,
-            summarizationRunner = mockk(relaxed = true),
+            compactionRunner = mockk(relaxed = true),
         )
 
     @Test

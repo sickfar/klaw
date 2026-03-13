@@ -24,6 +24,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Compile Native targets (no cross-compiler needed for check)
 ./gradlew :cli:compileKotlinLinuxX64 :common:compileKotlinLinuxX64
 
+# Run e2e infra unit tests (no Docker required)
+./gradlew :e2e:test
+
+# Run e2e integration tests (requires Docker; first run builds images ~3-5 min)
+./gradlew :e2e:integrationTest
+
 # Assemble distribution artifacts (JARs + native CLI binaries)
 ./gradlew assembleDist          # full build for current OS
 ./gradlew assembleCliMacos      # macOS CLI binaries only (for macOS CI)
@@ -178,3 +184,20 @@ TDD on every task: write tests with edge cases first, then implement. After each
 **Detekt policy:** Detekt violations in **test code** may be suppressed with `@Suppress(...)`. Detekt violations in **production code MUST be fixed** — `@Suppress` on production code is not acceptable. Fix the root cause (extract constants, split functions, use specific exception types, refactor, etc.).
 
 **Important:** The developer uses localhost for testing and debugging Docker containers. Never mention or remind about Raspberry Pi deployment — Docker commands target the local machine during development.
+
+## E2E Tests
+
+The `e2e/` module is a standalone Kotlin JVM module with **no dependency** on `:common`, `:engine`, or `:gateway`. It interacts with the system only through Docker containers, WebSocket, and WireMock HTTP.
+
+**Source sets:**
+- `main` — infrastructure library: `KlawContainers`, `WireMockLlmServer`, `WebSocketChatClient`, `ConfigGenerator`, `WorkspaceGenerator`, `DbInspector`, `ChatFrame`
+- `test` — unit tests for the infrastructure classes (no Docker required)
+- `integrationTest` — e2e tests that start Docker containers (`SlidingWindowE2eTest`, `SummarizationE2eTest`)
+
+**How it works:**
+- Testcontainers builds Docker images from `docker/{engine,gateway}/Dockerfile` using `ImageFromDockerfile` — no pre-build step needed, images are cached between runs
+- WireMock runs in-process as a mock LLM server; containers reach it via `host.testcontainers.internal`
+- Tests interact via WebSocket (ChatFrame protocol) through the gateway console channel
+- Verification: WireMock request capture (inspect what messages were sent to the LLM) + SQLite DB inspection (query klaw.db for messages/summaries)
+
+**Note:** `doc/` directory is for the agent's own user-facing docs, not developer docs.

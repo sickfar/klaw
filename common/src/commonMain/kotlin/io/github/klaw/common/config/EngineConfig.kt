@@ -354,15 +354,21 @@ data class HeartbeatConfig(
 data class SummarizationConfig(
     @ConfigDoc("Enable background summarization of old messages")
     val enabled: Boolean = false,
-    @ConfigDoc("Token threshold: summarize when this many tokens fall out of the sliding window")
-    val tokenThreshold: Int = 10_000,
+    @ConfigDoc("Fraction of context budget that defines the compaction zone (0.0 to 1.0, exclusive)")
+    val compactionThresholdFraction: Double = 0.5,
     @ConfigDoc("Fraction of context budget allocated to summaries (0.0 to 1.0, exclusive)")
-    val summaryBudgetFraction: Double = 0.5,
+    val summaryBudgetFraction: Double = 0.25,
 ) {
     init {
-        require(tokenThreshold > 0) { "tokenThreshold must be > 0, got $tokenThreshold" }
+        require(compactionThresholdFraction > 0.0 && compactionThresholdFraction < 1.0) {
+            "compactionThresholdFraction must be in (0.0, 1.0), got $compactionThresholdFraction"
+        }
         require(summaryBudgetFraction > 0.0 && summaryBudgetFraction < 1.0) {
             "summaryBudgetFraction must be in (0.0, 1.0), got $summaryBudgetFraction"
+        }
+        require(summaryBudgetFraction + compactionThresholdFraction < 1.0) {
+            "summaryBudgetFraction + compactionThresholdFraction must be < 1.0, " +
+                "got ${summaryBudgetFraction + compactionThresholdFraction}"
         }
     }
 }

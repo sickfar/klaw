@@ -20,6 +20,7 @@ ktlint-gradle = "14.0.1"
 detekt = "1.23.8"
 kotlin-logging = "7.0.7"
 shadow = "8.3.6"
+sqlite-jdbc = "3.49.1.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -44,6 +45,7 @@ wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremoc
 jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
 testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

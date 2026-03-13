@@ -103,6 +103,8 @@ class SchemaTest {
             chat_id = "chat1",
             from_message_id = "msg1",
             to_message_id = "msg5",
+            from_created_at = "2025-01-01T00:01:00Z",
+            to_created_at = "2025-01-01T00:05:00Z",
             file_path = "/summaries/chat1/1.md",
             created_at = "2025-01-01T00:00:00Z",
         )

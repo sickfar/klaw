@@ -432,8 +432,8 @@ object GeneratedSchemas {
                         "enabled": {
                             "type": "boolean"
                         },
-                        "tokenThreshold": {
-                            "type": "integer"
+                        "compactionThresholdFraction": {
+                            "type": "number"
                         },
                         "summaryBudgetFraction": {
                             "type": "number"

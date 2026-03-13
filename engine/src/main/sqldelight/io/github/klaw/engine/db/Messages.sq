@@ -53,12 +53,14 @@ SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND create
 updateTokensById:
 UPDATE messages SET tokens = :tokens WHERE id = :id;
 
-getMessagesAfterForSummary:
-SELECT id, role, type, content, created_at, tokens
+getMessagesAfterCoverage:
+SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
 FROM messages
-WHERE chat_id = :chatId AND created_at > :afterCreatedAt AND created_at < :beforeCreatedAt AND role IN ('user', 'assistant', 'tool')
-ORDER BY created_at ASC;
+WHERE chat_id = :chatId AND created_at > :coverageEnd AND created_at >= :segmentStart
+ORDER BY created_at ASC, rowid ASC;
 
-sumTokensAfter:
-SELECT COALESCE(SUM(tokens), 0) FROM messages
-WHERE chat_id = :chatId AND created_at > :afterCreatedAt AND created_at < :beforeCreatedAt AND role IN ('user', 'assistant', 'tool');
+getAllMessagesInSegment:
+SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
+FROM messages
+WHERE chat_id = :chatId AND created_at >= :segmentStart
+ORDER BY created_at ASC, rowid ASC;

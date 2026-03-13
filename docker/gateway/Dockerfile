@@ -13,6 +13,7 @@ COPY common/build.gradle.kts common/build.gradle.kts
 COPY engine/build.gradle.kts engine/build.gradle.kts
 COPY gateway/build.gradle.kts gateway/build.gradle.kts
 COPY cli/build.gradle.kts cli/build.gradle.kts
+COPY e2e/build.gradle.kts e2e/build.gradle.kts
 
 # 2. Download dependencies (cache-mounted, survives source code changes)
 RUN --mount=type=cache,target=/root/.gradle \

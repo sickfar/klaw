@@ -212,13 +212,15 @@ Third-party compatibility settings.
 
 ## summarization
 
-Background summarization of old conversation messages that have fallen out of the sliding window.
+Background compaction of old conversation messages. Uses a fraction-based trigger instead of a fixed token threshold. Compaction creates summaries of older messages; originals are never deleted from the conversation log.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enabled` | bool | `false` | Enable background summarization. |
-| `tokenThreshold` | int | `10000` | Summarize when this many tokens fall out of the sliding window. |
-| `summaryBudgetFraction` | double | `0.5` | Fraction of context budget allocated to summaries (0.0 to 1.0). |
+| `enabled` | bool | `false` | Enable background compaction. |
+| `summaryBudgetFraction` | double | `0.25` | Fraction of context budget allocated to summaries (exclusive range `(0.0, 1.0)`). |
+| `compactionThresholdFraction` | double | `0.5` | Fraction of context budget that defines the compaction zone (exclusive range `(0.0, 1.0)`). Compaction triggers when `messageTokens > budget * (summaryBudgetFraction + compactionThresholdFraction)`. |
+
+**Validation**: `summaryBudgetFraction + compactionThresholdFraction` must be less than `1.0`.
 
 ## Notes
 

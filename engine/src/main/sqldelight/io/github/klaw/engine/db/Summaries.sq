@@ -3,13 +3,15 @@ CREATE TABLE IF NOT EXISTS summaries (
     chat_id TEXT NOT NULL,
     from_message_id TEXT NOT NULL,
     to_message_id TEXT NOT NULL,
+    from_created_at TEXT NOT NULL,
+    to_created_at TEXT NOT NULL,
     file_path TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 
 insert:
-INSERT INTO summaries (chat_id, from_message_id, to_message_id, file_path, created_at)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO summaries (chat_id, from_message_id, to_message_id, from_created_at, to_created_at, file_path, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 getByChatId:
 SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at;
@@ -23,8 +25,8 @@ SELECT * FROM summaries WHERE chat_id = ? ORDER BY created_at DESC;
 getSummariesDescAfter:
 SELECT * FROM summaries WHERE chat_id = ? AND created_at >= ? ORDER BY created_at DESC;
 
-getLastByChatIdAfter:
-SELECT * FROM summaries WHERE chat_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 1;
-
 countByChatId:
 SELECT COUNT(*) FROM summaries WHERE chat_id = ?;
+
+maxCoverageEnd:
+SELECT MAX(to_created_at) FROM summaries WHERE chat_id = ? AND created_at >= ?;

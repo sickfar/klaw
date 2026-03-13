@@ -137,41 +137,51 @@ class MessageRepository(
             db.messagesQueries.updateTokensById(tokens.toLong(), id)
         }
 
-    data class SummaryMessageRow(
-        val id: String,
-        val role: String,
-        val type: String,
-        val content: String,
-        val createdAt: String,
-        val tokens: Int,
-    )
-
-    suspend fun sumTokensBetween(
+    suspend fun getUncoveredMessages(
         chatId: String,
-        afterCreatedAt: String,
-        beforeCreatedAt: String,
-    ): Long =
-        withContext(Dispatchers.VT) {
-            db.messagesQueries.sumTokensAfter(chatId, afterCreatedAt, beforeCreatedAt).executeAsOne()
-        }
-
-    suspend fun getMessagesForSummary(
-        chatId: String,
-        afterCreatedAt: String,
-        beforeCreatedAt: String,
-    ): List<SummaryMessageRow> =
+        segmentStart: String,
+        coverageEnd: String,
+    ): List<MessageRow> =
         withContext(Dispatchers.VT) {
             db.messagesQueries
-                .getMessagesAfterForSummary(chatId, afterCreatedAt, beforeCreatedAt)
+                .getMessagesAfterCoverage(chatId, coverageEnd, segmentStart)
                 .executeAsList()
-                .map {
-                    SummaryMessageRow(
-                        id = it.id,
-                        role = it.role,
-                        type = it.type,
-                        content = it.content,
-                        createdAt = it.created_at,
-                        tokens = it.tokens.toInt(),
+                .map { row ->
+                    MessageRow(
+                        rowId = row.row_id,
+                        id = row.id,
+                        channel = row.channel,
+                        chatId = row.chat_id,
+                        role = row.role,
+                        type = row.type,
+                        content = row.content,
+                        metadata = row.metadata,
+                        createdAt = row.created_at,
+                        tokens = row.tokens.toInt(),
+                    )
+                }
+        }
+
+    suspend fun getAllMessagesInSegment(
+        chatId: String,
+        segmentStart: String,
+    ): List<MessageRow> =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries
+                .getAllMessagesInSegment(chatId, segmentStart)
+                .executeAsList()
+                .map { row ->
+                    MessageRow(
+                        rowId = row.row_id,
+                        id = row.id,
+                        channel = row.channel,
+                        chatId = row.chat_id,
+                        role = row.role,
+                        type = row.type,
+                        content = row.content,
+                        metadata = row.metadata,
+                        createdAt = row.created_at,
+                        tokens = row.tokens.toInt(),
                     )
                 }
         }

@@ -21,16 +21,32 @@ class FileSummaryService(
         chatId: String,
         budgetTokens: Int,
         segmentStart: String,
-    ): List<SummaryText> {
+    ): SummaryContextResult {
         val rows = summaryRepository.getSummariesDescAfter(chatId, segmentStart)
-        if (rows.isEmpty()) return emptyList()
+        if (rows.isEmpty()) {
+            return SummaryContextResult(
+                summaries = emptyList(),
+                coverageEnd = null,
+                hasEvictedSummaries = false,
+            )
+        }
+
+        // Compute coverageEnd from ALL summaries (including ones that will be evicted)
+        val coverageEnd = rows.maxOf { it.to_created_at }
 
         // Read files and compute tokens, newest-first
         val loaded =
             rows.mapNotNull { row ->
                 val content = readFileOrNull(row.file_path) ?: return@mapNotNull null
                 val tokens = approximateTokenCount(content)
-                SummaryText(content, row.from_message_id, row.to_message_id, tokens)
+                SummaryText(
+                    content = content,
+                    fromMessageId = row.from_message_id,
+                    toMessageId = row.to_message_id,
+                    fromCreatedAt = row.from_created_at,
+                    toCreatedAt = row.to_created_at,
+                    tokens = tokens,
+                )
             }
 
         // Budget-trim: keep newest summaries that fit within budget
@@ -42,8 +58,14 @@ class FileSummaryService(
             totalTokens += summary.tokens
         }
 
+        val hasEvictedSummaries = kept.size < loaded.size
+
         // Return in chronological order (oldest first) for natural reading
-        return kept.reversed()
+        return SummaryContextResult(
+            summaries = kept.reversed(),
+            coverageEnd = coverageEnd,
+            hasEvictedSummaries = hasEvictedSummaries,
+        )
     }
 
     private suspend fun readFileOrNull(path: String): String? =
