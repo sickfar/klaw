@@ -31,19 +31,26 @@ class NativeSqliteVecLoader : SqliteVecLoader {
         try {
             val resource = javaClass.getResourceAsStream("/native/vec0") ?: return
             // Create temp file with owner-only rwx permissions before writing the binary.
-            // This prevents local users from reading or replacing the .so between creation and load.
+            // This prevents local users from reading or replacing the library between creation and load.
+            val suffix = if (System.getProperty("os.name").lowercase().contains("mac")) ".dylib" else ".so"
             val tempPath =
                 runCatching {
                     Files.createTempFile(
                         "vec0",
-                        ".so",
+                        suffix,
                         PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")),
                     )
-                }.getOrElse { Files.createTempFile("vec0", ".so") }
+                }.getOrElse { Files.createTempFile("vec0", suffix) }
             val tempFile = tempPath.toFile()
             tempFile.deleteOnExit()
             resource.use { input -> tempFile.outputStream().use { output -> input.copyTo(output) } }
-            driver.execute(null, "SELECT load_extension('${tempFile.absolutePath}')", 0)
+            // Use two-arg load_extension(path, entrypoint) — when entrypoint is specified,
+            // SQLite does NOT auto-append a platform suffix to the path, avoiding .so.so errors.
+            driver.execute(
+                null,
+                "SELECT load_extension('${tempFile.absolutePath}', 'sqlite3_vec_init')",
+                0,
+            )
             logger.info { "sqlite-vec extension loaded successfully" }
         } catch (e: Exception) {
             logger.warn(e) { "Failed to load sqlite-vec extension" }
