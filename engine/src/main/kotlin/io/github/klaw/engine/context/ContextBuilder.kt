@@ -2,6 +2,7 @@ package io.github.klaw.engine.context
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.LlmMessage
+import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.memory.AutoRagResult
@@ -31,6 +32,10 @@ class ContextBuilder(
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
 ) {
+    companion object {
+        private const val TOOL_SCHEMA_OVERHEAD_PER_TOOL = 15
+    }
+
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
         session: Session,
@@ -95,7 +100,8 @@ class ContextBuilder(
             config.models[session.model]?.contextBudget
                 ?: ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
-        val adjustedBudget = maxOf(0, budgetTokens - systemPromptTokens)
+        val toolSchemaTokens = estimateToolSchemaTokens(tools)
+        val adjustedBudget = maxOf(0, budgetTokens - systemPromptTokens - toolSchemaTokens)
 
         // Summarization: compute summary budget, fetch summaries, adjust raw message budget
         val summaries: List<SummaryText>
@@ -222,6 +228,13 @@ class ContextBuilder(
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
+    }
+
+    private fun estimateToolSchemaTokens(tools: List<ToolDef>): Int {
+        if (tools.isEmpty()) return 0
+        return tools.sumOf { tool ->
+            approximateTokenCount(tool.parameters.toString()) + TOOL_SCHEMA_OVERHEAD_PER_TOOL
+        }
     }
 
     private fun buildCapabilitiesSection(skillCount: Int): String =

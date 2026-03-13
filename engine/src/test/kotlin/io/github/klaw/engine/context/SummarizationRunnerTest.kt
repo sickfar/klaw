@@ -264,7 +264,7 @@ class SummarizationRunnerTest {
         }
 
     @Test
-    fun `skips tool_call messages in summary input`() =
+    fun `skips tool_call messages but includes tool_result in summary input`() =
         runBlocking {
             db.messagesQueries.insertMessage(
                 "msg-1",
@@ -292,14 +292,25 @@ class SummarizationRunnerTest {
                 "msg-3",
                 "telegram",
                 "chat-1",
-                "assistant",
-                "text",
-                "Answer",
+                "tool",
+                "tool_result",
+                "Tool output: found 42 results",
                 null,
                 "2024-01-01T00:03:00Z",
                 60,
             )
-            // 180 tokens > 100 threshold, but only user+assistant text messages should be in LLM input
+            db.messagesQueries.insertMessage(
+                "msg-4",
+                "telegram",
+                "chat-1",
+                "assistant",
+                "text",
+                "Answer based on tool",
+                null,
+                "2024-01-01T00:04:00Z",
+                60,
+            )
+            // 240 tokens > 100 threshold
 
             coEvery { llmRouter.chat(any(), any()) } returns
                 LlmResponse(
@@ -317,11 +328,71 @@ class SummarizationRunnerTest {
                     match { request ->
                         val userMsg = request.messages.last().content!!
                         // tool_call message should NOT be in the summary input
-                        !userMsg.contains("{}")
+                        !userMsg.contains("{}") &&
+                            // tool_result message SHOULD be included
+                            userMsg.contains("Tool output: found 42 results") &&
+                            // user and assistant text messages should be included
+                            userMsg.contains("User question") &&
+                            userMsg.contains("Answer based on tool")
                     },
                     any(),
                 )
             }
+        }
+
+    @Test
+    fun `counts tool result tokens in threshold check`() =
+        runBlocking {
+            // Insert only tool result messages — their tokens should count toward threshold
+            db.messagesQueries.insertMessage(
+                "msg-1",
+                "telegram",
+                "chat-1",
+                "user",
+                "text",
+                "Search for patterns",
+                null,
+                "2024-01-01T00:01:00Z",
+                30,
+            )
+            db.messagesQueries.insertMessage(
+                "msg-2",
+                "telegram",
+                "chat-1",
+                "assistant",
+                "tool_call",
+                "{}",
+                null,
+                "2024-01-01T00:02:00Z",
+                10,
+            )
+            db.messagesQueries.insertMessage(
+                "msg-3",
+                "telegram",
+                "chat-1",
+                "tool",
+                "tool_result",
+                "Large tool output with many results",
+                null,
+                "2024-01-01T00:03:00Z",
+                80,
+            )
+            // Without tool: 30 (user) + 10 (assistant tool_call) = 40 < 100 threshold
+            // With tool: 30 + 10 + 80 = 120 > 100 threshold → should trigger
+
+            coEvery { llmRouter.chat(any(), any()) } returns
+                LlmResponse(
+                    content = "Summary of search",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = FinishReason.STOP,
+                )
+
+            val runner = buildRunner(buildConfig(tokenThreshold = 100))
+            runner.runIfNeeded("chat-1", "2024-01-01T01:00:00Z")
+
+            // Should trigger because tool result tokens push total over threshold
+            coVerify(exactly = 1) { llmRouter.chat(any(), any()) }
         }
 
     @Test

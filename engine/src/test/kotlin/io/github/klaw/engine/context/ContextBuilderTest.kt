@@ -962,6 +962,120 @@ class ContextBuilderTest {
         }
 
     @Test
+    fun `tool schema tokens deducted from message budget`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns ""
+
+            // Register tools with parameter schemas that consume tokens
+            val toolDefs =
+                (1..5).map { i ->
+                    ToolDef(
+                        name = "tool_$i",
+                        description = "Tool $i description with some text",
+                        parameters =
+                            buildJsonObject {
+                                put(
+                                    "type",
+                                    kotlinx.serialization.json.JsonPrimitive("object"),
+                                )
+                                put(
+                                    "properties",
+                                    buildJsonObject {
+                                        put(
+                                            "param_$i",
+                                            buildJsonObject {
+                                                put(
+                                                    "type",
+                                                    kotlinx.serialization.json.JsonPrimitive("string"),
+                                                )
+                                                put(
+                                                    "description",
+                                                    kotlinx.serialization.json.JsonPrimitive(
+                                                        "A parameter with a reasonably long description to consume tokens $i",
+                                                    ),
+                                                )
+                                            },
+                                        )
+                                    },
+                                )
+                            },
+                    )
+                }
+            coEvery { toolRegistry.listTools(any(), any()) } returns toolDefs
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 10 messages, each 50 tokens = 500 total
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    50,
+                )
+            }
+
+            // With no tools: budget=700, system prompt ~200 tokens → adjusted ~500 → fits ~10 messages
+            // With 5 tools: each schema ~30 tokens + 15 overhead = ~225 extra deducted
+            // adjusted ~275 → fits ~5 messages
+            val contextBuilderWithTools = buildContextBuilder(buildConfig(contextBudget = 700))
+            val resultWithTools = contextBuilderWithTools.buildContext(session, emptyList(), isSubagent = false)
+
+            // Now compare with no tools
+            coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
+            val contextBuilderNoTools = buildContextBuilder(buildConfig(contextBudget = 700))
+            val resultNoTools = contextBuilderNoTools.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyWithTools = resultWithTools.messages.drop(1)
+            val historyNoTools = resultNoTools.messages.drop(1)
+
+            assertTrue(
+                historyWithTools.size < historyNoTools.size,
+                "Tool schema deduction should reduce history: " +
+                    "${historyWithTools.size} with tools vs ${historyNoTools.size} without",
+            )
+        }
+
+    @Test
+    fun `empty tool list does not affect budget`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns ""
+            coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    50,
+                )
+            }
+
+            // Budget = 4096, empty system prompt, no tools → all 5 messages fit easily
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 4096))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.drop(1)
+            assertEquals(5, historyMessages.size, "All messages should fit with no tools and large budget")
+        }
+
+    @Test
     fun `capabilities section appears before Current Time`() =
         runTest {
             val session = buildSession()
