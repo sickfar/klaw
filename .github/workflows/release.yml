@@ -110,6 +110,16 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/klaw-cli:latest
             ghcr.io/${{ github.repository_owner }}/klaw-cli:${{ steps.version.outputs.tag }}
 
+      - name: Build and push sandbox
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/klaw-sandbox/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/klaw-sandbox:latest
+            ghcr.io/${{ github.repository_owner }}/klaw-sandbox:${{ steps.version.outputs.tag }}
+
   release:
     name: Publish GitHub Release
     needs: [build-linux, build-macos, publish-docker]

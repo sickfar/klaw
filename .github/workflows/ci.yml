@@ -78,3 +78,11 @@ jobs:
           file: docker/cli/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/klaw-cli:unstable
+
+      - name: Build and push sandbox
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/klaw-sandbox/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/klaw-sandbox:unstable
