@@ -55,7 +55,7 @@ class CliCommandDispatcher(
                 }
 
                 "reindex" -> {
-                    handleReindex()
+                    handleReindex(request.params)
                 }
 
                 else -> {
@@ -100,9 +100,13 @@ class CliCommandDispatcher(
         return memoryService.search(query, topK)
     }
 
-    private suspend fun handleReindex(): String {
+    private suspend fun handleReindex(params: Map<String, String>): String {
         val lines = mutableListOf<String>()
-        reindexService.reindex(onProgress = { lines += it })
+        if (params["from_jsonl"] == "true") {
+            reindexService.reindexFull(onProgress = { lines += it })
+        } else {
+            reindexService.reindexVec(onProgress = { lines += it })
+        }
         return if (lines.isEmpty()) """{"status":"ok"}""" else lines.joinToString("\n")
     }
 

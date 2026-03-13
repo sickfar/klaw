@@ -30,7 +30,18 @@ class ReindexService(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun reindex(
+    suspend fun reindexVec(onProgress: (String) -> Unit = {}) {
+        if (sqliteVecLoader.isAvailable()) {
+            withContext(Dispatchers.VT) {
+                onProgress("Clearing vec_messages...")
+                driver.execute(null, "DELETE FROM vec_messages", 0)
+            }
+        }
+        rebuildVecMessages(onProgress)
+        onProgress("Reindex complete")
+    }
+
+    suspend fun reindexFull(
         conversationsDir: String = KlawPaths.conversations,
         onProgress: (String) -> Unit = {},
     ) {
@@ -66,35 +77,48 @@ class ReindexService(
 
         for (chatDir in chatDirs) {
             val chatId = chatDir.name
-            val jsonlFile = File(chatDir, "$chatId.jsonl")
-            if (!jsonlFile.exists()) continue
+            val jsonlFiles =
+                chatDir
+                    .listFiles { f -> f.isFile && f.extension == "jsonl" }
+                    ?.sortedBy { it.name }
+                    ?: continue
+            if (jsonlFiles.isEmpty()) continue
 
             onProgress("Processing $chatId...")
 
             database.messagesQueries.transaction {
-                jsonlFile.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        if (line.isBlank()) return@forEach
-                        try {
-                            val msg = json.decodeFromString<ConversationMessage>(line)
-                            database.messagesQueries.insertMessage(
-                                id = msg.id,
-                                channel = msg.meta?.channel ?: "unknown",
-                                chat_id = chatId,
-                                role = msg.role,
-                                type = msg.type ?: "text",
-                                content = msg.content,
-                                metadata =
-                                    msg.meta?.let {
-                                        Json.encodeToString(MessageMeta.serializer(), it)
-                                    },
-                                created_at = msg.ts,
-                                tokens = approximateTokenCount(msg.content).toLong(),
-                            )
-                        } catch (_: Exception) {
-                            // Skip malformed lines gracefully
-                        }
-                    }
+                for (jsonlFile in jsonlFiles) {
+                    importJsonlFile(jsonlFile, chatId)
+                }
+            }
+        }
+    }
+
+    private fun importJsonlFile(
+        jsonlFile: File,
+        chatId: String,
+    ) {
+        jsonlFile.bufferedReader().useLines { lines ->
+            lines.forEach { line ->
+                if (line.isBlank()) return@forEach
+                try {
+                    val msg = json.decodeFromString<ConversationMessage>(line)
+                    database.messagesQueries.insertMessage(
+                        id = msg.id,
+                        channel = msg.meta?.channel ?: "unknown",
+                        chat_id = chatId,
+                        role = msg.role,
+                        type = msg.type ?: "text",
+                        content = msg.content,
+                        metadata =
+                            msg.meta?.let {
+                                Json.encodeToString(MessageMeta.serializer(), it)
+                            },
+                        created_at = msg.ts,
+                        tokens = approximateTokenCount(msg.content).toLong(),
+                    )
+                } catch (_: Exception) {
+                    // Skip malformed lines gracefully
                 }
             }
         }

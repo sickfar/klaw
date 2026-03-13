@@ -113,11 +113,26 @@ class CliRequestDispatchTest {
         }
 
     @Test
-    fun `reindex command returns status`() =
+    fun `reindex command calls reindexVec by default`() =
         runTest {
             val dispatcher = buildDispatcher()
             val result = dispatcher.dispatch(CliRequestMessage(command = "reindex", params = emptyMap()))
             assertTrue(result.isNotEmpty(), "Expected non-empty result from reindex")
+            io.mockk.coVerify { reindexService.reindexVec(onProgress = any()) }
+            io.mockk.coVerify(exactly = 0) { reindexService.reindexFull(any(), any()) }
+        }
+
+    @Test
+    fun `reindex with from_jsonl param calls reindexFull`() =
+        runTest {
+            val dispatcher = buildDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage(command = "reindex", params = mapOf("from_jsonl" to "true")),
+                )
+            assertTrue(result.isNotEmpty(), "Expected non-empty result from reindex")
+            io.mockk.coVerify { reindexService.reindexFull(onProgress = any()) }
+            io.mockk.coVerify(exactly = 0) { reindexService.reindexVec(any()) }
         }
 
     @Test
