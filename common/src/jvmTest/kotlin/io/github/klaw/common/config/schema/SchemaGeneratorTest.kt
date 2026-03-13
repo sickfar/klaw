@@ -5,20 +5,11 @@ import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SchemaGeneratorTest {
     private val prettyJson = Json { prettyPrint = true }
-
-    private fun projectRoot(): File {
-        var dir = File(System.getProperty("user.dir"))
-        while (!File(dir, "settings.gradle.kts").exists() && dir.parentFile != null) {
-            dir = dir.parentFile
-        }
-        return dir
-    }
 
     @Test
     fun `GeneratedSchemas ENGINE matches generateJsonSchema output`() {

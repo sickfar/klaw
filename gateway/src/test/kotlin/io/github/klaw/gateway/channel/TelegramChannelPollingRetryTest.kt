@@ -75,8 +75,6 @@ class TelegramChannelPollingRetryTest {
             // First attempt immediate, then 2s backoff
             advanceTimeBy(1)
             assertEquals(1, attempts.get())
-            val timeAfterFirst = currentTime
-
             advanceTimeBy(2_000)
             assertEquals(2, attempts.get())
 
