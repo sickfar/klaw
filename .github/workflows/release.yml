@@ -62,19 +62,12 @@ jobs:
 
   publish-docker:
     name: Publish Docker Images
-    needs: [build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-artifacts
-          path: build/dist/
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

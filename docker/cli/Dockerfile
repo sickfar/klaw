@@ -1,3 +1,34 @@
+# syntax=docker/dockerfile:1
+
+# === Build stage ===
+FROM eclipse-temurin:21-jdk-jammy AS builder
+WORKDIR /build
+
+ENV GRADLE_OPTS="-Xmx2g"
+
+# 1. Copy Gradle infrastructure only (cached layer)
+COPY gradlew gradlew
+COPY gradle gradle
+COPY build.gradle.kts settings.gradle.kts gradle.properties .editorconfig ./
+COPY config/detekt config/detekt
+COPY common/build.gradle.kts common/build.gradle.kts
+COPY engine/build.gradle.kts engine/build.gradle.kts
+COPY gateway/build.gradle.kts gateway/build.gradle.kts
+COPY cli/build.gradle.kts cli/build.gradle.kts
+
+# 2. Download dependencies (cache-mounted, survives source code changes)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :cli:dependencies :common:dependencies --no-daemon || true
+
+# 3. Copy source code
+COPY common/src common/src
+COPY cli/src cli/src
+
+# 4. Build native Linux x64 binary (no tests)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :cli:linkReleaseExecutableLinuxX64 -x test --no-daemon
+
+# === Runtime stage ===
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     docker.io \
@@ -11,7 +42,7 @@ RUN mkdir -p /home/klaw/.local/state/klaw/run \
     && chown -R klaw:klaw /home/klaw
 
 COPY docker/compose/docker-compose.prod.json /app/docker-compose.json
-COPY build/dist/klaw-linuxX64 /usr/local/bin/klaw
+COPY --from=builder /build/cli/build/bin/linuxX64/releaseExecutable/klaw.kexe /usr/local/bin/klaw
 RUN chmod +x /usr/local/bin/klaw
 USER klaw
 ENTRYPOINT ["klaw"]

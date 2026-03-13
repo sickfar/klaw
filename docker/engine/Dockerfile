@@ -1,3 +1,33 @@
+# syntax=docker/dockerfile:1
+
+# === Build stage ===
+FROM eclipse-temurin:21-jdk-jammy AS builder
+WORKDIR /build
+
+# 1. Copy Gradle infrastructure only (cached layer - changes rarely)
+COPY gradlew gradlew
+COPY gradle gradle
+COPY build.gradle.kts settings.gradle.kts gradle.properties .editorconfig ./
+COPY config/detekt config/detekt
+COPY common/build.gradle.kts common/build.gradle.kts
+COPY engine/build.gradle.kts engine/build.gradle.kts
+COPY gateway/build.gradle.kts gateway/build.gradle.kts
+COPY cli/build.gradle.kts cli/build.gradle.kts
+
+# 2. Download dependencies (cache-mounted, survives source code changes)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :engine:dependencies :common:dependencies --no-daemon || true
+
+# 3. Copy source code + docs
+COPY common/src common/src
+COPY engine/src engine/src
+COPY doc doc
+
+# 4. Build fat JAR (no tests)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :engine:shadowJar -x test --no-daemon
+
+# === Runtime stage ===
 FROM eclipse-temurin:21-jre-jammy
 
 RUN apt-get update \
@@ -21,7 +51,7 @@ RUN mkdir -p /home/klaw/.local/state/klaw/run \
     && chown -R klaw:klaw /home/klaw
 
 WORKDIR /app
-COPY build/dist/klaw-engine-*.jar klaw-engine.jar
+COPY --from=builder /build/engine/build/libs/*-all.jar klaw-engine.jar
 COPY docker/engine/entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

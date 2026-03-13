@@ -1,0 +1,12 @@
+.git
+.gradle
+.idea
+.kotlin
+build
+*/build
+**/*.iml
+**/.env
+**/*.env
+*.log
+.claude
+impl-doc
