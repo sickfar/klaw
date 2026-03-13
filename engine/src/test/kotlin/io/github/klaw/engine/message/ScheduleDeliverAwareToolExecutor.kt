@@ -14,7 +14,7 @@ import kotlin.coroutines.coroutineContext
  * [ScheduleDeliverContext] from the coroutine context. This ensures proper context
  * propagation without relying on mockk's coAnswers context handling.
  */
-internal class ScheduleDeliverAwareToolExecutor : ToolExecutor {
+class ScheduleDeliverAwareToolExecutor : ToolExecutor {
     override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =
         toolCalls.map { call ->
             if (call.name == "schedule_deliver") {

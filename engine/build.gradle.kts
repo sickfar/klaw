@@ -15,6 +15,20 @@ val micronautVersion =
     libs.versions.micronaut.platform
         .get()
 
+sourceSets {
+    create("integrationTest") {
+        compileClasspath += sourceSets["main"].output + sourceSets["test"].output
+        runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
+    }
+}
+
+val integrationTestImplementation by configurations.getting {
+    extendsFrom(configurations["testImplementation"])
+}
+val integrationTestRuntimeOnly by configurations.getting {
+    extendsFrom(configurations["testRuntimeOnly"])
+}
+
 dependencies {
     implementation(project(":common"))
     implementation(libs.kotlinx.coroutines.core)
@@ -25,6 +39,7 @@ dependencies {
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")
     "kaptTest"("io.micronaut:micronaut-inject-java:$micronautVersion")
+    "kaptIntegrationTest"("io.micronaut:micronaut-inject-java:$micronautVersion")
 
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.coroutines)
@@ -74,15 +89,16 @@ sqldelight {
 }
 
 tasks.named<Test>("test") {
-    useJUnitPlatform {
-        excludeTags("integration")
-    }
+    useJUnitPlatform()
 }
 
 tasks.register<Test>("integrationTest") {
-    useJUnitPlatform {
-        includeTags("integration")
-    }
+    description = "Runs integration tests."
+    group = "verification"
+    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
+    classpath = sourceSets["integrationTest"].runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.named("test"))
 }
 
 ktlint {
