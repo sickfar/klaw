@@ -49,6 +49,13 @@ object E2eConstants {
             "management secret rotation audit logging monitoring alerting incident " +
             "response disaster recovery business continuity planning capacity planning"
 
+    // ~40 tokens via JTokkit BPE — appended to summary stubs so each summary exceeds
+    // summaryBudgetFraction budget (0.05 * 2000 = 100 tokens), forcing eviction with 3+ summaries
+    const val SUMMARY_PADDING =
+        "The discussion covered various architectural decisions involving microservices " +
+            "deployment strategies event driven patterns scalability concerns database " +
+            "optimization techniques and comprehensive monitoring observability frameworks"
+
     // ~771 chars = 107 tokens via JTokkit BPE (stored as STUB_COMPLETION_TOKENS)
     const val ASST_MSG_PADDING =
         "Here is a detailed analysis covering the key aspects " +

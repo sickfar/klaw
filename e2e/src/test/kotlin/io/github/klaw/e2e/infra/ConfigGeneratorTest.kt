@@ -51,6 +51,44 @@ class ConfigGeneratorTest {
     }
 
     @Test
+    fun `engine json with custom autoRag parameters`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                autoRagEnabled = true,
+                autoRagTopK = 5,
+                autoRagMaxTokens = 250,
+                autoRagRelevanceThreshold = 0.3,
+                autoRagMinMessageTokens = 20,
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val autoRag = root["autoRag"]!!.jsonObject
+        assertTrue(autoRag["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(5, autoRag["topK"]!!.jsonPrimitive.int)
+        assertEquals(250, autoRag["maxTokens"]!!.jsonPrimitive.int)
+        assertEquals(0.3, autoRag["relevanceThreshold"]!!.jsonPrimitive.double)
+        assertEquals(20, autoRag["minMessageTokens"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `engine json with default autoRag parameters`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                autoRagEnabled = true,
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val autoRag = root["autoRag"]!!.jsonObject
+        assertTrue(autoRag["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(3, autoRag["topK"]!!.jsonPrimitive.int)
+        assertEquals(400, autoRag["maxTokens"]!!.jsonPrimitive.int)
+        assertEquals(0.5, autoRag["relevanceThreshold"]!!.jsonPrimitive.double)
+        assertEquals(10, autoRag["minMessageTokens"]!!.jsonPrimitive.int)
+    }
+
+    @Test
     fun `engine json with summarization enabled`() {
         val engineJson =
             ConfigGenerator.engineJson(

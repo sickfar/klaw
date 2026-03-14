@@ -12,6 +12,10 @@ object ConfigGenerator {
     private const val SUBAGENT_HISTORY = 3
     private const val DEBOUNCE_MS = 50
     private const val GATEWAY_CONSOLE_PORT = 37474
+    private const val DEFAULT_AUTO_RAG_TOP_K = 3
+    private const val DEFAULT_AUTO_RAG_MAX_TOKENS = 400
+    private const val DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD = 0.5
+    private const val DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS = 10
 
     @Suppress("LongParameterList")
     fun engineJson(
@@ -21,6 +25,10 @@ object ConfigGenerator {
         compactionThresholdFraction: Double = 0.5,
         summaryBudgetFraction: Double = 0.25,
         autoRagEnabled: Boolean = false,
+        autoRagTopK: Int = DEFAULT_AUTO_RAG_TOP_K,
+        autoRagMaxTokens: Int = DEFAULT_AUTO_RAG_MAX_TOKENS,
+        autoRagRelevanceThreshold: Double = DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD,
+        autoRagMinMessageTokens: Int = DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS,
     ): String {
         val root =
             buildJsonObject {
@@ -29,7 +37,13 @@ object ConfigGenerator {
                 buildRouting()
                 buildMemory()
                 buildContextAndProcessing(contextBudgetTokens)
-                buildFeatureFlags(autoRagEnabled)
+                buildFeatureFlags(
+                    autoRagEnabled,
+                    autoRagTopK,
+                    autoRagMaxTokens,
+                    autoRagRelevanceThreshold,
+                    autoRagMinMessageTokens,
+                )
                 buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
             }
         return root.toString()
@@ -105,9 +119,20 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildFeatureFlags(autoRagEnabled: Boolean) {
+    @Suppress("LongParameterList")
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildFeatureFlags(
+        autoRagEnabled: Boolean,
+        autoRagTopK: Int,
+        autoRagMaxTokens: Int,
+        autoRagRelevanceThreshold: Double,
+        autoRagMinMessageTokens: Int,
+    ) {
         putJsonObject("autoRag") {
             put("enabled", autoRagEnabled)
+            put("topK", autoRagTopK)
+            put("maxTokens", autoRagMaxTokens)
+            put("relevanceThreshold", autoRagRelevanceThreshold)
+            put("minMessageTokens", autoRagMinMessageTokens)
         }
         putJsonObject("docs") {
             put("enabled", false)
