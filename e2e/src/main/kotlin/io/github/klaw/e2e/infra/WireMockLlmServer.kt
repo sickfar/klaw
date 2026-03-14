@@ -144,6 +144,38 @@ class WireMockLlmServer {
 
     fun hasReceivedSummarizationCall(): Boolean = getRecordedRequests().any { it.contains(SUMMARIZATION_MARKER) }
 
+    fun getSummarizationCallCount(): Int = getRecordedRequests().count { it.contains(SUMMARIZATION_MARKER) }
+
+    fun stubSummarizationResponseSequence(responses: List<StubResponse>) {
+        val scenarioName = "summarization-sequence"
+        responses.forEachIndexed { index, stub ->
+            val currentState = if (index == 0) Scenario.STARTED else "sum-state-$index"
+            val nextState = if (index < responses.lastIndex) "sum-state-${index + 1}" else "sum-state-done"
+
+            val responseBuilder =
+                aResponse()
+                    .withStatus(HTTP_OK)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        buildChatResponseJson(stub.content, stub.promptTokens, stub.completionTokens),
+                    )
+
+            if (stub.delayMs > 0) {
+                responseBuilder.withFixedDelay(stub.delayMs)
+            }
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .withRequestBody(containing(SUMMARIZATION_MARKER))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_SUMMARIZATION)
+                    .willSetStateTo(nextState)
+                    .willReturn(responseBuilder),
+            )
+        }
+    }
+
     fun getChatRequests(): List<String> = getRecordedRequests().filter { !it.contains(SUMMARIZATION_MARKER) }
 
     fun getLastChatRequestMessages(): JsonArray {

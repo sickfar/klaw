@@ -28,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :e2e:test
 
 # Run e2e integration tests (requires Docker; first run builds images ~3-5 min)
+# No assembleDist or pre-build needed — Dockerfiles are self-contained multi-stage builds
 ./gradlew :e2e:integrationTest
 
 # Assemble distribution artifacts (JARs + native CLI binaries)

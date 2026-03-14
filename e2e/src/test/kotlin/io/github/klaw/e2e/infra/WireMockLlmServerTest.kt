@@ -134,6 +134,62 @@ class WireMockLlmServerTest {
     }
 
     @Test
+    fun `getSummarizationCallCount returns correct count`() {
+        server.stubChatResponse("Response", promptTokens = 10, completionTokens = 5)
+        server.stubSummarizationResponse("Summary")
+
+        assertEquals(0, server.getSummarizationCallCount())
+
+        postChatCompletion(makeRequest("Hello"))
+        assertEquals(0, server.getSummarizationCallCount())
+
+        postChatCompletion(makeSummarizationRequest("msg1"))
+        assertEquals(1, server.getSummarizationCallCount())
+
+        postChatCompletion(makeSummarizationRequest("msg2"))
+        assertEquals(2, server.getSummarizationCallCount())
+    }
+
+    @Test
+    fun `stubSummarizationResponseSequence cycles through summarization turns`() {
+        server.stubSummarizationResponseSequence(
+            listOf(
+                StubResponse("Summary batch 1", promptTokens = 50, completionTokens = 30),
+                StubResponse("Summary batch 2", promptTokens = 50, completionTokens = 30),
+            ),
+        )
+
+        val s1 = extractContent(postChatCompletion(makeSummarizationRequest("conv1")))
+        val s2 = extractContent(postChatCompletion(makeSummarizationRequest("conv2")))
+
+        assertEquals("Summary batch 1", s1)
+        assertEquals("Summary batch 2", s2)
+    }
+
+    @Test
+    fun `stubSummarizationResponseSequence applies delay when specified`() {
+        server.stubSummarizationResponseSequence(
+            listOf(
+                StubResponse("Slow summary", promptTokens = 50, completionTokens = 30, delayMs = 500),
+                StubResponse("Fast summary", promptTokens = 50, completionTokens = 30),
+            ),
+        )
+
+        val start1 = System.currentTimeMillis()
+        val s1 = extractContent(postChatCompletion(makeSummarizationRequest("conv1")))
+        val elapsed1 = System.currentTimeMillis() - start1
+
+        val start2 = System.currentTimeMillis()
+        val s2 = extractContent(postChatCompletion(makeSummarizationRequest("conv2")))
+        val elapsed2 = System.currentTimeMillis() - start2
+
+        assertEquals("Slow summary", s1)
+        assertEquals("Fast summary", s2)
+        assertTrue(elapsed1 >= 400, "First response should be delayed (~500ms), was ${elapsed1}ms")
+        assertTrue(elapsed2 < 400, "Second response should be fast, was ${elapsed2}ms")
+    }
+
+    @Test
     fun `reset clears stubs and recorded requests`() {
         server.stubChatResponse("Response", promptTokens = 10, completionTokens = 5)
         postChatCompletion(makeRequest("Hello"))
@@ -166,4 +222,7 @@ class WireMockLlmServerTest {
 
     private fun makeRequest(content: String): String =
         """{"model":"test","messages":[{"role":"user","content":"$content"}]}"""
+
+    private fun makeSummarizationRequest(content: String): String =
+        """{"model":"test","messages":[{"role":"system","content":"You are a conversation summarizer. Write a concise markdown summary"},{"role":"user","content":"$content"}]}"""
 }
