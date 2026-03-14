@@ -121,9 +121,9 @@ data class EmbeddingConfig(
 
 @Serializable
 data class ChunkingConfig(
-    @ConfigDoc("Maximum chunk size in characters")
+    @ConfigDoc("Maximum chunk size in approximate tokens")
     val size: Int,
-    @ConfigDoc("Overlap between consecutive chunks in characters")
+    @ConfigDoc("Overlap between consecutive chunks in approximate tokens")
     val overlap: Int,
 ) {
     init {

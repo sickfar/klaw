@@ -137,7 +137,7 @@ object GeneratedConfigDescriptors {
             ConfigPropertyDescriptor(
                 "memory.chunking.size",
                 ConfigValueType.INT,
-                "Maximum chunk size in characters",
+                "Maximum chunk size in approximate tokens",
                 null,
                 null,
                 false,
@@ -146,7 +146,7 @@ object GeneratedConfigDescriptors {
             ConfigPropertyDescriptor(
                 "memory.chunking.overlap",
                 ConfigValueType.INT,
-                "Overlap between consecutive chunks in characters",
+                "Overlap between consecutive chunks in approximate tokens",
                 null,
                 null,
                 false,

@@ -175,6 +175,28 @@ klaw gateway restart
 
 ---
 
+## Pairing
+
+### `klaw pair CHANNEL CODE`
+
+Pairs a new chat with the bot using a pairing code. The code is generated when a user sends `/start` in an unpaired Telegram chat. Codes expire after 5 minutes.
+
+```
+klaw pair telegram ABC123
+```
+
+This adds the chat to the `allowedChats` list in `gateway.json` and removes the pairing request.
+
+### `klaw unpair CHANNEL CHATID`
+
+Removes a paired chat from the `allowedChats` list in `gateway.json`.
+
+```
+klaw unpair telegram 123456789
+```
+
+---
+
 ## Status & Sessions
 
 ### `klaw status`
@@ -294,6 +316,37 @@ Checks the Klaw installation for common issues:
 ```
 klaw doctor
 ```
+
+### `klaw doctor fix`
+
+Automatically repairs common issues found by `klaw doctor`:
+
+1. Creates missing directories (workspace, config, state, logs)
+2. Sanitizes config JSON (removes unknown keys from `engine.json` / `gateway.json`)
+3. Fixes `docker-compose.json` structure (adds missing mounts, env vars, port mappings)
+4. Starts the engine if it is not running
+
+```
+klaw doctor fix
+```
+
+---
+
+## Update
+
+### `klaw update`
+
+Checks for CLI updates from GitHub releases and optionally installs them.
+
+```
+klaw update
+klaw update --check
+klaw update --version v0.2.0
+```
+
+Options:
+- `--check` — check for updates without installing
+- `--version TAG` — install a specific version (e.g., `v0.2.0`)
 
 ---
 

@@ -52,7 +52,7 @@ Klaw is a two-process AI agent for Raspberry Pi 5 with Chinese LLM support:
 
 Gateway ↔ Engine communicate via TCP localhost (port `7470`) using JSONL framing. The scheduler is an in-process module inside Engine (not a separate service).
 
-Design document: `impl-doc/design/klaw-design-v0_4.md`. Task files: `impl-doc/tasks/TASK-001` through `TASK-012`. User-facing docs: `doc/` (commands, config, deployment, tools, memory, etc.).
+User-facing docs: `doc/` (commands, config, deployment, tools, memory, etc.).
 
 ## Module & Source Set Layout
 
@@ -66,11 +66,16 @@ common/src/
 
 engine/src/main/kotlin/io/github/klaw/engine/
 ├── llm/          # LlmClient, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
-├── context/      # ContextBuilder, SubagentHistoryLoader, SkillRegistry, WorkspaceLoader
+├── context/      # ContextBuilder, SubagentHistoryLoader, SkillRegistry, WorkspaceLoader, CompactionRunner
+├── command/      # CommandHandler (slash commands from chat)
+├── config/       # Config factories (Micronaut DI wiring)
 ├── message/      # MessageProcessor, DebounceBuffer, ToolCallLoopRunner, MessageRepository, MessageEmbeddingService
 ├── memory/       # MemoryService, AutoRagService, EmbeddingService (ONNX + Ollama), MarkdownChunker, RrfMerge
-├── tools/        # ToolExecutor, FileTools, MemoryTools, ScheduleTools, SkillTools, SubagentTools, DocsTools
+├── mcp/          # McpClient, McpToolRegistry, McpToolBridge (Model Context Protocol integration)
+├── tools/        # ToolExecutor, FileTools, MemoryTools, ScheduleTools, SkillTools, SubagentTools, DocsTools, ApprovalService
 ├── scheduler/    # KlawScheduler, KlawSchedulerImpl, MicronautJobFactory (Quartz + SQLiteDelegate)
+├── session/      # SessionManager
+├── socket/       # EngineSocketServer, SocketFactory, CliCommandDispatcher
 ├── workspace/    # HeartbeatRunner, HeartbeatRunnerFactory, HeartbeatDeliverSink
 ├── db/           # DatabaseFactory, SqliteVecLoader, VirtualTableSetup
 ├── docs/         # DocsService
@@ -80,11 +85,15 @@ engine/src/main/kotlin/io/github/klaw/engine/
 
 cli/src/nativeMain/kotlin/io/github/klaw/cli/
 ├── command/      # StatusCommand, StopCommand, LogsCommand, MemoryCommand, ScheduleCommand, SessionsCommand,
-│                 #   ConfigCommand, DoctorCommand, EngineCommand, GatewayCommand, IdentityCommand,
-│                 #   InitCommand, ReindexCommand
+│                 #   ConfigCommand, ConfigEditCommand, DoctorCommand, DoctorFixCommand, EngineCommand,
+│                 #   GatewayCommand, IdentityCommand, InitCommand, ReindexCommand, ChatCommand,
+│                 #   PairCommand, UnpairCommand, UpdateCommand
+├── chat/         # ChatTui, WebSocketChatClient (interactive terminal chat)
 ├── init/         # InitWizard, WorkspaceInitializer, ServiceInstaller, ServiceManager, DockerComposeInstaller,
 │                 #   DockerEnvironment, EngineStarter, EnvWriter, ConfigTemplates, PlatformIO (expect/actual)
+├── update/       # UpdateChecker, UpdateInstaller (CLI self-update from GitHub releases)
 ├── socket/       # EngineSocketClient, SockAddrBuilder (expect/actual for TCP)
+├── util/         # Utility helpers
 └── ui/           # AnsiColors, Spinner
 ```
 
@@ -193,7 +202,7 @@ The `e2e/` module is a standalone Kotlin JVM module with **no dependency** on `:
 **Source sets:**
 - `main` — infrastructure library: `KlawContainers`, `WireMockLlmServer`, `WebSocketChatClient`, `ConfigGenerator`, `WorkspaceGenerator`, `DbInspector`, `ChatFrame`
 - `test` — unit tests for the infrastructure classes (no Docker required)
-- `integrationTest` — e2e tests that start Docker containers (`SlidingWindowE2eTest`, `SummarizationE2eTest`)
+- `integrationTest` — e2e tests that start Docker containers (`SlidingWindowE2eTest`, `CompactionE2eTest`, `SummaryEvictionAutoRagE2eTest`, etc.)
 
 **How it works:**
 - Testcontainers builds Docker images from `docker/{engine,gateway}/Dockerfile` using `ImageFromDockerfile` — no pre-build step needed, images are cached between runs

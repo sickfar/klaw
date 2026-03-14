@@ -26,7 +26,7 @@ klaw doctor --dump-schema engine > engine.schema.json
 ## ENV Variable Substitution
 
 API keys are stored in `~/.config/klaw/.env` and referenced in `engine.json` using `${VAR_NAME}` placeholders.
-The engine resolves placeholders via `EnvVarResolver` at startup (see TASK-005).
+The engine resolves placeholders via `EnvVarResolver` at startup.
 
 ```
 ~/.config/klaw/.env:
@@ -36,7 +36,7 @@ The engine resolves placeholders via `EnvVarResolver` at startup (see TASK-005).
 
 ## Provider Types
 
-Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Post-MVP P1.
+Only `openai-compatible` is currently supported. `anthropic-compatible` is planned.
 
 | Type                   | Providers                       |
 |------------------------|---------------------------------|
@@ -108,7 +108,7 @@ Only `openai-compatible` is supported in TASK-003. `anthropic-compatible` is Pos
   "processing": {
     "debounceMs": 500,
     "maxConcurrentLlm": 2,
-    "maxToolCallRounds": 10,
+    "maxToolCallRounds": 50,
     "maxToolOutputChars": 8000,
     "maxDebounceEntries": 1000
   },
