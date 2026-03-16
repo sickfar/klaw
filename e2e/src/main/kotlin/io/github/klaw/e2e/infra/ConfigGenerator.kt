@@ -29,6 +29,8 @@ object ConfigGenerator {
         autoRagMaxTokens: Int = DEFAULT_AUTO_RAG_MAX_TOKENS,
         autoRagRelevanceThreshold: Double = DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD,
         autoRagMinMessageTokens: Int = DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS,
+        maxToolCallRounds: Int = 1,
+        debounceMs: Int = DEBOUNCE_MS,
     ): String {
         val root =
             buildJsonObject {
@@ -36,7 +38,7 @@ object ConfigGenerator {
                 buildModels(contextBudgetTokens)
                 buildRouting()
                 buildMemory()
-                buildContextAndProcessing(contextBudgetTokens)
+                buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 buildFeatureFlags(
                     autoRagEnabled,
                     autoRagTopK,
@@ -107,15 +109,19 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildContextAndProcessing(contextBudgetTokens: Int) {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildContextAndProcessing(
+        contextBudgetTokens: Int,
+        maxToolCallRounds: Int,
+        debounceMs: Int,
+    ) {
         putJsonObject("context") {
             put("defaultBudgetTokens", contextBudgetTokens)
             put("subagentHistory", SUBAGENT_HISTORY)
         }
         putJsonObject("processing") {
-            put("debounceMs", DEBOUNCE_MS)
+            put("debounceMs", debounceMs)
             put("maxConcurrentLlm", 1)
-            put("maxToolCallRounds", 1)
+            put("maxToolCallRounds", maxToolCallRounds)
         }
     }
 

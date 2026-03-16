@@ -89,6 +89,42 @@ class ConfigGeneratorTest {
     }
 
     @Test
+    fun `engine json with custom maxToolCallRounds`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                maxToolCallRounds = 5,
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val processing = root["processing"]!!.jsonObject
+        assertEquals(5, processing["maxToolCallRounds"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `engine json with custom debounceMs`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                debounceMs = 3000,
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val processing = root["processing"]!!.jsonObject
+        assertEquals(3000, processing["debounceMs"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `engine json defaults have maxToolCallRounds 1 and debounceMs 50`() {
+        val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val processing = root["processing"]!!.jsonObject
+        assertEquals(1, processing["maxToolCallRounds"]!!.jsonPrimitive.int)
+        assertEquals(50, processing["debounceMs"]!!.jsonPrimitive.int)
+    }
+
+    @Test
     fun `engine json with summarization enabled`() {
         val engineJson =
             ConfigGenerator.engineJson(

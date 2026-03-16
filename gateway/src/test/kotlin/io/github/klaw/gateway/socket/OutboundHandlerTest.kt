@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class OutboundHandlerTest {
     @TempDir
@@ -108,15 +110,18 @@ class OutboundHandlerTest {
     @Test
     fun `handleRestartRequest closes application context and triggers exit`() =
         runBlocking {
+            val closeLatch = CountDownLatch(1)
             val appCtx = mockk<ApplicationContext>(relaxed = true)
+            every { appCtx.close() } answers { closeLatch.countDown() }
             val handler = makeHandler(applicationContext = appCtx)
             var exitCode = -1
             handler.exitFn = { code -> exitCode = code }
 
             handler.handleRestartRequest()
-            Thread.sleep(700) // wait past 500ms restart delay
-
-            coVerify { appCtx.close() }
+            assertTrue(
+                closeLatch.await(5, TimeUnit.SECONDS),
+                "applicationContext.close() was not called within 5 seconds",
+            )
             assertEquals(0, exitCode)
         }
 }

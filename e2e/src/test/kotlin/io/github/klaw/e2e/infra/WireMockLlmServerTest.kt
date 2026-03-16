@@ -1,6 +1,7 @@
 package io.github.klaw.e2e.infra
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -187,6 +188,95 @@ class WireMockLlmServerTest {
         assertEquals("Fast summary", s2)
         assertTrue(elapsed1 >= 400, "First response should be delayed (~500ms), was ${elapsed1}ms")
         assertTrue(elapsed2 < 400, "Second response should be fast, was ${elapsed2}ms")
+    }
+
+    @Test
+    fun `buildToolCallResponseJson produces valid JSON with tool_calls array`() {
+        val toolCalls =
+            listOf(
+                StubToolCall(id = "call_abc", name = "file_list", arguments = """{"path":"/"}"""),
+            )
+        val bodyJson = WireMockLlmServer.buildToolCallResponseJson(toolCalls, promptTokens = 50, completionTokens = 30)
+
+        val root = json.parseToJsonElement(bodyJson).jsonObject
+        val choice = root["choices"]!!.jsonArray[0].jsonObject
+        val message = choice["message"]!!.jsonObject
+
+        assertEquals("tool_calls", choice["finish_reason"]!!.jsonPrimitive.content)
+        assertTrue(
+            message["content"]!!.jsonPrimitive.isString.not() || message["content"]!!.jsonPrimitive.content.isEmpty(),
+            "content should be null or empty",
+        )
+        val calls = message["tool_calls"]!!.jsonArray
+        assertEquals(1, calls.size)
+        val call = calls[0].jsonObject
+        assertEquals("call_abc", call["id"]!!.jsonPrimitive.content)
+        assertEquals("function", call["type"]!!.jsonPrimitive.content)
+        val function = call["function"]!!.jsonObject
+        assertEquals("file_list", function["name"]!!.jsonPrimitive.content)
+        assertEquals("""{"path":"/"}""", function["arguments"]!!.jsonPrimitive.content)
+
+        val usage = root["usage"]!!.jsonObject
+        assertEquals(50, usage["prompt_tokens"]!!.jsonPrimitive.int)
+        assertEquals(30, usage["completion_tokens"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `stubChatError returns specified HTTP status`() {
+        server.stubChatError(400)
+
+        val response = postChatCompletion(makeRequest("Hello"))
+
+        assertEquals(400, response.statusCode())
+    }
+
+    @Test
+    fun `stubSummarizationError returns HTTP error for summarization requests`() {
+        server.stubSummarizationError(500)
+        server.stubChatResponse("Regular response")
+
+        val regular = postChatCompletion(makeRequest("Hello"))
+        assertEquals(200, regular.statusCode())
+
+        val summarization = postChatCompletion(makeSummarizationRequest("conv1"))
+        assertEquals(500, summarization.statusCode())
+    }
+
+    @Test
+    fun `stubChatResponseSequenceRaw cycles through raw JSON bodies`() {
+        val body1 = WireMockLlmServer.buildChatResponseJson("Raw response 1", 10, 5)
+        val body2 = WireMockLlmServer.buildChatResponseJson("Raw response 2", 20, 10)
+        server.stubChatResponseSequenceRaw(listOf(body1, body2))
+
+        val r1 = extractContent(postChatCompletion(makeRequest("msg1")))
+        val r2 = extractContent(postChatCompletion(makeRequest("msg2")))
+
+        assertEquals("Raw response 1", r1)
+        assertEquals("Raw response 2", r2)
+    }
+
+    @Test
+    fun `getNthRequestBody returns parsed JsonObject`() {
+        server.stubChatResponse("Response")
+        postChatCompletion(
+            """{"model":"test","messages":[{"role":"user","content":"hello"}],"tools":[{"type":"function","function":{"name":"file_list","description":"list files","parameters":{}}}]}""",
+        )
+
+        val body = server.getNthRequestBody(0)
+        assertTrue(body.containsKey("model"))
+        assertTrue(body.containsKey("messages"))
+    }
+
+    @Test
+    fun `getNthRequestHasTools returns true when tools field present`() {
+        server.stubChatResponse("Response")
+        postChatCompletion(
+            """{"model":"test","messages":[{"role":"user","content":"hello"}],"tools":[{"type":"function","function":{"name":"file_list","description":"list","parameters":{}}}]}""",
+        )
+        postChatCompletion("""{"model":"test","messages":[{"role":"user","content":"hello"}]}""")
+
+        assertTrue(server.getNthRequestHasTools(0), "First request has tools")
+        assertFalse(server.getNthRequestHasTools(1), "Second request has no tools")
     }
 
     @Test

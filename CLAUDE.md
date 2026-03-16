@@ -155,6 +155,7 @@ Deployment scripts in `scripts/`: `build.sh` (runs `assembleDist`), `deploy.sh`,
 - File tools: path traversal protection — agents cannot read outside `$KLAW_WORKSPACE`
 - Chinese LLMs (GLM-5, DeepSeek, Qwen) connect via OpenAI-compatible API
 - SQLite databases are cache/index only — source of truth is JSONL files on disk (recoverable via `klaw reindex`)
+- **Never use `Thread.sleep` for async waiting in tests.** Use event-based waiting: `CountDownLatch.await(timeout, unit)`, Awaitility (`await().atMost(...).until {}`), or coroutine-based (`CompletableDeferred.await()` with `withTimeout`). `Thread.sleep` is fragile and causes flaky tests.
 
 ## Logging Constraints
 

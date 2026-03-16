@@ -11,6 +11,7 @@ import com.github.tomakehurst.wiremock.stubbing.Scenario
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
@@ -185,6 +186,67 @@ class WireMockLlmServer {
         return body["messages"]?.jsonArray ?: JsonArray(emptyList())
     }
 
+    fun stubChatResponseSequenceRaw(responses: List<String>) {
+        val scenarioName = "chat-sequence-raw"
+        responses.forEachIndexed { index, bodyJson ->
+            val currentState = if (index == 0) Scenario.STARTED else "raw-state-$index"
+            val nextState = if (index < responses.lastIndex) "raw-state-${index + 1}" else "raw-state-done"
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_SEQUENCE)
+                    .willSetStateTo(nextState)
+                    .willReturn(
+                        aResponse()
+                            .withStatus(HTTP_OK)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(bodyJson),
+                    ),
+            )
+        }
+    }
+
+    fun stubChatError(statusCode: Int) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .atPriority(PRIORITY_DEFAULT)
+                .willReturn(
+                    aResponse()
+                        .withStatus(statusCode)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"error":{"message":"test error","type":"test_error"}}"""),
+                ),
+        )
+    }
+
+    fun stubSummarizationError(statusCode: Int) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(SUMMARIZATION_MARKER))
+                .atPriority(PRIORITY_SUMMARIZATION)
+                .willReturn(
+                    aResponse()
+                        .withStatus(statusCode)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"error":{"message":"test error","type":"test_error"}}"""),
+                ),
+        )
+    }
+
+    fun getNthRequestBody(n: Int): JsonObject {
+        val requests = getRecordedRequests()
+        require(n in requests.indices) { "Request index $n out of bounds (${requests.size} requests)" }
+        return json.parseToJsonElement(requests[n]).jsonObject
+    }
+
+    fun getNthRequestHasTools(n: Int): Boolean {
+        val body = getNthRequestBody(n)
+        val tools = body["tools"]
+        return tools != null && tools.toString() != "null"
+    }
+
     companion object {
         fun buildChatResponseJson(
             content: String,
@@ -208,6 +270,51 @@ class WireMockLlmServer {
                                 "content": "$escapedContent"
                             },
                             "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": $promptTokens,
+                        "completion_tokens": $completionTokens,
+                        "total_tokens": ${promptTokens + completionTokens}
+                    }
+                }
+                """.trimIndent()
+        }
+
+        fun buildToolCallResponseJson(
+            toolCalls: List<StubToolCall>,
+            promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+            completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+        ): String {
+            val toolCallsJson =
+                toolCalls.joinToString(",\n") { tc ->
+                    val escapedArgs = tc.arguments.replace("\\", "\\\\").replace("\"", "\\\"")
+                    """
+                    {
+                        "id": "${tc.id}",
+                        "type": "function",
+                        "function": {
+                            "name": "${tc.name}",
+                            "arguments": "$escapedArgs"
+                        }
+                    }
+                    """.trimIndent()
+                }
+            return """
+                {
+                    "id": "chatcmpl-e2e",
+                    "object": "chat.completion",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": null,
+                                "tool_calls": [
+                                    $toolCallsJson
+                                ]
+                            },
+                            "finish_reason": "tool_calls"
                         }
                     ],
                     "usage": {
