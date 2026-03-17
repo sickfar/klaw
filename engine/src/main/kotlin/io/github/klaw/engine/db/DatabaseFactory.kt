@@ -1,6 +1,8 @@
 package io.github.klaw.engine.db
 
+import app.cash.sqldelight.driver.jdbc.ConnectionManager
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.annotation.Factory
@@ -10,12 +12,12 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermissions
 import java.sql.Connection
-import java.sql.DriverManager
 import java.util.Properties
 
 @Factory
 class DatabaseFactory(
     private val sqliteVecLoader: SqliteVecLoader,
+    private val config: EngineConfig,
 ) {
     private val logger = KotlinLogging.logger {}
     private val driver: JdbcSqliteDriver by lazy {
@@ -23,39 +25,51 @@ class DatabaseFactory(
         File(dbPath).parentFile?.mkdirs()
         val props = Properties()
         props["enable_load_extension"] = "true"
-        // Create a single persistent JDBC connection with the extension pre-loaded.
-        // JdbcSqliteDriver's ThreadedConnectionManager (used for file URLs) closes connections
-        // between execute() calls, losing loaded extensions. We create a StaticConnectionManager
-        // (IN_MEMORY) driver and swap the underlying connection to our file-backed one.
-        val fileConn = DriverManager.getConnection("jdbc:sqlite:$dbPath", props)
+
+        val connectionManager =
+            PersistentConnectionManager(
+                dbPath = dbPath,
+                properties = props,
+                busyTimeoutMs = config.database.busyTimeoutMs,
+            )
+
+        // Create an IN_MEMORY driver to get a JdbcSqliteDriver instance, then swap its
+        // internal ConnectionManager delegate to our PersistentConnectionManager which holds
+        // a file-backed connection with PRAGMAs and extension loading support.
         val d = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, props)
-        replaceConnection(d, fileConn)
+        replaceConnectionManager(d, connectionManager)
+
         KlawDatabase.Schema.create(d)
         sqliteVecLoader.loadExtension(d)
         VirtualTableSetup.createVirtualTables(d, sqliteVecLoader.isAvailable())
+        if (config.database.integrityCheckOnStartup) {
+            checkIntegrity(connectionManager.connection)
+        }
         setOwnerOnlyPermissions(dbPath)
         d
     }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun replaceConnection(
+    private fun replaceConnectionManager(
         driver: JdbcSqliteDriver,
-        newConnection: Connection,
+        newManager: ConnectionManager,
     ) {
         try {
-            // StaticConnectionManager stores a single connection in the "connection" field.
-            // We replace the in-memory connection with our file-backed one.
             val delegateField = driver.javaClass.getDeclaredField("\$\$delegate_0")
             delegateField.isAccessible = true
-            val manager = delegateField.get(driver)
-            val connField = manager.javaClass.getDeclaredField("connection")
-            connField.isAccessible = true
-            val oldConn = connField.get(manager) as Connection
-            connField.set(manager, newConnection)
-            oldConn.close()
-        } catch (e: Exception) {
-            logger.warn(e) { "Could not swap driver connection" }
-            newConnection.close()
+            val oldManager = delegateField.get(driver) as ConnectionManager
+            delegateField.set(driver, newManager)
+            oldManager.close()
+        } catch (e: NoSuchFieldException) {
+            logger.warn(e) { "Could not swap connection manager" }
+            newManager.close()
+            throw e
+        } catch (e: IllegalAccessException) {
+            logger.warn(e) { "Could not swap connection manager" }
+            newManager.close()
+            throw e
+        } catch (e: SecurityException) {
+            logger.warn(e) { "Could not swap connection manager" }
+            newManager.close()
             throw e
         }
     }
@@ -66,6 +80,15 @@ class DatabaseFactory(
     @Singleton
     fun klawDatabase(): KlawDatabase = KlawDatabase(driver)
 
+    private fun checkIntegrity(connection: Connection) {
+        val passed = runIntegrityCheck(connection)
+        if (passed) {
+            logger.debug { "SQLite integrity check passed" }
+        } else {
+            logger.error { "SQLite integrity check failed — consider running 'klaw reindex'" }
+        }
+    }
+
     private fun setOwnerOnlyPermissions(path: String) {
         runCatching {
             Files.setPosixFilePermissions(Paths.get(path), PosixFilePermissions.fromString("rw-------"))
@@ -73,4 +96,15 @@ class DatabaseFactory(
             logger.warn(e) { "Could not set owner-only permissions on $path" }
         }
     }
+}
+
+internal fun runIntegrityCheck(connection: Connection): Boolean {
+    connection.createStatement().use { stmt ->
+        stmt.executeQuery("PRAGMA integrity_check").use { rs ->
+            if (rs.next()) {
+                return rs.getString(1) == "ok"
+            }
+        }
+    }
+    return false
 }

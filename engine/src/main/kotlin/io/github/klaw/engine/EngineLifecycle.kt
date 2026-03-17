@@ -1,14 +1,20 @@
 package io.github.klaw.engine
 
+import io.github.klaw.engine.db.BackupService
 import io.github.klaw.engine.message.MessageProcessor
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.tools.SandboxManager
+import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.context.event.StartupEvent
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -23,10 +29,11 @@ private val logger = KotlinLogging.logger {}
  *
  * Shutdown sequence:
  * 1. Quartz scheduler shutdown (waits for running jobs to complete)
- * 2. Close MessageProcessor (cancels in-flight processing)
- * 3. Stop SandboxManager (stops keep-alive container, cleans up state)
- * 4. Stop EngineSocketServer (sends ShutdownMessage to gateway, closes channel, deletes socket)
- * 5. (Database close handled by driver/DI lifecycle)
+ * 2. Stop BackupService (cancel periodic backup job)
+ * 3. Close MessageProcessor (cancels in-flight processing)
+ * 4. Stop SandboxManager (stops keep-alive container, cleans up state)
+ * 5. Stop EngineSocketServer (sends ShutdownMessage to gateway, closes channel, deletes socket)
+ * 6. (Database close handled by driver/DI lifecycle)
  *
  * Scheduler MUST shut down before MessageProcessor to avoid in-flight scheduled jobs
  * calling handleScheduledMessage on a closed processor.
@@ -37,13 +44,16 @@ class EngineLifecycle(
     private val messageProcessor: MessageProcessor,
     private val scheduler: KlawScheduler,
     private val sandboxManager: SandboxManager,
+    private val backupService: BackupService,
 ) : ApplicationEventListener<StartupEvent> {
     private val shutdownOnce = AtomicBoolean(false)
+    private val backupScope = CoroutineScope(Dispatchers.VT + SupervisorJob())
 
     override fun onApplicationEvent(event: StartupEvent) {
         socketServer.start()
         scheduler.start()
-        logger.info { "EngineLifecycle started — socket server and scheduler are ready" }
+        backupService.start(backupScope)
+        logger.info { "EngineLifecycle started — socket server, scheduler, and backup service are ready" }
     }
 
     @PreDestroy
@@ -53,6 +63,13 @@ class EngineLifecycle(
 
         try {
             scheduler.shutdownBlocking()
+        } catch (_: Exception) {
+            // Best-effort
+        }
+
+        try {
+            backupService.stop()
+            backupScope.cancel()
         } catch (_: Exception) {
             // Best-effort
         }

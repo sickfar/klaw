@@ -632,4 +632,81 @@ class ConfigParsingTest {
         val json = """{"servers": {"-bad": {"transport": "http", "url": "http://localhost"}}}"""
         assertFailsWith<IllegalArgumentException> { parseMcpConfig(json) }
     }
+
+    @Test
+    fun `parse engine json - database config with all fields present`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
+  "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
+  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "database": {
+    "busyTimeoutMs": 10000,
+    "integrityCheckOnStartup": false,
+    "backupEnabled": false,
+    "backupInterval": "PT12H",
+    "backupMaxCount": 5
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(10000, config.database.busyTimeoutMs)
+        assertFalse(config.database.integrityCheckOnStartup)
+        assertFalse(config.database.backupEnabled)
+        assertEquals("PT12H", config.database.backupInterval)
+        assertEquals(5, config.database.backupMaxCount)
+    }
+
+    @Test
+    fun `parse engine json - database config absent uses defaults`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
+  "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
+  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(5000, config.database.busyTimeoutMs)
+        assertTrue(config.database.integrityCheckOnStartup)
+        assertTrue(config.database.backupEnabled)
+        assertEquals("PT24H", config.database.backupInterval)
+        assertEquals(3, config.database.backupMaxCount)
+    }
+
+    @Test
+    fun `database config - busyTimeoutMs zero fails validation`() {
+        assertFailsWith<IllegalArgumentException> {
+            DatabaseConfig(busyTimeoutMs = 0)
+        }
+    }
+
+    @Test
+    fun `database config - busyTimeoutMs negative fails validation`() {
+        assertFailsWith<IllegalArgumentException> {
+            DatabaseConfig(busyTimeoutMs = -1)
+        }
+    }
+
+    @Test
+    fun `database config - backupMaxCount zero fails validation`() {
+        assertFailsWith<IllegalArgumentException> {
+            DatabaseConfig(backupMaxCount = 0)
+        }
+    }
+
+    @Test
+    fun `database config - backupMaxCount negative fails validation`() {
+        assertFailsWith<IllegalArgumentException> {
+            DatabaseConfig(backupMaxCount = -1)
+        }
+    }
 }

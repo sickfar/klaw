@@ -440,6 +440,27 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "database": {
+                    "type": "object",
+                    "properties": {
+                        "busyTimeoutMs": {
+                            "type": "integer"
+                        },
+                        "integrityCheckOnStartup": {
+                            "type": "boolean"
+                        },
+                        "backupEnabled": {
+                            "type": "boolean"
+                        },
+                        "backupInterval": {
+                            "type": "string"
+                        },
+                        "backupMaxCount": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

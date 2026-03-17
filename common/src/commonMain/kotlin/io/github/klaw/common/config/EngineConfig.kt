@@ -41,6 +41,8 @@ data class EngineConfig(
     val heartbeat: HeartbeatConfig = HeartbeatConfig(),
     @ConfigDoc("Background summarization of old conversation messages")
     val summarization: SummarizationConfig = SummarizationConfig(),
+    @ConfigDoc("SQLite database settings: busy timeout, backups, integrity checks")
+    val database: DatabaseConfig = DatabaseConfig(),
 )
 
 @Serializable
@@ -369,6 +371,28 @@ data class SummarizationConfig(
         require(summaryBudgetFraction + compactionThresholdFraction < 1.0) {
             "summaryBudgetFraction + compactionThresholdFraction must be < 1.0, " +
                 "got ${summaryBudgetFraction + compactionThresholdFraction}"
+        }
+    }
+}
+
+@Serializable
+data class DatabaseConfig(
+    @ConfigDoc("SQLite busy timeout in milliseconds")
+    val busyTimeoutMs: Int = 5000,
+    @ConfigDoc("Run PRAGMA integrity_check on startup")
+    val integrityCheckOnStartup: Boolean = true,
+    @ConfigDoc("Enable automatic database backups")
+    val backupEnabled: Boolean = true,
+    @ConfigDoc("Backup interval as ISO-8601 duration")
+    val backupInterval: String = "PT24H",
+    @ConfigDoc("Maximum number of backup files to keep")
+    val backupMaxCount: Int = 3,
+) {
+    init {
+        require(busyTimeoutMs > 0) { "busyTimeoutMs must be > 0, got $busyTimeoutMs" }
+        require(backupMaxCount > 0) { "backupMaxCount must be > 0, got $backupMaxCount" }
+        require(runCatching { kotlin.time.Duration.parse(backupInterval) }.isSuccess) {
+            "backupInterval must be a valid ISO-8601 duration, got $backupInterval"
         }
     }
 }

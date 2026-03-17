@@ -194,6 +194,10 @@ class QuartzKlawScheduler(
                     ?: error("quartz-sqlite.sql not found in classpath")
             java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath").use { conn ->
                 conn.createStatement().use { stmt ->
+                    stmt.execute("PRAGMA journal_mode=WAL")
+                    stmt.execute("PRAGMA busy_timeout=5000")
+                    stmt.execute("PRAGMA synchronous=NORMAL")
+                    stmt.execute("PRAGMA foreign_keys=ON")
                     ddl
                         .split(";")
                         .map { it.trim() }

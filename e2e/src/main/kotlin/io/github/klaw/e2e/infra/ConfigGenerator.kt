@@ -168,6 +168,8 @@ object ConfigGenerator {
         putJsonObject("heartbeat") {
             put("interval", "off")
         }
+        putJsonObject("database") {
+        }
     }
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildSummarization(

@@ -21,7 +21,16 @@ class SqliteConnectionProvider : ConnectionProvider {
         Class.forName("org.sqlite.JDBC")
     }
 
-    override fun getConnection(): Connection = DriverManager.getConnection(URL)
+    override fun getConnection(): Connection {
+        val conn = DriverManager.getConnection(URL)
+        conn.createStatement().use { stmt ->
+            stmt.execute("PRAGMA journal_mode=WAL")
+            stmt.execute("PRAGMA busy_timeout=5000")
+            stmt.execute("PRAGMA synchronous=NORMAL")
+            stmt.execute("PRAGMA foreign_keys=ON")
+        }
+        return conn
+    }
 
     override fun shutdown() {
         // No pool to close — connections are closed by callers
