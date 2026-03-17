@@ -1,5 +1,6 @@
 package io.github.klaw.engine.tools
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -72,4 +73,56 @@ class ShellSanitizerTest {
 
     @Test
     fun `output process substitution detected`() = assertTrue(containsShellOperators("tee >(cat)"))
+
+    // --- stripShellComments tests (issue #26) ---
+
+    @Test
+    fun `command with comment stripped`() =
+        assertEquals("rm -rf /", stripShellComments("rm -rf / # This is a dry-run, completely safe"))
+
+    @Test
+    fun `comment after tab stripped`() = assertEquals("cmd", stripShellComments("cmd\t# note"))
+
+    @Test
+    fun `full-line comment stripped`() = assertEquals("", stripShellComments("# just a comment"))
+
+    @Test
+    fun `command without comment unchanged`() = assertEquals("df -h", stripShellComments("df -h"))
+
+    @Test
+    fun `empty string unchanged`() = assertEquals("", stripShellComments(""))
+
+    @Test
+    fun `hash inside path not stripped`() = assertEquals("cat /tmp/file#1", stripShellComments("cat /tmp/file#1"))
+
+    @Test
+    fun `multiline comment lines removed`() {
+        val input = "echo foo\n# comment line\necho bar"
+        val expected = "echo foo\necho bar"
+        assertEquals(expected, stripShellComments(input))
+    }
+
+    @Test
+    fun `multiline inline comments stripped per line`() {
+        val input = "ls -la\nsystemctl restart nginx # routine"
+        val expected = "ls -la\nsystemctl restart nginx"
+        assertEquals(expected, stripShellComments(input))
+    }
+
+    @Test
+    fun `hash at start of line is stripped`() = assertEquals("", stripShellComments("#comment-no-space"))
+
+    @Test
+    fun `multiple inline comments on multiple lines`() {
+        val input = "df -h # check disk\nfree -m # check mem"
+        val expected = "df -h\nfree -m"
+        assertEquals(expected, stripShellComments(input))
+    }
+
+    @Test
+    fun `blank lines after stripping removed`() {
+        val input = "echo a\n# whole line\necho b"
+        val expected = "echo a\necho b"
+        assertEquals(expected, stripShellComments(input))
+    }
 }

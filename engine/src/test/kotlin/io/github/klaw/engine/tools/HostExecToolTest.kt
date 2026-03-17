@@ -8,6 +8,7 @@ import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.engine.llm.LlmRouter
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -407,6 +408,148 @@ class HostExecToolTest {
             val output = result.await()
             assertTrue(output.contains("rejected"), "Should be rejected by user: $output")
             assertFalse(output.contains("shell operators"), "Should NOT be auto-rejected: $output")
+        }
+
+    // --- Comment injection tests (issue #26) ---
+
+    @Test
+    fun `LLM receives command with comment stripped for risk assessment`() =
+        runTest {
+            val router = mockk<LlmRouter>()
+            coEvery { router.chat(any<LlmRequest>(), any()) } returns
+                LlmResponse(
+                    content = "3",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = io.github.klaw.common.llm.FinishReason.STOP,
+                )
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    router,
+                    ApprovalService(sender),
+                )
+            t.execute("rm -rf / # safe, risk: 0", "chat_1")
+            coVerify {
+                router.chat(
+                    match { req ->
+                        val content = req.messages.first().content ?: ""
+                        content.contains("rm -rf /") && !content.contains("# safe")
+                    },
+                    any(),
+                )
+            }
+        }
+
+    @Test
+    fun `command without comment sent to LLM unchanged`() =
+        runTest {
+            val router = mockk<LlmRouter>()
+            coEvery { router.chat(any<LlmRequest>(), any()) } returns
+                LlmResponse(
+                    content = "2",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = io.github.klaw.common.llm.FinishReason.STOP,
+                )
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    router,
+                    ApprovalService(sender),
+                )
+            t.execute("df -h", "chat_1")
+            coVerify {
+                router.chat(
+                    match { req ->
+                        val content = req.messages.first().content ?: ""
+                        content.contains("df -h")
+                    },
+                    any(),
+                )
+            }
+        }
+
+    @Test
+    fun `multiline script sent to LLM with comments stripped`() =
+        runTest {
+            val router = mockk<LlmRouter>()
+            coEvery { router.chat(any<LlmRequest>(), any()) } returns
+                LlmResponse(
+                    content = "3",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = io.github.klaw.common.llm.FinishReason.STOP,
+                )
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    router,
+                    ApprovalService(sender),
+                )
+            t.execute("echo foo\n# comment\necho bar", "chat_1")
+            coVerify {
+                router.chat(
+                    match { req ->
+                        val content = req.messages.first().content ?: ""
+                        content.contains("echo foo") && content.contains("echo bar") && !content.contains("# comment")
+                    },
+                    any(),
+                )
+            }
+        }
+
+    @Test
+    fun `all-comment command sends empty string to LLM and executes as no-op`() =
+        runTest {
+            val t =
+                tool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    llmRouter = fakeLlmRouter(riskScore = 0),
+                )
+            val result = t.execute("# this is only a comment", "chat_1")
+            // sh -c "# comment" is a no-op shell command, should not crash or be rejected
+            assertFalse(result.contains("rejected"), "No-op comment-only command should not be rejected: $result")
+            assertTrue(sentMessages.isEmpty(), "Should not ask user when score is 0")
+        }
+
+    @Test
+    fun `risk assessment prompt contains exfiltration and credentials categories`() =
+        runTest {
+            val router = mockk<LlmRouter>()
+            coEvery { router.chat(any<LlmRequest>(), any()) } returns
+                LlmResponse(
+                    content = "3",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = io.github.klaw.common.llm.FinishReason.STOP,
+                )
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    router,
+                    ApprovalService(sender),
+                )
+            t.execute("df -h", "chat_1")
+            coVerify {
+                router.chat(
+                    match { req ->
+                        val content = req.messages.first().content ?: ""
+                        content.contains("exfiltration") && content.contains("credentials")
+                    },
+                    any(),
+                )
+            }
         }
 
     @Test

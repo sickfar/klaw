@@ -8,6 +8,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.github.tomakehurst.wiremock.stubbing.Scenario
+import com.github.tomakehurst.wiremock.verification.LoggedRequest
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -19,8 +20,10 @@ private val logger = KotlinLogging.logger {}
 
 private const val CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
 private const val SUMMARIZATION_MARKER = "You are a conversation summarizer"
+private const val RISK_ASSESSMENT_MARKER = "security risk assessor"
 private const val HTTP_OK = 200
 private const val PRIORITY_SUMMARIZATION = 1
+private const val PRIORITY_RISK_ASSESSMENT = 2
 private const val PRIORITY_SEQUENCE = 5
 private const val PRIORITY_DEFAULT = 10
 private const val DEFAULT_PROMPT_TOKENS = 10
@@ -271,6 +274,28 @@ class WireMockLlmServer {
                 ),
         )
     }
+
+    fun stubRiskAssessmentResponse(riskScore: Int) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(RISK_ASSESSMENT_MARKER))
+                .atPriority(PRIORITY_RISK_ASSESSMENT)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            buildChatResponseJson("$riskScore", DEFAULT_PROMPT_TOKENS, DEFAULT_COMPLETION_TOKENS),
+                        ),
+                ),
+        )
+    }
+
+    fun getRiskAssessmentRequests(): List<LoggedRequest> =
+        server.findAll(
+            postRequestedFor(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(RISK_ASSESSMENT_MARKER)),
+        )
 
     fun stubSummarizationError(statusCode: Int) {
         server.stubFor(

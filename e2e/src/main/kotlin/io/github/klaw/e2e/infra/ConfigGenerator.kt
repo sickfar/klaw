@@ -36,6 +36,10 @@ object ConfigGenerator {
         hostExecutionAllowList: List<String> = emptyList(),
         hostExecutionNotifyList: List<String> = emptyList(),
         askTimeoutMin: Int = 1,
+        preValidationEnabled: Boolean = false,
+        preValidationModel: String = "test/model",
+        preValidationRiskThreshold: Int = 5,
+        preValidationTimeoutMs: Long = 5000L,
     ): String {
         val root =
             buildJsonObject {
@@ -54,6 +58,10 @@ object ConfigGenerator {
                     hostExecutionAllowList,
                     hostExecutionNotifyList,
                     askTimeoutMin,
+                    preValidationEnabled,
+                    preValidationModel,
+                    preValidationRiskThreshold,
+                    preValidationTimeoutMs,
                 )
                 buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
             }
@@ -156,6 +164,10 @@ object ConfigGenerator {
         hostExecutionAllowList: List<String>,
         hostExecutionNotifyList: List<String>,
         askTimeoutMin: Int,
+        preValidationEnabled: Boolean,
+        preValidationModel: String,
+        preValidationRiskThreshold: Int,
+        preValidationTimeoutMs: Long,
     ) {
         putJsonObject("autoRag") {
             put("enabled", autoRagEnabled)
@@ -172,7 +184,10 @@ object ConfigGenerator {
             putJsonArray("allowList") { hostExecutionAllowList.forEach { add(JsonPrimitive(it)) } }
             putJsonArray("notifyList") { hostExecutionNotifyList.forEach { add(JsonPrimitive(it)) } }
             putJsonObject("preValidation") {
-                put("enabled", false)
+                put("enabled", preValidationEnabled)
+                put("model", preValidationModel)
+                put("riskThreshold", preValidationRiskThreshold)
+                put("timeoutMs", preValidationTimeoutMs)
             }
             put("askTimeoutMin", askTimeoutMin)
         }
