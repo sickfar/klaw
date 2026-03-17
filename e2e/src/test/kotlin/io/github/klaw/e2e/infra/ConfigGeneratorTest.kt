@@ -140,4 +140,29 @@ class ConfigGeneratorTest {
         assertEquals(0.5, summarization["compactionThresholdFraction"]!!.jsonPrimitive.double)
         assertEquals(0.25, summarization["summaryBudgetFraction"]!!.jsonPrimitive.double)
     }
+
+    @Test
+    fun `engine json defaults have hostExecution disabled`() {
+        val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val hostExecution = root["hostExecution"]!!.jsonObject
+        assertFalse(hostExecution["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(1, hostExecution["askTimeoutMin"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `engine json with hostExecution enabled and custom askTimeoutMin`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                hostExecutionEnabled = true,
+                askTimeoutMin = 5,
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val hostExecution = root["hostExecution"]!!.jsonObject
+        assertTrue(hostExecution["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(5, hostExecution["askTimeoutMin"]!!.jsonPrimitive.int)
+    }
 }

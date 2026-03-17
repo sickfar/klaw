@@ -35,11 +35,15 @@ class GatewayOutboundHandler(
     internal var exitFn: (Int) -> Unit = { System.exit(it) }
 
     private val channelBuffers = ConcurrentHashMap<String, ArrayDeque<OutboundSocketMessage>>()
+    private val approvalBuffers = ConcurrentHashMap<String, ArrayDeque<ApprovalRequestMessage>>()
     private val bufferLock = ReentrantLock()
 
     init {
         channels.forEach { channel ->
-            channel.onBecameAlive = { drainChannelBuffer(channel) }
+            channel.onBecameAlive = {
+                drainChannelBuffer(channel)
+                drainApprovalBuffer(channel)
+            }
         }
     }
 
@@ -89,11 +93,12 @@ class GatewayOutboundHandler(
             logger.warn { "No channel found for approval request chatId=$chatId" }
             return
         }
-        channel.sendApproval(chatId, message) { approved ->
-            val response = ApprovalResponseMessage(id = message.id, approved = approved)
-            approvalCallback?.invoke(response)
-            logger.debug { "Approval response sent: id=${message.id} approved=$approved" }
+        if (!channel.isAlive()) {
+            bufferApproval(channelName, message)
+            return
         }
+        drainApprovalBuffer(channel)
+        sendApprovalWithCallback(channel, chatId, message)
     }
 
     override suspend fun handleShutdown() {
@@ -151,6 +156,62 @@ class GatewayOutboundHandler(
                 }
                 return
             }
+        }
+    }
+
+    private fun bufferApproval(
+        channelName: String,
+        message: ApprovalRequestMessage,
+    ) {
+        bufferLock.withLock {
+            val deque = approvalBuffers.getOrPut(channelName) { ArrayDeque() }
+            if (deque.size >= MAX_CHANNEL_BUFFER_SIZE) {
+                deque.removeFirst()
+                logger.trace { "Approval buffer overflow for channel=$channelName, dropped oldest approval" }
+            }
+            deque.addLast(message)
+        }
+        logger.trace { "Approval buffered for channel=$channelName id=${message.id}" }
+    }
+
+    internal suspend fun drainApprovalBuffer(channel: Channel) {
+        val approvals =
+            bufferLock.withLock {
+                val deque = approvalBuffers[channel.name] ?: return
+                val copy = ArrayList(deque)
+                deque.clear()
+                copy
+            }
+        if (approvals.isEmpty()) return
+        logger.debug { "Draining ${approvals.size} buffered approvals for channel=${channel.name}" }
+        for ((index, msg) in approvals.withIndex()) {
+            try {
+                sendApprovalWithCallback(channel, msg.chatId, msg)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                logger.warn(e) { "Approval drain failed at ${index + 1}/${approvals.size} for channel=${channel.name}" }
+                bufferLock.withLock {
+                    val deque = approvalBuffers.getOrPut(channel.name) { ArrayDeque() }
+                    val remaining = approvals.subList(index, approvals.size)
+                    for (rem in remaining) {
+                        deque.addLast(rem)
+                    }
+                }
+                return
+            }
+        }
+    }
+
+    private suspend fun sendApprovalWithCallback(
+        channel: Channel,
+        chatId: String,
+        message: ApprovalRequestMessage,
+    ) {
+        channel.sendApproval(chatId, message) { approved ->
+            val response = ApprovalResponseMessage(id = message.id, approved = approved)
+            approvalCallback?.invoke(response)
+            logger.debug { "Approval response sent: id=${message.id} approved=$approved" }
         }
     }
 

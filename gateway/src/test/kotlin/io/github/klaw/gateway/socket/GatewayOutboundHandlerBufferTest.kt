@@ -5,7 +5,9 @@ import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
@@ -15,6 +17,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -301,5 +304,157 @@ class GatewayOutboundHandlerBufferTest {
 
             // msg2 and msg3 should be re-sent
             assertEquals(2, sendCount)
+        }
+
+    private fun approvalMsg(
+        id: String = "req-1",
+        chatId: String = "telegram_123",
+        command: String = "rm -rf /tmp/test",
+        riskScore: Int = 8,
+        timeout: Int = 5,
+    ) = ApprovalRequestMessage(
+        id = id,
+        chatId = chatId,
+        command = command,
+        riskScore = riskScore,
+        timeout = timeout,
+    )
+
+    private fun makeHandlerWithCallback(
+        channels: List<Channel>,
+        allowedChats: List<AllowedChat> = listOf(AllowedChat("telegram_123"), AllowedChat("telegram_456")),
+        callback: (suspend (SocketMessage) -> Unit)? = null,
+    ): GatewayOutboundHandler =
+        GatewayOutboundHandler(
+            channels = channels,
+            allowlistService = makeAllowlistService(allowedChats),
+            jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+            applicationContext = mockk<ApplicationContext>(relaxed = true),
+            approvalCallback = callback,
+        )
+
+    @Test
+    fun `approval request buffered when channel not alive`() =
+        runBlocking {
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } returns false
+            every { channel.onBecameAlive = any() } answers {}
+
+            val handler = makeHandlerWithCallback(listOf(channel))
+
+            handler.handleApprovalRequest(approvalMsg())
+
+            coVerify(exactly = 0) { channel.sendApproval(any(), any(), any()) }
+        }
+
+    @Test
+    fun `approval not buffered when channel is alive`() =
+        runBlocking {
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } returns true
+            every { channel.onBecameAlive = any() } answers {}
+
+            val handler = makeHandlerWithCallback(listOf(channel))
+
+            handler.handleApprovalRequest(approvalMsg())
+
+            coVerify(exactly = 1) { channel.sendApproval(eq("telegram_123"), any(), any()) }
+        }
+
+    @Test
+    fun `buffered approvals drained when channel becomes alive`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+
+            val responses = mutableListOf<SocketMessage>()
+            val handler = makeHandlerWithCallback(listOf(channel), callback = { responses.add(it) })
+
+            // Buffer two approvals while channel is down
+            handler.handleApprovalRequest(approvalMsg(id = "req-1"))
+            handler.handleApprovalRequest(approvalMsg(id = "req-2"))
+
+            coVerify(exactly = 0) { channel.sendApproval(any(), any(), any()) }
+
+            // Capture sendApproval callbacks to simulate user response
+            val callbackSlots = mutableListOf<suspend (Boolean) -> Unit>()
+            coEvery { channel.sendApproval(any(), any(), capture(slot<suspend (Boolean) -> Unit>())) } answers {
+                callbackSlots.add(thirdArg())
+            }
+
+            // Simulate channel becoming alive
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            // Both approvals should have been sent
+            coVerify(exactly = 2) { channel.sendApproval(any(), any(), any()) }
+        }
+
+    @Test
+    fun `buffered approvals delivered in order`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val sentIds = mutableListOf<String>()
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.sendApproval(any(), any(), any()) } answers {
+                sentIds.add(secondArg<ApprovalRequestMessage>().id)
+            }
+
+            val handler = makeHandlerWithCallback(listOf(channel))
+
+            handler.handleApprovalRequest(approvalMsg(id = "first"))
+            handler.handleApprovalRequest(approvalMsg(id = "second"))
+            handler.handleApprovalRequest(approvalMsg(id = "third"))
+
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            assertEquals(listOf("first", "second", "third"), sentIds)
+        }
+
+    @Test
+    fun `approvals drained after regular messages`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val sendOrder = mutableListOf<String>()
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.send(any(), any()) } answers {
+                sendOrder.add("msg:${secondArg<OutgoingMessage>().content}")
+            }
+            coEvery { channel.sendApproval(any(), any(), any()) } answers {
+                sendOrder.add("approval:${secondArg<ApprovalRequestMessage>().id}")
+            }
+
+            val handler = makeHandlerWithCallback(listOf(channel))
+
+            // Buffer a regular message and an approval while channel is down
+            handler.handleOutbound(outboundMsg(content = "hello"))
+            handler.handleApprovalRequest(approvalMsg(id = "req-1"))
+
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            // Regular messages should be drained before approvals
+            assertEquals(listOf("msg:hello", "approval:req-1"), sendOrder)
         }
 }

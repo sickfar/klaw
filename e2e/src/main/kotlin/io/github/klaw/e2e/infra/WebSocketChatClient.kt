@@ -9,6 +9,7 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -147,6 +148,57 @@ class WebSocketChatClient {
                 }
                 result
             }
+        }
+
+    fun sendApprovalResponse(
+        approvalId: String,
+        approved: Boolean,
+    ) = runBlocking {
+        val frame = ChatFrame(type = "approval_response", approvalId = approvalId, approved = approved)
+        session?.send(Frame.Text(json.encodeToString(frame)))
+            ?: error("Not connected")
+        logger.debug { "Sent approval response (approvalId=$approvalId, approved=$approved)" }
+    }
+
+    fun waitForApprovalRequest(timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS): ChatFrame =
+        runBlocking {
+            val buffered = mutableListOf<ChatFrame>()
+            try {
+                withTimeout(timeoutMs) {
+                    var result: ChatFrame? = null
+                    while (result == null) {
+                        val frame = incomingFrames.receive()
+                        if (frame.type == "approval_request") {
+                            result = frame
+                        } else {
+                            buffered.add(frame)
+                            logger.debug { "Buffered non-approval frame: type=${frame.type}" }
+                        }
+                    }
+                    result
+                }
+            } finally {
+                // Re-enqueue buffered frames so they are not lost
+                for (frame in buffered) {
+                    incomingFrames.send(frame)
+                }
+            }
+        }
+
+    fun collectFrames(timeoutMs: Long): List<ChatFrame> =
+        runBlocking {
+            val collected = mutableListOf<ChatFrame>()
+            try {
+                withTimeout(timeoutMs) {
+                    while (true) {
+                        val frame = incomingFrames.receive()
+                        collected.add(frame)
+                    }
+                }
+            } catch (_: TimeoutCancellationException) {
+                // Expected — timeout means collection period is over
+            }
+            collected
         }
 
     fun sendAndReceive(

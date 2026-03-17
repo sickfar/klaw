@@ -232,6 +232,33 @@ class WireMockLlmServer {
         }
     }
 
+    fun stubChatResponseSequenceRawWithDelays(responses: List<Pair<String, Int>>) {
+        val scenarioName = "chat-sequence-raw"
+        responses.forEachIndexed { index, (bodyJson, delayMs) ->
+            val currentState = if (index == 0) Scenario.STARTED else "raw-state-$index"
+            val nextState = if (index < responses.lastIndex) "raw-state-${index + 1}" else "raw-state-done"
+
+            val responseBuilder =
+                aResponse()
+                    .withStatus(HTTP_OK)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(bodyJson)
+
+            if (delayMs > 0) {
+                responseBuilder.withFixedDelay(delayMs)
+            }
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_SEQUENCE)
+                    .willSetStateTo(nextState)
+                    .willReturn(responseBuilder),
+            )
+        }
+    }
+
     fun stubChatError(statusCode: Int) {
         server.stubFor(
             post(urlEqualTo(CHAT_COMPLETIONS_PATH))

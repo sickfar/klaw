@@ -52,6 +52,7 @@ class ApprovalHandlingTest {
         runBlocking {
             val telegramChannel = mockk<Channel>(relaxed = true)
             every { telegramChannel.name } returns "telegram"
+            every { telegramChannel.isAlive() } returns true
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
@@ -105,6 +106,7 @@ class ApprovalHandlingTest {
             val sentResponses = mutableListOf<SocketMessage>()
             val telegramChannel = mockk<Channel>(relaxed = true)
             every { telegramChannel.name } returns "telegram"
+            every { telegramChannel.isAlive() } returns true
 
             val callbackSlot = slot<suspend (Boolean) -> Unit>()
             coEvery { telegramChannel.sendApproval(any(), any(), capture(callbackSlot)) } returns Unit
@@ -143,6 +145,7 @@ class ApprovalHandlingTest {
             val sentResponses = mutableListOf<SocketMessage>()
             val telegramChannel = mockk<Channel>(relaxed = true)
             every { telegramChannel.name } returns "telegram"
+            every { telegramChannel.isAlive() } returns true
 
             val callbackSlot = slot<suspend (Boolean) -> Unit>()
             coEvery { telegramChannel.sendApproval(any(), any(), capture(callbackSlot)) } returns Unit

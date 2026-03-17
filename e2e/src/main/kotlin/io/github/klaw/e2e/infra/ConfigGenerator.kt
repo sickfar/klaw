@@ -31,6 +31,8 @@ object ConfigGenerator {
         autoRagMinMessageTokens: Int = DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS,
         maxToolCallRounds: Int = 1,
         debounceMs: Int = DEBOUNCE_MS,
+        hostExecutionEnabled: Boolean = false,
+        askTimeoutMin: Int = 1,
     ): String {
         val root =
             buildJsonObject {
@@ -45,6 +47,8 @@ object ConfigGenerator {
                     autoRagMaxTokens,
                     autoRagRelevanceThreshold,
                     autoRagMinMessageTokens,
+                    hostExecutionEnabled,
+                    askTimeoutMin,
                 )
                 buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
             }
@@ -132,6 +136,8 @@ object ConfigGenerator {
         autoRagMaxTokens: Int,
         autoRagRelevanceThreshold: Double,
         autoRagMinMessageTokens: Int,
+        hostExecutionEnabled: Boolean,
+        askTimeoutMin: Int,
     ) {
         putJsonObject("autoRag") {
             put("enabled", autoRagEnabled)
@@ -144,7 +150,11 @@ object ConfigGenerator {
             put("enabled", false)
         }
         putJsonObject("hostExecution") {
-            put("enabled", false)
+            put("enabled", hostExecutionEnabled)
+            putJsonObject("preValidation") {
+                put("enabled", false)
+            }
+            put("askTimeoutMin", askTimeoutMin)
         }
         putJsonObject("heartbeat") {
             put("interval", "off")
