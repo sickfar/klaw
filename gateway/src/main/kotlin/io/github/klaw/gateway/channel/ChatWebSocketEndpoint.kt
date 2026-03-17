@@ -14,13 +14,14 @@ private val logger = KotlinLogging.logger {}
 
 @Singleton
 class ChatWebSocketEndpoint(
-    private val consoleChannel: ConsoleChannel,
+    private val localWsChannel: LocalWsChannel,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun install(routing: Route) {
         routing.webSocket("/chat") {
-            logger.debug { "Console WebSocket connected" }
+            logger.debug { "Local WS WebSocket connected" }
+            localWsChannel.registerSession(this)
             try {
                 for (frame in incoming) {
                     if (frame is Frame.Text) {
@@ -28,7 +29,8 @@ class ChatWebSocketEndpoint(
                     }
                 }
             } finally {
-                logger.debug { "Console WebSocket closed" }
+                localWsChannel.clearSession(this)
+                logger.debug { "Local WS WebSocket closed" }
             }
         }
     }
@@ -37,15 +39,15 @@ class ChatWebSocketEndpoint(
         val chatFrame = decodeFrame(message) ?: return
         when (chatFrame.type) {
             "user" -> {
-                logger.trace { "Console WS frame received: ${chatFrame.content.length} chars" }
-                consoleChannel.handleIncoming(chatFrame.content, this)
+                logger.trace { "Local WS frame received: ${chatFrame.content.length} chars" }
+                localWsChannel.handleIncoming(chatFrame.content, this)
             }
 
             "approval_response" -> {
                 val id = chatFrame.approvalId
                 val approved = chatFrame.approved
                 if (id != null && approved != null) {
-                    consoleChannel.resolveApproval(id, approved)
+                    localWsChannel.resolveApproval(id, approved)
                 } else {
                     logger.warn { "Malformed approval_response frame" }
                 }

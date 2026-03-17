@@ -222,7 +222,7 @@ class ConfigToolsTest {
                 """
                 {
                     "channels": {
-                        "console": {
+                        "localWs": {
                             "enabled": false,
                             "port": 37474
                         }
@@ -230,7 +230,7 @@ class ConfigToolsTest {
                 }
                 """.trimIndent(),
             )
-            val result = configTools.configSet("gateway", "channels.console.enabled", "true")
+            val result = configTools.configSet("gateway", "channels.localWs.enabled", "true")
             assertTrue(
                 result.contains("restarting") || result.contains("restart"),
                 "Expected restart for channels path: $result",
@@ -245,7 +245,7 @@ class ConfigToolsTest {
                 """
                 {
                     "channels": {
-                        "console": {
+                        "localWs": {
                             "enabled": false,
                             "port": 37474
                         }
@@ -253,7 +253,7 @@ class ConfigToolsTest {
                 }
                 """.trimIndent(),
             )
-            val result = configTools.configSet("gateway", "channels.console.enabled", "true")
+            val result = configTools.configSet("gateway", "channels.localWs.enabled", "true")
 
             assertTrue(result.isNotBlank())
             verify { shutdownController.requestGatewayRestart() }

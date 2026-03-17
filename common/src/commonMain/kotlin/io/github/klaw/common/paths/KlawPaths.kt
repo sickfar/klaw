@@ -13,6 +13,7 @@ data class KlawPathsSnapshot(
     val enginePort: Int,
     val engineHost: String,
     val gatewayBuffer: String,
+    val engineOutboundBuffer: String,
     val klawDb: String,
     val schedulerDb: String,
     val conversations: String,
@@ -51,6 +52,7 @@ internal fun buildPaths(
         enginePort = envProvider("KLAW_ENGINE_PORT")?.toIntOrNull() ?: 7470,
         engineHost = envProvider("KLAW_ENGINE_HOST") ?: "127.0.0.1",
         gatewayBuffer = "$state/gateway-buffer.jsonl",
+        engineOutboundBuffer = "$state/engine-outbound-buffer.jsonl",
         klawDb = "$data/klaw.db",
         schedulerDb = "$data/scheduler.db",
         conversations = "$data/conversations",
@@ -78,6 +80,7 @@ object KlawPaths {
     val enginePort: Int get() = snapshot.enginePort
     val engineHost: String get() = snapshot.engineHost
     val gatewayBuffer: String get() = snapshot.gatewayBuffer
+    val engineOutboundBuffer: String get() = snapshot.engineOutboundBuffer
     val klawDb: String get() = snapshot.klawDb
     val schedulerDb: String get() = snapshot.schedulerDb
     val conversations: String get() = snapshot.conversations

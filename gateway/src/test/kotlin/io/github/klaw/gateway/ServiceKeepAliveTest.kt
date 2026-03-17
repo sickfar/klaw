@@ -1,8 +1,8 @@
 package io.github.klaw.gateway
 
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.GatewayConfig
+import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.gateway.channel.ChatWebSocketEndpoint
 import io.micronaut.context.ApplicationContext
 import io.micronaut.runtime.ApplicationConfiguration
@@ -19,9 +19,9 @@ class ServiceKeepAliveTest {
     private fun makeConfig(
         enabled: Boolean = true,
         port: Int = 0,
-    ): GatewayConfig = GatewayConfig(ChannelsConfig(console = ConsoleConfig(enabled = enabled, port = port)))
+    ): GatewayConfig = GatewayConfig(ChannelsConfig(localWs = LocalWsConfig(enabled = enabled, port = port)))
 
-    private fun configNoConsole(): GatewayConfig = GatewayConfig(ChannelsConfig())
+    private fun configNoLocalWs(): GatewayConfig = GatewayConfig(ChannelsConfig())
 
     @Test
     fun `isServer returns true`() {
@@ -52,7 +52,7 @@ class ServiceKeepAliveTest {
     }
 
     @Test
-    fun `start with console disabled does not throw`() {
+    fun `start with localWs disabled does not throw`() {
         val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig(enabled = false))
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
@@ -60,15 +60,15 @@ class ServiceKeepAliveTest {
     }
 
     @Test
-    fun `start with no console config does not throw`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, configNoConsole())
+    fun `start with no localWs config does not throw`() {
+        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, configNoLocalWs())
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
         keepAlive.stop()
     }
 
     @Test
-    fun `start with console enabled starts Ktor server on specified port`() {
+    fun `start with localWs enabled starts Ktor server on specified port`() {
         val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig(enabled = true, port = 0))
         keepAlive.start()
         assertTrue(keepAlive.isRunning)

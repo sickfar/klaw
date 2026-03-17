@@ -10,6 +10,16 @@ private const val RANDOM_PORT = 0
 @Replaces(factory = SocketFactory::class)
 class TestSocketFactory {
     @Singleton
+    @Replaces(bean = EngineOutboundBuffer::class, factory = SocketFactory::class)
+    fun engineOutboundBuffer(): EngineOutboundBuffer {
+        val tmpDir = System.getProperty("java.io.tmpdir")
+        return EngineOutboundBuffer("$tmpDir/klaw-test-engine-outbound-buffer.jsonl")
+    }
+
+    @Singleton
     @Replaces(bean = EngineSocketServer::class, factory = SocketFactory::class)
-    fun engineSocketServer(handler: SocketMessageHandler): EngineSocketServer = EngineSocketServer(RANDOM_PORT, handler)
+    fun engineSocketServer(
+        handler: SocketMessageHandler,
+        outboundBuffer: EngineOutboundBuffer,
+    ): EngineSocketServer = EngineSocketServer(RANDOM_PORT, handler, outboundBuffer = outboundBuffer)
 }

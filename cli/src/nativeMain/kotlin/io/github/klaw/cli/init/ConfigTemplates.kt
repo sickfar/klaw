@@ -6,12 +6,12 @@ import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ComposeConfig
 import io.github.klaw.common.config.ComposeServiceConfig
 import io.github.klaw.common.config.ComposeVolumeConfig
-import io.github.klaw.common.config.ConsoleConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.HeartbeatConfig
+import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.config.ProcessingConfig
@@ -59,8 +59,8 @@ internal object ConfigTemplates {
     fun gatewayJson(
         telegramEnabled: Boolean = true,
         allowedChats: List<AllowedChat> = emptyList(),
-        enableConsole: Boolean = false,
-        consolePort: Int = 37474,
+        enableLocalWs: Boolean = false,
+        localWsPort: Int = 37474,
     ): String {
         val telegram =
             if (telegramEnabled) {
@@ -71,11 +71,11 @@ internal object ConfigTemplates {
             } else {
                 null
             }
-        val console =
-            if (enableConsole) {
-                ConsoleConfig(
+        val localWs =
+            if (enableLocalWs) {
+                LocalWsConfig(
                     enabled = true,
-                    port = consolePort,
+                    port = localWsPort,
                 )
             } else {
                 null
@@ -85,7 +85,7 @@ internal object ConfigTemplates {
                 channels =
                     ChannelsConfig(
                         telegram = telegram,
-                        console = console,
+                        localWs = localWs,
                     ),
             )
         return encodeGatewayConfigMinimal(config)
@@ -98,11 +98,11 @@ internal object ConfigTemplates {
         configPath: String,
         workspacePath: String,
         imageTag: String,
-        enableConsole: Boolean = false,
-        consolePort: Int = 37474,
+        enableLocalWs: Boolean = false,
+        localWsPort: Int = 37474,
     ): String {
         val engine = hybridEngineService(imageTag, statePath, dataPath, configPath, workspacePath)
-        val gateway = hybridGatewayService(imageTag, statePath, dataPath, configPath, enableConsole, consolePort)
+        val gateway = hybridGatewayService(imageTag, statePath, dataPath, configPath, enableLocalWs, localWsPort)
         val config =
             ComposeConfig(
                 services = mapOf("engine" to engine, "gateway" to gateway),
@@ -117,8 +117,8 @@ internal object ConfigTemplates {
         statePath: String,
         dataPath: String,
         configPath: String,
-        enableConsole: Boolean,
-        consolePort: Int,
+        enableLocalWs: Boolean,
+        localWsPort: Int,
     ): ComposeServiceConfig =
         ComposeServiceConfig(
             image = "ghcr.io/sickfar/klaw-gateway:$imageTag",
@@ -132,7 +132,7 @@ internal object ConfigTemplates {
                     "$dataPath:/home/klaw/.local/share/klaw",
                     "$configPath:/home/klaw/.config/klaw",
                 ),
-            ports = if (enableConsole) listOf("127.0.0.1:$consolePort:$consolePort") else null,
+            ports = if (enableLocalWs) listOf("127.0.0.1:$localWsPort:$localWsPort") else null,
         )
 
     private fun hybridEngineService(

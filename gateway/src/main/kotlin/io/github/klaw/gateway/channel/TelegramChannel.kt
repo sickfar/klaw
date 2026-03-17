@@ -40,6 +40,9 @@ class TelegramChannel(
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
     override val name = "telegram"
+
+    @Volatile private var alive: Boolean = false
+    override var onBecameAlive: (suspend () -> Unit)? = null
     private var bot: TelegramBot? = null
     private var pollingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -54,6 +57,16 @@ class TelegramChannel(
     internal var sendAction: (suspend (Long, String) -> Unit)? = null
     internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Unit)? = null
     internal val pendingApprovalsForTest: Map<String, suspend (Boolean) -> Unit> get() = pendingApprovals
+
+    override fun isAlive(): Boolean = alive
+
+    private suspend fun setAlive(value: Boolean) {
+        val wasAlive = alive
+        alive = value
+        if (value && !wasAlive) {
+            onBecameAlive?.invoke()
+        }
+    }
 
     override suspend fun start() {
         val telegramConfig =
@@ -71,6 +84,7 @@ class TelegramChannel(
                     }
             }
         bot = b
+        setAlive(true)
         if (config.commands.isNotEmpty()) {
             runCatching {
                 b.setMyCommands(config.commands.map { BotCommand(it.name, it.description) })
@@ -178,7 +192,10 @@ class TelegramChannel(
                         bot!!.sendTextMessage(ChatId(RawChatId(platformId)), chunk)
                     }
                 }
+            }.onSuccess {
+                setAlive(true)
             }.onFailure { e ->
+                alive = false
                 logger.error(e) { "Failed to send Telegram message to chatId=$chatId" }
                 return
             }
@@ -283,6 +300,7 @@ class TelegramChannel(
     }
 
     override suspend fun stop() {
+        alive = false
         pollingJob?.cancel()
         typingJobs.values.forEach { it.cancel() }
         typingJobs.clear()

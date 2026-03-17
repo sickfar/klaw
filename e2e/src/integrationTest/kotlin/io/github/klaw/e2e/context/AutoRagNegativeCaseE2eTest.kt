@@ -164,7 +164,7 @@ class AutoRagNegativeCaseE2eTest {
         // 8*210 + 7*200 = 3080 > 2000
         private const val TOTAL_MESSAGES = 8
 
-        private const val CHAT_ID = "console_default"
+        private const val CHAT_ID = "local_ws_default"
 
         // Low promptTokens prevents token correction from inflating estimates
         private const val STUB_PROMPT_TOKENS = 100

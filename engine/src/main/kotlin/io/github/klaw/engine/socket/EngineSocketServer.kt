@@ -43,6 +43,7 @@ class EngineSocketServer(
     private val port: Int,
     private val messageHandler: SocketMessageHandler,
     private val bindAddress: String = "127.0.0.1",
+    private val outboundBuffer: EngineOutboundBuffer? = null,
 ) {
     companion object {
         const val HANDSHAKE_TIMEOUT_MS = 30_000L
@@ -97,7 +98,18 @@ class EngineSocketServer(
     suspend fun pushToGateway(message: OutboundSocketMessage) {
         withContext(Dispatchers.IO) {
             writerLock.withLock {
-                gatewayWriter?.println(json.encodeToString<SocketMessage>(message))
+                val w = gatewayWriter
+                if (w != null) {
+                    w.println(json.encodeToString<SocketMessage>(message))
+                    if (w.checkError()) {
+                        gatewayWriter = null
+                        outboundBuffer?.append(message)
+                        logger.trace { "Gateway write failed, buffering: ${message::class.simpleName}" }
+                    }
+                } else {
+                    outboundBuffer?.append(message)
+                    logger.trace { "Gateway disconnected, buffering outbound: ${message::class.simpleName}" }
+                }
             }
         }
     }
@@ -105,7 +117,18 @@ class EngineSocketServer(
     suspend fun pushMessage(message: SocketMessage) {
         withContext(Dispatchers.IO) {
             writerLock.withLock {
-                gatewayWriter?.println(json.encodeToString(message))
+                val w = gatewayWriter
+                if (w != null) {
+                    w.println(json.encodeToString(message))
+                    if (w.checkError()) {
+                        gatewayWriter = null
+                        outboundBuffer?.append(message)
+                        logger.trace { "Gateway write failed, buffering: ${message::class.simpleName}" }
+                    }
+                } else {
+                    outboundBuffer?.append(message)
+                    logger.trace { "Gateway disconnected, buffering outbound: ${message::class.simpleName}" }
+                }
             }
         }
     }
@@ -185,6 +208,7 @@ class EngineSocketServer(
             gatewayWriter = writer
         }
         logger.debug { "Gateway connected" }
+        drainOutboundBuffer(writer)
         // Read subsequent inbound/command messages in a loop
         @Suppress("LoopWithTooManyJumpStatements")
         while (running) {
@@ -206,7 +230,33 @@ class EngineSocketServer(
             logger.trace { "Gateway line received: ${line.length} chars" }
             dispatchGatewayMessage(line)
         }
+        writerLock.withLock {
+            if (gatewayWriter === writer) {
+                gatewayWriter = null
+            }
+        }
         logger.debug { "Gateway disconnected" }
+    }
+
+    private fun drainOutboundBuffer(writer: PrintWriter) {
+        val buf = outboundBuffer ?: return
+        if (buf.isEmpty()) return
+        val messages = buf.drain()
+        logger.debug { "Draining ${messages.size} buffered outbound messages" }
+        for ((index, msg) in messages.withIndex()) {
+            try {
+                writer.println(json.encodeToString(msg))
+            } catch (e: java.io.IOException) {
+                // Re-buffer the failed message and all remaining
+                messages.subList(index, messages.size).forEach { remaining ->
+                    buf.append(remaining)
+                }
+                logger.warn(e) {
+                    "Failed to drain outbound at ${index + 1}/${messages.size}, re-buffered remaining"
+                }
+                return
+            }
+        }
     }
 
     private suspend fun dispatchGatewayMessage(line: String) {

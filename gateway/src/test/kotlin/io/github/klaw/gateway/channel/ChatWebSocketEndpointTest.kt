@@ -13,9 +13,9 @@ import io.ktor.server.websocket.WebSockets as ServerWebSockets
 
 class ChatWebSocketEndpointTest {
     @Test
-    fun `valid user frame is forwarded to ConsoleChannel`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+    fun `valid user frame is forwarded to LocalWsChannel`() {
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -27,13 +27,13 @@ class ChatWebSocketEndpointTest {
             }
         }
 
-        coVerify(exactly = 1) { consoleChannel.handleIncoming("hello", any()) }
+        coVerify(exactly = 1) { localWsChannel.handleIncoming("hello", any()) }
     }
 
     @Test
     fun `frame with type not equal to user is ignored`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -45,13 +45,13 @@ class ChatWebSocketEndpointTest {
             }
         }
 
-        coVerify(exactly = 0) { consoleChannel.handleIncoming(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any()) }
     }
 
     @Test
     fun `malformed JSON is silently ignored`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -63,13 +63,13 @@ class ChatWebSocketEndpointTest {
             }
         }
 
-        coVerify(exactly = 0) { consoleChannel.handleIncoming(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any()) }
     }
 
     @Test
     fun `empty content with type=user is forwarded`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -81,6 +81,6 @@ class ChatWebSocketEndpointTest {
             }
         }
 
-        coVerify(exactly = 1) { consoleChannel.handleIncoming("", any()) }
+        coVerify(exactly = 1) { localWsChannel.handleIncoming("", any()) }
     }
 }

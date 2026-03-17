@@ -37,8 +37,8 @@ class ServiceKeepAlive(
 
     override fun start(): ServiceKeepAlive {
         running = true
-        if (config.channels.console?.enabled == true) {
-            val port = config.channels.console?.port ?: DEFAULT_CONSOLE_PORT
+        if (config.channels.localWs?.enabled == true) {
+            val port = config.channels.localWs?.port ?: DEFAULT_LOCAL_WS_PORT
             server =
                 embeddedServer(CIO, port = port) {
                     install(WebSockets) {
@@ -59,7 +59,7 @@ class ServiceKeepAlive(
     }
 
     companion object {
-        private const val DEFAULT_CONSOLE_PORT = 37474
+        private const val DEFAULT_LOCAL_WS_PORT = 37474
         private const val GRACE_MS = 500L
         private const val TIMEOUT_MS = 1000L
         private const val PING_PERIOD_MS = 30_000L

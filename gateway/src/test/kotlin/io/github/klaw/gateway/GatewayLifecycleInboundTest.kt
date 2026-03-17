@@ -180,10 +180,10 @@ class GatewayLifecycleInboundTest {
         }
 
     @Test
-    fun `console start command replies already paired`() =
+    fun `local_ws start command replies already paired`() =
         runBlocking {
             val allowlistService = mockk<InboundAllowlistService>()
-            every { allowlistService.isStartAllowed("console", any(), any()) } returns PairingStatus.AlreadyPaired
+            every { allowlistService.isStartAllowed("local_ws", any(), any()) } returns PairingStatus.AlreadyPaired
 
             val replies = mutableListOf<Pair<String, String>>()
             val callback =
@@ -196,8 +196,8 @@ class GatewayLifecycleInboundTest {
                 )
             callback(
                 makeIncoming(
-                    channel = "console",
-                    chatId = "console_default",
+                    channel = "local_ws",
+                    chatId = "local_ws_default",
                     isCommand = true,
                     commandName = "start",
                 ),

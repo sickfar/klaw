@@ -151,7 +151,7 @@ class InitWizardTest {
                 "test/model", // model text
                 "n", // Configure Telegram? → n = skip
                 // NO telegram token or chat IDs prompts
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -182,7 +182,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -218,7 +218,7 @@ class InitWizardTest {
                 "y", // configure telegram
                 "my-bot-token", // token
                 "", // chat IDs
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -465,7 +465,7 @@ class InitWizardTest {
                 "valid-key",
                 // radio selection at index 0 (glm-5) via lambda — no text prompts for URL or alias
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -502,7 +502,7 @@ class InitWizardTest {
                 // radioSelector returns null for model → text prompt
                 "my/custom-model", // text fallback
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -572,7 +572,7 @@ class InitWizardTest {
                 "", // Configure Telegram? [Y/n]: blank = Y
                 "bot-token-123", // telegram token
                 "", // allowed chat IDs (empty = allow all)
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "TestAgent", // agent name
                 "personal assistant", // role
                 "developer", // user info
@@ -607,7 +607,7 @@ class InitWizardTest {
                 "", // Configure Telegram? blank = Y
                 "telegram-bot-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -642,7 +642,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "MyBot",
                 "coding helper",
                 "engineer",
@@ -698,7 +698,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "MyBot",
                 "coding helper",
                 "Roman",
@@ -743,7 +743,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -775,7 +775,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 6: disable console
+                "n", // Phase 6: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -818,7 +818,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 6: disable console
+                "n", // Phase 6: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -857,7 +857,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 6: disable console
+                "n", // Phase 6: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -903,7 +903,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 6: disable console
+                "n", // Phase 6: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -936,7 +936,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -968,7 +968,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
-                "n", // Phase 5: disable console
+                "n", // Phase 5: disable localWs
                 "Klaw",
                 "assistant",
                 "developer",
@@ -997,7 +997,7 @@ class InitWizardTest {
     }
 
     @Test
-    fun `phase 5 with console enabled writes console section with enabled=true and port to gateway yaml`() {
+    fun `phase 5 with localWs enabled writes localWs section with enabled=true and port to gateway json`() {
         val inputs =
             listOf(
                 "my-api-key",
@@ -1005,7 +1005,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
-                "y", // Phase 5: enable console
+                "y", // Phase 5: enable localWs
                 "37474", // Phase 5: port
                 "Klaw",
                 "personal assistant",
@@ -1027,11 +1027,11 @@ class InitWizardTest {
         assertTrue(gatewayJson.contains("\"enabled\": true"), "Expected 'enabled: true' in gateway.json:\n$gatewayJson")
         // Default port (37474) is not encoded by minimal encoder; verify via parse
         val config = parseGatewayConfig(gatewayJson)
-        assertTrue(config.channels.console?.port == 37474, "Expected default port 37474 in parsed config")
+        assertTrue(config.channels.localWs?.port == 37474, "Expected default port 37474 in parsed config")
     }
 
     @Test
-    fun `phase 5 with console disabled omits console section from gateway yaml`() {
+    fun `phase 5 with localWs disabled omits localWs section from gateway json`() {
         val inputs =
             listOf(
                 "my-api-key",
@@ -1039,7 +1039,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
-                "n", // Phase 5: do not enable console
+                "n", // Phase 5: do not enable localWs
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1057,11 +1057,11 @@ class InitWizardTest {
 
         val gatewayJson = readFileText("$configDir/gateway.json")
         assertNotNull(gatewayJson)
-        assertTrue(!gatewayJson.contains("console"), "Expected no console section in gateway.json:\n$gatewayJson")
+        assertTrue(!gatewayJson.contains("localWs"), "Expected no localWs section in gateway.json:\n$gatewayJson")
     }
 
     @Test
-    fun `phase 5 with console enabled and custom port 9090 uses port 9090 in gateway yaml`() {
+    fun `phase 5 with localWs enabled and custom port 9090 uses port 9090 in gateway json`() {
         val inputs =
             listOf(
                 "my-api-key",
@@ -1069,7 +1069,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
-                "y", // Phase 5: enable console
+                "y", // Phase 5: enable localWs
                 "9090", // Phase 5: custom port
                 "Klaw",
                 "personal assistant",
@@ -1102,7 +1102,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1132,7 +1132,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1168,7 +1168,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1199,7 +1199,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
-                "n", // console
+                "n", // localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1530,7 +1530,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "Klaw", // agent name
                 "assistant", // role
                 "user", // user info
@@ -1575,7 +1575,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1611,7 +1611,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "Klaw",
                 "assistant",
                 "user",
@@ -1660,7 +1660,7 @@ class InitWizardTest {
                     "my-key", // API key
                     "test/model", // model
                     "n", // skip telegram
-                    "n", // skip console
+                    "n", // skip localWs
                 ),
             )
         val output = mutableListOf<String>()
@@ -1744,7 +1744,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1786,7 +1786,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1826,7 +1826,7 @@ class InitWizardTest {
                     "my-key", // API key
                     "test/model", // model
                     "n", // skip telegram
-                    "n", // skip console
+                    "n", // skip localWs
                 ),
             )
         val output = mutableListOf<String>()
@@ -1891,7 +1891,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
-                "n", // skip console
+                "n", // skip localWs
                 "NewBot", // agent name (hatching runs on fresh init)
                 "helper", // role
                 "dev", // user info

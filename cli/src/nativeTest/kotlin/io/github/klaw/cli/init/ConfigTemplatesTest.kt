@@ -66,37 +66,37 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `gatewayJson with enableConsole=true includes console section`() {
-        val json = ConfigTemplates.gatewayJson(enableConsole = true)
-        assertTrue(json.contains("console"), "Expected 'console' in:\n$json")
+    fun `gatewayJson with enableLocalWs=true includes localWs section`() {
+        val json = ConfigTemplates.gatewayJson(enableLocalWs = true)
+        assertTrue(json.contains("localWs"), "Expected 'localWs' in:\n$json")
         assertTrue(json.contains("true"), "Expected 'true' (enabled) in:\n$json")
         // Default port (37474) is not encoded by minimal encoder; verify via round-trip parse
         val config = parseGatewayConfig(json)
-        assertTrue(config.channels.console?.port == 37474, "Expected default port 37474 in parsed config")
+        assertTrue(config.channels.localWs?.port == 37474, "Expected default port 37474 in parsed config")
     }
 
     @Test
-    fun `gatewayJson with enableConsole=false omits console section`() {
-        val json = ConfigTemplates.gatewayJson(enableConsole = false)
-        assertTrue(!json.contains("console"), "Expected no 'console' section in:\n$json")
+    fun `gatewayJson with enableLocalWs=false omits localWs section`() {
+        val json = ConfigTemplates.gatewayJson(enableLocalWs = false)
+        assertTrue(!json.contains("localWs"), "Expected no 'localWs' section in:\n$json")
     }
 
     @Test
-    fun `gatewayJson with enableConsole=true and custom port uses correct port`() {
-        val json = ConfigTemplates.gatewayJson(enableConsole = true, consolePort = 9090)
+    fun `gatewayJson with enableLocalWs=true and custom port uses correct port`() {
+        val json = ConfigTemplates.gatewayJson(enableLocalWs = true, localWsPort = 9090)
         assertTrue(json.contains("9090"), "Expected custom port in:\n$json")
     }
 
     @Test
-    fun `gatewayJson with chatIds and enableConsole=true includes both sections`() {
+    fun `gatewayJson with chatIds and enableLocalWs=true includes both sections`() {
         val json =
             ConfigTemplates.gatewayJson(
                 allowedChats = listOf(AllowedChat("123456")),
-                enableConsole = true,
-                consolePort = 8080,
+                enableLocalWs = true,
+                localWsPort = 8080,
             )
         assertTrue(json.contains("123456"), "Expected chatId in:\n$json")
-        assertTrue(json.contains("console"), "Expected console section in:\n$json")
+        assertTrue(json.contains("localWs"), "Expected localWs section in:\n$json")
         assertTrue(json.contains("8080"), "Expected custom port in:\n$json")
     }
 
@@ -115,15 +115,15 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `gatewayJson with telegramEnabled=false and enableConsole=true has console but no telegram`() {
-        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableConsole = true)
+    fun `gatewayJson with telegramEnabled=false and enableLocalWs=true has localWs but no telegram`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableLocalWs = true)
         assertTrue(!json.contains("telegram"), "Expected no telegram in:\n$json")
-        assertTrue(json.contains("console"), "Expected console section in:\n$json")
+        assertTrue(json.contains("localWs"), "Expected localWs section in:\n$json")
     }
 
     @Test
-    fun `gatewayJson telegramEnabled=false with console produces valid json`() {
-        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableConsole = true, consolePort = 8888)
+    fun `gatewayJson telegramEnabled=false with localWs produces valid json`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableLocalWs = true, localWsPort = 8888)
         assertTrue(json.contains("channels"), "Expected 'channels' in:\n$json")
         assertTrue(json.contains("8888"), "Expected port in:\n$json")
     }
@@ -143,13 +143,13 @@ class ConfigTemplatesTest {
         val json =
             ConfigTemplates.gatewayJson(
                 allowedChats = listOf(AllowedChat("123")),
-                enableConsole = true,
-                consolePort = 9090,
+                enableLocalWs = true,
+                localWsPort = 9090,
             )
         val config = parseGatewayConfig(json)
         assertTrue(config.channels.telegram != null, "Expected telegram section")
-        assertTrue(config.channels.console != null, "Expected console section")
-        assertTrue(config.channels.console?.port == 9090, "Expected port 9090")
+        assertTrue(config.channels.localWs != null, "Expected localWs section")
+        assertTrue(config.channels.localWs?.port == 9090, "Expected port 9090")
     }
 
     // --- dockerComposeJson ---

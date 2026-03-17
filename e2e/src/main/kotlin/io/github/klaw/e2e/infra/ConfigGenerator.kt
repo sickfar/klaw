@@ -11,7 +11,7 @@ object ConfigGenerator {
     private const val SEARCH_TOP_K = 3
     private const val SUBAGENT_HISTORY = 3
     private const val DEBOUNCE_MS = 50
-    private const val GATEWAY_CONSOLE_PORT = 37474
+    private const val GATEWAY_LOCAL_WS_PORT = 37474
     private const val DEFAULT_AUTO_RAG_TOP_K = 3
     private const val DEFAULT_AUTO_RAG_MAX_TOKENS = 400
     private const val DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD = 0.5
@@ -55,9 +55,9 @@ object ConfigGenerator {
         val root =
             buildJsonObject {
                 putJsonObject("channels") {
-                    putJsonObject("console") {
+                    putJsonObject("localWs") {
                         put("enabled", true)
-                        put("port", GATEWAY_CONSOLE_PORT)
+                        put("port", GATEWAY_LOCAL_WS_PORT)
                     }
                 }
             }

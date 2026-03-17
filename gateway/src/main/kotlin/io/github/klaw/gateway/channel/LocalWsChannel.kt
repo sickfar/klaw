@@ -19,14 +19,17 @@ import kotlinx.coroutines.channels.Channel as KChannel
 private val logger = KotlinLogging.logger {}
 
 @Singleton
-class ConsoleChannel(
+class LocalWsChannel(
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
-    override val name = "console"
+    override val name = "local_ws"
 
     @Volatile private var activeSession: DefaultWebSocketServerSession? = null
+    override var onBecameAlive: (suspend () -> Unit)? = null
     private val incomingQueue = KChannel<IncomingMessage>(KChannel.UNLIMITED)
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
+
+    override fun isAlive(): Boolean = activeSession != null
 
     override suspend fun start() {
         // WebSocket server handles binding; nothing to do here
@@ -35,16 +38,32 @@ class ConsoleChannel(
     override suspend fun stop() {
         incomingQueue.close()
         try {
-            activeSession?.close(CloseReason(CloseReason.Codes.NORMAL, "ConsoleChannel stopped"))
+            activeSession?.close(CloseReason(CloseReason.Codes.NORMAL, "LocalWsChannel stopped"))
         } catch (_: Exception) {
             // ignore close errors
         }
-        logger.info { "ConsoleChannel stopped" }
+        logger.info { "LocalWsChannel stopped" }
     }
 
     override suspend fun listen(onMessage: suspend (IncomingMessage) -> Unit) {
         for (incoming in incomingQueue) {
             onMessage(incoming)
+        }
+    }
+
+    suspend fun registerSession(session: DefaultWebSocketServerSession) {
+        val wasAlive = activeSession != null
+        activeSession = session
+        if (!wasAlive) {
+            onBecameAlive?.invoke()
+            logger.debug { "Local WS session registered, channel became alive" }
+        }
+    }
+
+    fun clearSession(session: DefaultWebSocketServerSession) {
+        if (activeSession === session) {
+            activeSession = null
+            logger.debug { "Local WS session cleared" }
         }
     }
 
@@ -57,14 +76,14 @@ class ConsoleChannel(
             IncomingMessage(
                 id = UUID.randomUUID().toString(),
                 channel = name,
-                chatId = "console_default",
+                chatId = "local_ws_default",
                 content = content,
                 ts = Clock.System.now(),
             )
         jsonlWriter.writeInbound(incoming)
         incomingQueue.send(incoming)
         sendStatusFrame(session, "thinking")
-        logger.trace { "Console message enqueued: ${content.length} chars" }
+        logger.trace { "Local WS message enqueued: ${content.length} chars" }
     }
 
     override suspend fun send(
@@ -73,13 +92,13 @@ class ConsoleChannel(
     ) {
         val session =
             activeSession ?: run {
-                logger.warn { "ConsoleChannel.send: no active session" }
+                logger.warn { "LocalWsChannel.send: no active session" }
                 return
             }
         sendStatusFrame(session, "")
         val frame = Json.encodeToString(ChatFrame(type = "assistant", content = response.content))
         runCatching { session.send(Frame.Text(frame)) }
-            .onFailure { e -> logger.error(e) { "ConsoleChannel: send failed" } }
+            .onFailure { e -> logger.error(e) { "LocalWsChannel: send failed" } }
     }
 
     override suspend fun sendApproval(
@@ -89,7 +108,7 @@ class ConsoleChannel(
     ) {
         val session =
             activeSession ?: run {
-                logger.warn { "ConsoleChannel.sendApproval: no active session" }
+                logger.warn { "LocalWsChannel.sendApproval: no active session" }
                 return
             }
         pendingApprovals[request.id] = onResult
@@ -106,7 +125,7 @@ class ConsoleChannel(
         runCatching { session.send(Frame.Text(frame)) }
             .onFailure { e ->
                 pendingApprovals.remove(request.id)
-                logger.error(e) { "ConsoleChannel: sendApproval failed" }
+                logger.error(e) { "LocalWsChannel: sendApproval failed" }
             }
     }
 
@@ -116,7 +135,7 @@ class ConsoleChannel(
     ) {
         val frame = Json.encodeToString(ChatFrame(type = "status", content = status))
         runCatching { session.send(Frame.Text(frame)) }
-            .onFailure { e -> logger.trace { "ConsoleChannel: status frame send failed: ${e::class.simpleName}" } }
+            .onFailure { e -> logger.trace { "LocalWsChannel: status frame send failed: ${e::class.simpleName}" } }
     }
 
     suspend fun resolveApproval(

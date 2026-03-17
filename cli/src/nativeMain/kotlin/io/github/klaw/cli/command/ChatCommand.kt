@@ -36,7 +36,7 @@ internal class ChatCommand(
         CliLogger.info { "chat start" }
         val chatConfig = configReader(configDir)
         if (url == null && !chatConfig.enabled) {
-            CliLogger.warn { "console chat not enabled" }
+            CliLogger.warn { "local WebSocket chat not enabled" }
             showConsoleChatDisabledError()
             return
         }
@@ -50,7 +50,7 @@ internal class ChatCommand(
         echo("${AnsiColors.RED}✗ WebSocket chat is not enabled.${AnsiColors.RESET}")
         echo("")
         echo("To enable it, add to $configDir/gateway.json:")
-        echo("  \"channels\": { \"console\": { \"enabled\": true, \"port\": 37474 } }")
+        echo("  \"channels\": { \"localWs\": { \"enabled\": true, \"port\": 37474 } }")
         echo("")
         echo("Then restart the gateway: klaw gateway restart")
         echo("")
@@ -222,7 +222,7 @@ internal class ChatCommand(
                     }
 
                     "WebSocketException" -> {
-                        "WebSocket connection failed — gateway may not have console chat enabled"
+                        "WebSocket connection failed — gateway may not have local WebSocket chat enabled"
                     }
 
                     else -> {

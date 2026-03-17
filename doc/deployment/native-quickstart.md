@@ -80,7 +80,8 @@ After answering, it writes config files to `~/.config/klaw/` (including `deploy.
 └── docker-compose.json  # (hybrid mode only) compose file with bind mounts
 
 ~/.local/state/klaw/
-└── gateway-buffer.jsonl
+├── gateway-buffer.jsonl
+└── engine-outbound-buffer.jsonl
 ```
 
 ---

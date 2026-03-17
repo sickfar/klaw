@@ -27,6 +27,7 @@ class PairingServiceTest {
             enginePort = 7470,
             engineHost = "127.0.0.1",
             gatewayBuffer = "$dir/buffer.jsonl",
+            engineOutboundBuffer = "$dir/engine-outbound-buffer.jsonl",
             klawDb = "$dir/klaw.db",
             schedulerDb = "$dir/scheduler.db",
             conversations = "$dir/conversations",

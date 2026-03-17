@@ -16,15 +16,15 @@ data class ChannelsConfig(
     val telegram: TelegramConfig? = null,
     @ConfigDoc("Discord bot channel settings")
     val discord: DiscordConfig? = null,
-    @ConfigDoc("Console debug channel settings")
-    val console: ConsoleConfig? = null,
+    @ConfigDoc("Local WebSocket channel settings")
+    val localWs: LocalWsConfig? = null,
 )
 
 @Serializable
-data class ConsoleConfig(
-    @ConfigDoc("Enable the console debug channel")
+data class LocalWsConfig(
+    @ConfigDoc("Enable the local WebSocket channel")
     val enabled: Boolean = false,
-    @ConfigDoc("TCP port for the console debug channel")
+    @ConfigDoc("TCP port for the local WebSocket channel")
     val port: Int = 37474,
 )
 

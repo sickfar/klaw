@@ -184,7 +184,7 @@ class AutoRagContentRelevanceE2eTest {
         private const val TOTAL_MESSAGES = 16
         private const val COOKING_MESSAGES = 8
         private const val MIN_SUMMARIES = 3
-        private const val CHAT_ID = "console_default"
+        private const val CHAT_ID = "local_ws_default"
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200
         private const val RESPONSE_TIMEOUT_MS = 30_000L

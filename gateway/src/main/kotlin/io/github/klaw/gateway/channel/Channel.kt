@@ -6,6 +6,10 @@ import kotlin.time.Instant
 interface Channel {
     val name: String
 
+    fun isAlive(): Boolean
+
+    var onBecameAlive: (suspend () -> Unit)?
+
     suspend fun listen(onMessage: suspend (IncomingMessage) -> Unit)
 
     suspend fun send(

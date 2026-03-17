@@ -167,9 +167,9 @@ class DescriptorGeneratorTest {
     }
 
     @Test
-    fun generatesGatewayConsolePort() {
-        val desc = findDescriptor(gatewayDescriptors, "channels.console.port")
-        assertNotNull(desc, "channels.console.port not found")
+    fun generatesGatewayLocalWsPort() {
+        val desc = findDescriptor(gatewayDescriptors, "channels.localWs.port")
+        assertNotNull(desc, "channels.localWs.port not found")
         assertEquals(ConfigValueType.INT, desc.type)
     }
 

@@ -69,6 +69,14 @@ class WebSocketChatClient {
         host: String,
         port: Int,
     ) {
+        // Close existing session if reconnecting
+        val existingSession = session
+        if (existingSession != null) {
+            runBlocking { existingSession.close() }
+            session = null
+            connected = false
+        }
+
         val thread =
             Thread {
                 try {
@@ -149,9 +157,27 @@ class WebSocketChatClient {
         return waitForAssistantResponse(timeoutMs)
     }
 
+    fun disconnect() =
+        runBlocking {
+            session?.close()
+            session = null
+            connected = false
+            logger.debug { "WebSocket session disconnected" }
+        }
+
+    fun reconnect(
+        host: String,
+        port: Int,
+    ) {
+        disconnect()
+        drainFrames()
+        connectAsync(host, port)
+    }
+
     fun close() =
         runBlocking {
             session?.close()
+            session = null
             httpClient.close()
             connected = false
             logger.debug { "WebSocket client closed" }

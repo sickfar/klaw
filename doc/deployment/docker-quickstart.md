@@ -70,7 +70,7 @@ After answering, it writes config files (including `deploy.conf`) to the `klaw-c
 | Volume | Mount path | Contents |
 |--------|-----------|----------|
 | `klaw-config` | `/home/klaw/.config/klaw` | `engine.json`, `gateway.json`, `.env` (API keys) |
-| `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
+| `klaw-state` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, `engine-outbound-buffer.jsonl`, logs |
 | `klaw-data` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
 | `klaw-cache` | `/home/klaw/.cache/klaw` | ONNX embedding model (~80 MB, auto-downloaded) |
 | `klaw-workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `skills/` |

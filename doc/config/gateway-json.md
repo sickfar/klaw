@@ -39,7 +39,7 @@ klaw doctor --dump-schema gateway > gateway.schema.json
         {"chatId": "telegram_987654321"}
       ]
     },
-    "console": {
+    "localWs": {
       "enabled": true,
       "port": 37474
     },
@@ -108,27 +108,27 @@ If a chat is not paired, the user will receive "Not paired. Send /start to get a
 
 ---
 
-## channels.console
+## channels.localWs
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable the terminal console channel (`klaw chat`) |
+| `enabled` | boolean | `false` | Enable the local WebSocket channel (`klaw chat`) |
 | `port` | integer | `37474` | Port the Gateway WebSocket server listens on |
 
-The console channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's `/chat` WebSocket endpoint at `ws://localhost:<port>/chat`.
+The local WebSocket channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's `/chat` WebSocket endpoint at `ws://localhost:<port>/chat`.
 
 **Disabled by default.** The Gateway always registers the `/chat` endpoint, but rejects all connections unless `enabled` is `true`.
 
-**Session:** All console messages use the fixed chatId `console_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
+**Session:** All local WebSocket messages use the fixed chatId `local_ws_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
 
-**Allow policy:** `console_default` is implicitly allowed — no pairing needed. Other chatIds are blocked on the console channel.
+**Allow policy:** `local_ws_default` is implicitly allowed — no pairing needed. Other chatIds are blocked on the local WebSocket channel.
 
 To enable via `klaw init`, answer `y` at the "WebSocket chat setup" phase. To enable manually, add to `gateway.json`:
 
 ```json
 {
   "channels": {
-    "console": {
+    "localWs": {
       "enabled": true,
       "port": 37474
     }

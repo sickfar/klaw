@@ -132,7 +132,7 @@ klaw identity edit
 ### `klaw chat`
 
 Opens an interactive split-screen TUI for chatting with the agent directly from the terminal.
-Messages are routed through the Gateway's `/chat` WebSocket endpoint using the persistent `console_default` session — the same path as Telegram, giving console conversations full JSONL logging and memory integration.
+Messages are routed through the Gateway's `/chat` WebSocket endpoint using the persistent `local_ws_default` session — the same path as Telegram, giving local WebSocket conversations full JSONL logging and memory integration.
 
 ```
 klaw chat
@@ -154,13 +154,13 @@ Options:
 
 **Tool approval:** When the agent requests tool execution approval, the TUI shows an `Approve: <command>? [Y/n]` prompt. Press `Y` to approve or `N` to reject.
 
-**Requirements:** The console channel must be enabled in `gateway.json`. If it is not, `klaw chat` prints an actionable error with instructions.
+**Requirements:** The local WebSocket channel must be enabled in `gateway.json`. If it is not, `klaw chat` prints an actionable error with instructions.
 
 **Enabling:** Run `klaw init` and answer `y` at the WebSocket chat setup phase, or add to `gateway.json`:
 
 ```yaml
 channels:
-  console:
+  localWs:
     enabled: true
     port: 37474
 ```

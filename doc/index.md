@@ -24,6 +24,10 @@ Natural language queries work well. Example: `docs_search "how do I schedule a t
 8. Search past conversation history (`history_search`)
 9. Read and update engine/gateway configuration (`config_get`, `config_set`)
 
+## Architecture docs
+
+- `doc/message-delivery.md` — how messages are buffered and recovered when components are temporarily unavailable
+
 ## Deployment docs (for setup and maintenance questions)
 
 - `doc/deployment/docker-quickstart.md` — first-time Docker setup (no JDK needed)

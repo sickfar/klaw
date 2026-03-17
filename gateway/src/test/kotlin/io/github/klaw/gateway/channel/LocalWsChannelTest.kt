@@ -17,11 +17,11 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.time.LocalDate
 
-class ConsoleChannelTest {
+class LocalWsChannelTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun makeChannel(): ConsoleChannel = ConsoleChannel(ConversationJsonlWriter(tempDir.absolutePath))
+    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
 
     private fun mockSession(): DefaultWebSocketServerSession =
         mockk(relaxed = true) {
@@ -29,7 +29,7 @@ class ConsoleChannelTest {
         }
 
     @Test
-    fun `handleIncoming creates IncomingMessage with channel=console and chatId=console_default`() =
+    fun `handleIncoming creates IncomingMessage with channel=local_ws and chatId=local_ws_default`() =
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
@@ -42,8 +42,8 @@ class ConsoleChannelTest {
             listenJob.join()
 
             assertEquals(1, received.size)
-            assertEquals("console", received[0].channel)
-            assertEquals("console_default", received[0].chatId)
+            assertEquals("local_ws", received[0].channel)
+            assertEquals("local_ws_default", received[0].chatId)
             assertEquals("hello", received[0].content)
         }
 
@@ -57,7 +57,7 @@ class ConsoleChannelTest {
             channel.stop()
 
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "console_default/$today.jsonl")
+            val file = File(tempDir, "local_ws_default/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should exist at ${file.absolutePath}")
             val line = file.readLines().firstOrNull()
             assertNotNull(line)
@@ -85,7 +85,7 @@ class ConsoleChannelTest {
             channel.handleIncoming("trigger", session)
 
             // Now send a response
-            channel.send("console_default", OutgoingMessage("AI response"))
+            channel.send("local_ws_default", OutgoingMessage("AI response"))
 
             // Verify send was called with a Frame.Text containing type=assistant
             coVerify {
@@ -106,7 +106,7 @@ class ConsoleChannelTest {
             val channel = makeChannel()
 
             // No handleIncoming call, so activeSession is null
-            channel.send("console_default", OutgoingMessage("response"))
+            channel.send("local_ws_default", OutgoingMessage("response"))
             // Should not throw
         }
 

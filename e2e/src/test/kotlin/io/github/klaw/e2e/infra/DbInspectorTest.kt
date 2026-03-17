@@ -26,11 +26,11 @@ class DbInspectorTest {
 
     @Test
     fun `getMessages returns messages for given chatId`() {
-        insertMessage("msg1", "console_default", "user", "text", "Hello", "2024-01-01T00:00:00Z", 10)
-        insertMessage("msg2", "console_default", "assistant", "text", "Hi there", "2024-01-01T00:00:01Z", 5)
+        insertMessage("msg1", "local_ws_default", "user", "text", "Hello", "2024-01-01T00:00:00Z", 10)
+        insertMessage("msg2", "local_ws_default", "assistant", "text", "Hi there", "2024-01-01T00:00:01Z", 5)
         insertMessage("msg3", "other_chat", "user", "text", "Other", "2024-01-01T00:00:02Z", 3)
 
-        val messages = inspector.getMessages("console_default")
+        val messages = inspector.getMessages("local_ws_default")
         assertEquals(2, messages.size)
         assertEquals("Hello", messages[0].content)
         assertEquals("Hi there", messages[1].content)
@@ -38,29 +38,29 @@ class DbInspectorTest {
 
     @Test
     fun `getMessageCount returns correct count`() {
-        insertMessage("msg1", "console_default", "user", "text", "Hello", "2024-01-01T00:00:00Z", 10)
-        insertMessage("msg2", "console_default", "assistant", "text", "Hi", "2024-01-01T00:00:01Z", 5)
+        insertMessage("msg1", "local_ws_default", "user", "text", "Hello", "2024-01-01T00:00:00Z", 10)
+        insertMessage("msg2", "local_ws_default", "assistant", "text", "Hi", "2024-01-01T00:00:01Z", 5)
 
-        assertEquals(2, inspector.getMessageCount("console_default"))
+        assertEquals(2, inspector.getMessageCount("local_ws_default"))
         assertEquals(0, inspector.getMessageCount("nonexistent"))
     }
 
     @Test
     fun `getSummaries returns summaries for given chatId`() {
-        insertSummary("console_default", "msg1", "msg5", "/tmp/summary.md", "2024-01-01T01:00:00Z")
+        insertSummary("local_ws_default", "msg1", "msg5", "/tmp/summary.md", "2024-01-01T01:00:00Z")
 
-        val summaries = inspector.getSummaries("console_default")
+        val summaries = inspector.getSummaries("local_ws_default")
         assertEquals(1, summaries.size)
-        assertEquals("console_default", summaries[0].chatId)
+        assertEquals("local_ws_default", summaries[0].chatId)
         assertEquals("/tmp/summary.md", summaries[0].filePath)
     }
 
     @Test
     fun `getSummaryCount returns correct count`() {
-        insertSummary("console_default", "msg1", "msg5", "/tmp/s1.md", "2024-01-01T01:00:00Z")
-        insertSummary("console_default", "msg6", "msg10", "/tmp/s2.md", "2024-01-01T02:00:00Z")
+        insertSummary("local_ws_default", "msg1", "msg5", "/tmp/s1.md", "2024-01-01T01:00:00Z")
+        insertSummary("local_ws_default", "msg6", "msg10", "/tmp/s2.md", "2024-01-01T02:00:00Z")
 
-        assertEquals(2, inspector.getSummaryCount("console_default"))
+        assertEquals(2, inspector.getSummaryCount("local_ws_default"))
         assertEquals(0, inspector.getSummaryCount("nonexistent"))
     }
 
@@ -115,7 +115,7 @@ class DbInspectorTest {
                     "INSERT INTO messages (id, channel, chat_id, role, type, content, created_at, tokens) VALUES (?,?,?,?,?,?,?,?)",
                 ).use { ps ->
                     ps.setString(1, id)
-                    ps.setString(2, "console")
+                    ps.setString(2, "local_ws")
                     ps.setString(3, chatId)
                     ps.setString(4, role)
                     ps.setString(5, type)

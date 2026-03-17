@@ -11,6 +11,11 @@ import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.ApplicationContext
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -29,6 +34,15 @@ class GatewayOutboundHandler(
 
     internal var exitFn: (Int) -> Unit = { System.exit(it) }
 
+    private val channelBuffers = ConcurrentHashMap<String, ArrayDeque<OutboundSocketMessage>>()
+    private val bufferLock = ReentrantLock()
+
+    init {
+        channels.forEach { channel ->
+            channel.onBecameAlive = { drainChannelBuffer(channel) }
+        }
+    }
+
     override suspend fun handleOutbound(message: OutboundSocketMessage) {
         if (!isAllowed(message.chatId, message.channel)) {
             logger.warn {
@@ -46,7 +60,20 @@ class GatewayOutboundHandler(
             logger.warn { "No channel found for channel=${message.channel}" }
             return
         }
-        channel.send(message.chatId, OutgoingMessage(message.content, message.replyTo))
+        if (!channel.isAlive()) {
+            bufferMessage(channel.name, message)
+            return
+        }
+        drainChannelBuffer(channel)
+        try {
+            channel.send(message.chatId, OutgoingMessage(message.content, message.replyTo))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            logger.warn(e) { "Send failed for channel=${message.channel}, buffering message" }
+            bufferMessage(channel.name, message)
+            return
+        }
         logger.debug { "Outbound dispatched to channel=${message.channel} chatId=${message.chatId}" }
     }
 
@@ -82,6 +109,51 @@ class GatewayOutboundHandler(
         }, "klaw-gateway-restart").apply { isDaemon = false }.start()
     }
 
+    private fun bufferMessage(
+        channelName: String,
+        message: OutboundSocketMessage,
+    ) {
+        bufferLock.withLock {
+            val deque = channelBuffers.getOrPut(channelName) { ArrayDeque() }
+            if (deque.size >= MAX_CHANNEL_BUFFER_SIZE) {
+                deque.removeFirst()
+                logger.trace { "Channel buffer overflow for channel=$channelName, dropped oldest message" }
+            }
+            deque.addLast(message)
+        }
+        logger.trace { "Message buffered for channel=$channelName (${message::class.simpleName})" }
+    }
+
+    internal suspend fun drainChannelBuffer(channel: Channel) {
+        val messages =
+            bufferLock.withLock {
+                val deque = channelBuffers[channel.name] ?: return
+                val copy = ArrayList(deque)
+                deque.clear()
+                copy
+            }
+        if (messages.isEmpty()) return
+        logger.debug { "Draining ${messages.size} buffered messages for channel=${channel.name}" }
+        for ((index, msg) in messages.withIndex()) {
+            try {
+                channel.send(msg.chatId, OutgoingMessage(msg.content, msg.replyTo))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                logger.warn(e) { "Drain failed at message ${index + 1}/${messages.size} for channel=${channel.name}" }
+                bufferLock.withLock {
+                    val deque = channelBuffers.getOrPut(channel.name) { ArrayDeque() }
+                    // Re-buffer the failed message and remaining
+                    val remaining = messages.subList(index, messages.size)
+                    for (rem in remaining) {
+                        deque.addLast(rem)
+                    }
+                }
+                return
+            }
+        }
+    }
+
     private fun isAllowed(
         chatId: String,
         channel: String,
@@ -90,7 +162,11 @@ class GatewayOutboundHandler(
     private fun detectChannel(chatId: String): String =
         when {
             chatId.startsWith("telegram_") -> "telegram"
-            chatId.startsWith("console") -> "console"
+            chatId.startsWith("local_ws") -> "local_ws"
             else -> "unknown"
         }
+
+    companion object {
+        const val MAX_CHANNEL_BUFFER_SIZE = 100
+    }
 }

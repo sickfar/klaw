@@ -265,7 +265,7 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `GatewayConfig with console section enabled=true and port=9090 parses correctly`() {
+    fun `GatewayConfig with localWs section enabled=true and port=9090 parses correctly`() {
         val json =
             """
             {
@@ -274,7 +274,7 @@ class ConfigParsingTest {
                   "token": "bot-token",
                   "allowedChats": []
                 },
-                "console": {
+                "localWs": {
                   "enabled": true,
                   "port": 9090
                 }
@@ -282,13 +282,13 @@ class ConfigParsingTest {
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.console)
+        val console = assertNotNull(config.channels.localWs)
         assertTrue(console.enabled)
         assertEquals(9090, console.port)
     }
 
     @Test
-    fun `GatewayConfig with console section enabled=false parses correctly`() {
+    fun `GatewayConfig with localWs section enabled=false parses correctly`() {
         val json =
             """
             {
@@ -297,7 +297,7 @@ class ConfigParsingTest {
                   "token": "bot-token",
                   "allowedChats": []
                 },
-                "console": {
+                "localWs": {
                   "enabled": false,
                   "port": 37474
                 }
@@ -305,13 +305,13 @@ class ConfigParsingTest {
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.console)
+        val console = assertNotNull(config.channels.localWs)
         assertFalse(console.enabled)
         assertEquals(37474, console.port)
     }
 
     @Test
-    fun `GatewayConfig without console section uses null default`() {
+    fun `GatewayConfig without localWs section uses null default`() {
         val json =
             """
             {
@@ -324,7 +324,7 @@ class ConfigParsingTest {
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.console)
+        assertNull(config.channels.localWs)
     }
 
     @Test

@@ -34,9 +34,9 @@ This removes the chat entry from `allowedChats` in `gateway.json`.
 
 In group chats, each user must pair individually. When a new user sends `/start` in an already-paired group, they get their own pairing code. After pairing, their user ID is added to the existing chat's `allowedUserIds`.
 
-## Console Channel
+## Local WebSocket Channel
 
-The console channel (`klaw chat`) is always allowed when enabled — no pairing needed. It uses the fixed chatId `console_default`.
+The local WebSocket channel (`klaw chat`) is always allowed when enabled — no pairing needed. It uses the fixed chatId `local_ws_default`.
 
 ## Security Model
 

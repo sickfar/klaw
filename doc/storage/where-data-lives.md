@@ -72,8 +72,11 @@ Both databases are caches/indexes only. The source of truth is the JSONL files. 
 | Item | Description |
 |------|-------------|
 | TCP port `7470` on `127.0.0.1` | Engine listens for IPC connections; port is open only while Engine is running |
-| `~/.local/state/klaw/gateway-buffer.jsonl` | Messages buffered by Gateway when Engine was unavailable; drained automatically on reconnect |
+| `~/.local/state/klaw/gateway-buffer.jsonl` | Inbound messages buffered by Gateway when Engine was unavailable; drained automatically on reconnect |
+| `~/.local/state/klaw/engine-outbound-buffer.jsonl` | Outbound messages buffered by Engine when Gateway is disconnected; drained automatically on reconnect (max 10,000 messages) |
 | `~/.local/state/klaw/pairing_requests.json` | Pending pairing requests from `/start` commands; consumed by `klaw pair` |
+
+See [Message Delivery](../message-delivery.md) for the full delivery recovery architecture.
 
 The engine TCP port is configurable via `KLAW_ENGINE_PORT` (default `7470`). The bind address is configurable via `KLAW_ENGINE_BIND` (default `127.0.0.1`). Clients (gateway, CLI) connect to `KLAW_ENGINE_HOST` (default `127.0.0.1`).
 

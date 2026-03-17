@@ -33,7 +33,7 @@ class ConfigEditCommandTest {
             {
               "channels": {
                 "telegram": {"token": "test-token", "allowedChats": []},
-                "console": {"enabled": false, "port": 37474},
+                "localWs": {"enabled": false, "port": 37474},
                 "discord": {"enabled": false}
               }
             }

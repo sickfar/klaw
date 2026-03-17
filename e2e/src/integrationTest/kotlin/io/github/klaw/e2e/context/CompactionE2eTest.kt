@@ -147,7 +147,7 @@ class CompactionE2eTest {
         assertTrue(dbFile.exists(), "klaw.db should exist")
         val summaryPersisted =
             pollForCondition(SUMMARY_PERSIST_TIMEOUT_MS) {
-                DbInspector(dbFile).use { it.getSummaryCount("console_default") >= 1 }
+                DbInspector(dbFile).use { it.getSummaryCount("local_ws_default") >= 1 }
             }
         assertTrue(summaryPersisted, "Summary should be persisted to DB")
 

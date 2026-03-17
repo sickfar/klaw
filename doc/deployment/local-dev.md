@@ -73,7 +73,7 @@ The `./klaw` wrapper runs `docker compose run --rm cli "$@"` — each invocation
 
 | Host path | Container path | Contents |
 |-----------|---------------|----------|
-| `~/.local/state/klaw` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, logs |
+| `~/.local/state/klaw` | `/home/klaw/.local/state/klaw` | `gateway-buffer.jsonl`, `engine-outbound-buffer.jsonl`, logs |
 | `~/.local/share/klaw` | `/home/klaw/.local/share/klaw` | `klaw.db`, `scheduler.db`, conversations, memory |
 | `~/workspace` | `/workspace` | `SOUL.md`, `IDENTITY.md`, `memory/`, `skills/` |
 

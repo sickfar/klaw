@@ -508,7 +508,7 @@ object GeneratedSchemas {
                             },
                             "additionalProperties": false
                         },
-                        "console": {
+                        "localWs": {
                             "type": "object",
                             "properties": {
                                 "enabled": {

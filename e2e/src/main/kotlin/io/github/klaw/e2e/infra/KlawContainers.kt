@@ -29,9 +29,10 @@ class KlawContainers(
     private lateinit var engineStateDir: File
     private lateinit var gatewayDataDir: File
     private lateinit var gatewayStateDir: File
+    private lateinit var gatewayConfigDir: File
 
     val gatewayHost: String get() = gatewayContainer.host
-    val gatewayMappedPort: Int get() = gatewayContainer.getMappedPort(GATEWAY_CONSOLE_PORT)
+    val gatewayMappedPort: Int get() = gatewayContainer.getMappedPort(GATEWAY_LOCAL_WS_PORT)
     val engineDataPath: File get() = engineDataDir
 
     fun start() {
@@ -41,57 +42,39 @@ class KlawContainers(
 
         buildImages()
 
-        engineContainer =
-            GenericContainer(DockerImageName.parse(ENGINE_IMAGE))
-                .withNetwork(network)
-                .withNetworkAliases("engine")
-                .withEnv("HOME", "/home/klaw")
-                .withEnv("KLAW_ENGINE_BIND", "0.0.0.0")
-                .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
-                .withEnv("KLAW_WORKSPACE", "/workspace")
-                .withFileSystemBind(configDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
-                .withFileSystemBind(engineDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
-                .withFileSystemBind(engineStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
-                .withFileSystemBind(workspaceDir.absolutePath, "/workspace", BindMode.READ_WRITE)
-                .waitingFor(
-                    Wait
-                        .forLogMessage(".*EngineSocketServer started on.*", 1)
-                        .withStartupTimeout(Duration.ofSeconds(STARTUP_TIMEOUT_SECONDS)),
-                ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("engine"))
+        startEngine()
 
-        logger.info { "Starting engine container..." }
-        engineContainer.start()
-        logger.info { "Engine container started" }
+        startGateway()
+    }
 
-        // Gateway needs its own config directory
-        val gatewayConfigDir =
-            File(configDir.parentFile, "gateway-config").apply {
-                mkdirs()
-                setWritable(true, false)
-                setReadable(true, false)
-                setExecutable(true, false)
-            }
-        File(gatewayConfigDir, "gateway.json").writeText(gatewayJson)
+    fun stopGateway() {
+        if (::gatewayContainer.isInitialized) {
+            logger.info { "Stopping gateway container..." }
+            gatewayContainer.stop()
+            logger.info { "Gateway container stopped" }
+        }
+    }
 
-        gatewayContainer =
-            GenericContainer(DockerImageName.parse(GATEWAY_IMAGE))
-                .withNetwork(network)
-                .withEnv("HOME", "/home/klaw")
-                .withEnv("KLAW_ENGINE_HOST", "engine")
-                .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
-                .withFileSystemBind(gatewayConfigDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
-                .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
-                .withFileSystemBind(gatewayStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
-                .withExposedPorts(GATEWAY_CONSOLE_PORT)
-                .waitingFor(
-                    Wait
-                        .forLogMessage(".*Ktor server started on port.*", 1)
-                        .withStartupTimeout(Duration.ofSeconds(GATEWAY_STARTUP_TIMEOUT_SECONDS)),
-                ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("gateway"))
-
+    fun startGateway() {
+        gatewayContainer = createGatewayContainer()
         logger.info { "Starting gateway container..." }
         gatewayContainer.start()
         logger.info { "Gateway container started on port $gatewayMappedPort" }
+    }
+
+    fun stopEngine() {
+        if (::engineContainer.isInitialized) {
+            logger.info { "Stopping engine container..." }
+            engineContainer.stop()
+            logger.info { "Engine container stopped" }
+        }
+    }
+
+    fun startEngine() {
+        engineContainer = createEngineContainer()
+        logger.info { "Starting engine container..." }
+        engineContainer.start()
+        logger.info { "Engine container started" }
     }
 
     fun stop() {
@@ -99,6 +82,40 @@ class KlawContainers(
         if (::engineContainer.isInitialized) engineContainer.stop()
         network.close()
     }
+
+    private fun createEngineContainer(): GenericContainer<*> =
+        GenericContainer(DockerImageName.parse(ENGINE_IMAGE))
+            .withNetwork(network)
+            .withNetworkAliases("engine")
+            .withEnv("HOME", "/home/klaw")
+            .withEnv("KLAW_ENGINE_BIND", "0.0.0.0")
+            .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
+            .withEnv("KLAW_WORKSPACE", "/workspace")
+            .withFileSystemBind(configDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(engineDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(engineStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(workspaceDir.absolutePath, "/workspace", BindMode.READ_WRITE)
+            .waitingFor(
+                Wait
+                    .forLogMessage(".*EngineSocketServer started on.*", 1)
+                    .withStartupTimeout(Duration.ofSeconds(STARTUP_TIMEOUT_SECONDS)),
+            ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("engine"))
+
+    private fun createGatewayContainer(): GenericContainer<*> =
+        GenericContainer(DockerImageName.parse(GATEWAY_IMAGE))
+            .withNetwork(network)
+            .withEnv("HOME", "/home/klaw")
+            .withEnv("KLAW_ENGINE_HOST", "engine")
+            .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
+            .withFileSystemBind(gatewayConfigDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(gatewayStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
+            .withExposedPorts(GATEWAY_LOCAL_WS_PORT)
+            .waitingFor(
+                Wait
+                    .forLogMessage(".*Ktor server started on port.*", 1)
+                    .withStartupTimeout(Duration.ofSeconds(GATEWAY_STARTUP_TIMEOUT_SECONDS)),
+            ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("gateway"))
 
     private fun buildImages() {
         val projectRoot = findProjectRoot()
@@ -137,6 +154,14 @@ class KlawContainers(
         gatewayDataDir = File(tmpBase, "gateway-data").apply { mkdirs() }
         gatewayStateDir = File(tmpBase, "gateway-state").apply { mkdirs() }
 
+        gatewayConfigDir =
+            File(tmpBase, "gateway-config").apply {
+                mkdirs()
+                setWritable(true, false)
+                setReadable(true, false)
+                setExecutable(true, false)
+            }
+
         // Containers run as UID 10001 — dirs need world-writable permissions
         listOf(configDir, engineDataDir, engineStateDir, gatewayDataDir, gatewayStateDir, workspaceDir)
             .forEach { dir ->
@@ -146,7 +171,7 @@ class KlawContainers(
             }
 
         File(configDir, "engine.json").writeText(engineJson)
-        // Engine config dir gets engine.json; gateway config is separate
+        File(gatewayConfigDir, "gateway.json").writeText(gatewayJson)
     }
 
     private fun findProjectRoot(): File {
@@ -164,7 +189,7 @@ class KlawContainers(
         private const val ENGINE_IMAGE = "klaw-engine-e2e:latest"
         private const val GATEWAY_IMAGE = "klaw-gateway-e2e:latest"
         private const val ENGINE_PORT = 7470
-        private const val GATEWAY_CONSOLE_PORT = 37474
+        private const val GATEWAY_LOCAL_WS_PORT = 37474
         private const val STARTUP_TIMEOUT_SECONDS = 180L
         private const val GATEWAY_STARTUP_TIMEOUT_SECONDS = 60L
     }

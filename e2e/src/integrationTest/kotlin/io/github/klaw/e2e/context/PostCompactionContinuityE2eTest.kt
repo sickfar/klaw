@@ -150,7 +150,7 @@ class PostCompactionContinuityE2eTest {
         private const val COMPACTION_THRESHOLD_FRACTION = 0.5
         private const val TRIGGER_MESSAGES = 5
         private const val POST_COMPACTION_MESSAGES = 3
-        private const val CHAT_ID = "console_default"
+        private const val CHAT_ID = "local_ws_default"
 
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200

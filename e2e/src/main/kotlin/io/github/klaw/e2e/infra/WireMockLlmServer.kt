@@ -69,11 +69,42 @@ class WireMockLlmServer {
         )
     }
 
+    fun stubChatResponseWithDelay(
+        content: String,
+        delayMs: Int,
+        promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+        completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+    ) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .atPriority(PRIORITY_DEFAULT)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withFixedDelay(delayMs)
+                        .withBody(buildChatResponseJson(content, promptTokens, completionTokens)),
+                ),
+        )
+    }
+
     fun stubChatResponseSequence(responses: List<StubResponse>) {
         val scenarioName = "chat-sequence"
         responses.forEachIndexed { index, stub ->
             val currentState = if (index == 0) Scenario.STARTED else "state-$index"
             val nextState = if (index < responses.lastIndex) "state-${index + 1}" else "state-done"
+
+            val responseBuilder =
+                aResponse()
+                    .withStatus(HTTP_OK)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        buildChatResponseJson(stub.content, stub.promptTokens, stub.completionTokens),
+                    )
+
+            if (stub.delayMs > 0) {
+                responseBuilder.withFixedDelay(stub.delayMs)
+            }
 
             server.stubFor(
                 post(urlEqualTo(CHAT_COMPLETIONS_PATH))
@@ -81,14 +112,7 @@ class WireMockLlmServer {
                     .whenScenarioStateIs(currentState)
                     .atPriority(PRIORITY_SEQUENCE)
                     .willSetStateTo(nextState)
-                    .willReturn(
-                        aResponse()
-                            .withStatus(HTTP_OK)
-                            .withHeader("Content-Type", "application/json")
-                            .withBody(
-                                buildChatResponseJson(stub.content, stub.promptTokens, stub.completionTokens),
-                            ),
-                    ),
+                    .willReturn(responseBuilder),
             )
         }
     }

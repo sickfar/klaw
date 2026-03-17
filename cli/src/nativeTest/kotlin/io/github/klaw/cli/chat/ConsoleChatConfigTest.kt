@@ -10,9 +10,9 @@ class ConsoleChatConfigTest {
     private fun parseConsoleConfig(json: String): ConsoleChatConfig =
         try {
             val config = parseGatewayConfig(json)
-            val console = config.channels.console
-            if (console != null) {
-                ConsoleChatConfig(enabled = console.enabled, port = console.port)
+            val localWs = config.channels.localWs
+            if (localWs != null) {
+                ConsoleChatConfig(enabled = localWs.enabled, port = localWs.port)
             } else {
                 ConsoleChatConfig(enabled = false)
             }
@@ -21,7 +21,7 @@ class ConsoleChatConfigTest {
         }
 
     @Test
-    fun `console not configured returns enabled false`() {
+    fun `localWs not configured returns enabled false`() {
         val config =
             parseConsoleConfig(
                 """
@@ -39,7 +39,7 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `console enabled false returns enabled false`() {
+    fun `localWs enabled false returns enabled false`() {
         val config =
             parseConsoleConfig(
                 """
@@ -49,7 +49,7 @@ class ConsoleChatConfigTest {
       "token": "abc",
       "allowedChats": []
     },
-    "console": {
+    "localWs": {
       "enabled": false,
       "port": 37474
     }
@@ -61,7 +61,7 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `console enabled true with default port`() {
+    fun `localWs enabled true with default port`() {
         val config =
             parseConsoleConfig(
                 """
@@ -71,7 +71,7 @@ class ConsoleChatConfigTest {
       "token": "abc",
       "allowedChats": []
     },
-    "console": {
+    "localWs": {
       "enabled": true,
       "port": 37474
     }
@@ -84,7 +84,7 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `console enabled true with custom port`() {
+    fun `localWs enabled true with custom port`() {
         val config =
             parseConsoleConfig(
                 """
@@ -94,7 +94,7 @@ class ConsoleChatConfigTest {
       "token": "abc",
       "allowedChats": []
     },
-    "console": {
+    "localWs": {
       "enabled": true,
       "port": 9090
     }
@@ -131,13 +131,13 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `console section with port before enabled`() {
+    fun `localWs section with port before enabled`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
-    "console": {
+    "localWs": {
       "port": 8080,
       "enabled": true
     }
@@ -150,13 +150,13 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `channels with only console section`() {
+    fun `channels with only localWs section`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
-    "console": {
+    "localWs": {
       "enabled": true,
       "port": 5000
     }

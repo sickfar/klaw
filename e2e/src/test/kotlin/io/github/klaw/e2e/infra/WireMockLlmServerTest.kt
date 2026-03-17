@@ -280,6 +280,42 @@ class WireMockLlmServerTest {
     }
 
     @Test
+    fun `stubChatResponseWithDelay adds fixed delay to response`() {
+        server.stubChatResponseWithDelay("Delayed response", delayMs = 500)
+
+        val start = System.currentTimeMillis()
+        val response = postChatCompletion(makeRequest("Hello"))
+        val elapsed = System.currentTimeMillis() - start
+
+        assertEquals(200, response.statusCode())
+        assertEquals("Delayed response", extractContent(response))
+        assertTrue(elapsed >= 400, "Response should be delayed (~500ms), was ${elapsed}ms")
+    }
+
+    @Test
+    fun `stubChatResponseSequence applies delay when specified`() {
+        server.stubChatResponseSequence(
+            listOf(
+                StubResponse("Slow chat", promptTokens = 10, completionTokens = 5, delayMs = 500),
+                StubResponse("Fast chat", promptTokens = 10, completionTokens = 5),
+            ),
+        )
+
+        val start1 = System.currentTimeMillis()
+        val r1 = extractContent(postChatCompletion(makeRequest("msg1")))
+        val elapsed1 = System.currentTimeMillis() - start1
+
+        val start2 = System.currentTimeMillis()
+        val r2 = extractContent(postChatCompletion(makeRequest("msg2")))
+        val elapsed2 = System.currentTimeMillis() - start2
+
+        assertEquals("Slow chat", r1)
+        assertEquals("Fast chat", r2)
+        assertTrue(elapsed1 >= 400, "First response should be delayed (~500ms), was ${elapsed1}ms")
+        assertTrue(elapsed2 < 400, "Second response should be fast, was ${elapsed2}ms")
+    }
+
+    @Test
     fun `reset clears stubs and recorded requests`() {
         server.stubChatResponse("Response", promptTokens = 10, completionTokens = 5)
         postChatCompletion(makeRequest("Hello"))

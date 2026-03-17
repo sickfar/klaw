@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-class ConsoleChannelApprovalTest {
+class LocalWsChannelApprovalTest {
     @TempDir
     lateinit var tempDir: File
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun makeChannel(): ConsoleChannel = ConsoleChannel(ConversationJsonlWriter(tempDir.absolutePath))
+    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
 
     private fun mockSession(): DefaultWebSocketServerSession =
         mockk(relaxed = true) {
@@ -37,7 +37,7 @@ class ConsoleChannelApprovalTest {
         timeout: Int = 30,
     ) = ApprovalRequestMessage(
         id = id,
-        chatId = "console_default",
+        chatId = "local_ws_default",
         command = command,
         riskScore = riskScore,
         timeout = timeout,
@@ -52,7 +52,7 @@ class ConsoleChannelApprovalTest {
             // Set active session
             channel.handleIncoming("trigger", session)
 
-            channel.sendApproval("console_default", approvalRequest()) { }
+            channel.sendApproval("local_ws_default", approvalRequest()) { }
 
             coVerify {
                 session.send(
@@ -77,7 +77,7 @@ class ConsoleChannelApprovalTest {
             val channel = makeChannel()
 
             // No handleIncoming, so no active session
-            channel.sendApproval("console_default", approvalRequest()) { }
+            channel.sendApproval("local_ws_default", approvalRequest()) { }
             // Should not throw
         }
 
@@ -89,7 +89,7 @@ class ConsoleChannelApprovalTest {
             channel.handleIncoming("trigger", session)
 
             var callbackResult: Boolean? = null
-            channel.sendApproval("console_default", approvalRequest(id = "apr-2")) { approved ->
+            channel.sendApproval("local_ws_default", approvalRequest(id = "apr-2")) { approved ->
                 callbackResult = approved
             }
 
@@ -107,7 +107,7 @@ class ConsoleChannelApprovalTest {
             channel.handleIncoming("trigger", session)
 
             var callbackResult: Boolean? = null
-            channel.sendApproval("console_default", approvalRequest(id = "apr-3")) { approved ->
+            channel.sendApproval("local_ws_default", approvalRequest(id = "apr-3")) { approved ->
                 callbackResult = approved
             }
 
@@ -134,7 +134,7 @@ class ConsoleChannelApprovalTest {
             channel.handleIncoming("trigger", session)
 
             var callCount = 0
-            channel.sendApproval("console_default", approvalRequest(id = "apr-4")) {
+            channel.sendApproval("local_ws_default", approvalRequest(id = "apr-4")) {
                 callCount++
             }
 
@@ -156,7 +156,7 @@ class ConsoleChannelApprovalTest {
             channel.handleIncoming("trigger", failSession)
 
             var callbackInvoked = false
-            channel.sendApproval("console_default", approvalRequest(id = "apr-5")) {
+            channel.sendApproval("local_ws_default", approvalRequest(id = "apr-5")) {
                 callbackInvoked = true
             }
 

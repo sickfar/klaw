@@ -164,7 +164,7 @@ class SessionResetCompactionE2eTest {
         private const val SUMMARY_BUDGET_FRACTION = 0.25
         private const val COMPACTION_THRESHOLD_FRACTION = 0.5
         private const val TRIGGER_MESSAGES = 5
-        private const val CHAT_ID = "console_default"
+        private const val CHAT_ID = "local_ws_default"
 
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200

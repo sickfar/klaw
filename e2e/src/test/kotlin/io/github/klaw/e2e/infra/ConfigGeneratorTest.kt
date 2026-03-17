@@ -41,13 +41,13 @@ class ConfigGeneratorTest {
     }
 
     @Test
-    fun `generated gateway json has console channel enabled on port 37474`() {
+    fun `generated gateway json has localWs channel enabled on port 37474`() {
         val gatewayJson = ConfigGenerator.gatewayJson()
 
         val root = json.parseToJsonElement(gatewayJson).jsonObject
-        val console = root["channels"]!!.jsonObject["console"]!!.jsonObject
-        assertTrue(console["enabled"]!!.jsonPrimitive.boolean)
-        assertEquals(37474, console["port"]!!.jsonPrimitive.int)
+        val localWs = root["channels"]!!.jsonObject["localWs"]!!.jsonObject
+        assertTrue(localWs["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(37474, localWs["port"]!!.jsonPrimitive.int)
     }
 
     @Test

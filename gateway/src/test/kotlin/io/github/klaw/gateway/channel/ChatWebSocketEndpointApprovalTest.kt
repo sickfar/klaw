@@ -12,9 +12,9 @@ import io.ktor.server.websocket.WebSockets as ServerWebSockets
 
 class ChatWebSocketEndpointApprovalTest {
     @Test
-    fun `approval_response frame dispatches to consoleChannel resolveApproval`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+    fun `approval_response frame dispatches to localWsChannel resolveApproval`() {
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -30,13 +30,13 @@ class ChatWebSocketEndpointApprovalTest {
             }
         }
 
-        coVerify(exactly = 1) { consoleChannel.resolveApproval("apr-99", true) }
+        coVerify(exactly = 1) { localWsChannel.resolveApproval("apr-99", true) }
     }
 
     @Test
     fun `approval_response with approved=false dispatches correctly`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -52,13 +52,13 @@ class ChatWebSocketEndpointApprovalTest {
             }
         }
 
-        coVerify(exactly = 1) { consoleChannel.resolveApproval("apr-100", false) }
+        coVerify(exactly = 1) { localWsChannel.resolveApproval("apr-100", false) }
     }
 
     @Test
     fun `approval_response missing approvalId does not call resolveApproval`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -74,13 +74,13 @@ class ChatWebSocketEndpointApprovalTest {
             }
         }
 
-        coVerify(exactly = 0) { consoleChannel.resolveApproval(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.resolveApproval(any(), any()) }
     }
 
     @Test
     fun `approval_response missing approved does not call resolveApproval`() {
-        val consoleChannel = mockk<ConsoleChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(consoleChannel)
+        val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel)
 
         testApplication {
             install(ServerWebSockets)
@@ -96,6 +96,6 @@ class ChatWebSocketEndpointApprovalTest {
             }
         }
 
-        coVerify(exactly = 0) { consoleChannel.resolveApproval(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.resolveApproval(any(), any()) }
     }
 }

@@ -41,9 +41,9 @@ class InboundAllowlistServiceTest {
     }
 
     @Test
-    fun `console channel always allowed`() {
+    fun `local_ws channel always allowed`() {
         val service = InboundAllowlistService(config())
-        assertTrue(service.isAllowed("console", "any-chat", null))
+        assertTrue(service.isAllowed("local_ws", "any-chat", null))
     }
 
     @Test
@@ -101,9 +101,9 @@ class InboundAllowlistServiceTest {
     }
 
     @Test
-    fun `isStartAllowed console always returns AlreadyPaired`() {
+    fun `isStartAllowed local_ws always returns AlreadyPaired`() {
         val service = InboundAllowlistService(config())
-        assertEquals(PairingStatus.AlreadyPaired, service.isStartAllowed("console", "any", null))
+        assertEquals(PairingStatus.AlreadyPaired, service.isStartAllowed("local_ws", "any", null))
     }
 
     @Test

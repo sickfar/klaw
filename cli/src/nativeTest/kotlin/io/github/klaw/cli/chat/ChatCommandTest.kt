@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class ChatCommandTest {
     @Test
-    fun `chat with console disabled shows error message`() {
+    fun `chat with localWs disabled shows error message`() {
         val command =
             ChatCommand(
                 configDir = "/nonexistent",
@@ -31,7 +31,7 @@ class ChatCommandTest {
                 sessionFactory = { _ -> error("Should not connect") },
             )
         val result = command.test("")
-        assertTrue(result.output.contains("console"), "Expected 'console' in: ${result.output}")
+        assertTrue(result.output.contains("localWs"), "Expected 'localWs' in: ${result.output}")
         assertTrue(result.output.contains("gateway.json"), "Expected 'gateway.json' in: ${result.output}")
     }
 

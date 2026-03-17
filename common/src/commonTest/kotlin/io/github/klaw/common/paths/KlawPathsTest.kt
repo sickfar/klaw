@@ -166,6 +166,13 @@ class KlawPathsTest {
     }
 
     @Test
+    fun `engineOutboundBuffer is in state dir and ends with correct filename`() {
+        val paths = buildTestPaths(home = "/home/alice")
+        assertTrue(paths.engineOutboundBuffer.startsWith(paths.state))
+        assertTrue(paths.engineOutboundBuffer.endsWith("engine-outbound-buffer.jsonl"))
+    }
+
+    @Test
     fun `all XDG vars set simultaneously`() {
         val paths =
             buildTestPaths(

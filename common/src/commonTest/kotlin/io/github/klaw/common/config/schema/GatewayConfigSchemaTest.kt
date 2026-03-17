@@ -57,9 +57,9 @@ class GatewayConfigSchemaTest {
     }
 
     @Test
-    fun `console port is integer type`() {
+    fun `localWs port is integer type`() {
         val channels = schema["properties"]!!.jsonObject["channels"]!!.jsonObject
-        val console = channels["properties"]!!.jsonObject["console"]!!.jsonObject
+        val console = channels["properties"]!!.jsonObject["localWs"]!!.jsonObject
         val port = console["properties"]!!.jsonObject["port"]!!.jsonObject
         assertEquals("integer", port["type"]?.jsonPrimitive?.content)
     }

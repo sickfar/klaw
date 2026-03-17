@@ -33,7 +33,7 @@ private const val TOTAL_PHASES = 8
 private const val DEFAULT_MODEL = "zai/glm-5"
 private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
-private const val CONSOLE_DEFAULT_PORT = 37474
+private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
 private const val ID_KEY_OFFSET = 4 // length of "\"id\"" to skip to the value
 
@@ -220,12 +220,12 @@ internal class InitWizard(
         CliLogger.info { "phase 5: WebSocket chat setup" }
         phase(PHASE_WEBSOCKET, "WebSocket chat setup")
         printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
-        val enableConsole = readLineOrExit()?.trim()?.lowercase() == "y"
-        var consolePort = CONSOLE_DEFAULT_PORT
-        if (enableConsole) {
-            printer("Gateway WebSocket port [$CONSOLE_DEFAULT_PORT]:")
-            consolePort = readLineOrExit()?.trim()?.toIntOrNull() ?: CONSOLE_DEFAULT_PORT
-            success("WebSocket chat enabled on port $consolePort")
+        val enableLocalWs = readLineOrExit()?.trim()?.lowercase() == "y"
+        var localWsPort = LOCAL_WS_DEFAULT_PORT
+        if (enableLocalWs) {
+            printer("Gateway WebSocket port [$LOCAL_WS_DEFAULT_PORT]:")
+            localWsPort = readLineOrExit()?.trim()?.toIntOrNull() ?: LOCAL_WS_DEFAULT_PORT
+            success("WebSocket chat enabled on port $localWsPort")
         } else {
             printer("WebSocket chat disabled (can be enabled later in gateway.json)")
         }
@@ -264,7 +264,7 @@ internal class InitWizard(
         val heartbeatChannel =
             when {
                 configureTelegram -> "telegram"
-                enableConsole -> "console"
+                enableLocalWs -> "local_ws"
                 else -> null
             }
         writeFileText(
@@ -284,8 +284,8 @@ internal class InitWizard(
                         io.github.klaw.common.config
                             .AllowedChat(chatId = it)
                     },
-                enableConsole = enableConsole,
-                consolePort = consolePort,
+                enableLocalWs = enableLocalWs,
+                localWsPort = localWsPort,
             ),
         )
         val apiKeyEnvVar = ConfigTemplates.apiKeyEnvVar(defaultAlias)
@@ -306,8 +306,8 @@ internal class InitWizard(
                     configDir,
                     workspaceDir,
                     dockerTag,
-                    enableConsole,
-                    consolePort,
+                    enableLocalWs,
+                    localWsPort,
                 ),
             )
         }

@@ -11,16 +11,16 @@ internal data class ConsoleChatConfig(
 }
 
 /**
- * Reads console chat configuration from gateway.json.
+ * Reads local WebSocket chat configuration from gateway.json.
  * Uses common parseGatewayConfig (kotlinx-serialization-json, available on all targets).
  */
 internal fun readConsoleChatConfig(configDir: String): ConsoleChatConfig {
     val text = readFileText("$configDir/gateway.json") ?: return ConsoleChatConfig(enabled = false)
     return try {
         val config = parseGatewayConfig(text)
-        val console = config.channels.console
-        if (console != null) {
-            ConsoleChatConfig(enabled = console.enabled, port = console.port)
+        val localWs = config.channels.localWs
+        if (localWs != null) {
+            ConsoleChatConfig(enabled = localWs.enabled, port = localWs.port)
         } else {
             ConsoleChatConfig(enabled = false)
         }

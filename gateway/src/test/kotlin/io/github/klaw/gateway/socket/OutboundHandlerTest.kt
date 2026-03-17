@@ -53,6 +53,7 @@ class OutboundHandlerTest {
         runBlocking {
             val telegramChannel = mockk<Channel>(relaxed = true)
             every { telegramChannel.name } returns "telegram"
+            every { telegramChannel.isAlive() } returns true
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(telegramChannel),
@@ -71,6 +72,7 @@ class OutboundHandlerTest {
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "telegram"
+            every { channel.isAlive() } returns true
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),

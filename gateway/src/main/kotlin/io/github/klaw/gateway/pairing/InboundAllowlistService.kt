@@ -25,8 +25,8 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): Boolean {
-        if (channel == "console") {
-            logger.trace { "console channel always allowed" }
+        if (channel == "local_ws") {
+            logger.trace { "local_ws channel always allowed" }
             return true
         }
         val allowedChats =
@@ -63,7 +63,7 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): PairingStatus {
-        if (channel == "console") return PairingStatus.AlreadyPaired
+        if (channel == "local_ws") return PairingStatus.AlreadyPaired
         val allowedChats =
             when (channel) {
                 "telegram" -> config.channels.telegram?.allowedChats ?: emptyList()
@@ -82,7 +82,7 @@ class InboundAllowlistService(
         channel: String,
         chatId: String,
     ): Boolean {
-        if (channel == "console") return chatId == "console_default"
+        if (channel == "local_ws") return chatId == "local_ws_default"
         val allowedChats =
             when (channel) {
                 "telegram" -> config.channels.telegram?.allowedChats ?: return false
