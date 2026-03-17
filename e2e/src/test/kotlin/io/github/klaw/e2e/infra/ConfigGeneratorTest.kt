@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -164,5 +165,36 @@ class ConfigGeneratorTest {
         val hostExecution = root["hostExecution"]!!.jsonObject
         assertTrue(hostExecution["enabled"]!!.jsonPrimitive.boolean)
         assertEquals(5, hostExecution["askTimeoutMin"]!!.jsonPrimitive.int)
+    }
+
+    @Test
+    fun `engine json with hostExecution allowList and notifyList`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                hostExecutionEnabled = true,
+                hostExecutionAllowList = listOf("echo *", "df -h"),
+                hostExecutionNotifyList = listOf("systemctl restart *"),
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val hostExecution = root["hostExecution"]!!.jsonObject
+        val allowList = hostExecution["allowList"]!!.jsonArray
+        assertEquals(2, allowList.size)
+        assertEquals("echo *", allowList[0].jsonPrimitive.content)
+        assertEquals("df -h", allowList[1].jsonPrimitive.content)
+        val notifyList = hostExecution["notifyList"]!!.jsonArray
+        assertEquals(1, notifyList.size)
+        assertEquals("systemctl restart *", notifyList[0].jsonPrimitive.content)
+    }
+
+    @Test
+    fun `engine json defaults have empty allowList and notifyList`() {
+        val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val hostExecution = root["hostExecution"]!!.jsonObject
+        assertTrue(hostExecution["allowList"]!!.jsonArray.isEmpty())
+        assertTrue(hostExecution["notifyList"]!!.jsonArray.isEmpty())
     }
 }

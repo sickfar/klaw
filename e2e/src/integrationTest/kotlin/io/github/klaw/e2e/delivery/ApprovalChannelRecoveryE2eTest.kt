@@ -146,7 +146,6 @@ class ApprovalChannelRecoveryE2eTest {
         private const val LLM_DELAY_MS = 3000
         private const val PROCESSING_MARGIN_MS = 3000L
         private const val WIREMOCK_REQUEST_WAIT_SECONDS = 30L
-        private const val RESPONSE_TIMEOUT_MS = 60_000L
         private const val RECOVERY_TIMEOUT_MS = 60_000L
         private const val EXPECTED_LLM_CALLS = 2
     }

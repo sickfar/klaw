@@ -6,10 +6,10 @@ import io.github.klaw.e2e.infra.StubToolCall
 import io.github.klaw.e2e.infra.WebSocketChatClient
 import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.MethodOrderer
@@ -19,18 +19,15 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 
 /**
- * E2E test verifying the approval rejection flow.
+ * E2E test verifying that command injection via notifyList bypass is blocked.
  *
- * Flow:
- * 1. LLM returns a host_exec tool call
- * 2. Engine sends approval request to gateway
- * 3. User rejects the command via approval_response(approved=false)
- * 4. Engine sends rejection error as tool result to LLM
- * 5. LLM responds acknowledging the rejection
+ * Config: notifyList = ["systemctl restart *"], hostExecution enabled.
+ * LLM returns host_exec("systemctl restart klaw && rm -rf /") — AND chaining injection.
+ * Engine detects shell operators in the notifyList-matched command and rejects it.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
-class ApprovalRejectionE2eTest {
+class CommandInjectionNotifyListE2eTest {
     private val wireMock = WireMockLlmServer()
     private lateinit var containers: KlawContainers
     private lateinit var client: WebSocketChatClient
@@ -48,7 +45,7 @@ class ApprovalRejectionE2eTest {
                         wiremockBaseUrl = wiremockBaseUrl,
                         contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
                         hostExecutionEnabled = true,
-                        askTimeoutMin = ASK_TIMEOUT_MIN,
+                        hostExecutionNotifyList = listOf("systemctl restart *"),
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
                     ),
                 gatewayJson = ConfigGenerator.gatewayJson(),
@@ -68,83 +65,58 @@ class ApprovalRejectionE2eTest {
 
     @Test
     @Order(1)
-    fun `rejection sends error tool result to LLM`() {
-        // Stub LLM: first call returns host_exec tool call, second returns acknowledgement
+    fun `AND chaining injection via notifyList is blocked`() {
         wireMock.stubChatResponseSequenceRaw(
             listOf(
                 WireMockLlmServer.buildToolCallResponseJson(
                     listOf(
                         StubToolCall(
-                            id = "call_reject_1",
+                            id = "call_notify_inject_1",
                             name = "host_exec",
-                            arguments = """{"command": "rm -rf /"}""",
+                            arguments = """{"command": "systemctl restart klaw && rm -rf /"}""",
                         ),
                     ),
                     promptTokens = STUB_PROMPT_TOKENS,
                     completionTokens = STUB_COMPLETION_TOKENS,
                 ),
                 WireMockLlmServer.buildChatResponseJson(
-                    "understood, command was rejected",
+                    "NOTIFY-INJECTION-BLOCKED: command was rejected",
                     promptTokens = STUB_PROMPT_TOKENS,
                     completionTokens = STUB_COMPLETION_TOKENS,
                 ),
             ),
         )
 
-        // Send user message
-        client.sendMessage("run dangerous command")
+        client.sendMessage("restart klaw service")
 
-        // Wait for approval request
-        val approvalFrame = client.waitForApprovalRequest(timeoutMs = RESPONSE_TIMEOUT_MS)
-        assertNotNull(approvalFrame.approvalId, "Approval request should have an approvalId")
-
-        // Reject the command
-        client.sendApprovalResponse(approvalFrame.approvalId!!, approved = false)
-
-        // Wait for the final assistant response
         val response = client.waitForAssistantResponse(timeoutMs = RESPONSE_TIMEOUT_MS)
         assertTrue(
-            response.contains("rejected"),
-            "Response should acknowledge rejection but was: $response",
+            response.contains("NOTIFY-INJECTION-BLOCKED"),
+            "notifyList injection should be blocked but was: $response",
         )
 
-        // Verify WireMock received 2 requests
-        val chatRequests = wireMock.getChatRequests()
-        assertTrue(
-            chatRequests.size >= EXPECTED_LLM_CALLS,
-            "Expected at least $EXPECTED_LLM_CALLS LLM calls but got ${chatRequests.size}",
-        )
-
-        // Verify the second LLM request contains a tool message with rejection error
-        val secondRequestMessages = wireMock.getNthRequestMessages(1)
-        val toolMessages =
-            secondRequestMessages.filter { msg ->
-                msg.jsonObject["role"]?.jsonPrimitive?.content == "tool"
-            }
-        assertTrue(
-            toolMessages.isNotEmpty(),
-            "Second LLM request should contain a tool result message",
-        )
-
+        // Verify tool result contains shell operators rejection
+        val secondRequest = wireMock.getNthRequestBody(1)
+        val messages = secondRequest["messages"]!!.jsonArray
         val toolContent =
-            toolMessages.joinToString("\n") { msg ->
-                msg.jsonObject["content"]?.jsonPrimitive?.content ?: ""
-            }
+            messages
+                .filter { it.jsonObject["role"]?.jsonPrimitive?.content == "tool" }
+                .first()
+                .jsonObject["content"]
+                ?.jsonPrimitive
+                ?.content
+                ?: ""
         assertTrue(
-            toolContent.contains("rejected", ignoreCase = true) ||
-                toolContent.contains("denied", ignoreCase = true) ||
-                toolContent.contains("error", ignoreCase = true),
-            "Tool result should indicate rejection but was: $toolContent",
+            toolContent.contains("shell operators"),
+            "Tool result should contain rejection error but was: $toolContent",
         )
     }
 
     companion object {
         private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val MAX_TOOL_CALL_ROUNDS = 3
-        private const val ASK_TIMEOUT_MIN = 1
         private const val STUB_PROMPT_TOKENS = 50
         private const val STUB_COMPLETION_TOKENS = 30
         private const val RESPONSE_TIMEOUT_MS = 60_000L
-        private const val EXPECTED_LLM_CALLS = 2
     }
 }

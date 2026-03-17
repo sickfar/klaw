@@ -72,12 +72,20 @@ class HostExecTool(
 
         // 1. allowList check
         if (matchesGlob(command, config.allowList)) {
+            if (containsShellOperators(command)) {
+                logger.warn { "host_exec: allowList match rejected — shell operators detected" }
+                return SHELL_OPERATORS_ERROR
+            }
             logger.debug { "host_exec: command matched allowList" }
             return runCommand(command)
         }
 
         // 2. notifyList check
         if (matchesGlob(command, config.notifyList)) {
+            if (containsShellOperators(command)) {
+                logger.warn { "host_exec: notifyList match rejected — shell operators detected" }
+                return SHELL_OPERATORS_ERROR
+            }
             logger.debug { "host_exec: command matched notifyList" }
             approvalService.notify(chatId, channel, command)
             return runCommand(command)
@@ -87,6 +95,10 @@ class HostExecTool(
         if (config.preValidation.enabled && config.preValidation.model.isNotEmpty()) {
             val risk = evaluateRisk(command)
             if (risk < config.preValidation.riskThreshold) {
+                if (containsShellOperators(command)) {
+                    logger.warn { "host_exec: LLM pre-validation auto-execute rejected — shell operators detected" }
+                    return SHELL_OPERATORS_ERROR
+                }
                 logger.debug { "host_exec: LLM risk=$risk below threshold=${config.preValidation.riskThreshold}" }
                 return runCommand(command)
             }
@@ -189,5 +201,7 @@ class HostExecTool(
     companion object {
         private const val COMMAND_TIMEOUT_SECONDS = 60L
         private const val STREAM_JOIN_TIMEOUT_MS = 5000L
+        private const val SHELL_OPERATORS_ERROR =
+            "Error: command contains shell operators and cannot be auto-approved"
     }
 }

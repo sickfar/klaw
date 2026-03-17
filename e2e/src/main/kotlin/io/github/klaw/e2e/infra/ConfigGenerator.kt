@@ -1,5 +1,6 @@
 package io.github.klaw.e2e.infra
 
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -32,6 +33,8 @@ object ConfigGenerator {
         maxToolCallRounds: Int = 1,
         debounceMs: Int = DEBOUNCE_MS,
         hostExecutionEnabled: Boolean = false,
+        hostExecutionAllowList: List<String> = emptyList(),
+        hostExecutionNotifyList: List<String> = emptyList(),
         askTimeoutMin: Int = 1,
     ): String {
         val root =
@@ -48,6 +51,8 @@ object ConfigGenerator {
                     autoRagRelevanceThreshold,
                     autoRagMinMessageTokens,
                     hostExecutionEnabled,
+                    hostExecutionAllowList,
+                    hostExecutionNotifyList,
                     askTimeoutMin,
                 )
                 buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
@@ -137,6 +142,8 @@ object ConfigGenerator {
         autoRagRelevanceThreshold: Double,
         autoRagMinMessageTokens: Int,
         hostExecutionEnabled: Boolean,
+        hostExecutionAllowList: List<String>,
+        hostExecutionNotifyList: List<String>,
         askTimeoutMin: Int,
     ) {
         putJsonObject("autoRag") {
@@ -151,6 +158,8 @@ object ConfigGenerator {
         }
         putJsonObject("hostExecution") {
             put("enabled", hostExecutionEnabled)
+            putJsonArray("allowList") { hostExecutionAllowList.forEach { add(JsonPrimitive(it)) } }
+            putJsonArray("notifyList") { hostExecutionNotifyList.forEach { add(JsonPrimitive(it)) } }
             putJsonObject("preValidation") {
                 put("enabled", false)
             }
