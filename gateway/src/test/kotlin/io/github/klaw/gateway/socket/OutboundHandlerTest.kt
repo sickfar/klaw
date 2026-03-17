@@ -113,16 +113,24 @@ class OutboundHandlerTest {
     fun `handleRestartRequest closes application context and triggers exit`() =
         runBlocking {
             val closeLatch = CountDownLatch(1)
+            val exitLatch = CountDownLatch(1)
             val appCtx = mockk<ApplicationContext>(relaxed = true)
             every { appCtx.close() } answers { closeLatch.countDown() }
             val handler = makeHandler(applicationContext = appCtx)
             var exitCode = -1
-            handler.exitFn = { code -> exitCode = code }
+            handler.exitFn = { code ->
+                exitCode = code
+                exitLatch.countDown()
+            }
 
             handler.handleRestartRequest()
             assertTrue(
                 closeLatch.await(5, TimeUnit.SECONDS),
                 "applicationContext.close() was not called within 5 seconds",
+            )
+            assertTrue(
+                exitLatch.await(1, TimeUnit.SECONDS),
+                "exitFn was not called within 1 second after close()",
             )
             assertEquals(0, exitCode)
         }
