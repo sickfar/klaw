@@ -562,6 +562,21 @@ object GeneratedSchemas {
                         ],
                         "additionalProperties": false
                     }
+                },
+                "delivery": {
+                    "type": "object",
+                    "properties": {
+                        "maxReconnectAttempts": {
+                            "type": "integer"
+                        },
+                        "drainBudgetSeconds": {
+                            "type": "integer"
+                        },
+                        "channelDrainBudgetSeconds": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

@@ -1,11 +1,13 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
+import io.github.klaw.gateway.channel.PermanentDeliveryError
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -27,8 +29,12 @@ class GatewayOutboundHandler(
     private val allowlistService: InboundAllowlistService,
     private val jsonlWriter: ConversationJsonlWriter,
     private val applicationContext: ApplicationContext,
+    gatewayConfig: GatewayConfig? = null,
     approvalCallback: (suspend (SocketMessage) -> Unit)? = null,
 ) : OutboundMessageHandler {
+    private val channelDrainBudgetMs: Long =
+        (gatewayConfig?.delivery?.channelDrainBudgetSeconds?.toLong() ?: 0) * MILLIS_PER_SECOND
+
     @Volatile
     var approvalCallback: (suspend (SocketMessage) -> Unit)? = approvalCallback
 
@@ -73,6 +79,11 @@ class GatewayOutboundHandler(
             channel.send(message.chatId, OutgoingMessage(message.content, message.replyTo))
         } catch (e: CancellationException) {
             throw e
+        } catch (e: PermanentDeliveryError) {
+            logger.warn {
+                "Permanent delivery failure for channel=${message.channel} chatId=${message.chatId}: ${e.reason}"
+            }
+            return
         } catch (e: IOException) {
             logger.warn(e) { "Send failed for channel=${message.channel}, buffering message" }
             bufferMessage(channel.name, message)
@@ -139,22 +150,46 @@ class GatewayOutboundHandler(
             }
         if (messages.isEmpty()) return
         logger.debug { "Draining ${messages.size} buffered messages for channel=${channel.name}" }
+        val startNanos = System.nanoTime()
         for ((index, msg) in messages.withIndex()) {
+            if (channelDrainBudgetMs > 0) {
+                val elapsedMs = (System.nanoTime() - startNanos) / NANOS_PER_MS
+                if (elapsedMs > channelDrainBudgetMs) {
+                    reBufferRemaining(channel.name, messages, index)
+                    logger.warn {
+                        "Channel drain budget exceeded after $index/${messages.size} messages for channel=${channel.name}"
+                    }
+                    return
+                }
+            }
             try {
                 channel.send(msg.chatId, OutgoingMessage(msg.content, msg.replyTo))
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: PermanentDeliveryError) {
+                logger.warn {
+                    "Permanent delivery failure during drain at ${index + 1}/${messages.size} " +
+                        "for channel=${channel.name} chatId=${msg.chatId}: ${e.reason}"
+                }
+                // Skip this message and continue draining
             } catch (e: IOException) {
                 logger.warn(e) { "Drain failed at message ${index + 1}/${messages.size} for channel=${channel.name}" }
-                bufferLock.withLock {
-                    val deque = channelBuffers.getOrPut(channel.name) { ArrayDeque() }
-                    // Re-buffer the failed message and remaining
-                    val remaining = messages.subList(index, messages.size)
-                    for (rem in remaining) {
-                        deque.addLast(rem)
-                    }
-                }
+                reBufferRemaining(channel.name, messages, index)
                 return
+            }
+        }
+    }
+
+    private fun reBufferRemaining(
+        channelName: String,
+        messages: List<OutboundSocketMessage>,
+        fromIndex: Int,
+    ) {
+        bufferLock.withLock {
+            val deque = channelBuffers.getOrPut(channelName) { ArrayDeque() }
+            val remaining = messages.subList(fromIndex, messages.size)
+            for (rem in remaining) {
+                deque.addLast(rem)
             }
         }
     }
@@ -189,6 +224,11 @@ class GatewayOutboundHandler(
                 sendApprovalWithCallback(channel, msg.chatId, msg)
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: PermanentDeliveryError) {
+                logger.warn {
+                    "Permanent delivery failure during approval drain at ${index + 1}/${approvals.size} " +
+                        "for channel=${channel.name} chatId=${msg.chatId}: ${e.reason}"
+                }
             } catch (e: IOException) {
                 logger.warn(e) { "Approval drain failed at ${index + 1}/${approvals.size} for channel=${channel.name}" }
                 bufferLock.withLock {
@@ -229,5 +269,7 @@ class GatewayOutboundHandler(
 
     companion object {
         const val MAX_CHANNEL_BUFFER_SIZE = 100
+        private const val NANOS_PER_MS = 1_000_000L
+        private const val MILLIS_PER_SECOND = 1000L
     }
 }

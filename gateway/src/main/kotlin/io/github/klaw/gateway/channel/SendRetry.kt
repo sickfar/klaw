@@ -25,11 +25,15 @@ suspend fun <T> withSendRetry(
             return block()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: IOException) {
+        } catch (e: CommonBotException) {
+            val permanentReason = detectPermanentError(e)
+            if (permanentReason != null) {
+                throw PermanentDeliveryError(permanentReason, e)
+            }
             handleRetryableFailure(e, attempt, maxAttempts, delayMs)
             delay(delayMs)
             delayMs = (delayMs * multiplier).toLong()
-        } catch (e: CommonBotException) {
+        } catch (e: IOException) {
             handleRetryableFailure(e, attempt, maxAttempts, delayMs)
             delay(delayMs)
             delayMs = (delayMs * multiplier).toLong()

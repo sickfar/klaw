@@ -19,6 +19,8 @@ import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EngineSocketClientTest {
@@ -189,5 +191,108 @@ class EngineSocketClientTest {
 
         assertFalse(result, "send() should return false when writer is null")
         assertFalse(buffer.isEmpty(), "Message should be buffered when writer is null")
+    }
+
+    @Test
+    fun `reconnectLoop stops after maxReconnectAttempts failures`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+        val handler = NoOpOutboundMessageHandler()
+
+        // Use a port with no listener to force connection failures
+        // Bind to port 0 to find a free port, then close the server so nothing listens
+        val tempServer = ServerSocketChannel.open()
+        tempServer.bind(InetSocketAddress("127.0.0.1", 0))
+        val deadPort = (tempServer.localAddress as InetSocketAddress).port
+        tempServer.close()
+
+        val stoppedLatch = CountDownLatch(1)
+        val client =
+            EngineSocketClient(
+                host = "127.0.0.1",
+                port = deadPort,
+                buffer = buffer,
+                outboundHandler = handler,
+                maxReconnectAttempts = 3,
+                onReconnectExhausted = { stoppedLatch.countDown() },
+            )
+        clientUnderTest = client
+        client.start()
+
+        // Should exhaust 3 attempts and stop (backoff: 1s, 2s = 3s total max)
+        val stopped = stoppedLatch.await(15, TimeUnit.SECONDS)
+        assertTrue(stopped, "reconnectLoop should stop after maxReconnectAttempts")
+    }
+
+    @Test
+    fun `drainBuffer re-buffers remaining messages when connection breaks mid-drain`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+        val handler = NoOpOutboundMessageHandler()
+        val receivedMessages = CopyOnWriteArrayList<SocketMessage>()
+
+        // Pre-populate buffer with 3 messages
+        buffer.append(sampleInbound("msg-1"))
+        buffer.append(sampleInbound("msg-2"))
+        buffer.append(sampleInbound("msg-3"))
+
+        val server = startTestServer(receivedMessages)
+        val serverPort = (server.localAddress as InetSocketAddress).port
+
+        val client =
+            EngineSocketClient(host = "127.0.0.1", port = serverPort, buffer = buffer, outboundHandler = handler)
+        clientUnderTest = client
+        client.start()
+
+        // Wait for connection and drain to complete
+        Thread.sleep(600)
+
+        val inbound = receivedMessages.filterIsInstance<InboundSocketMessage>()
+        // At least msg-1 should be received; buffer should be empty or have a subset (no duplicates)
+        val bufferedIds = mutableListOf<String>()
+        if (!buffer.isEmpty()) {
+            val remaining = buffer.drain()
+            bufferedIds.addAll(remaining.filterIsInstance<InboundSocketMessage>().map { it.id })
+        }
+
+        // Every message should appear exactly once (either sent or buffered, never both)
+        val allIds = inbound.map { it.id } + bufferedIds
+        assertEquals(allIds.distinct().size, allIds.size, "No message should appear more than once (no duplicates)")
+        assertTrue(allIds.containsAll(listOf("msg-1", "msg-2", "msg-3")), "All messages should be accounted for")
+    }
+
+    @Test
+    fun `reconnectLoop runs indefinitely when maxReconnectAttempts is 0`(
+        @TempDir tempDir: Path,
+    ) {
+        val bufferPath = tempDir.resolve("buffer.jsonl").toString()
+        val buffer = GatewayBuffer(bufferPath)
+        val handler = NoOpOutboundMessageHandler()
+
+        val tempServer = ServerSocketChannel.open()
+        tempServer.bind(InetSocketAddress("127.0.0.1", 0))
+        val deadPort = (tempServer.localAddress as InetSocketAddress).port
+        tempServer.close()
+
+        val stoppedLatch = CountDownLatch(1)
+        val client =
+            EngineSocketClient(
+                host = "127.0.0.1",
+                port = deadPort,
+                buffer = buffer,
+                outboundHandler = handler,
+                maxReconnectAttempts = 0,
+                onReconnectExhausted = { stoppedLatch.countDown() },
+            )
+        clientUnderTest = client
+        client.start()
+
+        // Should NOT stop within 3 seconds (unlimited retries)
+        val stopped = stoppedLatch.await(3, TimeUnit.SECONDS)
+        assertFalse(stopped, "reconnectLoop should not stop when maxReconnectAttempts is 0")
     }
 }

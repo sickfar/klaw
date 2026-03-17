@@ -48,6 +48,11 @@ class EngineSocketServer(
     companion object {
         const val HANDSHAKE_TIMEOUT_MS = 30_000L
         const val IDLE_TIMEOUT_MS = 300_000L
+
+        // Engine-side outbound drain budget is fixed (not configurable via gateway.json).
+        // Gateway-side drain budget is configured via delivery.drainBudgetSeconds.
+        private const val DRAIN_BUDGET_MS = 30_000L
+        private const val NANOS_PER_MS = 1_000_000L
     }
 
     private val json =
@@ -243,11 +248,21 @@ class EngineSocketServer(
         if (buf.isEmpty()) return
         val messages = buf.drain()
         logger.debug { "Draining ${messages.size} buffered outbound messages" }
+        val startNanos = System.nanoTime()
         for ((index, msg) in messages.withIndex()) {
+            val elapsedMs = (System.nanoTime() - startNanos) / NANOS_PER_MS
+            if (elapsedMs > DRAIN_BUDGET_MS) {
+                messages.subList(index, messages.size).forEach { remaining ->
+                    buf.append(remaining)
+                }
+                logger.warn {
+                    "Outbound drain budget exceeded after $index/${messages.size} messages, re-buffered remaining"
+                }
+                return
+            }
             try {
                 writer.println(json.encodeToString(msg))
             } catch (e: java.io.IOException) {
-                // Re-buffer the failed message and all remaining
                 messages.subList(index, messages.size).forEach { remaining ->
                     buf.append(remaining)
                 }

@@ -39,11 +39,15 @@ class EngineSocketClient(
     private val port: Int,
     private val buffer: GatewayBuffer,
     private val outboundHandler: OutboundMessageHandler,
+    private val maxReconnectAttempts: Int = 0,
+    private val drainBudgetMs: Long = 0,
+    private val onReconnectExhausted: (() -> Unit)? = null,
 ) {
     private companion object {
         const val INITIAL_BACKOFF_MS = 1_000L
         const val MAX_BACKOFF_MS = 60_000L
         const val PING_INTERVAL_MS = 60_000L
+        const val NANOS_PER_MS = 1_000_000L
     }
 
     private val json =
@@ -100,15 +104,22 @@ class EngineSocketClient(
 
     private suspend fun reconnectLoop() {
         var backoff = INITIAL_BACKOFF_MS
+        var consecutiveFailures = 0
         while (true) {
             try {
                 logger.debug { "Attempting to connect to engine at $host:$port" }
                 connectAndRun()
                 backoff = INITIAL_BACKOFF_MS
+                consecutiveFailures = 0
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                // connection failed or dropped -- will retry after backoff
+                consecutiveFailures++
+                if (maxReconnectAttempts > 0 && consecutiveFailures >= maxReconnectAttempts) {
+                    logger.error { "Engine reconnect limit ($maxReconnectAttempts) reached, giving up" }
+                    onReconnectExhausted?.invoke()
+                    return
+                }
             }
             connected = false
             logger.info { "Engine socket disconnected" }
@@ -216,19 +227,47 @@ class EngineSocketClient(
         }
 
     private fun drainBuffer() {
-        if (!buffer.isEmpty()) {
-            val messages = buffer.drain()
-            logger.debug { "Draining ${messages.size} buffered messages" }
-            messages.forEach { msg ->
-                try {
-                    writerLock.withLock {
-                        writer?.println(json.encodeToString<SocketMessage>(msg))
-                        logger.trace { "Drained buffered message: ${msg::class.simpleName}" }
-                    }
-                } catch (_: Exception) {
-                    buffer.append(msg)
-                }
+        if (buffer.isEmpty()) return
+        val messages = buffer.drain()
+        logger.debug { "Draining ${messages.size} buffered messages" }
+        val startNanos = System.nanoTime()
+        for ((index, msg) in messages.withIndex()) {
+            if (isDrainBudgetExceeded(startNanos, index, messages)) return
+            if (!sendBufferedMessage(msg)) {
+                // Connection broken — re-buffer remaining messages
+                messages.subList(index + 1, messages.size).forEach { buffer.append(it) }
+                return
             }
         }
     }
+
+    private fun isDrainBudgetExceeded(
+        startNanos: Long,
+        index: Int,
+        messages: List<SocketMessage>,
+    ): Boolean {
+        if (drainBudgetMs <= 0) return false
+        val elapsedMs = (System.nanoTime() - startNanos) / NANOS_PER_MS
+        if (elapsedMs <= drainBudgetMs) return false
+        val remaining = messages.subList(index, messages.size)
+        remaining.forEach { buffer.append(it) }
+        logger.warn {
+            "Drain budget exceeded after $index/${messages.size} messages, " +
+                "re-buffered ${remaining.size}"
+        }
+        return true
+    }
+
+    // Returns true if sent successfully, false if connection is broken
+    private fun sendBufferedMessage(msg: SocketMessage): Boolean =
+        try {
+            writerLock.withLock {
+                writer?.println(json.encodeToString<SocketMessage>(msg))
+                logger.trace { "Drained buffered message: ${msg::class.simpleName}" }
+            }
+            true
+        } catch (_: Exception) {
+            buffer.append(msg)
+            false
+        }
 }

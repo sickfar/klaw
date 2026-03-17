@@ -60,13 +60,24 @@ object ConfigGenerator {
         return root.toString()
     }
 
-    fun gatewayJson(): String {
+    fun gatewayJson(
+        maxReconnectAttempts: Int = 0,
+        drainBudgetSeconds: Int = 0,
+        channelDrainBudgetSeconds: Int = 0,
+    ): String {
         val root =
             buildJsonObject {
                 putJsonObject("channels") {
                     putJsonObject("localWs") {
                         put("enabled", true)
                         put("port", GATEWAY_LOCAL_WS_PORT)
+                    }
+                }
+                if (maxReconnectAttempts > 0 || drainBudgetSeconds > 0 || channelDrainBudgetSeconds > 0) {
+                    putJsonObject("delivery") {
+                        put("maxReconnectAttempts", maxReconnectAttempts)
+                        put("drainBudgetSeconds", drainBudgetSeconds)
+                        put("channelDrainBudgetSeconds", channelDrainBudgetSeconds)
                     }
                 }
             }

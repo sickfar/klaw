@@ -120,7 +120,7 @@ class QueuedCompactionE2eTest {
         awaitCondition(
             "At least one compaction should complete (slow + queued)",
             Duration.ofMillis(FIRST_SUMMARY_TIMEOUT_MS),
-        ) { DbInspector(dbFile).use { it.getSummaryCount(CHAT_ID) >= 1 } }
+        ) { dbSummaryCountAtLeast(dbFile, 1) }
 
         // Wait a bit more for any queued re-runs to complete
         val multipleSummaries =
@@ -128,7 +128,7 @@ class QueuedCompactionE2eTest {
                 awaitCondition(
                     "Multiple summaries from queued compaction",
                     Duration.ofMillis(ADDITIONAL_SUMMARY_TIMEOUT_MS),
-                ) { DbInspector(dbFile).use { it.getSummaryCount(CHAT_ID) >= 2 } }
+                ) { dbSummaryCountAtLeast(dbFile, 2) }
                 true
             }.getOrDefault(false)
 
@@ -171,6 +171,14 @@ class QueuedCompactionE2eTest {
             "At least one summary should exist after all messages sent",
         )
     }
+
+    private fun dbSummaryCountAtLeast(
+        dbFile: File,
+        min: Int,
+    ): Boolean =
+        runCatching {
+            DbInspector(dbFile).use { it.getSummaryCount(CHAT_ID) >= min }
+        }.getOrDefault(false)
 
     companion object {
         private const val CONTEXT_BUDGET_TOKENS = 2000

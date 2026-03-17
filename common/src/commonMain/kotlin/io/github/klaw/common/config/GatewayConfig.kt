@@ -8,7 +8,25 @@ data class GatewayConfig(
     val channels: ChannelsConfig,
     @ConfigDoc("Custom slash commands available to gateway users")
     val commands: List<CommandConfig> = emptyList(),
+    @ConfigDoc("Delivery reliability settings")
+    val delivery: DeliveryConfig = DeliveryConfig(),
 )
+
+@Serializable
+data class DeliveryConfig(
+    @ConfigDoc("Max consecutive reconnect failures before giving up (0 = unlimited)")
+    val maxReconnectAttempts: Int = 0,
+    @ConfigDoc("Max seconds for draining inbound buffer on reconnect (0 = unlimited)")
+    val drainBudgetSeconds: Int = 30,
+    @ConfigDoc("Max seconds for draining per-channel buffer (0 = unlimited)")
+    val channelDrainBudgetSeconds: Int = 30,
+) {
+    init {
+        require(maxReconnectAttempts >= 0) { "maxReconnectAttempts must be non-negative" }
+        require(drainBudgetSeconds >= 0) { "drainBudgetSeconds must be non-negative" }
+        require(channelDrainBudgetSeconds >= 0) { "channelDrainBudgetSeconds must be non-negative" }
+    }
+}
 
 @Serializable
 data class ChannelsConfig(

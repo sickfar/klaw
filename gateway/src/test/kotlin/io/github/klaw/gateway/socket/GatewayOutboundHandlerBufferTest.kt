@@ -2,6 +2,7 @@ package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.DeliveryConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.TelegramConfig
@@ -10,6 +11,8 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
+import io.github.klaw.gateway.channel.PermanentDeliveryError
+import io.github.klaw.gateway.channel.PermanentErrorReason
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.micronaut.context.ApplicationContext
@@ -320,6 +323,67 @@ class GatewayOutboundHandlerBufferTest {
         timeout = timeout,
     )
 
+    private fun makeHandlerWithDrainBudget(
+        channels: List<Channel>,
+        channelDrainBudgetSeconds: Int,
+        allowedChats: List<AllowedChat> = listOf(AllowedChat("telegram_123"), AllowedChat("telegram_456")),
+    ): GatewayOutboundHandler {
+        val config =
+            GatewayConfig(
+                channels = ChannelsConfig(TelegramConfig("tok", allowedChats)),
+                delivery = DeliveryConfig(channelDrainBudgetSeconds = channelDrainBudgetSeconds),
+            )
+        return GatewayOutboundHandler(
+            channels = channels,
+            allowlistService = makeAllowlistService(allowedChats),
+            jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+            applicationContext = mockk<ApplicationContext>(relaxed = true),
+            gatewayConfig = config,
+        )
+    }
+
+    @Test
+    fun `drain stops and re-buffers remaining when channel drain budget exceeded`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val sentMessages = mutableListOf<String>()
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.send(any(), any()) } answers {
+                Thread.sleep(600) // Simulate slow channel: each send takes 600ms
+                sentMessages.add(secondArg<OutgoingMessage>().content)
+            }
+
+            // Budget = 1 second. With 600ms per send:
+            //   msg1: elapsed=0ms < 1000ms → send (600ms elapsed after)
+            //   msg2: elapsed=600ms < 1000ms → send (1200ms elapsed after)
+            //   msg3: elapsed=1200ms > 1000ms → re-buffer
+            val handler = makeHandlerWithDrainBudget(listOf(channel), channelDrainBudgetSeconds = 1)
+
+            handler.handleOutbound(outboundMsg(content = "msg1"))
+            handler.handleOutbound(outboundMsg(content = "msg2"))
+            handler.handleOutbound(outboundMsg(content = "msg3"))
+
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            // First two messages should be sent, third re-buffered
+            assertEquals(listOf("msg1", "msg2"), sentMessages)
+
+            // Second drain should deliver msg3
+            sentMessages.clear()
+            coEvery { channel.send(any(), any()) } answers {
+                sentMessages.add(secondArg<OutgoingMessage>().content)
+            }
+            onBecameAliveCallback?.invoke()
+            assertEquals(listOf("msg3"), sentMessages)
+        }
+
     private fun makeHandlerWithCallback(
         channels: List<Channel>,
         allowedChats: List<AllowedChat> = listOf(AllowedChat("telegram_123"), AllowedChat("telegram_456")),
@@ -456,5 +520,107 @@ class GatewayOutboundHandlerBufferTest {
 
             // Regular messages should be drained before approvals
             assertEquals(listOf("msg:hello", "approval:req-1"), sendOrder)
+        }
+
+    @Test
+    fun `permanent error on send drops message without re-buffering`() =
+        runBlocking {
+            var alive = true
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val sentMessages = mutableListOf<String>()
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.send(any(), any()) } answers {
+                throw PermanentDeliveryError(PermanentErrorReason.BOT_BLOCKED)
+            }
+
+            val handler = makeHandler(listOf(channel))
+
+            // Send fails with permanent error — should NOT be re-buffered
+            handler.handleOutbound(outboundMsg(content = "doomed"))
+
+            // Simulate channel alive again — should have nothing to drain
+            coEvery { channel.send(any(), any()) } answers {
+                sentMessages.add(secondArg<OutgoingMessage>().content)
+            }
+            onBecameAliveCallback?.invoke()
+
+            assertTrue(sentMessages.isEmpty(), "Permanently failed message should not be re-buffered")
+        }
+
+    @Test
+    fun `permanent error during drain skips message and continues with remaining`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            var sendCount = 0
+            val sentMessages = mutableListOf<String>()
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.send(any(), any()) } answers {
+                sendCount++
+                val content = secondArg<OutgoingMessage>().content
+                if (content == "msg2") {
+                    throw PermanentDeliveryError(PermanentErrorReason.CHAT_NOT_FOUND)
+                }
+                sentMessages.add(content)
+            }
+
+            val handler = makeHandler(listOf(channel))
+
+            handler.handleOutbound(outboundMsg(content = "msg1"))
+            handler.handleOutbound(outboundMsg(content = "msg2"))
+            handler.handleOutbound(outboundMsg(content = "msg3"))
+
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            // msg1 sent ok, msg2 skipped (permanent error), msg3 sent ok
+            assertEquals(listOf("msg1", "msg3"), sentMessages)
+        }
+
+    @Test
+    fun `transient IOException still re-buffers on drain`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            var sendCount = 0
+            val channel = mockk<Channel>(relaxed = true)
+            every { channel.name } returns "telegram"
+            every { channel.isAlive() } answers { alive }
+            every { channel.onBecameAlive = any() } answers {
+                onBecameAliveCallback = firstArg()
+            }
+            coEvery { channel.send(any(), any()) } answers {
+                sendCount++
+                if (sendCount == 2) throw IOException("transient failure")
+            }
+
+            val handler = makeHandler(listOf(channel))
+
+            handler.handleOutbound(outboundMsg(content = "msg1"))
+            handler.handleOutbound(outboundMsg(content = "msg2"))
+            handler.handleOutbound(outboundMsg(content = "msg3"))
+
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            // msg1 sent, msg2 failed with transient error — msg2+msg3 re-buffered
+            assertEquals(2, sendCount)
+
+            // Re-drain should send msg2+msg3
+            sendCount = 0
+            coEvery { channel.send(any(), any()) } answers { sendCount++ }
+            onBecameAliveCallback?.invoke()
+
+            assertEquals(2, sendCount)
         }
 }

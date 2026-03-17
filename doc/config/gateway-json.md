@@ -47,6 +47,11 @@ klaw doctor --dump-schema gateway > gateway.schema.json
       "enabled": false
     }
   },
+  "delivery": {
+    "maxReconnectAttempts": 0,
+    "drainBudgetSeconds": 30,
+    "channelDrainBudgetSeconds": 30
+  },
   "commands": [
     {"name": "new", "description": "Start a new conversation"},
     {"name": "model", "description": "Show or change the active model"},
@@ -161,3 +166,23 @@ List of bot commands registered with Telegram via `setMyCommands`. These appear 
 | `description` | string | Short description shown in Telegram's command menu |
 
 Commands are registered on Gateway startup. If registration fails (e.g., network error), a warning is logged and the bot continues without the command menu.
+
+---
+
+## delivery
+
+Delivery reliability settings controlling reconnection behavior, buffer drain budgets, and permanent error handling.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `maxReconnectAttempts` | integer | `0` | Max consecutive connection failures before giving up (`0` = unlimited) |
+| `drainBudgetSeconds` | integer | `30` | Max seconds for draining inbound buffer on reconnect (`0` = unlimited) |
+| `channelDrainBudgetSeconds` | integer | `30` | Max seconds for draining per-channel outbound buffer (`0` = unlimited) |
+
+**`maxReconnectAttempts`** — Controls how many times the gateway retries connecting to the engine after consecutive failures. The counter resets on successful connection. Set to `0` (default) for unlimited retries — recommended for production since the engine may restart during updates.
+
+**`drainBudgetSeconds`** — When the gateway reconnects to the engine, it drains all buffered inbound messages. With a large buffer, this could block the connection. The budget limits drain time; remaining messages stay buffered for the next drain cycle. Note: the engine-side outbound drain budget is fixed at 30 seconds and is not configurable via this field.
+
+**`channelDrainBudgetSeconds`** — Same as above but for per-channel outbound buffers (e.g., when a Telegram channel comes back online after being unreachable).
+
+**Permanent error detection** — The gateway automatically detects permanent delivery errors from Telegram (bot blocked, chat not found, insufficient permissions) and drops those messages instead of retrying indefinitely. This requires no configuration.

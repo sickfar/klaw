@@ -750,5 +750,32 @@ object GeneratedConfigDescriptors {
                 false,
                 true,
             ),
+            ConfigPropertyDescriptor(
+                "delivery.maxReconnectAttempts",
+                ConfigValueType.INT,
+                "Max consecutive reconnect failures before giving up (0 = unlimited)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
+                "delivery.drainBudgetSeconds",
+                ConfigValueType.INT,
+                "Max seconds for draining inbound buffer on reconnect (0 = unlimited)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
+                "delivery.channelDrainBudgetSeconds",
+                ConfigValueType.INT,
+                "Max seconds for draining per-channel buffer (0 = unlimited)",
+                null,
+                null,
+                false,
+                false,
+            ),
         )
 }

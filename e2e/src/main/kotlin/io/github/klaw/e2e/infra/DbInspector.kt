@@ -9,8 +9,8 @@ import java.sql.SQLException
 private val logger = KotlinLogging.logger {}
 
 private const val BUSY_TIMEOUT_MS = 5000
-private const val MAX_RETRIES = 3
-private const val RETRY_DELAY_MS = 500L
+private const val MAX_RETRIES = 5
+private const val RETRY_DELAY_MS = 1000L
 
 data class MessageRow(
     val id: String,
@@ -39,12 +39,35 @@ class DbInspector(
     private val connection: Connection
 
     init {
-        logger.debug { "Opening DB: ${dbFile.absolutePath}" }
-        connection = DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}")
-        connection.createStatement().use {
-            it.execute("PRAGMA journal_mode=WAL")
-            it.execute("PRAGMA busy_timeout=$BUSY_TIMEOUT_MS")
+        logger.debug { "Opening DB (read-only): ${dbFile.absolutePath}" }
+        connection = openWithRetry(dbFile)
+    }
+
+    private fun openWithRetry(dbFile: File): Connection {
+        var lastException: SQLException? = null
+        repeat(MAX_RETRIES) { attempt ->
+            try {
+                val conn =
+                    DriverManager.getConnection(
+                        "jdbc:sqlite:file:${dbFile.absolutePath}?mode=ro",
+                    )
+                conn.createStatement().use {
+                    // Don't set journal_mode — it's a write operation and the engine owns the DB.
+                    // Read-only mode avoids WAL conflicts across Docker bind mounts.
+                    it.execute("PRAGMA busy_timeout=$BUSY_TIMEOUT_MS")
+                }
+                return conn
+            } catch (e: SQLException) {
+                lastException = e
+                logger.debug {
+                    "DB open failed (attempt ${attempt + 1}/$MAX_RETRIES): ${e::class.simpleName}"
+                }
+                if (attempt < MAX_RETRIES - 1) {
+                    Thread.sleep(RETRY_DELAY_MS * (attempt + 1))
+                }
+            }
         }
+        throw lastException!!
     }
 
     private fun <T> withRetry(
