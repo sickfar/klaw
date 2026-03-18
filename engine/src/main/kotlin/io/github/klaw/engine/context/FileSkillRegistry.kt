@@ -9,6 +9,9 @@ import java.nio.file.Path
 class FileSkillRegistry(
     private val dataSkillsDir: Path,
     private val workspaceSkillsDir: Path,
+    private val workspaceDir: Path,
+    private val dataDir: Path,
+    private val configDir: Path,
 ) : SkillRegistry {
     private val skills = mutableMapOf<String, SkillEntry>()
 
@@ -39,10 +42,11 @@ class FileSkillRegistry(
         skills[meta.name] = SkillEntry(meta, skillFile)
     }
 
-    @Suppress("ReturnCount")
     private fun parseFrontmatter(file: Path): SkillMeta? {
         val lines = Files.readAllLines(file)
-        if (lines.isEmpty() || lines[0].trim() != "---") return null
+        if (lines.isEmpty() || lines[0].trim() != "---") {
+            return null
+        }
 
         var name: String? = null
         var description: String? = null
@@ -54,8 +58,7 @@ class FileSkillRegistry(
                 line.startsWith("description:") -> description = line.removePrefix("description:").trim()
             }
         }
-        if (name == null || description == null) return null
-        return SkillMeta(name, description)
+        return if (name != null && description != null) SkillMeta(name, description) else null
     }
 
     override suspend fun listSkillDescriptions(): List<String> =
@@ -67,8 +70,30 @@ class FileSkillRegistry(
 
     override suspend fun getFullContent(name: String): String? {
         val entry = skills[name] ?: return null
-        return withContext(Dispatchers.VT) {
-            Files.readString(entry.filePath)
+        val rawContent =
+            withContext(Dispatchers.VT) {
+                Files.readString(entry.filePath)
+            }
+        return interpolateVariables(rawContent, entry.filePath.parent)
+    }
+
+    private fun interpolateVariables(
+        content: String,
+        skillDir: Path,
+    ): String {
+        val bindings =
+            mapOf(
+                "KLAW_WORKSPACE" to workspaceDir.toString(),
+                "KLAW_SKILL_DIR" to skillDir.toString(),
+                "KLAW_DATA" to dataDir.toString(),
+                "KLAW_CONFIG" to configDir.toString(),
+            )
+        var result = content
+        for ((name, value) in bindings) {
+            result = result.replace("\${$name}", value)
+            val unbracedPattern = Regex("""\$${Regex.escape(name)}(?![A-Za-z0-9_])""")
+            result = unbracedPattern.replace(result, Regex.escapeReplacement(value))
         }
+        return result
     }
 }

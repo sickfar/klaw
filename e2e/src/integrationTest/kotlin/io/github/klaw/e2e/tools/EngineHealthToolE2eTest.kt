@@ -8,7 +8,6 @@ import io.github.klaw.e2e.infra.WebSocketChatClient
 import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray

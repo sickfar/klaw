@@ -40,6 +40,7 @@ object ConfigGenerator {
         preValidationModel: String = "test/model",
         preValidationRiskThreshold: Int = 5,
         preValidationTimeoutMs: Long = 5000L,
+        maxInlineSkills: Int? = null,
     ): String {
         val root =
             buildJsonObject {
@@ -48,6 +49,11 @@ object ConfigGenerator {
                 buildRouting()
                 buildMemory()
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
+                if (maxInlineSkills != null) {
+                    putJsonObject("skills") {
+                        put("maxInlineSkills", maxInlineSkills)
+                    }
+                }
                 buildFeatureFlags(
                     autoRagEnabled,
                     autoRagTopK,

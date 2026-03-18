@@ -16,6 +16,9 @@ class FileSkillRegistryFactory {
             FileSkillRegistry(
                 dataSkillsDir = Path.of(KlawPaths.skills),
                 workspaceSkillsDir = Path.of(KlawPaths.workspace, "skills"),
+                workspaceDir = Path.of(KlawPaths.workspace),
+                dataDir = Path.of(KlawPaths.data),
+                configDir = Path.of(KlawPaths.config),
             )
         registry.discover()
         return registry
