@@ -173,6 +173,20 @@ class MessageProcessorEmbeddingTest {
         val commandHandler =
             CommandHandler(sessionManager, messageRepository, config, jakarta.inject.Provider { mockk(relaxed = true) })
 
+        val healthProvider =
+            mockk<io.github.klaw.engine.tools.EngineHealthProvider> {
+                coEvery { getContextStatus() } returns
+                    io.github.klaw.engine.tools.ContextStatus(
+                        gatewayConnected = true,
+                        uptime = java.time.Duration.ofHours(1),
+                        scheduledJobs = 0,
+                        activeSessions = 0,
+                        sandboxReady = true,
+                        embeddingType = "onnx",
+                        docker = false,
+                    )
+            }
+
         val builder =
             contextBuilder ?: io.github.klaw.engine.context.ContextBuilder(
                 workspaceLoader = workspaceLoader,
@@ -183,6 +197,7 @@ class MessageProcessorEmbeddingTest {
                 config = config,
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,
+                healthProviderLazy = { healthProvider },
             )
 
         val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)

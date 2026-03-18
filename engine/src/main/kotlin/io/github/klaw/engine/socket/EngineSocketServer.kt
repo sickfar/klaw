@@ -72,6 +72,8 @@ class EngineSocketServer(
     var actualPort: Int = port
         private set
 
+    val isGatewayConnected: Boolean get() = gatewayWriter != null
+
     fun start() {
         val channel = ServerSocketChannel.open(StandardProtocolFamily.INET)
         channel.setOption(StandardSocketOptions.SO_REUSEADDR, true)

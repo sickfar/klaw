@@ -27,6 +27,8 @@ import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
+import io.github.klaw.engine.tools.ContextStatus
+import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -49,6 +51,7 @@ class ContextBuilderTest {
     private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
+    private val healthProvider = mockk<EngineHealthProvider>()
 
     private fun buildConfig(
         contextBudget: Int = 4096,
@@ -134,6 +137,7 @@ class ContextBuilderTest {
             config = config,
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
+            healthProviderLazy = { healthProvider },
         )
 
     @BeforeEach
@@ -152,6 +156,16 @@ class ContextBuilderTest {
         coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
+        io.mockk.coEvery { healthProvider.getContextStatus() } returns
+            ContextStatus(
+                gatewayConnected = true,
+                uptime = java.time.Duration.ofHours(1),
+                scheduledJobs = 0,
+                activeSessions = 0,
+                sandboxReady = true,
+                embeddingType = "onnx",
+                docker = false,
+            )
     }
 
     @Test
@@ -554,7 +568,7 @@ class ContextBuilderTest {
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val systemContent = result.messages[0].content!!
-            assertTrue(systemContent.contains("## Current Time"), "System message should contain Current Time section")
+            assertTrue(systemContent.contains("## Environment"), "System message should contain Environment section")
             assertTrue(
                 systemContent.matches(Regex("(?s).*\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.*")),
                 "System message should contain a date/time pattern yyyy-MM-dd HH:mm:ss",
@@ -966,7 +980,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `capabilities section appears before Current Time`() =
+    fun `capabilities section appears before Environment`() =
         runTest {
             val session = buildSession()
             val contextBuilder = buildContextBuilder(buildConfig())
@@ -974,12 +988,70 @@ class ContextBuilderTest {
 
             val systemContent = result.messages[0].content!!
             val capIdx = systemContent.indexOf("## Your Capabilities")
-            val timeIdx = systemContent.indexOf("## Current Time")
+            val envIdx = systemContent.indexOf("## Environment")
             assertTrue(capIdx >= 0, "Capabilities section should exist")
-            assertTrue(timeIdx >= 0, "Current Time section should exist")
+            assertTrue(envIdx >= 0, "Environment section should exist")
             assertTrue(
-                capIdx < timeIdx,
-                "Capabilities section should appear before Current Time",
+                capIdx < envIdx,
+                "Capabilities section should appear before Environment",
             )
+        }
+
+    @Test
+    fun `system prompt contains Environment section instead of Current Time`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("## Environment"), "Should contain ## Environment")
+            assertFalse(systemContent.contains("## Current Time"), "Should not contain ## Current Time")
+        }
+
+    @Test
+    fun `environment section contains gateway status`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("Gateway: connected"), "Should contain gateway status")
+        }
+
+    @Test
+    fun `environment section contains uptime`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("Uptime:"), "Should contain uptime")
+        }
+
+    @Test
+    fun `environment section contains jobs and sessions`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("Jobs:"), "Should contain jobs count")
+            assertTrue(systemContent.contains("Sessions:"), "Should contain sessions count")
+        }
+
+    @Test
+    fun `environment section contains embedding and docker`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(systemContent.contains("Embedding: onnx"), "Should contain embedding type")
+            assertTrue(systemContent.contains("Docker:"), "Should contain docker status")
         }
 }

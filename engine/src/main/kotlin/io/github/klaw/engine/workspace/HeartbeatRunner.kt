@@ -37,6 +37,8 @@ class HeartbeatRunner(
 ) {
     private val running = AtomicBoolean(false)
 
+    val isRunning: Boolean get() = running.get()
+
     @Volatile
     var deliveryChannel: String? = config.heartbeat.channel
 

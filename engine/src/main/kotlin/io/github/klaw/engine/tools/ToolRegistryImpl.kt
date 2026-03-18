@@ -37,6 +37,7 @@ class ToolRegistryImpl(
     private val hostExecTool: HostExecTool,
     private val configTools: ConfigTools,
     private val historyTools: HistoryTools,
+    private val engineHealthTools: EngineHealthTools,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -203,6 +204,10 @@ class ToolRegistryImpl(
 
             "config_set" -> {
                 configTools.configSet(args.str("target"), args.str("path"), args.str("value"))
+            }
+
+            "engine_health" -> {
+                engineHealthTools.health()
             }
 
             "heartbeat_deliver" -> {
@@ -533,6 +538,12 @@ class ToolRegistryImpl(
                             "text" to stringProp("Message text"),
                         ),
                     ),
+                ),
+                ToolDef(
+                    "engine_health",
+                    "Get engine health status including gateway connection, uptime, database, " +
+                        "sandbox, scheduled jobs, active sessions, pending deliveries, and more.",
+                    toolParams(emptyList(), emptyMap()),
                 ),
             )
     }

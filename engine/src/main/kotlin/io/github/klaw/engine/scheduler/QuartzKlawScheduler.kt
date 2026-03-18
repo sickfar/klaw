@@ -160,6 +160,11 @@ class QuartzKlawScheduler(
             }
         }
 
+    override suspend fun jobCount(): Int =
+        withContext(Dispatchers.VT) {
+            quartzScheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_GROUP)).size
+        }
+
     override suspend fun remove(name: String): String =
         withContext(Dispatchers.VT) {
             val jobKey = JobKey(name, JOB_GROUP)

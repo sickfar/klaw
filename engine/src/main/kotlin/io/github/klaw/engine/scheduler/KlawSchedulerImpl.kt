@@ -45,4 +45,6 @@ class KlawSchedulerImpl(
     ) = inner.add(name, cron, at, message, model, injectInto, channel)
 
     override suspend fun remove(name: String) = inner.remove(name)
+
+    override suspend fun jobCount() = inner.jobCount()
 }

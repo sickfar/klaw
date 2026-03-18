@@ -7,6 +7,8 @@ import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
+import io.github.klaw.engine.tools.EngineHealthProvider
+import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -30,6 +32,7 @@ class ContextBuilder(
     private val config: EngineConfig,
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
+    private val healthProviderLazy: Provider<EngineHealthProvider>,
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
@@ -191,7 +194,7 @@ class ContextBuilder(
         return messages
     }
 
-    private fun buildSystemContent(
+    private suspend fun buildSystemContent(
         systemPrompt: String,
         toolDescriptions: String,
         inlineSkillSection: String = "",
@@ -202,7 +205,17 @@ class ContextBuilder(
         parts.add(buildCapabilitiesSection(skillCount))
         val now = ZonedDateTime.now()
         val formatted = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z"))
-        parts.add("## Current Time\n$formatted")
+        val status = healthProviderLazy.get().getContextStatus()
+        val gatewayLabel = if (status.gatewayConnected) "connected" else "disconnected"
+        val uptimeFormatted = formatUptime(status.uptime)
+        val sandboxLabel = if (status.sandboxReady) "ready" else "not ready"
+        val dockerLabel = if (status.docker) "yes" else "no"
+        parts.add(
+            "## Environment\n$formatted\n" +
+                "Gateway: $gatewayLabel | Uptime: $uptimeFormatted\n" +
+                "Jobs: ${status.scheduledJobs} | Sessions: ${status.activeSessions} | Sandbox: $sandboxLabel\n" +
+                "Embedding: ${status.embeddingType} | Docker: $dockerLabel",
+        )
         if (config.summarization.enabled) {
             parts.add(
                 "## Conversation History\n" +
@@ -215,6 +228,22 @@ class ContextBuilder(
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
+    }
+
+    private fun formatUptime(duration: java.time.Duration): String {
+        val days = duration.toDays()
+        val hours = duration.toHours() % HOURS_PER_DAY
+        val minutes = duration.toMinutes() % MINUTES_PER_HOUR
+        return buildString {
+            if (days > 0) append("${days}d ")
+            if (hours > 0 || days > 0) append("${hours}h ")
+            append("${minutes}m")
+        }.trim()
+    }
+
+    companion object {
+        private const val HOURS_PER_DAY = 24
+        private const val MINUTES_PER_HOUR = 60
     }
 
     private fun buildCapabilitiesSection(skillCount: Int): String =

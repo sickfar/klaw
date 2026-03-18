@@ -94,4 +94,9 @@ class EngineOutboundBuffer(
         lock.withLock {
             !file.exists() || file.length() == 0L
         }
+
+    fun pendingCount(): Int =
+        lock.withLock {
+            ensureLineCount()
+        }
 }

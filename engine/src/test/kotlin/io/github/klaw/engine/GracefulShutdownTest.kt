@@ -26,6 +26,7 @@ class GracefulShutdownTest {
                     scheduler,
                     mockk(relaxed = true),
                     mockk<BackupService>(relaxed = true),
+                    mockk(relaxed = true),
                 )
             lifecycle.shutdown()
 
@@ -47,6 +48,7 @@ class GracefulShutdownTest {
                     scheduler,
                     mockk(relaxed = true),
                     mockk<BackupService>(relaxed = true),
+                    mockk(relaxed = true),
                 )
             lifecycle.shutdown()
 
@@ -71,6 +73,7 @@ class GracefulShutdownTest {
                     scheduler,
                     mockk(relaxed = true),
                     mockk<BackupService>(relaxed = true),
+                    mockk(relaxed = true),
                 )
             lifecycle.shutdown()
 
@@ -91,6 +94,7 @@ class GracefulShutdownTest {
                     scheduler,
                     mockk(relaxed = true),
                     mockk<BackupService>(relaxed = true),
+                    mockk(relaxed = true),
                 )
             lifecycle.shutdown()
             lifecycle.shutdown()

@@ -20,9 +20,14 @@ class SandboxManager(
     private val hostWorkspacePath: String? = null,
     private val stateDir: String? = null,
 ) {
-    private var containerId: String? = null
-    private var executionCount = 0
+    @Volatile private var containerId: String? = null
+
+    @Volatile private var executionCount = 0
     private var lastExecutionTime: Instant = Instant.DISTANT_PAST
+
+    val isContainerActive: Boolean get() = containerId != null
+    val currentExecutionCount: Int get() = executionCount
+    val isKeepAlive: Boolean get() = config.keepAlive
 
     suspend fun execute(
         code: String,

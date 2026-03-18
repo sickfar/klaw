@@ -44,6 +44,7 @@ class ContextBuilderSummaryTest {
     private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
+    private val healthProvider = mockk<io.github.klaw.engine.tools.EngineHealthProvider>()
 
     @Suppress("LongMethod")
     private fun buildConfig(
@@ -120,6 +121,7 @@ class ContextBuilderSummaryTest {
             config = config,
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
+            healthProviderLazy = { healthProvider },
         )
 
     @BeforeEach
@@ -138,6 +140,16 @@ class ContextBuilderSummaryTest {
         coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
+        coEvery { healthProvider.getContextStatus() } returns
+            io.github.klaw.engine.tools.ContextStatus(
+                gatewayConnected = true,
+                uptime = java.time.Duration.ofHours(1),
+                scheduledJobs = 0,
+                activeSessions = 0,
+                sandboxReady = true,
+                embeddingType = "onnx",
+                docker = false,
+            )
     }
 
     @Test

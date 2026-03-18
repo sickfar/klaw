@@ -16,6 +16,8 @@ interface KlawScheduler {
 
     suspend fun remove(name: String): String
 
+    suspend fun jobCount(): Int = 0
+
     /** Start the scheduler. Called explicitly from EngineLifecycle. */
     fun start() {}
 
