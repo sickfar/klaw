@@ -186,6 +186,7 @@ class MessageProcessorIntegrationTest {
                 messageRepository = messageRepository,
                 config = config,
                 heartbeatRunnerFactory = jakarta.inject.Provider { io.mockk.mockk(relaxed = true) },
+                skillRegistry = io.mockk.mockk(relaxed = true),
             )
 
         val messageEmbeddingService = mockk<MessageEmbeddingService>(relaxed = true)

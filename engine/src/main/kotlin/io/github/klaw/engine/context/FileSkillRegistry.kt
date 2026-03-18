@@ -68,6 +68,69 @@ class FileSkillRegistry(
 
     override suspend fun listAll(): List<SkillMeta> = skills.values.map { it.meta }
 
+    override suspend fun validate(): SkillValidationReport =
+        withContext(Dispatchers.VT) {
+            val entries = mutableListOf<SkillValidationEntry>()
+            validateDir(dataSkillsDir, "data", entries)
+            validateDir(workspaceSkillsDir, "workspace", entries)
+            SkillValidationReport(entries)
+        }
+
+    private fun validateDir(
+        dir: Path,
+        source: String,
+        entries: MutableList<SkillValidationEntry>,
+    ) {
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) return
+        Files.list(dir).use { stream ->
+            stream
+                .filter { Files.isDirectory(it) }
+                .forEach { skillDir -> entries.add(validateSkillDir(skillDir, source)) }
+        }
+    }
+
+    private fun validateSkillDir(
+        skillDir: Path,
+        source: String,
+    ): SkillValidationEntry {
+        val dirName = skillDir.fileName.toString()
+        val skillFile = skillDir.resolve("SKILL.md")
+        if (!Files.exists(skillFile)) {
+            return SkillValidationEntry(null, dirName, source, false, "missing SKILL.md")
+        }
+        val fields = parseFrontmatterFields(skillFile)
+        val error =
+            when {
+                fields == null -> "missing frontmatter"
+                fields.first == null -> "missing required field 'name'"
+                fields.second == null -> "missing required field 'description'"
+                else -> null
+            }
+        return SkillValidationEntry(
+            name = fields?.first,
+            directory = dirName,
+            source = source,
+            valid = error == null,
+            error = error,
+        )
+    }
+
+    private fun parseFrontmatterFields(file: Path): Pair<String?, String?>? {
+        val lines = Files.readAllLines(file)
+        if (lines.isEmpty() || lines[0].trim() != "---") return null
+        var name: String? = null
+        var description: String? = null
+        for (i in 1 until lines.size) {
+            val line = lines[i].trim()
+            if (line == "---") break
+            when {
+                line.startsWith("name:") -> name = line.removePrefix("name:").trim()
+                line.startsWith("description:") -> description = line.removePrefix("description:").trim()
+            }
+        }
+        return name to description
+    }
+
     override suspend fun getFullContent(name: String): String? {
         val entry = skills[name] ?: return null
         val rawContent =

@@ -24,7 +24,7 @@ Full skill content: instructions, examples, tool usage, etc.
 | `name` | Unique skill identifier (used for `skill_load`) |
 | `description` | One-line summary shown in skill listings |
 
-Skills with missing or incomplete frontmatter are silently skipped during discovery.
+Skills with missing or incomplete frontmatter are silently skipped during discovery. Use `/skills validate` (chat) or `klaw skills validate` (CLI) to check for invalid skill directories.
 
 ## Skill Directories
 

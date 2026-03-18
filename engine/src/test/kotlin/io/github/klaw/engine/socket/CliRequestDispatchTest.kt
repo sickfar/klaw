@@ -33,6 +33,7 @@ class CliRequestDispatchTest {
             klawScheduler = klawScheduler,
             memoryService = memoryService,
             reindexService = reindexService,
+            skillRegistry = mockk(relaxed = true),
         )
 
     @Test

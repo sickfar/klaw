@@ -252,6 +252,19 @@ klaw schedule remove daily
 
 ---
 
+## Skills
+
+### `klaw skills validate`
+
+Validates all skill directories and reports their status (delegated to Engine).
+Checks each skill directory for valid `SKILL.md` with required frontmatter fields (`name`, `description`).
+
+```
+klaw skills validate
+```
+
+---
+
 ## Memory
 
 ### `klaw memory show`
@@ -372,7 +385,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `reindex`) print a
+- Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `skills validate`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

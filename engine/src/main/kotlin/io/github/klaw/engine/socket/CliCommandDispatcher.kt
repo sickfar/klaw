@@ -1,6 +1,7 @@
 package io.github.klaw.engine.socket
 
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
 import io.github.klaw.engine.memory.MemoryService
@@ -18,6 +19,7 @@ class CliCommandDispatcher(
     private val klawScheduler: KlawScheduler,
     private val memoryService: MemoryService,
     private val reindexService: ReindexService,
+    private val skillRegistry: SkillRegistry,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String =
         withContext(Dispatchers.VT) {
@@ -56,6 +58,10 @@ class CliCommandDispatcher(
 
                 "reindex" -> {
                     handleReindex(request.params)
+                }
+
+                "skills_validate" -> {
+                    handleSkillsValidate()
                 }
 
                 else -> {
@@ -109,6 +115,21 @@ class CliCommandDispatcher(
         }
         return if (lines.isEmpty()) """{"status":"ok"}""" else lines.joinToString("\n")
     }
+
+    private suspend fun handleSkillsValidate(): String {
+        val report = skillRegistry.validate()
+        val skillsJson =
+            report.skills.joinToString(",", "[", "]") { e ->
+                val nameField = if (e.name != null) "\"${escapeJson(e.name)}\"" else "null"
+                val errorField = if (e.error != null) ""","error":"${escapeJson(e.error)}"""" else ""
+                val dir = escapeJson(e.directory)
+                val src = escapeJson(e.source)
+                """{"name":$nameField,"directory":"$dir","source":"$src","valid":${e.valid}$errorField}"""
+            }
+        return """{"skills":$skillsJson,"total":${report.total},"valid":${report.valid},"errors":${report.errors}}"""
+    }
+
+    private fun escapeJson(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private companion object {
         private const val DEFAULT_TOP_K = 10

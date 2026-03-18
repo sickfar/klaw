@@ -2,6 +2,7 @@ package io.github.klaw.engine.context
 
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -290,5 +291,141 @@ class FileSkillRegistryTest {
                 content.contains("\$KLAW_WORKSPACE_EXT"),
                 "Should NOT match \$KLAW_WORKSPACE prefix in \$KLAW_WORKSPACE_EXT but got: $content",
             )
+        }
+
+    // --- Validation tests ---
+
+    @Test
+    fun `validate returns valid for well-formed skill`() =
+        runTest {
+            createSkill(dataDir, "good-skill", "A good skill", "# Good\nContent.")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            assertEquals(1, report.total)
+            assertEquals(1, report.valid)
+            assertEquals(0, report.errors)
+            val entry = report.skills.first()
+            assertEquals("good-skill", entry.name)
+            assertTrue(entry.valid)
+            assertNull(entry.error)
+        }
+
+    @Test
+    fun `validate reports missing SKILL md`() =
+        runTest {
+            val emptyDir = dataDir.resolve("empty-dir")
+            Files.createDirectories(emptyDir)
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            assertEquals(1, report.total)
+            assertEquals(0, report.valid)
+            assertEquals(1, report.errors)
+            val entry = report.skills.first()
+            assertEquals("empty-dir", entry.directory)
+            assertNull(entry.name)
+            assertEquals("missing SKILL.md", entry.error)
+        }
+
+    @Test
+    fun `validate reports missing frontmatter`() =
+        runTest {
+            val skillDir = dataDir.resolve("no-front")
+            Files.createDirectories(skillDir)
+            Files.writeString(skillDir.resolve("SKILL.md"), "No frontmatter here.")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            val entry = report.skills.first()
+            assertFalse(entry.valid)
+            assertEquals("missing frontmatter", entry.error)
+        }
+
+    @Test
+    fun `validate reports missing name field`() =
+        runTest {
+            val skillDir = dataDir.resolve("no-name")
+            Files.createDirectories(skillDir)
+            Files.writeString(skillDir.resolve("SKILL.md"), "---\ndescription: Has desc\n---\n# Body")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            val entry = report.skills.first()
+            assertFalse(entry.valid)
+            assertEquals("missing required field 'name'", entry.error)
+            assertNull(entry.name)
+        }
+
+    @Test
+    fun `validate reports missing description field`() =
+        runTest {
+            val skillDir = dataDir.resolve("no-desc")
+            Files.createDirectories(skillDir)
+            Files.writeString(skillDir.resolve("SKILL.md"), "---\nname: no-desc\n---\n# Body")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            val entry = report.skills.first()
+            assertFalse(entry.valid)
+            assertEquals("missing required field 'description'", entry.error)
+            assertEquals("no-desc", entry.name)
+        }
+
+    @Test
+    fun `validate reports source correctly`() =
+        runTest {
+            createSkill(dataDir, "data-sk", "Data skill", "Body")
+            createSkill(workspaceDir, "ws-sk", "Workspace skill", "Body")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            assertEquals(2, report.total)
+            val dataSk = report.skills.first { it.directory == "data-sk" }
+            val wsSk = report.skills.first { it.directory == "ws-sk" }
+            assertEquals("data", dataSk.source)
+            assertEquals("workspace", wsSk.source)
+        }
+
+    @Test
+    fun `validate returns empty report for nonexistent dirs`() =
+        runTest {
+            val registry =
+                FileSkillRegistry(
+                    dataSkillsDir = dataDir.resolve("nope1"),
+                    workspaceSkillsDir = workspaceDir.resolve("nope2"),
+                    workspaceDir = workspaceDir.parent ?: workspaceDir,
+                    dataDir = dataDir.parent ?: dataDir,
+                    configDir = configDir,
+                )
+
+            val report = registry.validate()
+
+            assertEquals(0, report.total)
+            assertEquals(0, report.valid)
+            assertEquals(0, report.errors)
+            assertTrue(report.skills.isEmpty())
+        }
+
+    @Test
+    fun `validate reports multiple skills from both sources`() =
+        runTest {
+            createSkill(dataDir, "d1", "Data skill one", "Body")
+            val brokenDir = dataDir.resolve("d2-broken")
+            Files.createDirectories(brokenDir)
+            createSkill(workspaceDir, "w1", "Workspace skill", "Body")
+            val registry = createRegistry()
+
+            val report = registry.validate()
+
+            assertEquals(3, report.total)
+            assertEquals(2, report.valid)
+            assertEquals(1, report.errors)
         }
 }

@@ -6,6 +6,8 @@ import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.engine.context.SkillRegistry
+import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -24,6 +26,7 @@ class CommandHandler(
     private val messageRepository: MessageRepository,
     private val config: EngineConfig,
     private val heartbeatRunnerFactory: Provider<HeartbeatRunnerFactory>,
+    private val skillRegistry: SkillRegistry,
 ) {
     internal var workspacePath: Path = Path.of(KlawPaths.workspace)
 
@@ -38,6 +41,7 @@ class CommandHandler(
             "memory" -> showMemory()
             "status" -> showStatus(session)
             "use-for-heartbeat" -> handleUseForHeartbeat(message.channel, message.chatId)
+            "skills" -> handleSkills(message.args)
             "help" -> showHelp()
             else -> "Unknown command: /${message.command}"
         }
@@ -98,6 +102,26 @@ class CommandHandler(
             "Context: $windowTokens/$budgetTokens tokens ($pct%) | Segment total: $totalTokens"
     }
 
+    private suspend fun handleSkills(args: String?): String {
+        if (args?.trim() == "validate") return formatValidationReport(skillRegistry.validate())
+        return "Usage: /skills validate"
+    }
+
+    private fun formatValidationReport(report: SkillValidationReport): String {
+        if (report.total == 0) return "No skill directories found."
+        val lines =
+            report.skills.map { entry ->
+                if (entry.valid) {
+                    "\u2713 ${entry.name}: valid (${entry.source})"
+                } else {
+                    "\u2717 ${entry.directory}: ${entry.error} (${entry.source})"
+                }
+            }
+        val suffix = if (report.errors != 1) "s" else ""
+        val summary = "${report.total} skills checked, ${report.errors} error$suffix"
+        return (lines + "" + summary).joinToString("\n")
+    }
+
     companion object {
         private const val PERCENT_MULTIPLIER = 100
     }
@@ -143,6 +167,7 @@ class CommandHandler(
                 "/memory — show memory",
                 "/status — show status",
                 "/use-for-heartbeat — deliver heartbeat to this chat",
+                "/skills validate — validate skill directories",
                 "/help — this help",
             ).joinToString("\n")
         }

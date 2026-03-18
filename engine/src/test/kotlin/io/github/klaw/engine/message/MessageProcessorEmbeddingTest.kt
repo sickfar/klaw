@@ -171,7 +171,13 @@ class MessageProcessorEmbeddingTest {
                 .SubagentHistoryLoader()
         val toolExecutor = mockk<ToolExecutor> { coEvery { executeAll(any()) } returns emptyList() }
         val commandHandler =
-            CommandHandler(sessionManager, messageRepository, config, jakarta.inject.Provider { mockk(relaxed = true) })
+            CommandHandler(
+                sessionManager = sessionManager,
+                messageRepository = messageRepository,
+                config = config,
+                heartbeatRunnerFactory = jakarta.inject.Provider { mockk(relaxed = true) },
+                skillRegistry = mockk(relaxed = true),
+            )
 
         val healthProvider =
             mockk<io.github.klaw.engine.tools.EngineHealthProvider> {

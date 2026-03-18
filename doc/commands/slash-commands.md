@@ -30,6 +30,26 @@ Displays the contents of `MEMORY.md` from the workspace.
 
 Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
 
+## /skills validate
+
+Validates all skill directories and reports their status. Checks each skill directory in both global (`~/.local/share/klaw/skills/`) and workspace (`$KLAW_WORKSPACE/skills/`) locations for:
+
+- Presence of `SKILL.md` file
+- Valid YAML frontmatter (opening `---` delimiter)
+- Required `name` field
+- Required `description` field
+
+Output example:
+
+```
+✓ graph-rag: valid (workspace)
+✓ weather: valid (data)
+✗ broken-skill: missing frontmatter (workspace)
+✗ incomplete: missing required field 'description' (data)
+
+4 skills checked, 2 errors
+```
+
 ## /use-for-heartbeat
 
 Sets the current chat as the delivery target for heartbeat results. The command persists the `channel` and `injectInto` fields to `engine.json` so the setting survives restarts.

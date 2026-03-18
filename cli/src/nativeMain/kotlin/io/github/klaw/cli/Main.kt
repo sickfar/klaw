@@ -19,6 +19,7 @@ import io.github.klaw.cli.command.PairCommand
 import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.SessionsCommand
+import io.github.klaw.cli.command.SkillsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.StopCommand
 import io.github.klaw.cli.command.UnpairCommand
@@ -75,6 +76,7 @@ internal class KlawCli(
             ReindexCommand(requestFn),
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
+            SkillsCommand(requestFn),
             MemoryCommand(requestFn, workspaceDir),
             DoctorCommand(configDir, engineChecker, modelsDir, workspaceDir, doctorCommandOutput, commandRunner),
             ConfigCommand(configDir),

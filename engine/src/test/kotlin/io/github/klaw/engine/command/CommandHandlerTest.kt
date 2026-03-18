@@ -16,10 +16,14 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
+import io.github.klaw.engine.context.SkillRegistry
+import io.github.klaw.engine.context.SkillValidationEntry
+import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -39,6 +43,7 @@ class CommandHandlerTest {
     private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val messageRepository = mockk<MessageRepository>(relaxed = true)
     private val heartbeatRunnerFactory = mockk<HeartbeatRunnerFactory>(relaxed = true)
+    private val skillRegistry = mockk<SkillRegistry>(relaxed = true)
 
     private val defaultModels = mapOf("test/model" to ModelConfig(contextBudget = 4096))
 
@@ -96,6 +101,7 @@ class CommandHandlerTest {
             messageRepository,
             makeConfig(models),
             jakarta.inject.Provider { heartbeatRunnerFactory },
+            skillRegistry,
         ).also { it.workspacePath = workspace }
 
     private fun makeCmd(
@@ -266,5 +272,57 @@ class CommandHandlerTest {
             val result = handler.handle(makeCmd("memory"), session)
 
             assertTrue(result.contains("No MEMORY.md"), "Response should indicate missing file, got: $result")
+        }
+
+    @Test
+    fun `skills validate returns human readable report`() =
+        runTest {
+            val report =
+                SkillValidationReport(
+                    listOf(
+                        SkillValidationEntry("good-skill", "good-skill", "workspace", true),
+                        SkillValidationEntry(null, "broken", "data", false, "missing SKILL.md"),
+                    ),
+                )
+            coEvery { skillRegistry.validate() } returns report
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("skills", "validate"), session)
+
+            assertTrue(result.contains("good-skill"), "Should contain valid skill name, got: $result")
+            assertTrue(result.contains("valid"), "Should contain 'valid' marker, got: $result")
+            assertTrue(result.contains("broken"), "Should contain broken skill dir, got: $result")
+            assertTrue(result.contains("missing SKILL.md"), "Should contain error message, got: $result")
+            assertTrue(result.contains("2 skills checked"), "Should contain total count, got: $result")
+            assertTrue(result.contains("1 error"), "Should contain error count, got: $result")
+        }
+
+    @Test
+    fun `skills without args returns usage`() =
+        runTest {
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("skills"), session)
+
+            assertTrue(
+                result.contains("Usage") || result.contains("/skills validate"),
+                "Should return usage info, got: $result",
+            )
+        }
+
+    @Test
+    fun `skills unknown subcommand returns usage`() =
+        runTest {
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("skills", "foo"), session)
+
+            assertTrue(
+                result.contains("Usage") || result.contains("/skills validate"),
+                "Should return usage info for unknown subcommand, got: $result",
+            )
         }
 }
