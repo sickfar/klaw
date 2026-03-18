@@ -7,7 +7,12 @@ import kotlin.coroutines.CoroutineContext
 class ScheduleDeliverSink {
     private val message = AtomicReference<String?>(null)
 
+    @Volatile
+    var lastDeliveredMessage: String? = null
+        private set
+
     fun deliver(text: String) {
+        lastDeliveredMessage = text
         message.set(text)
     }
 

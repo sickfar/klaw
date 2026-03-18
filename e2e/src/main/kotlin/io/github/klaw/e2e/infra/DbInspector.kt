@@ -181,8 +181,83 @@ class DbInspector(
                 }
         }
 
+    fun getSubagentRuns(): List<SubagentRunRow> =
+        withRetry("getSubagentRuns") {
+            val results = mutableListOf<SubagentRunRow>()
+            connection
+                .prepareStatement(
+                    """
+                    SELECT id, name, status, start_time, end_time, duration_ms,
+                           result, last_response, error
+                    FROM subagent_runs ORDER BY start_time DESC
+                    """.trimIndent(),
+                ).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            results.add(
+                                SubagentRunRow(
+                                    id = rs.getString("id"),
+                                    name = rs.getString("name"),
+                                    status = rs.getString("status"),
+                                    startTime = rs.getString("start_time"),
+                                    endTime = rs.getString("end_time"),
+                                    durationMs = rs.getLong("duration_ms").takeIf { !rs.wasNull() },
+                                    result = rs.getString("result"),
+                                    lastResponse = rs.getString("last_response"),
+                                    error = rs.getString("error"),
+                                ),
+                            )
+                        }
+                    }
+                }
+            results
+        }
+
+    fun getSubagentRunByName(name: String): SubagentRunRow? =
+        withRetry("getSubagentRunByName") {
+            connection
+                .prepareStatement(
+                    """
+                    SELECT id, name, status, start_time, end_time, duration_ms,
+                           result, last_response, error
+                    FROM subagent_runs WHERE name = ? ORDER BY start_time DESC LIMIT 1
+                    """.trimIndent(),
+                ).use { ps ->
+                    ps.setString(1, name)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) {
+                            SubagentRunRow(
+                                id = rs.getString("id"),
+                                name = rs.getString("name"),
+                                status = rs.getString("status"),
+                                startTime = rs.getString("start_time"),
+                                endTime = rs.getString("end_time"),
+                                durationMs = rs.getLong("duration_ms").takeIf { !rs.wasNull() },
+                                result = rs.getString("result"),
+                                lastResponse = rs.getString("last_response"),
+                                error = rs.getString("error"),
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                }
+        }
+
     override fun close() {
         connection.close()
         logger.debug { "DB inspector closed" }
     }
 }
+
+data class SubagentRunRow(
+    val id: String,
+    val name: String,
+    val status: String,
+    val startTime: String,
+    val endTime: String?,
+    val durationMs: Long?,
+    val result: String?,
+    val lastResponse: String?,
+    val error: String?,
+)

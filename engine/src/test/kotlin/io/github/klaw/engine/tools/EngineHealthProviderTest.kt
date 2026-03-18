@@ -94,6 +94,7 @@ class EngineHealthProviderTest {
             driver = driver,
             heartbeatRunnerFactoryProvider = Provider { heartbeatRunnerFactory },
             config = config,
+            subagentRunRepository = mockk(relaxed = true),
         )
 
     private fun stubDefaults() {
@@ -225,6 +226,7 @@ class EngineHealthProviderTest {
                     driver = driver,
                     heartbeatRunnerFactoryProvider = Provider { heartbeatRunnerFactory },
                     config = buildConfig(),
+                    subagentRunRepository = mockk(relaxed = true),
                 )
             provider.markStarted()
             val health = provider.getHealth()
@@ -245,6 +247,7 @@ class EngineHealthProviderTest {
                     driver = driver,
                     heartbeatRunnerFactoryProvider = Provider { heartbeatRunnerFactory },
                     config = buildConfig(),
+                    subagentRunRepository = mockk(relaxed = true),
                 )
             provider.markStarted()
             val health = provider.getHealth()
@@ -264,6 +267,7 @@ class EngineHealthProviderTest {
                     driver = driver,
                     heartbeatRunnerFactoryProvider = Provider { heartbeatRunnerFactory },
                     config = buildConfig(),
+                    subagentRunRepository = mockk(relaxed = true),
                 )
             provider.markStarted()
             val health = provider.getHealth()

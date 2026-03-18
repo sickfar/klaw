@@ -97,15 +97,16 @@ class ToolRegistryImplTest {
             configTools,
             mockk<HistoryTools>(),
             engineHealthTools,
+            mockk<SubagentStatusTools>(),
             testEngineConfig(docsEnabled = true, hostExecEnabled = true),
             mcpToolRegistry,
         )
 
     @Test
-    fun `listTools returns all 22 tool definitions`() =
+    fun `listTools returns all 25 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(22, tools.size)
+            assertEquals(25, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -234,12 +235,13 @@ class ToolRegistryImplTest {
                     configTools,
                     mockk<HistoryTools>(),
                     engineHealthTools,
+                    mockk<SubagentStatusTools>(),
                     testEngineConfig(docsEnabled = false, hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(19, tools.size)
+            assertEquals(22, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -297,7 +299,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(20, tools.size, "Should have 22 - 2 = 20 tools")
+            assertEquals(23, tools.size, "Should have 25 - 2 = 23 tools")
         }
 
     @Test
@@ -317,13 +319,14 @@ class ToolRegistryImplTest {
                     configTools,
                     mockk<HistoryTools>(),
                     engineHealthTools,
+                    mockk<SubagentStatusTools>(),
                     testEngineConfig(hostExecEnabled = false),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(21, tools.size, "Should have 22 - 1 = 21 tools")
+            assertEquals(24, tools.size, "Should have 25 - 1 = 24 tools")
         }
 
     @Test
@@ -359,13 +362,14 @@ class ToolRegistryImplTest {
                     configTools,
                     mockk<HistoryTools>(),
                     engineHealthTools,
+                    mockk<SubagentStatusTools>(),
                     testEngineConfig(hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(22, tools.size)
+            assertEquals(25, tools.size)
         }
 
     @Test
@@ -466,12 +470,13 @@ class ToolRegistryImplTest {
                     configTools,
                     mockk<HistoryTools>(),
                     engineHealthTools,
+                    mockk<SubagentStatusTools>(),
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(23, tools.size)
+            assertEquals(26, tools.size)
         }
 
     @Test
@@ -517,6 +522,7 @@ class ToolRegistryImplTest {
                     configTools,
                     mockk<HistoryTools>(),
                     engineHealthTools,
+                    mockk<SubagentStatusTools>(),
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )

@@ -64,6 +64,8 @@ class MessageProcessor(
     private val approvalService: ApprovalService,
     private val shutdownController: ShutdownController,
     private val compactionRunner: CompactionRunner,
+    private val subagentRunRepository: io.github.klaw.engine.tools.SubagentRunRepository,
+    private val activeSubagentJobs: io.github.klaw.engine.tools.ActiveSubagentJobs,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -120,113 +122,194 @@ class MessageProcessor(
         approvalService.handleResponse(message)
     }
 
-    @Suppress("TooGenericExceptionCaught", "LongMethod")
+    @Suppress("TooGenericExceptionCaught", "LongMethod", "CyclomaticComplexMethod")
     fun handleScheduledMessage(message: ScheduledMessage): Job {
         val model = message.model ?: config.routing.tasks.subagent
-        val chatId = "subagent:${message.name}"
+        val chatId =
+            if (message.runId != null) {
+                "subagent:${message.name}:${message.runId}"
+            } else {
+                "subagent:${message.name}"
+            }
 
         return processingScope.launch {
-            llmLimiter.withSubagentPermit {
-                try {
-                    val session = sessionManager.getOrCreate(chatId, model)
-                    if (message.model != null) {
-                        sessionManager.updateModel(chatId, message.model)
-                    }
+            if (message.runId != null) {
+                activeSubagentJobs.jobs[message.runId] = kotlin.coroutines.coroutineContext[Job]!!
+            }
+            val startTimeMs = System.currentTimeMillis()
+            try {
+                llmLimiter.withSubagentPermit {
+                    try {
+                        val session = sessionManager.getOrCreate(chatId, model)
+                        if (message.model != null) {
+                            sessionManager.updateModel(chatId, message.model)
+                        }
 
-                    val contextResult =
-                        contextBuilder.buildContext(
-                            session,
-                            listOf(message.message),
-                            isSubagent = true,
-                            taskName = message.name,
-                        )
-                    val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
-                    val tools =
-                        toolRegistry.listTools(
-                            includeSkillList = contextResult.includeSkillList,
-                            includeSkillLoad = contextResult.includeSkillLoad,
-                            includeScheduleDeliver = sink != null,
-                            includeSendMessage = false,
-                        )
-
-                    // Persist scheduled user message before LLM call
-                    if (config.logging.subagentConversations) {
-                        val userRowId =
-                            messageRepository.saveAndGetRowId(
-                                id = UUID.randomUUID().toString(),
-                                channel = "scheduler",
-                                chatId = chatId,
-                                role = "user",
-                                type = "text",
-                                content = message.message,
-                                tokens = approximateTokenCount(message.message),
+                        val contextResult =
+                            contextBuilder.buildContext(
+                                session,
+                                listOf(message.message),
+                                isSubagent = true,
+                                taskName = message.name,
                             )
-                        messageEmbeddingService.embedAsync(
-                            userRowId,
-                            "user",
-                            "text",
-                            message.message,
-                            config.autoRag,
-                            processingScope,
-                        )
-                    }
+                        logger.debug {
+                            "Subagent context built: name=${message.name}, contextMsgCount=${contextResult.messages.size}"
+                        }
+                        val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
+                        val tools =
+                            toolRegistry.listTools(
+                                includeSkillList = contextResult.includeSkillList,
+                                includeSkillLoad = contextResult.includeSkillLoad,
+                                includeScheduleDeliver = sink != null,
+                                includeSendMessage = false,
+                            )
 
-                    val scheduledModelContextLimit = ModelRegistry.contextLength(model) ?: 0
-                    val runner =
-                        ToolCallLoopRunner(
-                            llmRouter,
-                            toolExecutor,
-                            config.processing.maxToolCallRounds,
-                            maxToolOutputChars = config.processing.maxToolOutputChars,
-                            modelContextLimit = scheduledModelContextLimit,
-                        )
-                    // ScheduleDeliverContext propagates through ToolCallLoopRunner's internal
-                    // withContext(ChatContext(...)) because CoroutineContext merges elements by key —
-                    // sub-withContext calls add to the context map rather than replacing it.
-                    // The sink is only accessed in the "schedule_deliver" tool dispatch case.
-                    val response =
-                        if (sink != null) {
-                            withContext(ScheduleDeliverContext(sink)) {
+                        // Persist scheduled user message before LLM call
+                        if (config.logging.subagentConversations) {
+                            val userRowId =
+                                messageRepository.saveAndGetRowId(
+                                    id = UUID.randomUUID().toString(),
+                                    channel = "scheduler",
+                                    chatId = chatId,
+                                    role = "user",
+                                    type = "text",
+                                    content = message.message,
+                                    tokens = approximateTokenCount(message.message),
+                                )
+                            messageEmbeddingService.embedAsync(
+                                userRowId,
+                                "user",
+                                "text",
+                                message.message,
+                                config.autoRag,
+                                processingScope,
+                            )
+                        }
+
+                        val scheduledModelContextLimit = ModelRegistry.contextLength(model) ?: 0
+                        val runner =
+                            ToolCallLoopRunner(
+                                llmRouter,
+                                toolExecutor,
+                                config.processing.maxToolCallRounds,
+                                maxToolOutputChars = config.processing.maxToolOutputChars,
+                                modelContextLimit = scheduledModelContextLimit,
+                            )
+                        val response =
+                            if (sink != null) {
+                                withContext(ScheduleDeliverContext(sink)) {
+                                    runner.run(contextResult.messages.toMutableList(), session, tools)
+                                }
+                            } else {
                                 runner.run(contextResult.messages.toMutableList(), session, tools)
                             }
-                        } else {
-                            runner.run(contextResult.messages.toMutableList(), session, tools)
-                        }
-                    val content = response.content ?: ""
+                        val content = response.content ?: ""
 
-                    // Persist assistant response
-                    val subagentAssistantTokens =
-                        response.usage?.completionTokens ?: approximateTokenCount(content)
-                    if (config.logging.subagentConversations) {
-                        val assistantRowId =
-                            messageRepository.saveAndGetRowId(
-                                id = UUID.randomUUID().toString(),
-                                channel = "scheduler",
-                                chatId = chatId,
-                                role = "assistant",
-                                type = "text",
-                                content = content,
-                                tokens = subagentAssistantTokens,
+                        // Persist assistant response
+                        val subagentAssistantTokens =
+                            response.usage?.completionTokens ?: approximateTokenCount(content)
+                        if (config.logging.subagentConversations) {
+                            val assistantRowId =
+                                messageRepository.saveAndGetRowId(
+                                    id = UUID.randomUUID().toString(),
+                                    channel = "scheduler",
+                                    chatId = chatId,
+                                    role = "assistant",
+                                    type = "text",
+                                    content = content,
+                                    tokens = subagentAssistantTokens,
+                                )
+                            messageEmbeddingService.embedAsync(
+                                assistantRowId,
+                                "assistant",
+                                "text",
+                                content,
+                                config.autoRag,
+                                processingScope,
                             )
-                        messageEmbeddingService.embedAsync(
-                            assistantRowId,
-                            "assistant",
-                            "text",
-                            content,
-                            config.autoRag,
-                            processingScope,
-                        )
-                    }
+                        }
 
-                    deliverScheduledResult(sink, message)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.error(e) { "Subagent '${message.name}' failed" }
+                        deliverScheduledResult(sink, message)
+
+                        if (message.runId != null) {
+                            val durationMs = System.currentTimeMillis() - startTimeMs
+                            subagentRunRepository.completeRun(
+                                message.runId,
+                                lastResponse = content,
+                                deliveredResult = sink?.lastDeliveredMessage,
+                            )
+                            logger.info {
+                                "Subagent completed: name=${message.name}, runId=${message.runId}, durationMs=$durationMs"
+                            }
+                            logger.trace { "Subagent DB status update: runId=${message.runId}, status=COMPLETED" }
+                            notifySourceSession(message, "completed")
+                        }
+                    } catch (e: CancellationException) {
+                        if (message.runId != null) {
+                            subagentRunRepository.cancelRun(message.runId)
+                            logger.info { "Subagent cancelled: name=${message.name}, runId=${message.runId}" }
+                        }
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(e) { "Subagent '${message.name}' failed" }
+                        if (message.runId != null) {
+                            val errorInfo = buildErrorInfo(e)
+                            subagentRunRepository.failRun(message.runId, errorInfo)
+                            logger.info {
+                                "Subagent failed: name=${message.name}, runId=${message.runId}, error=${e::class.simpleName}"
+                            }
+                            notifySourceSession(message, "failed: $errorInfo")
+                        }
+                    }
+                }
+            } finally {
+                if (message.runId != null) {
+                    activeSubagentJobs.jobs.remove(message.runId)
                 }
             }
         }
     }
+
+    private suspend fun notifySourceSession(
+        message: ScheduledMessage,
+        statusText: String,
+    ) {
+        val chatId = message.sourceChatId ?: return
+        val channel = message.sourceChannel ?: return
+        try {
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(
+                    channel = channel,
+                    chatId = chatId,
+                    content = "[Subagent '${message.name}' $statusText]",
+                ),
+            )
+            logger.trace { "Subagent push notification sent: target=$chatId" }
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            logger.debug { "Failed to send subagent notification: ${e::class.simpleName}" }
+        }
+    }
+
+    private fun buildErrorInfo(e: Exception): String =
+        when (e) {
+            is io.github.klaw.common.error.KlawError.ProviderError -> {
+                "ProviderError(status=${e.statusCode})"
+            }
+
+            is io.github.klaw.common.error.KlawError.AllProvidersFailedError -> {
+                "AllProvidersFailedError"
+            }
+
+            is io.github.klaw.common.error.KlawError.ContextLengthExceededError -> {
+                "ContextLengthExceededError"
+            }
+
+            else -> {
+                e::class.simpleName ?: "Unknown"
+            }
+        }
 
     private suspend fun deliverScheduledResult(
         sink: ScheduleDeliverSink?,

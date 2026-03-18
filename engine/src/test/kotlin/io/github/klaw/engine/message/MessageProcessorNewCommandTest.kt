@@ -118,6 +118,10 @@ class MessageProcessorNewCommandTest {
             approvalService,
             shutdownController = mockk(relaxed = true),
             compactionRunner = mockk(relaxed = true),
+            subagentRunRepository = mockk(relaxed = true),
+            activeSubagentJobs =
+                io.github.klaw.engine.tools
+                    .ActiveSubagentJobs(),
         )
     }
 

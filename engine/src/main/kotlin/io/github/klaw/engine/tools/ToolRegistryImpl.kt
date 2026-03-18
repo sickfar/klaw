@@ -38,6 +38,7 @@ class ToolRegistryImpl(
     private val configTools: ConfigTools,
     private val historyTools: HistoryTools,
     private val engineHealthTools: EngineHealthTools,
+    private val subagentStatusTools: SubagentStatusTools,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -176,6 +177,27 @@ class ToolRegistryImpl(
                     args.strOrNull("model"),
                     args.strOrNull("injectInto"),
                 )
+            }
+
+            "subagent_status" -> {
+                val ctx =
+                    kotlin.coroutines.coroutineContext[ChatContext]
+                        ?: error("subagent_status called outside session context")
+                subagentStatusTools.status(args.str("id"), ctx.chatId)
+            }
+
+            "subagent_list" -> {
+                val ctx =
+                    kotlin.coroutines.coroutineContext[ChatContext]
+                        ?: error("subagent_list called outside session context")
+                subagentStatusTools.list(ctx.chatId)
+            }
+
+            "subagent_cancel" -> {
+                val ctx =
+                    kotlin.coroutines.coroutineContext[ChatContext]
+                        ?: error("subagent_cancel called outside session context")
+                subagentStatusTools.cancel(args.str("id"), ctx.chatId)
             }
 
             "send_message" -> {
@@ -456,7 +478,8 @@ class ToolRegistryImpl(
                     "subagent_spawn",
                     "Spawn an independent subagent to perform a task in parallel. " +
                         "The subagent runs with its own context and can use all tools. " +
-                        "Use for long-running or independent tasks that don't need your immediate attention.",
+                        "Use for long-running or independent tasks that don't need your immediate attention. " +
+                        "Returns JSON with run ID for tracking via subagent_status/subagent_list.",
                     toolParams(
                         listOf("name", "message"),
                         mapOf(
@@ -465,6 +488,29 @@ class ToolRegistryImpl(
                             "model" to stringProp("LLM model (optional)"),
                             "injectInto" to stringProp("chatId to send result to (optional)"),
                         ),
+                    ),
+                ),
+                ToolDef(
+                    "subagent_status",
+                    "Get the status of a subagent run by ID. " +
+                        "Returns JSON with status (RUNNING/COMPLETED/FAILED/CANCELLED), timing, and results.",
+                    toolParams(
+                        listOf("id"),
+                        mapOf("id" to stringProp("Subagent run ID (returned by subagent_spawn)")),
+                    ),
+                ),
+                ToolDef(
+                    "subagent_list",
+                    "List recent subagent runs spawned from this session. " +
+                        "Returns JSON array with status, timing, and results for each run.",
+                    toolParams(emptyList(), emptyMap()),
+                ),
+                ToolDef(
+                    "subagent_cancel",
+                    "Cancel a running subagent by ID. Only works for subagents spawned from this session.",
+                    toolParams(
+                        listOf("id"),
+                        mapOf("id" to stringProp("Subagent run ID to cancel")),
                     ),
                 ),
                 @Suppress("MaxLineLength")

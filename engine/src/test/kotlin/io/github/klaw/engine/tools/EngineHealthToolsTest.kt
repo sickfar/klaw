@@ -39,6 +39,7 @@ class EngineHealthToolsTest {
             heartbeatRunning = true,
             docsEnabled = true,
             memoryChunks = 100,
+            runningSubagents = 0,
         )
 
     @Test

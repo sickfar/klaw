@@ -49,6 +49,7 @@ data class EngineHealth(
     @SerialName("heartbeat_running") val heartbeatRunning: Boolean,
     @SerialName("docs_enabled") val docsEnabled: Boolean,
     @SerialName("memory_chunks") val memoryChunks: Int,
+    @SerialName("running_subagents") val runningSubagents: Int,
 )
 
 data class ContextStatus(
@@ -79,6 +80,7 @@ class EngineHealthProvider(
     private val driver: SqlDriver,
     private val heartbeatRunnerFactoryProvider: Provider<HeartbeatRunnerFactory>,
     private val config: EngineConfig,
+    private val subagentRunRepository: SubagentRunRepository,
 ) {
     private var startedAt: Instant = Instant.now()
 
@@ -92,8 +94,9 @@ class EngineHealthProvider(
         val sessionCount = infra.sessionManager.listSessions().size
         val dbOk = checkDatabase()
         val chunks = countMemoryChunks()
+        val runningSubagents = subagentRunRepository.countByStatus("RUNNING")
 
-        return buildHealth(jobCount, sessionCount, dbOk, chunks)
+        return buildHealth(jobCount, sessionCount, dbOk, chunks, runningSubagents)
     }
 
     suspend fun getContextStatus(): ContextStatus =
@@ -112,6 +115,7 @@ class EngineHealthProvider(
         sessionCount: Int,
         dbOk: Boolean,
         chunks: Int,
+        runningSubagents: Int = 0,
     ): EngineHealth =
         EngineHealth(
             gatewayStatus = if (infra.socketServerProvider.get().isGatewayConnected) "connected" else "disconnected",
@@ -134,6 +138,7 @@ class EngineHealthProvider(
             heartbeatRunning = heartbeatRunnerFactoryProvider.get().runner?.isRunning ?: false,
             docsEnabled = config.docs.enabled,
             memoryChunks = chunks,
+            runningSubagents = runningSubagents,
         )
 
     private fun classifyEmbeddingService(): String =

@@ -6,6 +6,7 @@ import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.tools.SandboxManager
+import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.event.ApplicationEventListener
@@ -47,6 +48,7 @@ class EngineLifecycle(
     private val sandboxManager: SandboxManager,
     private val backupService: BackupService,
     private val healthProvider: EngineHealthProvider,
+    private val subagentRunRepository: SubagentRunRepository,
 ) : ApplicationEventListener<StartupEvent> {
     private val shutdownOnce = AtomicBoolean(false)
     private val backupScope = CoroutineScope(Dispatchers.VT + SupervisorJob())
@@ -55,6 +57,7 @@ class EngineLifecycle(
         socketServer.start()
         scheduler.start()
         backupService.start(backupScope)
+        subagentRunRepository.markStaleRunsFailed()
         healthProvider.markStarted()
         logger.info { "EngineLifecycle started — socket server, scheduler, and backup service are ready" }
     }

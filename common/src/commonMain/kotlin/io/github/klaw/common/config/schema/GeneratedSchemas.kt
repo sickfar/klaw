@@ -181,6 +181,9 @@ object GeneratedSchemas {
                         "maxDebounceEntries": {
                             "type": "integer",
                             "exclusiveMinimum": 0
+                        },
+                        "subagentTimeoutMs": {
+                            "type": "integer"
                         }
                     },
                     "required": [

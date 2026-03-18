@@ -170,6 +170,8 @@ data class ProcessingConfig(
     val maxToolOutputChars: Int = 8000,
     @ConfigDoc("Maximum messages in the debounce buffer before force-flush")
     val maxDebounceEntries: Int = 1000,
+    @ConfigDoc("Subagent execution timeout in milliseconds (default 5 minutes)")
+    val subagentTimeoutMs: Long = 300_000L,
 ) {
     init {
         require(debounceMs >= 0) { "debounceMs must be >= 0, got $debounceMs" }
@@ -177,6 +179,7 @@ data class ProcessingConfig(
         require(maxToolCallRounds > 0) { "maxToolCallRounds must be > 0, got $maxToolCallRounds" }
         require(maxToolOutputChars > 0) { "maxToolOutputChars must be > 0, got $maxToolOutputChars" }
         require(maxDebounceEntries > 0) { "maxDebounceEntries must be > 0, got $maxDebounceEntries" }
+        require(subagentTimeoutMs > 0) { "subagentTimeoutMs must be > 0, got $subagentTimeoutMs" }
     }
 }
 

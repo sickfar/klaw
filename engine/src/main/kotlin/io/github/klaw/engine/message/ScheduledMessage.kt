@@ -6,4 +6,7 @@ data class ScheduledMessage(
     val model: String?,
     val injectInto: String?,
     val channel: String? = null,
+    val runId: String? = null,
+    val sourceChatId: String? = null,
+    val sourceChannel: String? = null,
 )

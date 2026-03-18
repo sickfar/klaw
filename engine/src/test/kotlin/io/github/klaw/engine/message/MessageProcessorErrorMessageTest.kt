@@ -125,6 +125,10 @@ class MessageProcessorErrorMessageTest {
                 approvalService = mockk(relaxed = true),
                 shutdownController = mockk(relaxed = true),
                 compactionRunner = mockk(relaxed = true),
+                subagentRunRepository = mockk(relaxed = true),
+                activeSubagentJobs =
+                    io.github.klaw.engine.tools
+                        .ActiveSubagentJobs(),
             )
         return processor to pushed
     }

@@ -225,6 +225,15 @@ object GeneratedConfigDescriptors {
                 false,
             ),
             ConfigPropertyDescriptor(
+                "processing.subagentTimeoutMs",
+                ConfigValueType.LONG,
+                "Subagent execution timeout in milliseconds (default 5 minutes)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
                 "llm.maxRetries",
                 ConfigValueType.INT,
                 "Maximum number of retry attempts on transient API errors",
