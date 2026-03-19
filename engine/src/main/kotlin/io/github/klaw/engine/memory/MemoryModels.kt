@@ -21,6 +21,7 @@ data class MemorySearchResult(
     val source: String,
     val createdAt: String,
     val score: Double,
+    val embedding: FloatArray? = null,
 )
 
 data class MemoryCategoryInfo(

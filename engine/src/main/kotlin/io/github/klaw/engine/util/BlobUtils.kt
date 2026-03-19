@@ -10,3 +10,10 @@ fun floatArrayToBlob(arr: FloatArray): ByteArray {
     for (f in arr) buf.putFloat(f)
     return buf.array()
 }
+
+/** Deserializes a little-endian byte blob back to a float array. Inverse of [floatArrayToBlob]. */
+@Suppress("MagicNumber")
+fun blobToFloatArray(blob: ByteArray): FloatArray {
+    val buf = ByteBuffer.wrap(blob).order(ByteOrder.LITTLE_ENDIAN)
+    return FloatArray(blob.size / 4) { buf.getFloat() }
+}

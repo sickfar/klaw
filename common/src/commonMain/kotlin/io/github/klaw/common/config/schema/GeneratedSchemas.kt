@@ -130,6 +130,30 @@ object GeneratedSchemas {
                                 "topK": {
                                     "type": "integer",
                                     "exclusiveMinimum": 0
+                                },
+                                "mmr": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "lambda": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "temporalDecay": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "halfLifeDays": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "additionalProperties": false
                                 }
                             },
                             "required": [

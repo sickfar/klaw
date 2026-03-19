@@ -147,9 +147,37 @@ data class ChunkingConfig(
 data class SearchConfig(
     @ConfigDoc("Number of top results to return from hybrid search")
     val topK: Int,
+    @ConfigDoc("MMR (Maximal Marginal Relevance) diversity reranking settings")
+    val mmr: MmrConfig = MmrConfig(),
+    @ConfigDoc("Temporal decay settings — recent memories score higher")
+    val temporalDecay: TemporalDecayConfig = TemporalDecayConfig(),
 ) {
     init {
         require(topK > 0) { "topK must be > 0, got $topK" }
+    }
+}
+
+@Serializable
+data class MmrConfig(
+    @ConfigDoc("Enable MMR diversity reranking for memory search results")
+    val enabled: Boolean = false,
+    @ConfigDoc("Relevance vs diversity tradeoff (0.0=max diversity, 1.0=pure relevance)")
+    val lambda: Double = 0.7,
+) {
+    init {
+        require(lambda in 0.0..1.0) { "lambda must be in [0.0, 1.0], got $lambda" }
+    }
+}
+
+@Serializable
+data class TemporalDecayConfig(
+    @ConfigDoc("Enable temporal decay — recent memories score higher than old ones")
+    val enabled: Boolean = false,
+    @ConfigDoc("Half-life in days — after this many days, score is halved")
+    val halfLifeDays: Int = 30,
+) {
+    init {
+        require(halfLifeDays > 0) { "halfLifeDays must be > 0, got $halfLifeDays" }
     }
 }
 

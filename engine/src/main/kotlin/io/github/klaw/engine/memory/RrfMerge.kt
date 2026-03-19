@@ -14,7 +14,8 @@ object RrfMerge {
             val rrfScore = 1.0 / (k + rank + 1)
             val existing = scores[result.content]
             if (existing != null) {
-                scores[result.content] = existing.first to (existing.second + rrfScore)
+                val preferred = preferWithEmbedding(existing.first, result)
+                scores[result.content] = preferred to (existing.second + rrfScore)
             } else {
                 scores[result.content] = result to rrfScore
             }
@@ -24,7 +25,8 @@ object RrfMerge {
             val rrfScore = 1.0 / (k + rank + 1)
             val existing = scores[result.content]
             if (existing != null) {
-                scores[result.content] = existing.first to (existing.second + rrfScore)
+                val preferred = preferWithEmbedding(existing.first, result)
+                scores[result.content] = preferred to (existing.second + rrfScore)
             } else {
                 scores[result.content] = result to rrfScore
             }
@@ -35,4 +37,10 @@ object RrfMerge {
             .sortedByDescending { it.score }
             .take(topK)
     }
+
+    /** When deduplicating, prefer the result that has an embedding (from vector search). */
+    private fun preferWithEmbedding(
+        existing: MemorySearchResult,
+        incoming: MemorySearchResult,
+    ): MemorySearchResult = if (existing.embedding != null) existing else incoming
 }

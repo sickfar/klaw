@@ -1,6 +1,7 @@
 package io.github.klaw.engine.memory
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.db.SqliteVecLoader
 import io.github.klaw.engine.tools.stubs.StubMemoryService
@@ -17,5 +18,6 @@ class MemoryServiceImplFactory {
         driver: JdbcSqliteDriver,
         embedding: EmbeddingService,
         sqliteVecLoader: SqliteVecLoader,
-    ): MemoryService = MemoryServiceImpl(db, driver, embedding, sqliteVecLoader)
+        config: EngineConfig,
+    ): MemoryService = MemoryServiceImpl(db, driver, embedding, sqliteVecLoader, config.memory.search)
 }

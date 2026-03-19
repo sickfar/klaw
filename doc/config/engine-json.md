@@ -99,7 +99,15 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
       "overlap": 64
     },
     "search": {
-      "topK": 10
+      "topK": 10,
+      "mmr": {
+        "enabled": false,
+        "lambda": 0.7
+      },
+      "temporalDecay": {
+        "enabled": false,
+        "halfLifeDays": 30
+      }
     },
     "injectSummary": false,
     "mapMaxCategories": 10
@@ -165,6 +173,10 @@ Memory facts are stored in the database with categories. On first start, MEMORY.
 | `chunking.size` | int | — | Maximum chunk size in approximate tokens (used by docs indexing). |
 | `chunking.overlap` | int | — | Overlap between consecutive chunks in approximate tokens. |
 | `search.topK` | int | — | Number of top results from hybrid search. |
+| `search.mmr.enabled` | bool | `false` | Enable MMR (Maximal Marginal Relevance) diversity reranking. Reduces redundant results by penalizing candidates too similar to already-selected ones. |
+| `search.mmr.lambda` | double | `0.7` | Relevance vs diversity tradeoff. `1.0` = pure relevance (no diversity), `0.0` = max diversity. |
+| `search.temporalDecay.enabled` | bool | `false` | Enable temporal decay — recent memories score higher than old ones. |
+| `search.temporalDecay.halfLifeDays` | int | `30` | Half-life in days. After this many days, a memory's score is halved. |
 | `injectSummary` | bool | `false` | Inject a Memory Map into the system prompt showing top categories by popularity. |
 | `mapMaxCategories` | int | `10` | Maximum number of categories displayed in the Memory Map. Remaining categories shown as "...and N more". |
 

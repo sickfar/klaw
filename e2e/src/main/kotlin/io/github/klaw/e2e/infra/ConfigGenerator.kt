@@ -46,13 +46,17 @@ object ConfigGenerator {
         consolidationCron: String = "0 0 0 * * ?",
         consolidationMinMessages: Int = 5,
         consolidationCategory: String = "daily-summary",
+        mmrEnabled: Boolean = false,
+        mmrLambda: Double = 0.7,
+        temporalDecayEnabled: Boolean = false,
+        temporalDecayHalfLifeDays: Int = 30,
     ): String {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
                 buildModels(contextBudgetTokens)
                 buildRouting()
-                buildMemory(memoryInjectSummary)
+                buildMemory(memoryInjectSummary, mmrEnabled, mmrLambda, temporalDecayEnabled, temporalDecayHalfLifeDays)
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 if (maxInlineSkills != null) {
                     putJsonObject("skills") {
@@ -139,7 +143,14 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildMemory(injectSummary: Boolean) {
+    @Suppress("LongParameterList")
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildMemory(
+        injectSummary: Boolean,
+        mmrEnabled: Boolean,
+        mmrLambda: Double,
+        temporalDecayEnabled: Boolean,
+        temporalDecayHalfLifeDays: Int,
+    ) {
         putJsonObject("memory") {
             putJsonObject("embedding") {
                 put("type", "onnx")
@@ -151,6 +162,14 @@ object ConfigGenerator {
             }
             putJsonObject("search") {
                 put("topK", SEARCH_TOP_K)
+                putJsonObject("mmr") {
+                    put("enabled", mmrEnabled)
+                    put("lambda", mmrLambda)
+                }
+                putJsonObject("temporalDecay") {
+                    put("enabled", temporalDecayEnabled)
+                    put("halfLifeDays", temporalDecayHalfLifeDays)
+                }
             }
             put("injectSummary", injectSummary)
         }

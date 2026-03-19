@@ -1,9 +1,11 @@
 package io.github.klaw.engine.memory
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.db.SqliteVecLoader
 import io.github.klaw.engine.util.VT
+import io.github.klaw.engine.util.blobToFloatArray
 import io.github.klaw.engine.util.floatArrayToBlob
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +20,7 @@ class MemoryServiceImpl(
     private val driver: JdbcSqliteDriver,
     private val embeddingService: EmbeddingService,
     private val sqliteVecLoader: SqliteVecLoader,
+    private val searchConfig: SearchConfig = SearchConfig(topK = 10),
 ) : MemoryService {
     private var onSaveCallback: (suspend () -> Unit)? = null
 
@@ -340,31 +343,10 @@ class MemoryServiceImpl(
             val results = mutableListOf<MemorySearchResult>()
             driver.executeQuery(
                 null,
-                """
-                SELECT v.rowid, v.distance, mf.content, mf.source, mf.created_at, mc.name
-                FROM vec_memory v
-                JOIN memory_facts mf ON mf.id = v.rowid
-                JOIN memory_categories mc ON mc.id = mf.category_id
-                WHERE v.embedding MATCH ?
-                ORDER BY v.distance
-                LIMIT ?
-                """.trimIndent(),
+                VECTOR_SEARCH_SQL,
                 { cursor ->
                     while (cursor.next().value) {
-                        val content = cursor.getString(2) ?: continue
-                        val source = cursor.getString(3) ?: "unknown"
-                        val createdAt = cursor.getString(4) ?: ""
-                        val distance = cursor.getDouble(1) ?: 1.0
-                        val categoryName = cursor.getString(5)
-                        results.add(
-                            MemorySearchResult(
-                                content = content,
-                                category = categoryName,
-                                source = source,
-                                createdAt = createdAt,
-                                score = 1.0 - distance,
-                            ),
-                        )
+                        results.add(parseVectorResult(cursor))
                     }
                     app.cash.sqldelight.db.QueryResult
                         .Value(results)
@@ -384,6 +366,44 @@ class MemoryServiceImpl(
     ): List<MemorySearchResult> {
         val ftsResults = ftsSearch(query, topK)
         val vectorResults = vectorSearch(query, topK)
-        return RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
+        var merged = RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
+        if (searchConfig.temporalDecay.enabled) {
+            merged = TemporalDecayScorer.applyDecay(merged, searchConfig.temporalDecay.halfLifeDays)
+        }
+        if (searchConfig.mmr.enabled) {
+            merged = MmrReranker.rerank(merged, searchConfig.mmr.lambda, topK)
+        }
+        return merged
+    }
+
+    private fun parseVectorResult(cursor: app.cash.sqldelight.db.SqlCursor): MemorySearchResult {
+        val content = cursor.getString(2) ?: ""
+        val source = cursor.getString(3) ?: "unknown"
+        val createdAt = cursor.getString(4) ?: ""
+        val distance = cursor.getDouble(1) ?: 1.0
+        val categoryName = cursor.getString(5)
+        val embeddingBytes = if (searchConfig.mmr.enabled) cursor.getBytes(6) else null
+        val embeddingArray = embeddingBytes?.let { blobToFloatArray(it) }
+        return MemorySearchResult(
+            content = content,
+            category = categoryName,
+            source = source,
+            createdAt = createdAt,
+            score = 1.0 - distance,
+            embedding = embeddingArray,
+        )
+    }
+
+    companion object {
+        private val VECTOR_SEARCH_SQL =
+            """
+            SELECT v.rowid, v.distance, mf.content, mf.source, mf.created_at, mc.name, v.embedding
+            FROM vec_memory v
+            JOIN memory_facts mf ON mf.id = v.rowid
+            JOIN memory_categories mc ON mc.id = mf.category_id
+            WHERE v.embedding MATCH ?
+            ORDER BY v.distance
+            LIMIT ?
+            """.trimIndent()
     }
 }

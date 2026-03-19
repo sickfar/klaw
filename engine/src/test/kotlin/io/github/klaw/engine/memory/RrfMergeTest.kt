@@ -1,6 +1,9 @@
 package io.github.klaw.engine.memory
 
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -87,6 +90,40 @@ class RrfMergeTest {
         for (i in 0 until merged.size - 1) {
             assertTrue(merged[i].score >= merged[i + 1].score)
         }
+    }
+
+    @Test
+    fun `merge preserves embedding from vector results`() {
+        val emb = floatArrayOf(1f, 2f, 3f)
+        val vector =
+            listOf(
+                MemorySearchResult("A", null, "test", "2026-01-01T00:00:00Z", 0.9, embedding = emb),
+            )
+        val fts = listOf(result("B"))
+
+        val merged = RrfMerge.reciprocalRankFusion(vector, fts, k = 60, topK = 10)
+
+        val a = merged.first { it.content == "A" }
+        assertNotNull(a.embedding, "Vector result should preserve embedding")
+        assertArrayEquals(emb, a.embedding)
+
+        val b = merged.first { it.content == "B" }
+        assertNull(b.embedding, "FTS result should have null embedding")
+    }
+
+    @Test
+    fun `merge prefers result with embedding when deduplicating`() {
+        val emb = floatArrayOf(1f, 0f)
+        val vector =
+            listOf(
+                MemorySearchResult("same", null, "vec", "2026-01-01T00:00:00Z", 0.9, embedding = emb),
+            )
+        val fts = listOf(result("same"))
+
+        val merged = RrfMerge.reciprocalRankFusion(vector, fts, k = 60, topK = 10)
+
+        assertEquals(1, merged.size)
+        assertNotNull(merged[0].embedding, "Merged result should preserve embedding from vector source")
     }
 
     @Test
