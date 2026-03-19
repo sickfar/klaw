@@ -1,6 +1,6 @@
 # Built-in Tools Overview
 
-Klaw Engine provides 21 standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Additional tools (scheduling, configuration, memory management) are available through bundled skills — load them via `skill_load` to access their tool definitions. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
@@ -39,7 +39,7 @@ See [docs.md](docs.md).
 
 See [skills.md](skills.md).
 
-### Schedule Tools (3 + 1 contextual)
+### Schedule Tools (via `scheduling` skill + 1 contextual)
 | Tool | Description |
 |------|-------------|
 | `schedule_list` | List scheduled tasks |
@@ -47,7 +47,7 @@ See [skills.md](skills.md).
 | `schedule_remove` | Remove a scheduled task |
 | `schedule_deliver` | **Contextual** — deliver a result to the user; only available inside scheduled tasks and spawned subagents when `injectInto` is set |
 
-See [schedule.md](schedule.md).
+Schedule tools (`schedule_list`, `schedule_add`, `schedule_remove`) are available via the `scheduling` bundled skill. Load it with `skill_load("scheduling")` to see full tool definitions and usage guidelines. See [schedule.md](schedule.md).
 
 ### Subagent Tools (1)
 | Tool | Description |
@@ -71,13 +71,13 @@ See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 
 See [history-search.md](history-search.md).
 
-### Configuration Tools (2)
+### Configuration Tools (via `configuration` skill)
 | Tool | Description |
 |------|-------------|
 | `config_get` | Read current engine or gateway configuration |
 | `config_set` | Update a configuration field |
 
-See [config.md](config.md).
+Configuration tools are available via the `configuration` bundled skill. Load it with `skill_load("configuration")` to see full tool definitions and usage guidelines. See [config.md](config.md).
 
 ### Utility Tools (1)
 | Tool | Description |
@@ -100,6 +100,6 @@ Engine enforces a `maxToolCallRounds` limit (configured in `engine.json` under `
 ## Architecture
 
 - `ToolRegistry` interface (in `engine/context/`) lists available tool definitions.
-- `ToolRegistryImpl` is the `@Singleton` implementation that holds all 21 `ToolDef` entries and dispatches execution to the appropriate tool class.
+- `ToolRegistryImpl` is the `@Singleton` implementation that holds tool definitions and dispatches execution to the appropriate tool class. Some tools are hidden from the default context and exposed via bundled skills.
 - `DispatchingToolExecutor` executes tool calls concurrently via `coroutineScope { async {} }`.
 - Dependency services (memory, docs, scheduler) are injected as interfaces with stub implementations replaced by real ones in later phases.

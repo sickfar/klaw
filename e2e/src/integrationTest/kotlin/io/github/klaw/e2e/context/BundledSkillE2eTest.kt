@@ -22,8 +22,10 @@ import org.junit.jupiter.api.TestMethodOrder
  * E2E test verifying that bundled skills (packaged in the engine JAR)
  * are discoverable via skill_list and loadable via skill_load.
  *
- * The engine ships with a built-in "memory-management" skill that provides
- * category management tools (rename, merge, delete).
+ * The engine ships with bundled skills:
+ * - "memory-management" — category management tools (rename, merge, delete)
+ * - "scheduling" — schedule_list, schedule_add, schedule_remove
+ * - "configuration" — config_get, config_set
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -99,6 +101,58 @@ class BundledSkillE2eTest {
 
     @Test
     @Order(2)
+    fun `bundled scheduling and configuration skills appear in system prompt`() {
+        wireMock.stubChatResponse("Got it.")
+
+        client.sendAndReceive("Hello", timeoutMs = RESPONSE_TIMEOUT_MS)
+
+        val messages = wireMock.getLastChatRequestMessages()
+        val systemContent =
+            messages
+                .first { it.jsonObject["role"]?.jsonPrimitive?.content == "system" }
+                .jsonObject["content"]
+                ?.jsonPrimitive
+                ?.content ?: ""
+
+        assertTrue(
+            systemContent.contains("scheduling"),
+            "System prompt should contain bundled 'scheduling' skill in Available Skills section",
+        )
+        assertTrue(
+            systemContent.contains("configuration"),
+            "System prompt should contain bundled 'configuration' skill in Available Skills section",
+        )
+    }
+
+    @Test
+    @Order(3)
+    fun `skill_load returns scheduling skill content with schedule tools`() {
+        val toolCallResponse =
+            WireMockLlmServer.buildToolCallResponseJson(
+                listOf(StubToolCall("call_1", "skill_load", """{"name":"scheduling"}""")),
+            )
+        val textResponse = WireMockLlmServer.buildChatResponseJson("Skill loaded.", 10, 5)
+        wireMock.stubChatResponseSequenceRaw(listOf(toolCallResponse, textResponse))
+
+        client.sendAndReceive("Load the scheduling skill", timeoutMs = RESPONSE_TIMEOUT_MS)
+
+        val allRequests = wireMock.getRecordedRequests()
+        assertTrue(
+            allRequests.size >= 2,
+            "Should have at least 2 requests (initial + after tool result)",
+        )
+
+        val secondRequest = allRequests[1]
+        assertTrue(
+            secondRequest.contains("schedule_list") &&
+                secondRequest.contains("schedule_add") &&
+                secondRequest.contains("schedule_remove"),
+            "Tool result should contain all scheduling tool descriptions",
+        )
+    }
+
+    @Test
+    @Order(4)
     fun `skill_load returns bundled skill content`() {
         val toolCallResponse =
             WireMockLlmServer.buildToolCallResponseJson(

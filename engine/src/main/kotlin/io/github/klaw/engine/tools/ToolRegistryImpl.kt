@@ -467,40 +467,8 @@ class ToolRegistryImpl(
                         mapOf("name" to stringProp("Skill name")),
                     ),
                 ),
-                ToolDef(
-                    "schedule_list",
-                    "List scheduled tasks",
-                    toolParams(emptyList(), emptyMap()),
-                ),
-                ToolDef(
-                    "schedule_add",
-                    "Add a scheduled or one-time task. The 'message' field must be an explicit instruction " +
-                        "for the subagent, not just content to deliver.",
-                    toolParams(
-                        listOf("name", "message"),
-                        mapOf(
-                            "name" to stringProp("Unique task name"),
-                            "cron" to stringProp("Cron schedule expression (mutually exclusive with at)"),
-                            "at" to stringProp("ISO-8601 datetime for one-time trigger (mutually exclusive with cron)"),
-                            "message" to
-                                stringProp(
-                                    "Explicit instruction for the subagent when the task fires. " +
-                                        "Must be an actionable task, not just content. " +
-                                        "For reminder delivery: 'Your task: send the user this reminder: <text>'. " +
-                                        "For data collection: 'Check <source>, extract <info>, summarize for user'.",
-                                ),
-                            "model" to stringProp("LLM model (optional)"),
-                        ),
-                    ),
-                ),
-                ToolDef(
-                    "schedule_remove",
-                    "Remove a scheduled task",
-                    toolParams(
-                        listOf("name"),
-                        mapOf("name" to stringProp("Task name to remove")),
-                    ),
-                ),
+                // scheduling tools (schedule_list, schedule_add, schedule_remove) are hidden
+                // behind the "scheduling" bundled skill — dispatch() still handles them
                 ToolDef(
                     "subagent_spawn",
                     "Spawn an independent subagent to perform a task in parallel. " +
@@ -563,43 +531,8 @@ class ToolRegistryImpl(
                         ),
                     ),
                 ),
-                ToolDef(
-                    "config_get",
-                    "Read current engine or gateway configuration. Sensitive values (API keys) are masked. " +
-                        "Omit 'path' to get the full config. Use dot notation for specific fields, " +
-                        "e.g. 'routing.default', 'providers.zai.baseUrl'.",
-                    toolParams(
-                        listOf("target"),
-                        mapOf(
-                            "target" to stringProp("Config target: 'engine' or 'gateway'"),
-                            "path" to
-                                stringProp(
-                                    "Dot-notation path (optional), e.g. 'routing.default', " +
-                                        "'providers.zai.baseUrl'",
-                                ),
-                        ),
-                    ),
-                ),
-                ToolDef(
-                    "config_set",
-                    "Update a configuration field. Engine config changes trigger automatic restart (~2s downtime). " +
-                        "Gateway channel config changes restart the gateway. " +
-                        "Other gateway changes apply immediately.",
-                    toolParams(
-                        listOf("target", "path", "value"),
-                        mapOf(
-                            "target" to stringProp("Config target: 'engine' or 'gateway'"),
-                            "path" to
-                                stringProp(
-                                    "Dot-notation path, e.g. 'routing.default', 'providers.zai.apiKey'",
-                                ),
-                            "value" to
-                                stringProp(
-                                    "New value as string (booleans: 'true'/'false', numbers as digits)",
-                                ),
-                        ),
-                    ),
-                ),
+                // config tools (config_get, config_set) are hidden behind the
+                // "configuration" bundled skill — dispatch() still handles them
                 ToolDef(
                     "send_message",
                     "Send a message to a specific channel and chat",

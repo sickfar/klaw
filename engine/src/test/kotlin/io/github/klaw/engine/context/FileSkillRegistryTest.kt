@@ -51,8 +51,8 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val skills = registry.listAll()
-            // +1 for bundled "memory-management" skill from classpath
-            assertTrue(skills.size >= 2, "Expected at least 2 skills (1 user + bundled), got ${skills.size}")
+            // +3 for bundled skills (memory-management, scheduling, configuration) from classpath
+            assertTrue(skills.size >= 4, "Expected at least 4 skills (1 user + 3 bundled), got ${skills.size}")
             val testSkill = skills.first { it.name == "test-skill" }
             assertEquals("A test skill", testSkill.description)
         }
@@ -65,8 +65,8 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val skills = registry.listAll()
-            // +1 for bundled "memory-management" skill from classpath
-            assertTrue(skills.size >= 2, "Expected at least 2 skills (1 user + bundled), got ${skills.size}")
+            // +3 for bundled skills (memory-management, scheduling, configuration) from classpath
+            assertTrue(skills.size >= 4, "Expected at least 4 skills (1 user + 3 bundled), got ${skills.size}")
             assertTrue(skills.any { it.name == "ws-skill" })
         }
 
@@ -115,10 +115,10 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val descriptions = registry.listSkillDescriptions()
-            // 2 user skills + bundled skill(s)
+            // 2 user skills + 3 bundled skills
             assertTrue(
-                descriptions.size >= 3,
-                "Expected at least 3 descriptions (2 user + bundled), got ${descriptions.size}",
+                descriptions.size >= 5,
+                "Expected at least 5 descriptions (2 user + 3 bundled), got ${descriptions.size}",
             )
             assertTrue(descriptions.any { it.contains("s1") && it.contains("First skill") })
         }
@@ -140,7 +140,48 @@ class FileSkillRegistryTest {
 
             // Only bundled skills should be present when dirs don't exist
             val skills = registry.listAll()
-            assertTrue(skills.all { it.name == "memory-management" }, "Only bundled skills expected, got: $skills")
+            val bundledNames = setOf("memory-management", "scheduling", "configuration")
+            assertTrue(
+                skills.all { it.name in bundledNames },
+                "Only bundled skills expected, got: $skills",
+            )
+            assertEquals(3, skills.size, "Should have exactly 3 bundled skills")
+        }
+
+    @Test
+    fun `discovers all bundled skills including scheduling and configuration`() =
+        runTest {
+            val registry = createRegistry()
+            registry.discover()
+
+            val skills = registry.listAll()
+            val names = skills.map { it.name }.toSet()
+            assertTrue("memory-management" in names, "Should have memory-management bundled skill")
+            assertTrue("scheduling" in names, "Should have scheduling bundled skill")
+            assertTrue("configuration" in names, "Should have configuration bundled skill")
+        }
+
+    @Test
+    fun `scheduling bundled skill content mentions schedule_list schedule_add schedule_remove`() =
+        runTest {
+            val registry = createRegistry()
+            registry.discover()
+
+            val content = registry.getFullContent("scheduling")!!
+            assertTrue(content.contains("schedule_list"), "Should mention schedule_list tool")
+            assertTrue(content.contains("schedule_add"), "Should mention schedule_add tool")
+            assertTrue(content.contains("schedule_remove"), "Should mention schedule_remove tool")
+        }
+
+    @Test
+    fun `configuration bundled skill content mentions config_get config_set`() =
+        runTest {
+            val registry = createRegistry()
+            registry.discover()
+
+            val content = registry.getFullContent("configuration")!!
+            assertTrue(content.contains("config_get"), "Should mention config_get tool")
+            assertTrue(content.contains("config_set"), "Should mention config_set tool")
         }
 
     // --- Environment variable interpolation tests ---

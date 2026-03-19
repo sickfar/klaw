@@ -28,8 +28,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -103,10 +101,10 @@ class ToolRegistryImplTest {
         )
 
     @Test
-    fun `listTools returns all 25 tool definitions`() =
+    fun `listTools returns all 20 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(25, tools.size)
+            assertEquals(20, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -122,14 +120,14 @@ class ToolRegistryImplTest {
             assertTrue(names.contains("docs_list"))
             assertTrue(names.contains("skill_list"))
             assertTrue(names.contains("skill_load"))
-            assertTrue(names.contains("schedule_list"))
-            assertTrue(names.contains("schedule_add"))
-            assertTrue(names.contains("schedule_remove"))
+            assertFalse(names.contains("schedule_list"))
+            assertFalse(names.contains("schedule_add"))
+            assertFalse(names.contains("schedule_remove"))
             assertTrue(names.contains("subagent_spawn"))
             assertFalse(names.contains("current_time"))
             assertTrue(names.contains("send_message"))
-            assertTrue(names.contains("config_get"))
-            assertTrue(names.contains("config_set"))
+            assertFalse(names.contains("config_get"))
+            assertFalse(names.contains("config_set"))
             assertTrue(names.contains("engine_health"))
         }
 
@@ -241,7 +239,7 @@ class ToolRegistryImplTest {
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(22, tools.size)
+            assertEquals(17, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -299,7 +297,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(23, tools.size, "Should have 25 - 2 = 23 tools")
+            assertEquals(18, tools.size, "Should have 20 - 2 = 18 tools")
         }
 
     @Test
@@ -326,7 +324,7 @@ class ToolRegistryImplTest {
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(24, tools.size, "Should have 25 - 1 = 24 tools")
+            assertEquals(19, tools.size, "Should have 20 - 1 = 19 tools")
         }
 
     @Test
@@ -369,35 +367,55 @@ class ToolRegistryImplTest {
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(25, tools.size)
+            assertEquals(20, tools.size)
         }
 
     @Test
-    fun `schedule_add tool definition has no injectInto parameter`() =
+    fun `scheduling tools hidden from listTools but dispatch still works`() =
         runTest {
             val tools = registry.listTools()
-            val scheduleAdd = tools.first { it.name == "schedule_add" }
-            val props = scheduleAdd.parameters["properties"]?.jsonObject
-            assertFalse(
-                props?.containsKey("injectInto") ?: false,
-                "schedule_add should not expose injectInto param",
-            )
+            val names = tools.map { it.name }.toSet()
+            assertFalse("schedule_list" in names, "schedule_list should be hidden")
+            assertFalse("schedule_add" in names, "schedule_add should be hidden")
+            assertFalse("schedule_remove" in names, "schedule_remove should be hidden")
+
+            coEvery { scheduleTools.list() } returns "[]"
+            val listResult = registry.execute(ToolCall(id = "1", name = "schedule_list", arguments = "{}"))
+            assertEquals("[]", listResult.content, "schedule_list dispatch should still work")
+
+            coEvery { scheduleTools.remove("test") } returns "OK"
+            val removeResult =
+                registry.execute(
+                    ToolCall(id = "2", name = "schedule_remove", arguments = """{"name":"test"}"""),
+                )
+            assertEquals("OK", removeResult.content, "schedule_remove dispatch should still work")
         }
 
     @Test
-    fun `schedule_add tool definition has optional at parameter`() =
+    fun `config tools hidden from listTools but dispatch still works`() =
         runTest {
             val tools = registry.listTools()
-            val scheduleAdd = tools.first { it.name == "schedule_add" }
-            val props = scheduleAdd.parameters["properties"]?.jsonObject
-            assertTrue(
-                props?.containsKey("at") ?: false,
-                "schedule_add should have an 'at' parameter",
-            )
-            val required = scheduleAdd.parameters["required"]
-            val requiredNames = required?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
-            assertFalse("cron" in requiredNames, "cron should not be required")
-            assertFalse("at" in requiredNames, "at should not be required")
+            val names = tools.map { it.name }.toSet()
+            assertFalse("config_get" in names, "config_get should be hidden")
+            assertFalse("config_set" in names, "config_set should be hidden")
+
+            coEvery { configTools.configGet("engine", null) } returns """{"routing":"default"}"""
+            val getResult =
+                registry.execute(
+                    ToolCall(id = "1", name = "config_get", arguments = """{"target":"engine"}"""),
+                )
+            assertEquals("""{"routing":"default"}""", getResult.content, "config_get dispatch should still work")
+
+            coEvery { configTools.configSet("engine", "routing.default", "new-model") } returns "OK"
+            val setResult =
+                registry.execute(
+                    ToolCall(
+                        id = "2",
+                        name = "config_set",
+                        arguments = """{"target":"engine","path":"routing.default","value":"new-model"}""",
+                    ),
+                )
+            assertEquals("OK", setResult.content, "config_set dispatch should still work")
         }
 
     @Test
@@ -476,7 +494,7 @@ class ToolRegistryImplTest {
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(26, tools.size)
+            assertEquals(21, tools.size)
         }
 
     @Test
