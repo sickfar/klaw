@@ -1,6 +1,7 @@
 package io.github.klaw.engine.socket
 
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
@@ -75,5 +76,29 @@ class CliCommandDispatcherTest {
                 skills?.first { it.jsonObject["directory"]?.jsonPrimitive?.content == "broken-sk" }?.jsonObject
             assertFalse(brokenEntry?.get("valid")?.jsonPrimitive?.content == "true")
             assertEquals("missing SKILL.md", brokenEntry?.get("error")?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `skills_list returns JSON with skills array`() =
+        runTest {
+            val details =
+                listOf(
+                    SkillDetail("alpha", "Alpha skill", "workspace"),
+                    SkillDetail("beta", "Beta skill", "bundled"),
+                )
+            coEvery { skillRegistry.listDetailed() } returns details
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("skills_list"))
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            assertEquals(2, json["total"]?.jsonPrimitive?.int)
+
+            val skills = json["skills"]?.jsonArray
+            assertEquals(2, skills?.size)
+
+            val alpha = skills?.first { it.jsonObject["name"]?.jsonPrimitive?.content == "alpha" }?.jsonObject
+            assertEquals("Alpha skill", alpha?.get("description")?.jsonPrimitive?.content)
+            assertEquals("workspace", alpha?.get("source")?.jsonPrimitive?.content)
         }
 }

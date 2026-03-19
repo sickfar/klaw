@@ -123,6 +123,10 @@ class CliCommandDispatcher(
                 handleSkillsValidate()
             }
 
+            "skills_list" -> {
+                handleSkillsList()
+            }
+
             else -> {
                 val safe = request.command.replace("\\", "\\\\").replace("\"", "\\\"")
                 """{"error":"unknown command: $safe"}"""
@@ -193,6 +197,19 @@ class CliCommandDispatcher(
                 """{"name":$nameField,"directory":"$dir","source":"$src","valid":${e.valid}$errorField}"""
             }
         return """{"skills":$skillsJson,"total":${report.total},"valid":${report.valid},"errors":${report.errors}}"""
+    }
+
+    private suspend fun handleSkillsList(): String {
+        skillRegistry.discover()
+        val skills = skillRegistry.listDetailed()
+        val items =
+            skills.joinToString(",") {
+                val n = escapeJson(it.name)
+                val d = escapeJson(it.description)
+                val s = escapeJson(it.source)
+                """{"name":"$n","description":"$d","source":"$s"}"""
+            }
+        return """{"skills":[$items],"total":${skills.size}}"""
     }
 
     private suspend fun handleMemoryConsolidate(params: Map<String, String>): String {

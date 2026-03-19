@@ -344,6 +344,65 @@ class FileSkillRegistryTest {
             )
         }
 
+    // --- listDetailed tests ---
+
+    @Test
+    fun `listDetailed returns entries with correct sources`() =
+        runTest {
+            createSkill(dataDir, "data-skill", "A data skill", "Body")
+            createSkill(workspaceDir, "ws-skill", "A workspace skill", "Body")
+            val registry = createRegistry()
+            registry.discover()
+
+            val details = registry.listDetailed()
+
+            val dataSk = details.first { it.name == "data-skill" }
+            assertEquals("data", dataSk.source)
+            assertEquals("A data skill", dataSk.description)
+
+            val wsSk = details.first { it.name == "ws-skill" }
+            assertEquals("workspace", wsSk.source)
+            assertEquals("A workspace skill", wsSk.description)
+        }
+
+    @Test
+    fun `listDetailed returns workspace override source`() =
+        runTest {
+            createSkill(dataDir, "shared", "Data version", "Data body")
+            createSkill(workspaceDir, "shared", "Workspace version", "WS body")
+            val registry = createRegistry()
+            registry.discover()
+
+            val details = registry.listDetailed()
+            val shared = details.first { it.name == "shared" }
+            assertEquals("workspace", shared.source, "Override should show workspace source")
+            assertEquals("Workspace version", shared.description)
+        }
+
+    @Test
+    fun `listDetailed includes bundled skills`() =
+        runTest {
+            val registry = createRegistry()
+            registry.discover()
+
+            val details = registry.listDetailed()
+            val bundledNames = details.filter { it.source == "bundled" }.map { it.name }.toSet()
+            assertTrue("memory-management" in bundledNames, "Should have memory-management as bundled")
+            assertTrue("scheduling" in bundledNames, "Should have scheduling as bundled")
+            assertTrue("configuration" in bundledNames, "Should have configuration as bundled")
+        }
+
+    @Test
+    fun `listDetailed returns empty for no user skills with only bundled`() =
+        runTest {
+            val registry = createRegistry()
+            registry.discover()
+
+            val details = registry.listDetailed()
+            val userSkills = details.filter { it.source != "bundled" }
+            assertTrue(userSkills.isEmpty(), "Should have no user skills, got: $userSkills")
+        }
+
     // --- Validation tests ---
 
     @Test

@@ -14,5 +14,7 @@ interface SkillRegistry {
 
     suspend fun getFullContent(name: String): String?
 
+    suspend fun listDetailed(): List<SkillDetail>
+
     suspend fun validate(): SkillValidationReport
 }

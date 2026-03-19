@@ -16,6 +16,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
+import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
@@ -299,30 +300,74 @@ class CommandHandlerTest {
         }
 
     @Test
-    fun `skills without args returns usage`() =
+    fun `skills list returns formatted list`() =
+        runTest {
+            val details =
+                listOf(
+                    SkillDetail("alpha", "Alpha skill", "workspace"),
+                    SkillDetail("beta", "Beta skill", "data"),
+                    SkillDetail("scheduling", "Schedule management", "bundled"),
+                )
+            coEvery { skillRegistry.listDetailed() } returns details
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("skills", "list"), session)
+
+            io.mockk.verify { skillRegistry.discover() }
+            assertTrue(result.contains("Loaded skills"), "Should contain header, got: $result")
+            assertTrue(result.contains("alpha"), "Should contain skill name, got: $result")
+            assertTrue(result.contains("Alpha skill"), "Should contain description, got: $result")
+            assertTrue(result.contains("(workspace)"), "Should contain source label, got: $result")
+            assertTrue(result.contains("(data)"), "Should contain data source, got: $result")
+            assertTrue(result.contains("(bundled)"), "Should contain bundled source, got: $result")
+        }
+
+    @Test
+    fun `skills list with no skills returns empty message`() =
+        runTest {
+            coEvery { skillRegistry.listDetailed() } returns emptyList()
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("skills", "list"), session)
+
+            assertTrue(result.contains("No skills"), "Should indicate no skills, got: $result")
+        }
+
+    @Test
+    fun `skills without args returns usage with list`() =
         runTest {
             val handler = makeHandler()
             val session = makeSession()
 
             val result = handler.handle(makeCmd("skills"), session)
 
-            assertTrue(
-                result.contains("Usage") || result.contains("/skills validate"),
-                "Should return usage info, got: $result",
-            )
+            assertTrue(result.contains("Usage"), "Should return usage info, got: $result")
+            assertTrue(result.contains("list"), "Should mention list subcommand, got: $result")
+            assertTrue(result.contains("validate"), "Should mention validate subcommand, got: $result")
         }
 
     @Test
-    fun `skills unknown subcommand returns usage`() =
+    fun `skills unknown subcommand returns usage with list`() =
         runTest {
             val handler = makeHandler()
             val session = makeSession()
 
             val result = handler.handle(makeCmd("skills", "foo"), session)
 
-            assertTrue(
-                result.contains("Usage") || result.contains("/skills validate"),
-                "Should return usage info for unknown subcommand, got: $result",
-            )
+            assertTrue(result.contains("Usage"), "Should return usage info, got: $result")
+            assertTrue(result.contains("list"), "Should mention list subcommand, got: $result")
+        }
+
+    @Test
+    fun `help includes skills list`() =
+        runTest {
+            val handler = makeHandler()
+            val session = makeSession()
+
+            val result = handler.handle(makeCmd("help"), session)
+
+            assertTrue(result.contains("/skills list"), "Help should mention /skills list, got: $result")
         }
 }

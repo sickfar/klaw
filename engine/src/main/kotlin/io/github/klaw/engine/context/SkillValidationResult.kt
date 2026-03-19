@@ -1,5 +1,11 @@
 package io.github.klaw.engine.context
 
+data class SkillDetail(
+    val name: String,
+    val description: String,
+    val source: String,
+)
+
 data class SkillValidationEntry(
     val name: String?,
     val directory: String,

@@ -30,6 +30,21 @@ Displays the contents of `MEMORY.md` from the workspace.
 
 Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
 
+## /skills list
+
+Shows all currently loaded skills with their source (bundled, data, workspace). Forces a fresh re-scan of skill directories before displaying results, so newly added skills appear immediately.
+
+Output example:
+
+```
+Loaded skills (5):
+- configuration: Runtime configuration management (bundled)
+- data-skill: Data analysis helper (data)
+- memory-management: Memory category management (bundled)
+- scheduling: Schedule management (bundled)
+- ws-alpha: Alpha workspace skill (workspace)
+```
+
 ## /skills validate
 
 Validates all skill directories and reports their status. Checks each skill directory in both global (`~/.local/share/klaw/skills/`) and workspace (`$KLAW_WORKSPACE/skills/`) locations for:

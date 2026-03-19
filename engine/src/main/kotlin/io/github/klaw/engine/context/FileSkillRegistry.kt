@@ -20,15 +20,18 @@ class FileSkillRegistry(
 
     private data class SkillEntry(
         val meta: SkillMeta,
+        val source: String,
         val filePath: Path? = null,
         val classpathResource: String? = null,
     )
 
     override fun discover() {
+        logger.trace { "Skill discovery started" }
         skills.clear()
         scanBundledSkills()
-        scanDir(dataSkillsDir)
-        scanDir(workspaceSkillsDir) // workspace overrides data
+        scanDir(dataSkillsDir, "data")
+        scanDir(workspaceSkillsDir, "workspace")
+        logger.debug { "Skill discovery complete: ${skills.size} skills" }
     }
 
     private fun scanBundledSkills() {
@@ -40,33 +43,68 @@ class FileSkillRegistry(
                 ?.filter { it.isNotBlank() }
                 ?: return
 
+        var count = 0
         for (skillName in index) {
             val resourcePath = "klaw-skills/$skillName/SKILL.md"
             val content =
                 javaClass.classLoader
                     .getResourceAsStream(resourcePath)
                     ?.use { it.bufferedReader().readText() }
-                    ?: continue
-            val meta = parseFrontmatterFromContent(content) ?: continue
-            skills[meta.name] = SkillEntry(meta = meta, classpathResource = resourcePath)
-            logger.debug { "Loaded bundled skill: ${meta.name}" }
+            if (content == null) {
+                logger.trace { "Skipped bundled skill entry: $skillName (no content)" }
+                continue
+            }
+            val meta = parseFrontmatterFromContent(content)
+            if (meta == null) {
+                logger.trace { "Skipped bundled skill entry: $skillName (invalid frontmatter)" }
+                continue
+            }
+            skills[meta.name] = SkillEntry(meta = meta, source = "bundled", classpathResource = resourcePath)
+            logger.trace { "Loaded bundled skill: ${meta.name}" }
+            count++
         }
+        logger.debug { "Scanned bundled skills: $count loaded" }
     }
 
-    private fun scanDir(dir: Path) {
-        if (!Files.exists(dir) || !Files.isDirectory(dir)) return
+    private fun scanDir(
+        dir: Path,
+        source: String,
+    ) {
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            logger.trace { "Skill directory not found, skipping: $dir" }
+            return
+        }
+        var count = 0
         Files.list(dir).use { stream ->
             stream
                 .filter { Files.isDirectory(it) }
-                .forEach { skillDir -> processSkillDir(skillDir) }
+                .forEach { skillDir ->
+                    if (processSkillDir(skillDir, source)) count++
+                }
         }
+        logger.debug { "Scanned $source skills: $count found in $dir" }
     }
 
-    private fun processSkillDir(skillDir: Path) {
+    private fun processSkillDir(
+        skillDir: Path,
+        source: String,
+    ): Boolean {
         val skillFile = skillDir.resolve("SKILL.md")
-        if (!Files.exists(skillFile)) return
-        val meta = parseFrontmatter(skillFile) ?: return
-        skills[meta.name] = SkillEntry(meta, skillFile)
+        if (!Files.exists(skillFile)) {
+            logger.trace { "Skipped ${skillDir.fileName}: missing SKILL.md" }
+            return false
+        }
+        val meta = parseFrontmatter(skillFile)
+        if (meta == null) {
+            logger.trace { "Skipped ${skillDir.fileName}: invalid frontmatter" }
+            return false
+        }
+        if (skills.containsKey(meta.name)) {
+            logger.trace { "Overriding skill ${meta.name} with $source version from ${skillDir.fileName}" }
+        }
+        skills[meta.name] = SkillEntry(meta, source, skillFile)
+        logger.trace { "Loaded skill: ${meta.name} from ${skillDir.fileName} ($source)" }
+        return true
     }
 
     private fun parseFrontmatterFromContent(content: String): SkillMeta? {
@@ -110,6 +148,9 @@ class FileSkillRegistry(
         }
 
     override suspend fun listAll(): List<SkillMeta> = skills.values.map { it.meta }
+
+    override suspend fun listDetailed(): List<SkillDetail> =
+        skills.values.map { SkillDetail(it.meta.name, it.meta.description, it.source) }
 
     override suspend fun validate(): SkillValidationReport =
         withContext(Dispatchers.VT) {

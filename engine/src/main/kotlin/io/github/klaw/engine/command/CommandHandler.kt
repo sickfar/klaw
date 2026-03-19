@@ -6,6 +6,7 @@ import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.message.MessageRepository
@@ -102,9 +103,29 @@ class CommandHandler(
             "Context: $windowTokens/$budgetTokens tokens ($pct%) | Segment total: $totalTokens"
     }
 
-    private suspend fun handleSkills(args: String?): String {
-        if (args?.trim() == "validate") return formatValidationReport(skillRegistry.validate())
-        return "Usage: /skills validate"
+    private suspend fun handleSkills(args: String?): String =
+        when (args?.trim()) {
+            "validate" -> {
+                formatValidationReport(skillRegistry.validate())
+            }
+
+            "list" -> {
+                skillRegistry.discover()
+                formatSkillList(skillRegistry.listDetailed())
+            }
+
+            else -> {
+                "Usage: /skills validate | list"
+            }
+        }
+
+    private fun formatSkillList(skills: List<SkillDetail>): String {
+        if (skills.isEmpty()) return "No skills loaded."
+        val lines =
+            skills
+                .sortedBy { it.name }
+                .map { "- ${it.name}: ${it.description} (${it.source})" }
+        return "Loaded skills (${skills.size}):\n${lines.joinToString("\n")}"
     }
 
     private fun formatValidationReport(report: SkillValidationReport): String {
@@ -167,6 +188,7 @@ class CommandHandler(
                 "/memory — show memory",
                 "/status — show status",
                 "/use-for-heartbeat — deliver heartbeat to this chat",
+                "/skills list — list loaded skills",
                 "/skills validate — validate skill directories",
                 "/help — this help",
             ).joinToString("\n")

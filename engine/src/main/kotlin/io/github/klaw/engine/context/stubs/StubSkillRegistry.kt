@@ -1,5 +1,6 @@
 package io.github.klaw.engine.context.stubs
 
+import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillMeta
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationReport
@@ -16,6 +17,8 @@ class StubSkillRegistry : SkillRegistry {
     override suspend fun listAll(): List<SkillMeta> = emptyList()
 
     override suspend fun getFullContent(name: String): String? = null
+
+    override suspend fun listDetailed(): List<SkillDetail> = emptyList()
 
     override suspend fun validate(): SkillValidationReport = SkillValidationReport(emptyList())
 }
