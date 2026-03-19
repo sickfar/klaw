@@ -4,6 +4,8 @@ import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.protocol.CommandSocketMessage
+import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.IncomingMessage
 import io.github.klaw.gateway.pairing.ConfigFileWatcher
@@ -20,7 +22,10 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import kotlin.test.assertIs
 import kotlin.time.Clock
 
 class GatewayLifecycleInboundTest {
@@ -32,6 +37,10 @@ class GatewayLifecycleInboundTest {
         userId: String? = "user1",
         isCommand: Boolean = false,
         commandName: String? = null,
+        senderName: String? = null,
+        chatType: String? = null,
+        chatTitle: String? = null,
+        messageId: String? = null,
     ) = IncomingMessage(
         id = "msg-1",
         channel = channel,
@@ -41,6 +50,10 @@ class GatewayLifecycleInboundTest {
         userId = userId,
         isCommand = isCommand,
         commandName = commandName,
+        senderName = senderName,
+        chatType = chatType,
+        chatTitle = chatTitle,
+        messageId = messageId,
     )
 
     @Test
@@ -356,5 +369,80 @@ class GatewayLifecycleInboundTest {
             assert(replies.size == 1) {
                 "Expected no confirmation message after unrelated config change, got: $replies"
             }
+        }
+
+    @Test
+    fun `allowed message forwards sender fields to engine InboundSocketMessage`() =
+        runBlocking {
+            val allowlistService = mockk<InboundAllowlistService>()
+            every { allowlistService.isAllowed("telegram", "telegram_123", "user1") } returns true
+
+            val engineClient = mockk<EngineSocketClient>(relaxed = true)
+            val sentMessages = mutableListOf<SocketMessage>()
+            every { engineClient.send(capture(sentMessages)) } returns true
+
+            val incoming =
+                makeIncoming(
+                    senderName = "John",
+                    chatType = "private",
+                    chatTitle = null,
+                    messageId = "msg_1",
+                )
+            val callback =
+                GatewayLifecycle.buildInboundCallback(
+                    allowlistService = allowlistService,
+                    pairingService = mockk(relaxed = true),
+                    configFileWatcher = mockk(relaxed = true),
+                    engineClient = engineClient,
+                    replyFn = { _, _ -> },
+                )
+            callback(incoming)
+
+            coVerify(exactly = 1) { engineClient.send(any()) }
+            val sent = sentMessages.single()
+            assertIs<InboundSocketMessage>(sent)
+            assertEquals("user1", sent.senderId)
+            assertEquals("John", sent.senderName)
+            assertEquals("private", sent.chatType)
+            assertNull(sent.chatTitle)
+            assertEquals("msg_1", sent.messageId)
+        }
+
+    @Test
+    fun `command forwards sender fields to engine CommandSocketMessage`() =
+        runBlocking {
+            val allowlistService = mockk<InboundAllowlistService>()
+            every { allowlistService.isAllowed("telegram", "telegram_123", "user1") } returns true
+
+            val engineClient = mockk<EngineSocketClient>(relaxed = true)
+            val sentMessages = mutableListOf<SocketMessage>()
+            every { engineClient.send(capture(sentMessages)) } returns true
+
+            val incoming =
+                makeIncoming(
+                    isCommand = true,
+                    commandName = "status",
+                    senderName = "Jane",
+                    chatType = "group",
+                    chatTitle = "Test Group",
+                    messageId = "msg_2",
+                )
+            val callback =
+                GatewayLifecycle.buildInboundCallback(
+                    allowlistService = allowlistService,
+                    pairingService = mockk(relaxed = true),
+                    configFileWatcher = mockk(relaxed = true),
+                    engineClient = engineClient,
+                    replyFn = { _, _ -> },
+                )
+            callback(incoming)
+
+            coVerify(exactly = 1) { engineClient.send(any()) }
+            val sent = sentMessages.single()
+            assertIs<CommandSocketMessage>(sent)
+            assertEquals("Jane", sent.senderName)
+            assertEquals("group", sent.chatType)
+            assertEquals("Test Group", sent.chatTitle)
+            assertEquals("msg_2", sent.messageId)
         }
 }

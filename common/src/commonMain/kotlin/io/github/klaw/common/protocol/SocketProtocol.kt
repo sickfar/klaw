@@ -18,6 +18,11 @@ data class InboundSocketMessage(
     val chatId: String,
     val content: String,
     val ts: String,
+    val senderId: String? = null,
+    val senderName: String? = null,
+    val chatType: String? = null,
+    val chatTitle: String? = null,
+    val messageId: String? = null,
 ) : SocketMessage()
 
 @Serializable
@@ -37,6 +42,11 @@ data class CommandSocketMessage(
     val chatId: String,
     val command: String,
     val args: String? = null,
+    val senderId: String? = null,
+    val senderName: String? = null,
+    val chatType: String? = null,
+    val chatTitle: String? = null,
+    val messageId: String? = null,
 ) : SocketMessage()
 
 @Serializable

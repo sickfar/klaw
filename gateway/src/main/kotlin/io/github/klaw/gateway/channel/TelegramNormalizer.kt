@@ -5,12 +5,17 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 object TelegramNormalizer {
+    @Suppress("LongParameterList")
     fun normalize(
         chatId: Long,
         text: String,
         userId: Long? = null,
         ts: Instant = Clock.System.now(),
         messageId: String = UUID.randomUUID().toString(),
+        senderName: String? = null,
+        chatType: String? = null,
+        chatTitle: String? = null,
+        platformMessageId: String? = null,
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
@@ -23,6 +28,10 @@ object TelegramNormalizer {
             isCommand = parsed.isCommand,
             commandName = parsed.commandName,
             commandArgs = parsed.commandArgs,
+            senderName = senderName,
+            chatType = chatType,
+            chatTitle = chatTitle,
+            messageId = platformMessageId,
         )
     }
 }

@@ -1054,4 +1054,94 @@ class ContextBuilderTest {
             assertTrue(systemContent.contains("Embedding: onnx"), "Should contain embedding type")
             assertTrue(systemContent.contains("Docker:"), "Should contain docker status")
         }
+
+    @Test
+    fun `buildContext with SenderContext includes Current Sender JSON section`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val senderContext =
+                SenderContext(
+                    senderId = "292077641",
+                    senderName = "Roman",
+                    chatType = "group",
+                    platform = "telegram",
+                    chatTitle = "Home Automation",
+                    messageId = "msg_42",
+                )
+
+            val result =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("Hello"),
+                    isSubagent = false,
+                    senderContext = senderContext,
+                )
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("## Current Sender"),
+                "Should contain ## Current Sender section",
+            )
+            assertTrue(systemContent.contains("\"name\":\"Roman\""), "Should contain sender name")
+            assertTrue(systemContent.contains("\"id\":\"292077641\""), "Should contain sender id")
+            assertTrue(systemContent.contains("\"chat_type\":\"group\""), "Should contain chat type")
+            assertTrue(systemContent.contains("\"platform\":\"telegram\""), "Should contain platform")
+            assertTrue(
+                systemContent.contains("\"chat_title\":\"Home Automation\""),
+                "Should contain chat title",
+            )
+            assertTrue(systemContent.contains("\"message_id\":\"msg_42\""), "Should contain message id")
+        }
+
+    @Test
+    fun `buildContext without SenderContext omits Current Sender section`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val result = contextBuilder.buildContext(session, listOf("Hello"), isSubagent = false)
+
+            val systemContent = result.messages[0].content!!
+            assertFalse(
+                systemContent.contains("## Current Sender"),
+                "Should NOT contain ## Current Sender when no sender context",
+            )
+        }
+
+    @Test
+    fun `buildContext with partial SenderContext shows only available fields`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val senderContext =
+                SenderContext(
+                    senderId = null,
+                    senderName = "User",
+                    chatType = "local",
+                    platform = "local_ws",
+                    chatTitle = null,
+                    messageId = null,
+                )
+
+            val result =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("Hello"),
+                    isSubagent = false,
+                    senderContext = senderContext,
+                )
+
+            val systemContent = result.messages[0].content!!
+            assertTrue(
+                systemContent.contains("## Current Sender"),
+                "Should contain ## Current Sender even with partial data",
+            )
+            assertTrue(systemContent.contains("\"name\":\"User\""), "Should contain name")
+            assertTrue(systemContent.contains("\"chat_type\":\"local\""), "Should contain chat type")
+            assertTrue(systemContent.contains("\"platform\":\"local_ws\""), "Should contain platform")
+            assertFalse(systemContent.contains("\"id\""), "Should NOT contain id when null")
+            assertFalse(systemContent.contains("\"chat_title\""), "Should NOT contain chat_title when null")
+            assertFalse(systemContent.contains("\"message_id\""), "Should NOT contain message_id when null")
+        }
 }

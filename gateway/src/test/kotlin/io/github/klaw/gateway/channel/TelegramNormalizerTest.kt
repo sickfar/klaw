@@ -52,4 +52,38 @@ class TelegramNormalizerTest {
         assertEquals("help", msg.commandName)
         assertEquals("topic", msg.commandArgs)
     }
+
+    @Test
+    fun `normalize includes senderName when provided`() {
+        val msg =
+            TelegramNormalizer.normalize(
+                chatId = 123L,
+                text = "hello",
+                senderName = "John Doe",
+                chatType = "group",
+            )
+        assertEquals("John Doe", msg.senderName)
+    }
+
+    @Test
+    fun `normalize includes chatType and chatTitle when provided`() {
+        val msg =
+            TelegramNormalizer.normalize(
+                chatId = 123L,
+                text = "hello",
+                chatType = "supergroup",
+                chatTitle = "Dev Chat",
+            )
+        assertEquals("supergroup", msg.chatType)
+        assertEquals("Dev Chat", msg.chatTitle)
+    }
+
+    @Test
+    fun `normalize has null senderName chatType chatTitle messageId when not provided`() {
+        val msg = TelegramNormalizer.normalize(chatId = 123L, text = "hello")
+        assertNull(msg.senderName)
+        assertNull(msg.chatType)
+        assertNull(msg.chatTitle)
+        assertNull(msg.messageId)
+    }
 }

@@ -123,29 +123,50 @@ class GatewayLifecycle(
                 }
 
                 // Forward to engine
-                if (isCmd) {
-                    engineClient.send(
-                        CommandSocketMessage(
-                            channel = incoming.channel,
-                            chatId = incoming.chatId,
-                            command = cmdName ?: "",
-                            args = cmdArgs,
-                        ),
-                    )
-                    logger.debug { "Command forwarded to engine: channel=${incoming.channel}" }
-                } else {
-                    engineClient.send(
-                        InboundSocketMessage(
-                            id = incoming.id,
-                            channel = incoming.channel,
-                            chatId = incoming.chatId,
-                            content = incoming.content,
-                            ts = incoming.ts.toString(),
-                        ),
-                    )
-                    logger.debug { "Inbound forwarded to engine: channel=${incoming.channel}" }
-                }
+                forwardToEngine(engineClient, incoming, isCmd, cmdName, cmdArgs)
             }
+
+        @Suppress("LongParameterList")
+        private fun forwardToEngine(
+            engineClient: EngineSocketClient,
+            incoming: IncomingMessage,
+            isCmd: Boolean,
+            cmdName: String?,
+            cmdArgs: String?,
+        ) {
+            if (isCmd) {
+                engineClient.send(
+                    CommandSocketMessage(
+                        channel = incoming.channel,
+                        chatId = incoming.chatId,
+                        command = cmdName ?: "",
+                        args = cmdArgs,
+                        senderId = incoming.userId,
+                        senderName = incoming.senderName,
+                        chatType = incoming.chatType,
+                        chatTitle = incoming.chatTitle,
+                        messageId = incoming.messageId,
+                    ),
+                )
+                logger.debug { "Command forwarded to engine: channel=${incoming.channel}" }
+            } else {
+                engineClient.send(
+                    InboundSocketMessage(
+                        id = incoming.id,
+                        channel = incoming.channel,
+                        chatId = incoming.chatId,
+                        content = incoming.content,
+                        ts = incoming.ts.toString(),
+                        senderId = incoming.userId,
+                        senderName = incoming.senderName,
+                        chatType = incoming.chatType,
+                        chatTitle = incoming.chatTitle,
+                        messageId = incoming.messageId,
+                    ),
+                )
+                logger.debug { "Inbound forwarded to engine: channel=${incoming.channel}" }
+            }
+        }
 
         @Suppress("LongParameterList")
         private suspend fun handleStartCommand(

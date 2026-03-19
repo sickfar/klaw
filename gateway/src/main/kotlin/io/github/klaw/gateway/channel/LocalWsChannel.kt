@@ -72,13 +72,17 @@ class LocalWsChannel(
         session: DefaultWebSocketServerSession,
     ) {
         activeSession = session
+        val msgId = UUID.randomUUID().toString()
         val incoming =
             IncomingMessage(
-                id = UUID.randomUUID().toString(),
+                id = msgId,
                 channel = name,
                 chatId = "local_ws_default",
                 content = content,
                 ts = Clock.System.now(),
+                senderName = "User",
+                chatType = "local",
+                messageId = msgId,
             )
         jsonlWriter.writeInbound(incoming)
         incomingQueue.send(incoming)

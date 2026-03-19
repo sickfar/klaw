@@ -376,7 +376,7 @@ class MessageProcessorEmbeddingTest {
         val taskNameSlot = slot<String?>()
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
-            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot))
+            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any())
         } returns
             io.github.klaw.engine.context.ContextResult(
                 messages = listOf(LlmMessage(role = "system", content = "test")),
@@ -416,7 +416,7 @@ class MessageProcessorEmbeddingTest {
         val taskNameSlot = slot<String?>()
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
-            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot))
+            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any())
         } returns
             io.github.klaw.engine.context.ContextResult(
                 messages = listOf(LlmMessage(role = "system", content = "test")),

@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SocketProtocolTest {
@@ -262,5 +263,78 @@ class SocketProtocolTest {
         assertIs<PingMessage>(json.decodeFromString<SocketMessage>(pingJson))
         assertIs<PongMessage>(json.decodeFromString<SocketMessage>(pongJson))
         assertIs<RestartRequestSocketMessage>(json.decodeFromString<SocketMessage>(restartReqJson))
+    }
+
+    @Test
+    fun `InboundSocketMessage with sender fields round-trip`() {
+        val msg =
+            InboundSocketMessage(
+                id = "msg_1",
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Hello",
+                ts = "2024-01-01T00:00:00Z",
+                senderId = "user_123",
+                senderName = "John Doe",
+                chatType = "group",
+                chatTitle = "Dev Chat",
+                messageId = "msg_42",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<InboundSocketMessage>(decoded)
+        assertEquals("user_123", decoded.senderId)
+        assertEquals("John Doe", decoded.senderName)
+        assertEquals("group", decoded.chatType)
+        assertEquals("Dev Chat", decoded.chatTitle)
+        assertEquals("msg_42", decoded.messageId)
+    }
+
+    @Test
+    fun `InboundSocketMessage without sender fields deserializes with nulls`() {
+        val raw =
+            """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<InboundSocketMessage>(decoded)
+        assertNull(decoded.senderId)
+        assertNull(decoded.senderName)
+        assertNull(decoded.chatType)
+        assertNull(decoded.chatTitle)
+        assertNull(decoded.messageId)
+    }
+
+    @Test
+    fun `CommandSocketMessage with sender fields round-trip`() {
+        val msg =
+            CommandSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_456",
+                command = "new",
+                senderId = "user_456",
+                senderName = "Jane",
+                chatType = "private",
+                chatTitle = null,
+                messageId = "msg_99",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<CommandSocketMessage>(decoded)
+        assertEquals("user_456", decoded.senderId)
+        assertEquals("Jane", decoded.senderName)
+        assertEquals("private", decoded.chatType)
+        assertNull(decoded.chatTitle)
+        assertEquals("msg_99", decoded.messageId)
+    }
+
+    @Test
+    fun `CommandSocketMessage without sender fields deserializes with nulls`() {
+        val raw = """{"type":"command","channel":"tg","chatId":"123","command":"new"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<CommandSocketMessage>(decoded)
+        assertNull(decoded.senderId)
+        assertNull(decoded.senderName)
+        assertNull(decoded.chatType)
+        assertNull(decoded.chatTitle)
+        assertNull(decoded.messageId)
     }
 }

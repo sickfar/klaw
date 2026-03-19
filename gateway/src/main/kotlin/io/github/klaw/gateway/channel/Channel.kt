@@ -41,6 +41,10 @@ data class IncomingMessage(
     val isCommand: Boolean = false,
     val commandName: String? = null,
     val commandArgs: String? = null,
+    val senderName: String? = null,
+    val chatType: String? = null,
+    val chatTitle: String? = null,
+    val messageId: String? = null,
 )
 
 data class OutgoingMessage(

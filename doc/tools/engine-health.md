@@ -48,6 +48,27 @@ Embedding: onnx | Docker: yes
 
 This provides situational awareness without a tool call. For detailed diagnostics, use `engine_health`.
 
+## Sender Metadata
+
+The system prompt includes a `## Current Sender` section with JSON metadata about the message sender:
+
+```
+## Current Sender
+```json
+{"name":"Roman","id":"292077641","chat_type":"group","platform":"telegram","chat_title":"Home Automation","message_id":"12345"}
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Display name (firstName + lastName from Telegram) |
+| `id` | Platform user ID |
+| `chat_type` | `private`, `group`, `supergroup`, `channel`, or `local` |
+| `platform` | Source channel (`telegram`, `local_ws`) |
+| `chat_title` | Group/supergroup/channel title (omitted for private chats) |
+| `message_id` | Platform message ID (enables reply/reaction interactions) |
+
+Only non-null fields are included. For the local WebSocket channel, `name` is `User` and `chat_type` is `local`.
+
 ## Use Cases
 
 - **Heartbeat health check:** Agent calls `engine_health` during heartbeat to detect issues and report proactively.

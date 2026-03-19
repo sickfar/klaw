@@ -14,6 +14,7 @@ import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
+import io.github.klaw.engine.context.SenderContext
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
@@ -362,7 +363,22 @@ class MessageProcessor(
                     // Persist user messages before building context so sumTokensInSegment is accurate
                     persistInboundMessages(messages)
 
-                    val contextResult = contextBuilder.buildContext(session, pendingTexts, isSubagent = false)
+                    val senderContext =
+                        SenderContext(
+                            senderId = first.senderId,
+                            senderName = first.senderName,
+                            chatType = first.chatType,
+                            platform = first.channel,
+                            chatTitle = first.chatTitle,
+                            messageId = first.messageId,
+                        )
+                    val contextResult =
+                        contextBuilder.buildContext(
+                            session,
+                            pendingTexts,
+                            isSubagent = false,
+                            senderContext = senderContext,
+                        )
                     val tools: List<ToolDef> =
                         toolRegistry.listTools(
                             includeSkillList = contextResult.includeSkillList,

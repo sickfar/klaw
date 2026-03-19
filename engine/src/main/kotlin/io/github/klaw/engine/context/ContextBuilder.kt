@@ -10,8 +10,19 @@ import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.EngineHealthProvider
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+
+data class SenderContext(
+    val senderId: String?,
+    val senderName: String?,
+    val chatType: String?,
+    val platform: String?,
+    val chatTitle: String?,
+    val messageId: String?,
+)
 
 data class ContextResult(
     val messages: List<LlmMessage>,
@@ -40,6 +51,7 @@ class ContextBuilder(
         pendingMessages: List<String>,
         isSubagent: Boolean,
         taskName: String? = null,
+        senderContext: SenderContext? = null,
     ): ContextResult {
         skillRegistry.discover()
         val systemPrompt = workspaceLoader.loadSystemPrompt()
@@ -70,7 +82,7 @@ class ContextBuilder(
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
-            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
+            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, null)
             val scheduledSystemContent =
                 buildString {
                     append(systemContent)
@@ -90,7 +102,8 @@ class ContextBuilder(
             )
         }
 
-        val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount)
+        val systemContent =
+            buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, senderContext)
 
         val budgetTokens =
             config.models[session.model]?.contextBudget
@@ -199,6 +212,7 @@ class ContextBuilder(
         toolDescriptions: String,
         inlineSkillSection: String = "",
         skillCount: Int = 0,
+        senderContext: SenderContext? = null,
     ): String {
         val parts = mutableListOf<String>()
         if (systemPrompt.isNotBlank()) parts.add(systemPrompt)
@@ -216,6 +230,12 @@ class ContextBuilder(
                 "Jobs: ${status.scheduledJobs} | Sessions: ${status.activeSessions} | Sandbox: $sandboxLabel\n" +
                 "Embedding: ${status.embeddingType} | Docker: $dockerLabel",
         )
+        if (senderContext != null) {
+            val senderSection = buildSenderSection(senderContext)
+            if (senderSection != null) {
+                parts.add(senderSection)
+            }
+        }
         if (config.summarization.enabled) {
             parts.add(
                 "## Conversation History\n" +
@@ -234,6 +254,20 @@ class ContextBuilder(
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
+    }
+
+    private fun buildSenderSection(sender: SenderContext): String? {
+        val obj =
+            buildJsonObject {
+                sender.senderName?.let { put("name", it) }
+                sender.senderId?.let { put("id", it) }
+                sender.chatType?.let { put("chat_type", it) }
+                sender.platform?.let { put("platform", it) }
+                sender.chatTitle?.let { put("chat_title", it) }
+                sender.messageId?.let { put("message_id", it) }
+            }
+        if (obj.isEmpty()) return null
+        return "## Current Sender\n```json\n$obj\n```"
     }
 
     private fun formatUptime(duration: java.time.Duration): String {
