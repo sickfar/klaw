@@ -334,6 +334,33 @@ Then configure it in `engine.json`:
 }
 ```
 
+## webFetch
+
+Web page fetching tool. Converts HTML to readable markdown for LLM consumption.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `true` | Enable the `web_fetch` tool. |
+| `requestTimeoutMs` | long | `30000` | HTTP request timeout in milliseconds. |
+| `maxResponseSizeBytes` | long | `1048576` | Maximum response body size (default 1MB). |
+| `userAgent` | string | `"Klaw/1.0 (AI Agent)"` | User-Agent header sent with requests. |
+
+## webSearch
+
+Internet search tool with configurable provider. Disabled by default — requires an API key.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Enable the `web_search` tool. |
+| `provider` | string | `"brave"` | Search provider: `"brave"` or `"tavily"`. |
+| `apiKey` | string | `null` | API key. Use env var reference: `"${BRAVE_SEARCH_API_KEY}"`. |
+| `maxResults` | int | `5` | Default number of search results. |
+| `requestTimeoutMs` | long | `10000` | HTTP request timeout in milliseconds. |
+| `braveEndpoint` | string | `"https://api.search.brave.com"` | Brave Search API base URL. |
+| `tavilyEndpoint` | string | `"https://api.tavily.com"` | Tavily Search API base URL. |
+
+See [web-fetch.md](../tools/web-fetch.md) and [web-search.md](../tools/web-search.md) for tool documentation.
+
 ## Notes
 
 - `routing.fallback` lists model IDs tried in order if the primary model fails.

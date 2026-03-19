@@ -64,6 +64,14 @@ See [subagent.md](subagent.md).
 
 See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 
+### Web Tools (2)
+| Tool | Description |
+|------|-------------|
+| `web_fetch` | Fetch a web page and convert HTML to readable markdown |
+| `web_search` | Search the internet via Brave or Tavily API |
+
+`web_fetch` is enabled by default. `web_search` requires an API key and is disabled by default — configure via `engine.json` `webSearch` section. See [web-fetch.md](web-fetch.md) and [web-search.md](web-search.md).
+
 ### History Tools (1)
 | Tool | Description |
 |------|-------------|

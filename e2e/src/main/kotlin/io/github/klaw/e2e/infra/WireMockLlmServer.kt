@@ -3,9 +3,11 @@ package io.github.klaw.e2e.infra
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.containing
+import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.github.tomakehurst.wiremock.stubbing.Scenario
 import com.github.tomakehurst.wiremock.verification.LoggedRequest
@@ -350,6 +352,23 @@ class WireMockLlmServer {
         val body = getNthRequestBody(n)
         val tools = body["tools"]
         return tools != null && tools.toString() != "null"
+    }
+
+    fun stubGetResponse(
+        path: String,
+        body: String,
+        contentType: String = "text/html",
+        statusCode: Int = HTTP_OK,
+    ) {
+        server.stubFor(
+            get(urlPathEqualTo(path))
+                .willReturn(
+                    aResponse()
+                        .withStatus(statusCode)
+                        .withHeader("Content-Type", contentType)
+                        .withBody(body),
+                ),
+        )
     }
 
     companion object {

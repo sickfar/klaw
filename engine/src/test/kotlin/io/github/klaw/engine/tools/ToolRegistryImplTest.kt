@@ -17,6 +17,8 @@ import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
+import io.github.klaw.common.config.WebFetchConfig
+import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.engine.mcp.FakeTransport
 import io.github.klaw.engine.mcp.McpClient
@@ -47,6 +49,8 @@ class ToolRegistryImplTest {
     private val hostExecTool = mockk<HostExecTool>()
     private val configTools = mockk<ConfigTools>()
     private val engineHealthTools = mockk<EngineHealthTools>()
+    private val webFetchTool = mockk<WebFetchTool>()
+    private val webSearchTool = mockk<WebSearchTool>()
     private val mcpToolRegistry = McpToolRegistry()
 
     @Suppress("LongMethod")
@@ -79,6 +83,8 @@ class ToolRegistryImplTest {
         autoRag = AutoRagConfig(),
         docs = DocsConfig(enabled = docsEnabled),
         hostExecution = HostExecutionConfig(enabled = hostExecEnabled),
+        webFetch = WebFetchConfig(enabled = true),
+        webSearch = WebSearchConfig(enabled = true, apiKey = "test-key"),
     )
 
     private val registry =
@@ -96,15 +102,17 @@ class ToolRegistryImplTest {
             mockk<HistoryTools>(),
             engineHealthTools,
             mockk<SubagentStatusTools>(),
+            webFetchTool,
+            webSearchTool,
             testEngineConfig(docsEnabled = true, hostExecEnabled = true),
             mcpToolRegistry,
         )
 
     @Test
-    fun `listTools returns all 20 tool definitions`() =
+    fun `listTools returns all 22 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(20, tools.size)
+            assertEquals(22, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -129,6 +137,8 @@ class ToolRegistryImplTest {
             assertFalse(names.contains("config_get"))
             assertFalse(names.contains("config_set"))
             assertTrue(names.contains("engine_health"))
+            assertTrue(names.contains("web_fetch"))
+            assertTrue(names.contains("web_search"))
         }
 
     @Test
@@ -234,12 +244,14 @@ class ToolRegistryImplTest {
                     mockk<HistoryTools>(),
                     engineHealthTools,
                     mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
                     testEngineConfig(docsEnabled = false, hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(17, tools.size)
+            assertEquals(19, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -297,7 +309,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(18, tools.size, "Should have 20 - 2 = 18 tools")
+            assertEquals(20, tools.size, "Should have 22 - 2 = 20 tools")
         }
 
     @Test
@@ -318,13 +330,15 @@ class ToolRegistryImplTest {
                     mockk<HistoryTools>(),
                     engineHealthTools,
                     mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
                     testEngineConfig(hostExecEnabled = false),
                     mcpToolRegistry,
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(19, tools.size, "Should have 20 - 1 = 19 tools")
+            assertEquals(21, tools.size, "Should have 22 - 1 = 21 tools")
         }
 
     @Test
@@ -361,13 +375,15 @@ class ToolRegistryImplTest {
                     mockk<HistoryTools>(),
                     engineHealthTools,
                     mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
                     testEngineConfig(hostExecEnabled = true),
                     mcpToolRegistry,
                 )
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(20, tools.size)
+            assertEquals(22, tools.size)
         }
 
     @Test
@@ -489,12 +505,14 @@ class ToolRegistryImplTest {
                     mockk<HistoryTools>(),
                     engineHealthTools,
                     mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(21, tools.size)
+            assertEquals(23, tools.size)
         }
 
     @Test
@@ -541,6 +559,8 @@ class ToolRegistryImplTest {
                     mockk<HistoryTools>(),
                     engineHealthTools,
                     mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
@@ -562,5 +582,99 @@ class ToolRegistryImplTest {
                 )
             assertEquals("1", result.callId)
             assertTrue(result.content.contains("gateway_status"))
+        }
+
+    @Test
+    fun `execute dispatches web_fetch to WebFetchTool`() =
+        runTest {
+            coEvery { webFetchTool.fetch("https://example.com", null) } returns "URL: https://example.com\n---\ncontent"
+
+            val result =
+                registry.execute(
+                    ToolCall(id = "wf1", name = "web_fetch", arguments = """{"url":"https://example.com"}"""),
+                )
+            assertEquals("wf1", result.callId)
+            assertTrue(result.content.contains("example.com"))
+        }
+
+    @Test
+    fun `execute dispatches web_search to WebSearchTool`() =
+        runTest {
+            coEvery { webSearchTool.search("test query", null) } returns "Search results for: test query"
+
+            val result =
+                registry.execute(
+                    ToolCall(id = "ws1", name = "web_search", arguments = """{"query":"test query"}"""),
+                )
+            assertEquals("ws1", result.callId)
+            assertTrue(result.content.contains("test query"))
+        }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `web_fetch excluded when webFetch disabled`() =
+        runTest {
+            val config = testEngineConfig(docsEnabled = true, hostExecEnabled = true)
+            val disabledConfig =
+                config.copy(
+                    webFetch = config.webFetch.copy(enabled = false),
+                )
+            val reg =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    configTools,
+                    mockk<HistoryTools>(),
+                    engineHealthTools,
+                    mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
+                    disabledConfig,
+                    mcpToolRegistry,
+                )
+            val tools = reg.listTools()
+            val names = tools.map { it.name }.toSet()
+            assertFalse("web_fetch" in names, "web_fetch should be excluded when disabled")
+        }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `web_search excluded when webSearch disabled`() =
+        runTest {
+            val config = testEngineConfig(docsEnabled = true, hostExecEnabled = true)
+            val disabledConfig =
+                config.copy(
+                    webSearch = config.webSearch.copy(enabled = false),
+                )
+            val reg =
+                ToolRegistryImpl(
+                    fileTools,
+                    skillTools,
+                    memoryTools,
+                    docsTools,
+                    scheduleTools,
+                    subagentTools,
+                    utilityTools,
+                    sandboxExecTool,
+                    hostExecTool,
+                    configTools,
+                    mockk<HistoryTools>(),
+                    engineHealthTools,
+                    mockk<SubagentStatusTools>(),
+                    webFetchTool,
+                    webSearchTool,
+                    disabledConfig,
+                    mcpToolRegistry,
+                )
+            val tools = reg.listTools()
+            val names = tools.map { it.name }.toSet()
+            assertFalse("web_search" in names, "web_search should be excluded when disabled")
         }
 }

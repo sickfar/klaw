@@ -20,6 +20,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.config.encodeComposeConfig
 import io.github.klaw.common.config.encodeEngineConfigMinimal
 import io.github.klaw.common.config.encodeGatewayConfigMinimal
@@ -28,18 +29,46 @@ internal object ConfigTemplates {
     /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`. */
     fun apiKeyEnvVar(providerAlias: String): String = "${providerAlias.uppercase()}_API_KEY"
 
+    @Suppress("LongParameterList")
     fun engineJson(
         providerUrl: String,
         modelId: String,
         heartbeatChannel: String? = null,
-    ): String = encodeEngineConfigMinimal(buildEngineConfig(providerUrl, modelId, heartbeatChannel))
+        webSearchEnabled: Boolean = false,
+        webSearchProvider: String? = null,
+        webSearchApiKeyEnvVar: String? = null,
+    ): String =
+        encodeEngineConfigMinimal(
+            buildEngineConfig(
+                providerUrl,
+                modelId,
+                heartbeatChannel,
+                webSearchEnabled,
+                webSearchProvider,
+                webSearchApiKeyEnvVar,
+            ),
+        )
 
+    @Suppress("LongParameterList")
     private fun buildEngineConfig(
         providerUrl: String,
         modelId: String,
         heartbeatChannel: String?,
+        webSearchEnabled: Boolean,
+        webSearchProvider: String?,
+        webSearchApiKeyEnvVar: String?,
     ): EngineConfig {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
+        val webSearch =
+            if (webSearchEnabled && webSearchProvider != null && webSearchApiKeyEnvVar != null) {
+                WebSearchConfig(
+                    enabled = true,
+                    provider = webSearchProvider,
+                    apiKey = "\${$webSearchApiKeyEnvVar}",
+                )
+            } else {
+                WebSearchConfig()
+            }
         return EngineConfig(
             providers = buildConfigProviders(providerName, providerUrl),
             models = buildConfigModels(modelId),
@@ -52,6 +81,7 @@ internal object ConfigTemplates {
                     interval = if (heartbeatChannel != null) "PT1H" else "off",
                     channel = heartbeatChannel,
                 ),
+            webSearch = webSearch,
         )
     }
 

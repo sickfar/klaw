@@ -6,6 +6,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
+@Suppress("TooManyFunctions")
 object ConfigGenerator {
     private const val CHUNK_SIZE = 500
     private const val CHUNK_OVERLAP = 50
@@ -50,6 +51,11 @@ object ConfigGenerator {
         mmrLambda: Double = 0.7,
         temporalDecayEnabled: Boolean = false,
         temporalDecayHalfLifeDays: Int = 30,
+        webFetchEnabled: Boolean = true,
+        webSearchEnabled: Boolean = false,
+        webSearchProvider: String = "brave",
+        webSearchApiKey: String? = null,
+        webSearchEndpoint: String? = null,
     ): String {
         val root =
             buildJsonObject {
@@ -84,6 +90,13 @@ object ConfigGenerator {
                     consolidationCron,
                     consolidationMinMessages,
                     consolidationCategory,
+                )
+                buildWebTools(
+                    webFetchEnabled,
+                    webSearchEnabled,
+                    webSearchProvider,
+                    webSearchApiKey,
+                    webSearchEndpoint,
                 )
             }
         return root.toString()
@@ -259,6 +272,32 @@ object ConfigGenerator {
             put("enabled", enabled)
             put("compactionThresholdFraction", compactionThresholdFraction)
             put("summaryBudgetFraction", summaryBudgetFraction)
+        }
+    }
+
+    @Suppress("LongParameterList")
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildWebTools(
+        webFetchEnabled: Boolean,
+        webSearchEnabled: Boolean,
+        webSearchProvider: String,
+        webSearchApiKey: String?,
+        webSearchEndpoint: String?,
+    ) {
+        putJsonObject("webFetch") {
+            put("enabled", webFetchEnabled)
+        }
+        putJsonObject("webSearch") {
+            put("enabled", webSearchEnabled)
+            put("provider", webSearchProvider)
+            if (webSearchApiKey != null) {
+                put("apiKey", webSearchApiKey)
+            }
+            if (webSearchEndpoint != null) {
+                when (webSearchProvider) {
+                    "brave" -> put("braveEndpoint", webSearchEndpoint)
+                    "tavily" -> put("tavilyEndpoint", webSearchEndpoint)
+                }
+            }
         }
     }
 }

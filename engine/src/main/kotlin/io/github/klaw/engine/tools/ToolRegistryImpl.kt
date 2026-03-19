@@ -40,6 +40,8 @@ class ToolRegistryImpl(
     private val historyTools: HistoryTools,
     private val engineHealthTools: EngineHealthTools,
     private val subagentStatusTools: SubagentStatusTools,
+    private val webFetchTool: WebFetchTool,
+    private val webSearchTool: WebSearchTool,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -52,6 +54,8 @@ class ToolRegistryImpl(
     ): List<ToolDef> {
         var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
+        if (!config.webFetch.enabled) result = result.filter { it.name != WEB_FETCH_TOOL_NAME }
+        if (!config.webSearch.enabled) result = result.filter { it.name != WEB_SEARCH_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
         if (!includeSendMessage) result = result.filter { it.name != SEND_MESSAGE_TOOL_NAME }
@@ -253,6 +257,14 @@ class ToolRegistryImpl(
                 engineHealthTools.health()
             }
 
+            "web_fetch" -> {
+                webFetchTool.fetch(args.str("url"), args.intOrNull("timeout_seconds"))
+            }
+
+            "web_search" -> {
+                webSearchTool.search(args.str("query"), args.intOrNull("max_results"))
+            }
+
             "heartbeat_deliver" -> {
                 val ctx =
                     kotlin.coroutines.coroutineContext[HeartbeatDeliverContext]
@@ -302,6 +314,8 @@ class ToolRegistryImpl(
         private const val SKILL_LIST_TOOL_NAME = "skill_list"
         private const val SKILL_LOAD_TOOL_NAME = "skill_load"
         private const val SEND_MESSAGE_TOOL_NAME = "send_message"
+        private const val WEB_FETCH_TOOL_NAME = "web_fetch"
+        private const val WEB_SEARCH_TOOL_NAME = "web_search"
         private val HEARTBEAT_DELIVER_DEF =
             ToolDef(
                 "heartbeat_deliver",
@@ -550,6 +564,31 @@ class ToolRegistryImpl(
                     "Get engine health status including gateway connection, uptime, database, " +
                         "sandbox, scheduled jobs, active sessions, pending deliveries, and more.",
                     toolParams(emptyList(), emptyMap()),
+                ),
+                ToolDef(
+                    "web_fetch",
+                    "Fetch a web page and return its content as readable text/markdown. " +
+                        "Strips navigation, ads, and scripts. Returns title, description, and main content. " +
+                        "Supports HTML (converted to markdown), plain text, and JSON.",
+                    toolParams(
+                        listOf("url"),
+                        mapOf(
+                            "url" to stringProp("URL to fetch (http or https only)"),
+                            "timeout_seconds" to intProp("Request timeout in seconds (default 30, max 120)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "web_search",
+                    "Search the internet and return a list of results with titles, URLs, and snippets. " +
+                        "Useful for finding current information, documentation, or answers to questions.",
+                    toolParams(
+                        listOf("query"),
+                        mapOf(
+                            "query" to stringProp("Search query"),
+                            "max_results" to intProp("Maximum number of results (default 5, max 20)"),
+                        ),
+                    ),
                 ),
             )
     }

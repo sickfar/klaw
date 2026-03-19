@@ -45,6 +45,10 @@ data class EngineConfig(
     val database: DatabaseConfig = DatabaseConfig(),
     @ConfigDoc("Daily memory consolidation settings")
     val consolidation: DailyConsolidationConfig = DailyConsolidationConfig(),
+    @ConfigDoc("Web fetch tool settings for retrieving web page content")
+    val webFetch: WebFetchConfig = WebFetchConfig(),
+    @ConfigDoc("Web search tool settings for searching the internet")
+    val webSearch: WebSearchConfig = WebSearchConfig(),
 )
 
 @Serializable
@@ -456,5 +460,57 @@ data class DailyConsolidationConfig(
     init {
         require(minMessages > 0) { "minMessages must be > 0, got $minMessages" }
         require(category.isNotBlank()) { "category must not be blank" }
+    }
+}
+
+@Serializable
+data class WebFetchConfig(
+    @ConfigDoc("Enable the web_fetch tool for fetching web page content")
+    val enabled: Boolean = true,
+    @ConfigDoc("HTTP request timeout in milliseconds")
+    val requestTimeoutMs: Long = 30_000,
+    @ConfigDoc("Maximum response body size in bytes (default 1MB)")
+    val maxResponseSizeBytes: Long = 1_048_576,
+    @ConfigDoc("User-Agent header sent with requests")
+    val userAgent: String = "Klaw/1.0 (AI Agent)",
+) {
+    init {
+        require(requestTimeoutMs > 0) { "requestTimeoutMs must be > 0, got $requestTimeoutMs" }
+        require(maxResponseSizeBytes in 1..Int.MAX_VALUE) {
+            "maxResponseSizeBytes must be in 1..${Int.MAX_VALUE}, got $maxResponseSizeBytes"
+        }
+    }
+}
+
+@Serializable
+data class WebSearchConfig(
+    @ConfigDoc("Enable the web_search tool for searching the internet")
+    val enabled: Boolean = false,
+    @ConfigDoc("Search provider type", possibleValues = ["brave", "tavily"])
+    val provider: String = "brave",
+    @ConfigDoc("API key for the search provider", sensitive = true)
+    val apiKey: String? = null,
+    @ConfigDoc("Maximum number of search results to return")
+    val maxResults: Int = 5,
+    @ConfigDoc("HTTP request timeout in milliseconds")
+    val requestTimeoutMs: Long = 10_000,
+    @ConfigDoc("Brave Search API endpoint URL (override for testing)")
+    val braveEndpoint: String = "https://api.search.brave.com",
+    @ConfigDoc("Tavily Search API endpoint URL (override for testing)")
+    val tavilyEndpoint: String = "https://api.tavily.com",
+) {
+    init {
+        require(maxResults in 1..MAX_SEARCH_RESULTS) { "maxResults must be in 1..$MAX_SEARCH_RESULTS, got $maxResults" }
+        require(requestTimeoutMs > 0) { "requestTimeoutMs must be > 0, got $requestTimeoutMs" }
+        require(provider in VALID_PROVIDERS) { "provider must be one of $VALID_PROVIDERS, got $provider" }
+    }
+
+    override fun toString(): String =
+        "WebSearchConfig(enabled=$enabled, provider=$provider, " +
+            "apiKey=${if (apiKey != null) "***" else "null"}, maxResults=$maxResults)"
+
+    companion object {
+        private const val MAX_SEARCH_RESULTS = 20
+        private val VALID_PROVIDERS = setOf("brave", "tavily")
     }
 }

@@ -152,6 +152,7 @@ class InitWizardTest {
                 "n", // Configure Telegram? → n = skip
                 // NO telegram token or chat IDs prompts
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -183,6 +184,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // skip telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -219,6 +221,7 @@ class InitWizardTest {
                 "my-bot-token", // token
                 "", // chat IDs
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -250,6 +253,7 @@ class InitWizardTest {
                 "my-bot-token",
                 "",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -281,6 +285,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -311,6 +316,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -346,6 +352,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -377,6 +384,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -412,6 +420,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -466,6 +475,7 @@ class InitWizardTest {
                 // radio selection at index 0 (glm-5) via lambda — no text prompts for URL or alias
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -503,6 +513,7 @@ class InitWizardTest {
                 "my/custom-model", // text fallback
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -533,6 +544,7 @@ class InitWizardTest {
                 "zai/glm-5", // text prompt (no models fetched)
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -573,6 +585,7 @@ class InitWizardTest {
                 "bot-token-123", // telegram token
                 "", // allowed chat IDs (empty = allow all)
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "TestAgent", // agent name
                 "personal assistant", // role
                 "developer", // user info
@@ -608,6 +621,7 @@ class InitWizardTest {
                 "telegram-bot-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -643,6 +657,7 @@ class InitWizardTest {
                 "my-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "MyBot",
                 "coding helper",
                 "engineer",
@@ -699,6 +714,7 @@ class InitWizardTest {
                 "my-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "MyBot",
                 "coding helper",
                 "Roman",
@@ -744,6 +760,7 @@ class InitWizardTest {
                 "my-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -776,6 +793,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 6: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -819,6 +837,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 6: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -858,6 +877,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 6: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -904,6 +924,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 6: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -937,6 +958,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -969,6 +991,7 @@ class InitWizardTest {
                 "bot-token",
                 "",
                 "n", // Phase 5: disable localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "developer",
@@ -1007,6 +1030,7 @@ class InitWizardTest {
                 "", // allowed chat IDs
                 "y", // Phase 5: enable localWs
                 "37474", // Phase 5: port
+                "n", // skip web search
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1040,6 +1064,7 @@ class InitWizardTest {
                 "bot-token-123",
                 "", // allowed chat IDs
                 "n", // Phase 5: do not enable localWs
+                "n", // skip web search
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1071,6 +1096,7 @@ class InitWizardTest {
                 "", // allowed chat IDs
                 "y", // Phase 5: enable localWs
                 "9090", // Phase 5: custom port
+                "n", // skip web search
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1103,6 +1129,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1133,6 +1160,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1169,6 +1197,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1200,6 +1229,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // telegram
                 "n", // localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1229,6 +1259,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1262,6 +1293,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1307,6 +1339,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1343,6 +1376,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1378,6 +1412,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1431,6 +1466,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1468,6 +1504,7 @@ class InitWizardTest {
                 "test/model",
                 "n",
                 "n",
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1531,6 +1568,7 @@ class InitWizardTest {
                 "test/model", // model
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "Klaw", // agent name
                 "assistant", // role
                 "user", // user info
@@ -1576,6 +1614,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1612,6 +1651,7 @@ class InitWizardTest {
                 "test/model",
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "Klaw",
                 "assistant",
                 "user",
@@ -1661,6 +1701,7 @@ class InitWizardTest {
                     "test/model", // model
                     "n", // skip telegram
                     "n", // skip localWs
+                    "n", // skip web search
                 ),
             )
         val output = mutableListOf<String>()
@@ -1745,6 +1786,7 @@ class InitWizardTest {
                 "test/model", // model
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1787,6 +1829,7 @@ class InitWizardTest {
                 "test/model", // model
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1827,6 +1870,7 @@ class InitWizardTest {
                     "test/model", // model
                     "n", // skip telegram
                     "n", // skip localWs
+                    "n", // skip web search
                 ),
             )
         val output = mutableListOf<String>()
@@ -1892,6 +1936,7 @@ class InitWizardTest {
                 "test/model", // model
                 "n", // skip telegram
                 "n", // skip localWs
+                "n", // skip web search
                 "NewBot", // agent name (hatching runs on fresh init)
                 "helper", // role
                 "dev", // user info
@@ -1916,6 +1961,223 @@ class InitWizardTest {
         assertTrue(
             userContent?.contains("dev") == true,
             "USER.md should be overwritten on fresh init, got: $userContent",
+        )
+    }
+
+    // --- Web search setup tests ---
+
+    @Test
+    fun `web search skip when user answers no`() {
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip localWs
+                "n", // skip web search
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(
+            !engineJson.contains("webSearch"),
+            "Expected no webSearch section when skipped:\n$engineJson",
+        )
+        val envContent = readFileText("$configDir/.env")
+        assertNotNull(envContent)
+        assertTrue(
+            !envContent.contains("BRAVE_SEARCH_API_KEY"),
+            "Expected no BRAVE_SEARCH_API_KEY in .env when skipped:\n$envContent",
+        )
+        assertTrue(
+            !envContent.contains("TAVILY_API_KEY"),
+            "Expected no TAVILY_API_KEY in .env when skipped:\n$envContent",
+        )
+    }
+
+    @Test
+    fun `web search brave provider selected and key validated`() {
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip localWs
+                "y", // enable web search
+                "brave-api-key-123", // search API key
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandOutput = { cmd ->
+                    if (cmd.contains("brave")) "200" else """{"data":[]}"""
+                },
+                radioSelector = { _, prompt ->
+                    when {
+                        prompt.contains("LLM") -> 0
+                        prompt.contains("search", ignoreCase = true) -> 0
+                        else -> null
+                    }
+                },
+            )
+        wizard.run()
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("webSearch"), "Expected webSearch section in engine.json:\n$engineJson")
+        assertTrue(engineJson.contains("\"enabled\": true"), "Expected enabled: true in webSearch:\n$engineJson")
+        // "brave" is the default provider — encodeDefaults=false omits it; verify via apiKey ref
+        assertTrue(
+            engineJson.contains("BRAVE_SEARCH_API_KEY"),
+            "Expected BRAVE_SEARCH_API_KEY env var ref in engine.json:\n$engineJson",
+        )
+
+        val envContent = readFileText("$configDir/.env")
+        assertNotNull(envContent)
+        assertTrue(
+            envContent.contains("BRAVE_SEARCH_API_KEY=brave-api-key-123"),
+            "Expected BRAVE_SEARCH_API_KEY in .env:\n$envContent",
+        )
+    }
+
+    @Test
+    fun `web search tavily provider selected and key validated`() {
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip localWs
+                "y", // enable web search
+                "tavily-api-key-456", // search API key
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandOutput = { cmd ->
+                    if (cmd.contains("tavily")) """{"results":[]}""" else """{"data":[]}"""
+                },
+                radioSelector = { _, prompt ->
+                    when {
+                        prompt.contains("LLM") -> 0
+                        prompt.contains("search", ignoreCase = true) -> 1
+                        else -> null
+                    }
+                },
+            )
+        wizard.run()
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(engineJson.contains("webSearch"), "Expected webSearch section in engine.json:\n$engineJson")
+        assertTrue(
+            engineJson.contains("\"provider\": \"tavily\""),
+            "Expected provider: tavily in webSearch:\n$engineJson",
+        )
+        assertTrue(
+            engineJson.contains("TAVILY_API_KEY"),
+            "Expected TAVILY_API_KEY env var ref in engine.json:\n$engineJson",
+        )
+
+        val envContent = readFileText("$configDir/.env")
+        assertNotNull(envContent)
+        assertTrue(
+            envContent.contains("TAVILY_API_KEY=tavily-api-key-456"),
+            "Expected TAVILY_API_KEY in .env:\n$envContent",
+        )
+    }
+
+    @Test
+    fun `web search API key validation retry on failure`() {
+        val output = mutableListOf<String>()
+        var searchValidationCallIdx = 0
+        val inputs =
+            listOf(
+                "my-key",
+                "test/model",
+                "n", // skip telegram
+                "n", // skip localWs
+                "y", // enable web search
+                "bad-search-key", // first attempt (will fail validation)
+                "good-search-key", // second attempt (will pass validation)
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val engineResponse = """{"identity":"Klaw","user":"user"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandOutput = { cmd ->
+                    if (cmd.contains("brave")) {
+                        searchValidationCallIdx++
+                        if (searchValidationCallIdx == 1) "403" else "200"
+                    } else {
+                        """{"data":[]}"""
+                    }
+                },
+                radioSelector = { _, prompt ->
+                    when {
+                        prompt.contains("LLM") -> 0
+                        prompt.contains("search", ignoreCase = true) -> 0
+                        else -> null
+                    }
+                },
+            )
+        wizard.run()
+
+        assertTrue(
+            searchValidationCallIdx >= 2,
+            "Expected at least 2 search validation calls, got $searchValidationCallIdx",
+        )
+        val text = output.joinToString("\n")
+        assertTrue(
+            text.contains("⚠") || text.contains("failed"),
+            "Expected warning on first invalid search key:\n$text",
+        )
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid search key")
+
+        val envContent = readFileText("$configDir/.env")
+        assertNotNull(envContent)
+        assertTrue(
+            envContent.contains("BRAVE_SEARCH_API_KEY=good-search-key"),
+            "Expected good search key in .env:\n$envContent",
         )
     }
 

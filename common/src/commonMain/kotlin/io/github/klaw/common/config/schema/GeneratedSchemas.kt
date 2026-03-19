@@ -527,6 +527,51 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "webFetch": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "requestTimeoutMs": {
+                            "type": "integer"
+                        },
+                        "maxResponseSizeBytes": {
+                            "type": "integer"
+                        },
+                        "userAgent": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "webSearch": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "provider": {
+                            "type": "string"
+                        },
+                        "apiKey": {
+                            "type": "string"
+                        },
+                        "maxResults": {
+                            "type": "integer"
+                        },
+                        "requestTimeoutMs": {
+                            "type": "integer"
+                        },
+                        "braveEndpoint": {
+                            "type": "string"
+                        },
+                        "tavilyEndpoint": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

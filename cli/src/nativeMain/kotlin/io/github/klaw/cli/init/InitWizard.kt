@@ -29,21 +29,23 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
-private const val TOTAL_PHASES = 8
+private const val TOTAL_PHASES = 9
 private const val DEFAULT_MODEL = "zai/glm-5"
 private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
 private const val ID_KEY_OFFSET = 4 // length of "\"id\"" to skip to the value
+private const val SEARCH_VALIDATION_TIMEOUT = 10
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3
 private const val PHASE_TELEGRAM = 4
 private const val PHASE_WEBSOCKET = 5
-private const val PHASE_SETUP = 6
-private const val PHASE_ENGINE_START = 7
-private const val PHASE_SERVICE_INSTALL = 8
+private const val PHASE_WEB_SEARCH = 6
+private const val PHASE_SETUP = 7
+private const val PHASE_ENGINE_START = 8
+private const val PHASE_SERVICE_INSTALL = 9
 
 internal data class LlmProvider(
     val label: String,
@@ -54,6 +56,18 @@ internal data class LlmProvider(
 private val LLM_PROVIDERS =
     listOf(
         LlmProvider("z.ai GLM", "https://api.z.ai/api/coding/paas/v4", "zai"),
+    )
+
+internal data class WebSearchProvider(
+    val label: String,
+    val name: String,
+    val envVar: String,
+)
+
+private val WEB_SEARCH_PROVIDERS =
+    listOf(
+        WebSearchProvider("Brave Search (brave.com)", "brave", "BRAVE_SEARCH_API_KEY"),
+        WebSearchProvider("Tavily (tavily.com)", "tavily", "TAVILY_API_KEY"),
     )
 
 @OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
@@ -230,7 +244,40 @@ internal class InitWizard(
             printer("WebSocket chat disabled (can be enabled later in gateway.json)")
         }
 
-        // ── Action phases (6–8): create directories, write configs, start services ──
+        CliLogger.info { "phase 6: Web search setup" }
+        phase(PHASE_WEB_SEARCH, "Web search setup")
+        printer("Enable web search? (y/n) [n]:")
+        val enableWebSearch = readLineOrExit()?.trim()?.lowercase() == "y"
+        var webSearchProvider: WebSearchProvider? = null
+        var webSearchApiKey = ""
+        if (enableWebSearch) {
+            val providerLabels = WEB_SEARCH_PROVIDERS.map { it.label }
+            val searchProviderIdx = radioSelector(providerLabels, "Search provider:")
+            if (searchProviderIdx != null && searchProviderIdx in WEB_SEARCH_PROVIDERS.indices) {
+                webSearchProvider = WEB_SEARCH_PROVIDERS[searchProviderIdx]
+            } else {
+                printer("Interrupted.")
+                return
+            }
+            while (true) {
+                printer("${webSearchProvider.label} API key:")
+                val rawKey = readLineOrExit() ?: return
+                webSearchApiKey = rawKey.trim()
+                if (webSearchApiKey.isEmpty()) {
+                    printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
+                    continue
+                }
+                if (validateSearchApiKey(webSearchProvider.name, webSearchApiKey)) {
+                    break
+                }
+                printer("Please enter a valid API key or press Ctrl+C to abort.")
+            }
+            success("Web search enabled with ${webSearchProvider.label}")
+        } else {
+            printer("Web search disabled (can be enabled later in engine.json)")
+        }
+
+        // ── Action phases (7–9): create directories, write configs, start services ──
 
         val composeFilePath =
             when (resolvedMode) {
@@ -239,7 +286,7 @@ internal class InitWizard(
                 DeployMode.NATIVE -> ""
             }
 
-        CliLogger.info { "phase 6: setup" }
+        CliLogger.info { "phase 7: setup" }
         phase(PHASE_SETUP, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
@@ -273,6 +320,9 @@ internal class InitWizard(
                 providerUrl = providerUrl,
                 modelId = modelId,
                 heartbeatChannel = heartbeatChannel,
+                webSearchEnabled = enableWebSearch,
+                webSearchProvider = webSearchProvider?.name,
+                webSearchApiKeyEnvVar = webSearchProvider?.envVar,
             ),
         )
         writeFileText(
@@ -289,13 +339,15 @@ internal class InitWizard(
             ),
         )
         val apiKeyEnvVar = ConfigTemplates.apiKeyEnvVar(defaultAlias)
-        EnvWriter.write(
-            "$configDir/.env",
-            mapOf(
+        val envEntries =
+            mutableMapOf(
                 apiKeyEnvVar to llmApiKey,
                 "KLAW_TELEGRAM_TOKEN" to telegramToken,
-            ),
-        )
+            )
+        if (webSearchProvider != null) {
+            envEntries[webSearchProvider.envVar] = webSearchApiKey
+        }
+        EnvWriter.write("$configDir/.env", envEntries)
         writeDeployConf(configDir, DeployConfig(resolvedMode, dockerTag))
         if (resolvedMode == DeployMode.HYBRID) {
             writeFileText(
@@ -313,7 +365,7 @@ internal class InitWizard(
         }
         success("Directories and configuration written")
 
-        CliLogger.info { "phase 7: engine auto-start" }
+        CliLogger.info { "phase 8: engine auto-start" }
         phase(PHASE_ENGINE_START, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val startCommand =
@@ -355,7 +407,7 @@ internal class InitWizard(
             spinner.done("Engine started")
         }
 
-        CliLogger.info { "phase 8: service/container startup" }
+        CliLogger.info { "phase 9: service/container startup" }
         when (resolvedMode) {
             DeployMode.DOCKER -> {
                 phase(PHASE_SERVICE_INSTALL, "Container startup")
@@ -544,6 +596,60 @@ internal class InitWizard(
             CliLogger.warn { "API key validation failed" }
             printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
             null
+        }
+    }
+
+    /**
+     * Validates a web search API key by making a test request.
+     * - Brave: checks HTTP status code via `-w "%{http_code}"`
+     * - Tavily: checks for "results" in response body
+     * Returns true if validation passed, false otherwise.
+     */
+    private fun validateSearchApiKey(
+        providerName: String,
+        apiKey: String,
+    ): Boolean {
+        if ("'" in apiKey) {
+            CliLogger.warn { "unsafe characters in search API key, validation failed" }
+            printer(
+                "${AnsiColors.YELLOW}⚠ API key contains unsafe characters.${AnsiColors.RESET}",
+            )
+            return false
+        }
+        val cmd =
+            when (providerName) {
+                "brave" -> {
+                    "curl -s -o /dev/null -w \"%{http_code}\" -m $SEARCH_VALIDATION_TIMEOUT " +
+                        "-H 'X-Subscription-Token: $apiKey' " +
+                        "'https://api.search.brave.com/res/v1/web/search?q=test'"
+                }
+
+                "tavily" -> {
+                    "curl -s -m $SEARCH_VALIDATION_TIMEOUT -X POST " +
+                        "'https://api.tavily.com/search' " +
+                        "-H 'Content-Type: application/json' " +
+                        "-d '{\"api_key\":\"$apiKey\",\"query\":\"test\",\"max_results\":1}'"
+                }
+
+                else -> {
+                    return false
+                }
+            }
+        val response = commandOutput(cmd) ?: return false
+        val valid =
+            when (providerName) {
+                "brave" -> response.trim() == "200"
+                "tavily" -> response.contains("\"results\"")
+                else -> false
+            }
+        return if (valid) {
+            CliLogger.debug { "search API key validation passed" }
+            printer("${AnsiColors.GREEN}✓ Search API key valid${AnsiColors.RESET}")
+            true
+        } else {
+            CliLogger.warn { "search API key validation failed" }
+            printer("${AnsiColors.YELLOW}⚠ Search API key validation failed.${AnsiColors.RESET}")
+            false
         }
     }
 
