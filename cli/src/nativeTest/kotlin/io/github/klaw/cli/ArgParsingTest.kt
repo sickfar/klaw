@@ -69,7 +69,7 @@ class ArgParsingTest {
     }
 
     @Test
-    fun `klaw memory show is a valid command`() {
+    fun `klaw memory search is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -79,7 +79,7 @@ class ArgParsingTest {
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
             )
-        val result = cli.test("memory show")
+        val result = cli.test("memory search test-query")
         assertEquals(0, result.statusCode)
     }
 
