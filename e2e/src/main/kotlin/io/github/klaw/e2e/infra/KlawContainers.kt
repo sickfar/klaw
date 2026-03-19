@@ -2,6 +2,7 @@ package io.github.klaw.e2e.infra
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.slf4j.LoggerFactory
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.BindMode
 import org.testcontainers.containers.GenericContainer
@@ -34,6 +35,7 @@ class KlawContainers(
     val gatewayHost: String get() = gatewayContainer.host
     val gatewayMappedPort: Int get() = gatewayContainer.getMappedPort(GATEWAY_LOCAL_WS_PORT)
     val engineDataPath: File get() = engineDataDir
+    val gatewayStatePath: File get() = gatewayStateDir
 
     fun start() {
         Testcontainers.exposeHostPorts(wireMockPort)
@@ -75,6 +77,28 @@ class KlawContainers(
         logger.info { "Starting engine container..." }
         engineContainer.start()
         logger.info { "Engine container started" }
+    }
+
+    fun disconnectGatewayFromNetwork() {
+        logger.info { "Disconnecting gateway from Docker network..." }
+        val client = DockerClientFactory.instance().client()
+        client
+            .disconnectFromNetworkCmd()
+            .withNetworkId(network.id)
+            .withContainerId(gatewayContainer.containerId)
+            .exec()
+        logger.info { "Gateway disconnected from network" }
+    }
+
+    fun reconnectGatewayToNetwork() {
+        logger.info { "Reconnecting gateway to Docker network..." }
+        val client = DockerClientFactory.instance().client()
+        client
+            .connectToNetworkCmd()
+            .withNetworkId(network.id)
+            .withContainerId(gatewayContainer.containerId)
+            .exec()
+        logger.info { "Gateway reconnected to network" }
     }
 
     fun stop() {
