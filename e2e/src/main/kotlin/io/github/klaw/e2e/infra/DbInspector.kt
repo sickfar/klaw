@@ -291,6 +291,35 @@ class DbInspector(
                 }
         }
 
+    fun getMemoryFactsBySourcePrefix(prefix: String): List<MemoryFactRow> =
+        withRetry("getMemoryFactsBySourcePrefix") {
+            val results = mutableListOf<MemoryFactRow>()
+            connection
+                .prepareStatement(
+                    """
+                    SELECT mf.id, mf.source, mf.content, mf.created_at
+                    FROM memory_facts mf
+                    WHERE mf.source LIKE ?
+                    ORDER BY mf.id
+                    """.trimIndent(),
+                ).use { ps ->
+                    ps.setString(1, "$prefix%")
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            results.add(
+                                MemoryFactRow(
+                                    id = rs.getLong("id"),
+                                    source = rs.getString("source"),
+                                    content = rs.getString("content"),
+                                    createdAt = rs.getString("created_at"),
+                                ),
+                            )
+                        }
+                    }
+                }
+            results
+        }
+
     fun getMemoryFactCountByCategory(categoryName: String): Int =
         withRetry("getMemoryFactCountByCategory") {
             connection
@@ -319,6 +348,13 @@ data class MemoryCategoryRow(
     val id: Long,
     val name: String,
     val accessCount: Long,
+    val createdAt: String,
+)
+
+data class MemoryFactRow(
+    val id: Long,
+    val source: String,
+    val content: String,
     val createdAt: String,
 )
 

@@ -25,6 +25,14 @@ Each model can have a `contextBudget` in `engine.json` (under `models`). If not 
 
 Pre-loading all archival results on every call costs tokens even for irrelevant queries. The agent calls `memory_search` only when needed, leaving more space for recent messages.
 
+## Daily consolidation
+
+When enabled (`consolidation.enabled: true` in `engine.json`), the engine runs a daily cron job that reviews the last 24 hours of conversations. For each chunk of messages (sized to fit the model's context budget), an LLM session extracts noteworthy facts using the `memory_save` tool. The LLM decides what to save and which categories to use.
+
+Facts saved by consolidation have source `daily-consolidation:YYYY-MM-DD`. Consolidation is idempotent — it will not re-process a date unless forced via `klaw memory consolidate --force`.
+
+See `doc/config/engine-json.md` for configuration options.
+
 ## Segments and /new
 
 A segment is the conversation portion since the last `/new`. The sliding window shows only messages from the current segment. `memory_search` can still retrieve facts from any segment, regardless of when `/new` was called.

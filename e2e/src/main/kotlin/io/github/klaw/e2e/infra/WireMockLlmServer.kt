@@ -20,8 +20,10 @@ private val logger = KotlinLogging.logger {}
 
 private const val CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
 private const val SUMMARIZATION_MARKER = "You are a conversation summarizer"
+private const val CONSOLIDATION_MARKER = "reviewing conversation history"
 private const val RISK_ASSESSMENT_MARKER = "security risk assessor"
 private const val HTTP_OK = 200
+private const val PRIORITY_CONSOLIDATION = 1
 private const val PRIORITY_SUMMARIZATION = 1
 private const val PRIORITY_RISK_ASSESSMENT = 2
 private const val PRIORITY_SEQUENCE = 5
@@ -157,6 +159,33 @@ class WireMockLlmServer {
                 ),
         )
     }
+
+    fun stubConsolidationResponseSequenceRaw(responses: List<String>) {
+        val scenarioName = "consolidation-sequence"
+        responses.forEachIndexed { index, bodyJson ->
+            val currentState = if (index == 0) Scenario.STARTED else "cons-state-$index"
+            val nextState = if (index < responses.lastIndex) "cons-state-${index + 1}" else "cons-state-done"
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .withRequestBody(containing(CONSOLIDATION_MARKER))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_CONSOLIDATION)
+                    .willSetStateTo(nextState)
+                    .willReturn(
+                        aResponse()
+                            .withStatus(HTTP_OK)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(bodyJson),
+                    ),
+            )
+        }
+    }
+
+    fun getConsolidationCallCount(): Int = getRecordedRequests().count { it.contains(CONSOLIDATION_MARKER) }
+
+    fun getConsolidationRequests(): List<String> = getRecordedRequests().filter { it.contains(CONSOLIDATION_MARKER) }
 
     fun getRecordedRequests(): List<String> =
         server

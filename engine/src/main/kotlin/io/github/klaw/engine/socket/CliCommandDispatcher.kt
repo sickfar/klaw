@@ -4,6 +4,8 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
+import io.github.klaw.engine.memory.ConsolidationResult
+import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
@@ -11,8 +13,10 @@ import io.github.klaw.engine.util.VT
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
 
 @Singleton
+@Suppress("LongParameterList")
 class CliCommandDispatcher(
     private val initCliHandler: InitCliHandler,
     private val sessionManager: SessionManager,
@@ -20,6 +24,7 @@ class CliCommandDispatcher(
     private val memoryService: MemoryService,
     private val reindexService: ReindexService,
     private val skillRegistry: SkillRegistry,
+    private val consolidationService: DailyConsolidationService,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String =
         withContext(Dispatchers.VT) {
@@ -58,6 +63,10 @@ class CliCommandDispatcher(
                 handleMemoryCategoryOp(request.params, "category", "content") { cat, content ->
                     memoryService.save(content, cat, source = "cli")
                 }
+            }
+
+            "memory_consolidate" -> {
+                handleMemoryConsolidate(request.params)
             }
 
             else -> {
@@ -184,6 +193,23 @@ class CliCommandDispatcher(
                 """{"name":$nameField,"directory":"$dir","source":"$src","valid":${e.valid}$errorField}"""
             }
         return """{"skills":$skillsJson,"total":${report.total},"valid":${report.valid},"errors":${report.errors}}"""
+    }
+
+    private suspend fun handleMemoryConsolidate(params: Map<String, String>): String {
+        val dateStr = params["date"]
+        val force = params["force"]?.toBoolean() ?: false
+        val date =
+            if (dateStr != null) {
+                LocalDate.parse(dateStr)
+            } else {
+                DailyConsolidationService.yesterday()
+            }
+        return when (val result = consolidationService.consolidate(date, force)) {
+            is ConsolidationResult.Success -> "Consolidation complete for $date: ${result.factsSaved} facts saved"
+            is ConsolidationResult.AlreadyConsolidated -> "Already consolidated for $date. Use --force to re-run."
+            is ConsolidationResult.TooFewMessages -> "Too few messages for $date, skipping."
+            is ConsolidationResult.Disabled -> "Daily consolidation is disabled in config."
+        }
     }
 
     private fun escapeJson(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")

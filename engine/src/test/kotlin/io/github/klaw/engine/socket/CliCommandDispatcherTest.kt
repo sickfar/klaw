@@ -6,6 +6,7 @@ import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
+import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
@@ -29,6 +30,7 @@ class CliCommandDispatcherTest {
     private val memoryService = mockk<MemoryService>(relaxed = true)
     private val reindexService = mockk<ReindexService>(relaxed = true)
     private val skillRegistry = mockk<SkillRegistry>(relaxed = true)
+    private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -38,6 +40,7 @@ class CliCommandDispatcherTest {
             memoryService,
             reindexService,
             skillRegistry,
+            consolidationService,
         )
 
     @Test

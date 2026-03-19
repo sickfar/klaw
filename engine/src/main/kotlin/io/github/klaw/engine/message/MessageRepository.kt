@@ -186,6 +186,30 @@ class MessageRepository(
                 }
         }
 
+    suspend fun getMessagesByTimeRange(
+        fromTime: String,
+        toTime: String,
+    ): List<MessageRow> =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries
+                .getMessagesByTimeRange(fromTime, toTime)
+                .executeAsList()
+                .map { row ->
+                    MessageRow(
+                        rowId = row.row_id,
+                        id = row.id,
+                        channel = row.channel,
+                        chatId = row.chat_id,
+                        role = row.role,
+                        type = row.type,
+                        content = row.content,
+                        metadata = row.metadata,
+                        createdAt = row.created_at,
+                        tokens = row.tokens.toInt(),
+                    )
+                }
+        }
+
     suspend fun appendSessionBreak(chatId: String): Unit =
         withContext(Dispatchers.VT) {
             val now = Clock.System.now()

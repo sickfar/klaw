@@ -64,3 +64,11 @@ SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, cre
 FROM messages
 WHERE chat_id = :chatId AND created_at >= :segmentStart
 ORDER BY created_at ASC, rowid ASC;
+
+getMessagesByTimeRange:
+SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
+FROM messages
+WHERE created_at >= :fromTime AND created_at < :toTime
+  AND role IN ('user', 'assistant')
+  AND type != 'tool_call'
+ORDER BY created_at ASC, rowid ASC;

@@ -72,5 +72,6 @@
   },
   "heartbeat": {
     "interval": "off"
-  }
+  },
+  "consolidation": {}
 }

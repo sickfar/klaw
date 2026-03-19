@@ -291,6 +291,20 @@ Searches the memory index (delegated to Engine).
 klaw memory search "machine learning papers"
 ```
 
+### `klaw memory consolidate`
+
+Triggers daily memory consolidation manually (delegated to Engine). Reviews conversation history and extracts important facts into long-term memory using an LLM with the `memory_save` tool.
+
+```
+klaw memory consolidate
+klaw memory consolidate --date 2026-03-18
+klaw memory consolidate --force
+```
+
+Options:
+- `--date YYYY-MM-DD` — date to consolidate (default: yesterday)
+- `--force` — re-consolidate even if already done for the given date
+
 ---
 
 ## Logs
@@ -385,7 +399,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `skills validate`, `reindex`) print a
+- Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `memory consolidate`, `skills validate`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

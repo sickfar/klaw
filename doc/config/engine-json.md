@@ -79,7 +79,8 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     "fallback": ["deepseek/deepseek-chat", "ollama/qwen3:8b"],
     "tasks": {
       "summarization": "zai/glm-5",
-      "subagent": "deepseek/deepseek-chat"
+      "subagent": "deepseek/deepseek-chat",
+      "consolidation": "zai/glm-5"
     }
   },
   "llm": {
@@ -139,6 +140,13 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     "model": "zai/glm-5",
     "injectInto": "telegram_123456",
     "channel": "telegram"
+  },
+  "consolidation": {
+    "enabled": true,
+    "cron": "0 0 0 * * ?",
+    "model": "zai/glm-5",
+    "minMessages": 5,
+    "category": "daily-summary"
   }
 }
 ```
@@ -227,6 +235,23 @@ Third-party compatibility settings.
 | `openclaw.sync.memoryMd` | bool | `false` | Sync MEMORY.md file with OpenClaw. |
 | `openclaw.sync.dailyLogs` | bool | `false` | Sync daily log files with OpenClaw. |
 | `openclaw.sync.userMd` | bool | `false` | Sync USER.md file with OpenClaw. |
+
+## consolidation
+
+Daily memory consolidation — automatically reviews conversation history and extracts important facts into long-term memory. The engine collects all messages from the past 24 hours, splits them into chunks that fit the model's context budget, and for each chunk runs an LLM session with the `memory_save` tool. The LLM decides which facts are worth saving and calls `memory_save` with appropriate categories.
+
+Consolidation is idempotent per day — if it has already run for a given date, subsequent cron triggers are skipped unless forced via CLI.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Enable daily consolidation. |
+| `cron` | string | `"0 0 0 * * ?"` | Cron expression for the consolidation schedule. |
+| `model` | string | `""` | Model for consolidation. Empty falls back to `routing.tasks.consolidation`, then `routing.tasks.summarization`. |
+| `excludeChannels` | string[] | `[]` | Channels to exclude from consolidation (e.g. `["internal"]`). |
+| `category` | string | `"daily-summary"` | Default memory category hint for extracted facts. |
+| `minMessages` | int | `5` | Minimum messages required to trigger consolidation. |
+
+Manual trigger: `klaw memory consolidate [--date YYYY-MM-DD] [--force]`
 
 ## summarization
 

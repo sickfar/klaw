@@ -42,6 +42,10 @@ object ConfigGenerator {
         preValidationTimeoutMs: Long = 5000L,
         maxInlineSkills: Int? = null,
         memoryInjectSummary: Boolean = false,
+        consolidationEnabled: Boolean = false,
+        consolidationCron: String = "0 0 0 * * ?",
+        consolidationMinMessages: Int = 5,
+        consolidationCategory: String = "daily-summary",
     ): String {
         val root =
             buildJsonObject {
@@ -71,6 +75,12 @@ object ConfigGenerator {
                     preValidationTimeoutMs,
                 )
                 buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
+                buildConsolidation(
+                    consolidationEnabled,
+                    consolidationCron,
+                    consolidationMinMessages,
+                    consolidationCategory,
+                )
             }
         return root.toString()
     }
@@ -124,6 +134,7 @@ object ConfigGenerator {
             putJsonObject("tasks") {
                 put("summarization", "test/model")
                 put("subagent", "test/model")
+                put("consolidation", "test/model")
             }
         }
     }
@@ -203,6 +214,20 @@ object ConfigGenerator {
             put("interval", "off")
         }
         putJsonObject("database") {
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildConsolidation(
+        enabled: Boolean,
+        cron: String,
+        minMessages: Int,
+        category: String,
+    ) {
+        putJsonObject("consolidation") {
+            put("enabled", enabled)
+            put("cron", cron)
+            put("minMessages", minMessages)
+            put("category", category)
         }
     }
 

@@ -69,6 +69,9 @@ object GeneratedSchemas {
                                 },
                                 "subagent": {
                                     "type": "string"
+                                },
+                                "consolidation": {
+                                    "type": "string"
                                 }
                             },
                             "required": [
@@ -466,6 +469,33 @@ object GeneratedSchemas {
                             "type": "string"
                         },
                         "backupMaxCount": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "consolidation": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "cron": {
+                            "type": "string"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "excludeChannels": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "category": {
+                            "type": "string"
+                        },
+                        "minMessages": {
                             "type": "integer"
                         }
                     },

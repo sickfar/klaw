@@ -17,6 +17,7 @@ internal class MemoryCommand(
             MemorySearchCommand(requestFn),
             MemoryCategoriesCommand(requestFn),
             MemoryFactsCommand(requestFn),
+            MemoryConsolidateCommand(requestFn),
         )
     }
 
@@ -137,6 +138,24 @@ internal class MemoryFactsAddCommand(
     override fun run() {
         try {
             echo(requestFn("memory_facts_add", mapOf("category" to category, "content" to content)))
+        } catch (_: EngineNotRunningException) {
+            echo("Engine is not running.")
+        }
+    }
+}
+
+internal class MemoryConsolidateCommand(
+    private val requestFn: EngineRequest,
+) : CliktCommand(name = "consolidate") {
+    private val date by option("--date", help = "Date to consolidate (YYYY-MM-DD, default: yesterday)")
+    private val force by option("--force", help = "Force re-consolidation even if already done").flag(default = false)
+
+    override fun run() {
+        val params = mutableMapOf<String, String>()
+        date?.let { params["date"] = it }
+        if (force) params["force"] = "true"
+        try {
+            echo(requestFn("memory_consolidate", params))
         } catch (_: EngineNotRunningException) {
             echo("Engine is not running.")
         }

@@ -176,6 +176,31 @@ class MemoryServiceImpl(
             database.memoryCategoriesQueries.getTotalCount().executeAsOne() > 0
         }
 
+    override suspend fun hasFactsWithSourcePrefix(prefix: String): Boolean =
+        withContext(Dispatchers.VT) {
+            database.memoryFactsQueries.countBySourcePrefix(prefix).executeAsOne() > 0
+        }
+
+    override suspend fun deleteBySourcePrefix(prefix: String): Int =
+        withContext(Dispatchers.VT) {
+            database.memoryFactsQueries.transactionWithResult {
+                val count =
+                    database.memoryFactsQueries
+                        .countBySourcePrefix(prefix)
+                        .executeAsOne()
+                        .toInt()
+                if (count > 0 && sqliteVecLoader.isAvailable()) {
+                    driver.execute(
+                        null,
+                        "DELETE FROM vec_memory WHERE rowid IN (SELECT id FROM memory_facts WHERE source LIKE ?)",
+                        1,
+                    ) { bindString(0, prefix) }
+                }
+                database.memoryFactsQueries.deleteBySourcePrefix(prefix)
+                count
+            }
+        }
+
     private fun cleanupVecMemoryForCategory(categoryId: Long) {
         driver.execute(
             null,

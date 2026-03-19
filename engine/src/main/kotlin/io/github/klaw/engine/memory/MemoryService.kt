@@ -33,4 +33,8 @@ interface MemoryService {
     ): String
 
     suspend fun hasCategories(): Boolean
+
+    suspend fun hasFactsWithSourcePrefix(prefix: String): Boolean
+
+    suspend fun deleteBySourcePrefix(prefix: String): Int
 }

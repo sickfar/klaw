@@ -38,4 +38,8 @@ class StubMemoryService : MemoryService {
     ): String = "Memory service not available"
 
     override suspend fun hasCategories(): Boolean = false
+
+    override suspend fun hasFactsWithSourcePrefix(prefix: String): Boolean = false
+
+    override suspend fun deleteBySourcePrefix(prefix: String): Int = 0
 }

@@ -43,6 +43,8 @@ data class EngineConfig(
     val summarization: SummarizationConfig = SummarizationConfig(),
     @ConfigDoc("SQLite database settings: busy timeout, backups, integrity checks")
     val database: DatabaseConfig = DatabaseConfig(),
+    @ConfigDoc("Daily memory consolidation settings")
+    val consolidation: DailyConsolidationConfig = DailyConsolidationConfig(),
 )
 
 @Serializable
@@ -101,6 +103,8 @@ data class TaskRoutingConfig(
     val summarization: String,
     @ConfigDoc("Model reference for subagent tasks")
     val subagent: String,
+    @ConfigDoc("Model reference for consolidation tasks")
+    val consolidation: String = "",
 )
 
 @Serializable
@@ -401,5 +405,26 @@ data class DatabaseConfig(
         require(runCatching { kotlin.time.Duration.parse(backupInterval) }.isSuccess) {
             "backupInterval must be a valid ISO-8601 duration, got $backupInterval"
         }
+    }
+}
+
+@Serializable
+data class DailyConsolidationConfig(
+    @ConfigDoc("Enable daily memory consolidation")
+    val enabled: Boolean = false,
+    @ConfigDoc("Cron expression for consolidation schedule")
+    val cron: String = "0 0 0 * * ?",
+    @ConfigDoc("Model reference for consolidation LLM call (empty = use summarization model)")
+    val model: String = "",
+    @ConfigDoc("Channels to exclude from consolidation")
+    val excludeChannels: List<String> = emptyList(),
+    @ConfigDoc("Memory category hint for consolidation summaries")
+    val category: String = "daily-summary",
+    @ConfigDoc("Minimum number of messages required to trigger consolidation")
+    val minMessages: Int = 5,
+) {
+    init {
+        require(minMessages > 0) { "minMessages must be > 0, got $minMessages" }
+        require(category.isNotBlank()) { "category must not be blank" }
     }
 }

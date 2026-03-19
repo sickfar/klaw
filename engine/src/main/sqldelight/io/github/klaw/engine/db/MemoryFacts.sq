@@ -38,3 +38,9 @@ SELECT * FROM memory_facts ORDER BY id;
 
 lastInsertRowId:
 SELECT last_insert_rowid();
+
+countBySourcePrefix:
+SELECT COUNT(*) FROM memory_facts WHERE source LIKE :prefix;
+
+deleteBySourcePrefix:
+DELETE FROM memory_facts WHERE source LIKE :prefix;

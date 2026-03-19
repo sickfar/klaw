@@ -5,6 +5,7 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
+import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
@@ -26,6 +27,8 @@ class CliRequestDispatchTest {
         return KlawDatabase(driver)
     }
 
+    private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
+
     private fun buildDispatcher(sessionManager: SessionManager = SessionManager(inMemoryDb())): CliCommandDispatcher =
         CliCommandDispatcher(
             initCliHandler = initCliHandler,
@@ -34,6 +37,7 @@ class CliRequestDispatchTest {
             memoryService = memoryService,
             reindexService = reindexService,
             skillRegistry = mockk(relaxed = true),
+            consolidationService = consolidationService,
         )
 
     @Test
