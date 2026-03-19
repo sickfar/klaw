@@ -17,6 +17,16 @@ fun intProp(description: String): JsonObject =
         put("description", description)
     }
 
+fun stringArrayProp(description: String): JsonObject =
+    buildJsonObject {
+        put("type", "array")
+        put("description", description)
+        put(
+            "items",
+            buildJsonObject { put("type", "string") },
+        )
+    }
+
 fun boolProp(description: String): JsonObject =
     buildJsonObject {
         put("type", "boolean")

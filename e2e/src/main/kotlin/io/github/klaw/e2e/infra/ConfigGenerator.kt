@@ -41,13 +41,14 @@ object ConfigGenerator {
         preValidationRiskThreshold: Int = 5,
         preValidationTimeoutMs: Long = 5000L,
         maxInlineSkills: Int? = null,
+        memoryInjectSummary: Boolean = false,
     ): String {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
                 buildModels(contextBudgetTokens)
                 buildRouting()
-                buildMemory()
+                buildMemory(memoryInjectSummary)
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 if (maxInlineSkills != null) {
                     putJsonObject("skills") {
@@ -127,7 +128,7 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildMemory() {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildMemory(injectSummary: Boolean) {
         putJsonObject("memory") {
             putJsonObject("embedding") {
                 put("type", "onnx")
@@ -140,6 +141,7 @@ object ConfigGenerator {
             putJsonObject("search") {
                 put("topK", SEARCH_TOP_K)
             }
+            put("injectSummary", injectSummary)
         }
     }
 

@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS memory_facts (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    category_id INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (category_id) REFERENCES memory_categories(id)
+);
+
+insert:
+INSERT INTO memory_facts (category_id, source, content, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?);
+
+getById:
+SELECT * FROM memory_facts WHERE id = ?;
+
+getBySource:
+SELECT * FROM memory_facts WHERE source = ?;
+
+getByCategoryId:
+SELECT * FROM memory_facts WHERE category_id = ? ORDER BY id;
+
+countByCategoryId:
+SELECT COUNT(*) FROM memory_facts WHERE category_id = ?;
+
+deleteBySource:
+DELETE FROM memory_facts WHERE source = ?;
+
+deleteByCategoryId:
+DELETE FROM memory_facts WHERE category_id = ?;
+
+updateCategoryId:
+UPDATE memory_facts SET category_id = ? WHERE category_id = ?;
+
+allFacts:
+SELECT * FROM memory_facts ORDER BY id;
+
+lastInsertRowId:
+SELECT last_insert_rowid();

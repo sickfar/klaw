@@ -99,7 +99,9 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     },
     "search": {
       "topK": 10
-    }
+    },
+    "injectSummary": false,
+    "mapMaxCategories": 10
   },
   "context": {
     "defaultBudgetTokens": 100000,
@@ -140,6 +142,22 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
   }
 }
 ```
+
+## memory
+
+Configures the memory system: embedding backend, chunking, search, categories, and memory map injection.
+
+Memory facts are stored in the database with categories. On first start, MEMORY.md and daily memory logs are parsed (markdown headers become categories, lines become facts), then archived. The database is the sole source of truth for memory after initial indexation.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `embedding.type` | string | — | Embedding backend: `"onnx"` (local) or `"ollama"`. |
+| `embedding.model` | string | — | Embedding model name (e.g. `"all-MiniLM-L6-v2"`). |
+| `chunking.size` | int | — | Maximum chunk size in approximate tokens (used by docs indexing). |
+| `chunking.overlap` | int | — | Overlap between consecutive chunks in approximate tokens. |
+| `search.topK` | int | — | Number of top results from hybrid search. |
+| `injectSummary` | bool | `false` | Inject a Memory Map into the system prompt showing top categories by popularity. |
+| `mapMaxCategories` | int | `10` | Maximum number of categories displayed in the Memory Map. Remaining categories shown as "...and N more". |
 
 ## heartbeat
 

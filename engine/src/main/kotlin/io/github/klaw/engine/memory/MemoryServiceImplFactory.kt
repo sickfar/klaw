@@ -17,5 +17,5 @@ class MemoryServiceImplFactory {
         driver: JdbcSqliteDriver,
         embedding: EmbeddingService,
         sqliteVecLoader: SqliteVecLoader,
-    ): MemoryService = MemoryServiceImpl(db, driver, embedding, MarkdownChunker(), sqliteVecLoader)
+    ): MemoryService = MemoryServiceImpl(db, driver, embedding, sqliteVecLoader)
 }

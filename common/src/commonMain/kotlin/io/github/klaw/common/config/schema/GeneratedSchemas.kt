@@ -133,6 +133,12 @@ object GeneratedSchemas {
                                 "topK"
                             ],
                             "additionalProperties": false
+                        },
+                        "injectSummary": {
+                            "type": "boolean"
+                        },
+                        "mapMaxCategories": {
+                            "type": "integer"
                         }
                     },
                     "required": [

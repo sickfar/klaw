@@ -277,6 +277,8 @@ class HeartbeatRunnerTest {
         val workspaceLoader =
             object : WorkspaceLoader {
                 override suspend fun loadSystemPrompt(): String = "You are an AI assistant."
+
+                override suspend fun loadMemorySummary(): String? = null
             }
         val toolRegistry =
             object : ToolRegistry {

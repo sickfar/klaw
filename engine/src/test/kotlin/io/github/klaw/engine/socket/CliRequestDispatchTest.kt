@@ -101,7 +101,7 @@ class CliRequestDispatchTest {
     @Test
     fun `memory_search command returns results`() =
         runTest {
-            coEvery { memoryService.search("AI", any()) } returns "[{\"chunk\":\"Interesting AI fact\"}]"
+            coEvery { memoryService.search("AI", any(), any()) } returns "[{\"chunk\":\"Interesting AI fact\"}]"
             val dispatcher = buildDispatcher()
             val result =
                 dispatcher.dispatch(

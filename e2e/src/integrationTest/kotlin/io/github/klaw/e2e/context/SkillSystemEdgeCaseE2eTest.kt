@@ -9,8 +9,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -21,11 +20,11 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 
 /**
- * E2E edge case tests for the skill system when NO skills exist.
+ * E2E edge case tests for the skill system when NO workspace/data skills exist,
+ * but bundled skills (from engine JAR) are still available.
  *
- * Separate container with no skills directories to verify:
- * 1. No ## Available Skills section in system prompt
- * 2. No skill_load/skill_list tools in LLM request
+ * The engine always ships with bundled skills (e.g. memory-management).
+ * When no user-defined skills exist, only bundled skills appear.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -38,7 +37,7 @@ class SkillSystemEdgeCaseE2eTest {
     fun startInfrastructure() {
         wireMock.start()
 
-        // Workspace with NO skills directory
+        // Workspace with NO user-defined skills directory
         val workspaceDir = WorkspaceGenerator.createWorkspace()
 
         val wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}"
@@ -76,11 +75,11 @@ class SkillSystemEdgeCaseE2eTest {
 
     @Test
     @Order(1)
-    fun `no skills section when no skills exist`() {
-        wireMock.stubChatResponse("NO-SKILLS-OK")
+    fun `bundled skills appear even without user-defined skills`() {
+        wireMock.stubChatResponse("BUNDLED-OK")
 
         val response = client.sendAndReceive("Hello", timeoutMs = RESPONSE_TIMEOUT_MS)
-        assertTrue(response.contains("NO-SKILLS-OK"), "Response should contain marker but was: $response")
+        assertTrue(response.contains("BUNDLED-OK"), "Response should contain marker but was: $response")
 
         val systemContent =
             wireMock
@@ -91,28 +90,28 @@ class SkillSystemEdgeCaseE2eTest {
                 ?.jsonPrimitive
                 ?.content ?: ""
 
-        assertFalse(
-            systemContent.contains("## Available Skills"),
-            "System prompt should NOT contain ## Available Skills when no skills exist",
+        assertTrue(
+            systemContent.contains("memory-management"),
+            "Bundled memory-management skill should appear even without user skills",
         )
-        assertFalse(
+        assertTrue(
             systemContent.contains("extensible skills"),
-            "Capabilities should NOT mention 'extensible skills' when none exist",
+            "Capabilities should mention 'extensible skills' since bundled skills exist",
         )
     }
 
     @Test
     @Order(2)
-    fun `no skill tools when no skills exist`() {
-        wireMock.stubChatResponse("NO-TOOLS-OK")
+    fun `skill tools present for bundled skills`() {
+        wireMock.stubChatResponse("TOOLS-OK")
 
         client.sendAndReceive("Check tools", timeoutMs = RESPONSE_TIMEOUT_MS)
 
         val hasTools = wireMock.getNthRequestHasTools(0)
-        if (!hasTools) return // No tools at all — skill tools certainly absent
+        assertTrue(hasTools, "Should have tools")
 
         val body = wireMock.getNthRequestBody(0)
-        val tools = body["tools"]?.jsonArray ?: return
+        val tools = body["tools"]?.jsonArray ?: error("Expected tools array")
 
         val skillLoadTool =
             tools.firstOrNull { tool ->
@@ -122,17 +121,8 @@ class SkillSystemEdgeCaseE2eTest {
                     ?.jsonPrimitive
                     ?.content == "skill_load"
             }
-        val skillListTool =
-            tools.firstOrNull { tool ->
-                tool.jsonObject["function"]
-                    ?.jsonObject
-                    ?.get("name")
-                    ?.jsonPrimitive
-                    ?.content == "skill_list"
-            }
 
-        assertNull(skillLoadTool, "skill_load tool should NOT be present when no skills exist")
-        assertNull(skillListTool, "skill_list tool should NOT be present when no skills exist")
+        assertNotNull(skillLoadTool, "skill_load should be present for bundled skills")
     }
 
     companion object {

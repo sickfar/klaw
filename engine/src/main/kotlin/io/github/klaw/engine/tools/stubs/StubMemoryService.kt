@@ -1,5 +1,6 @@
 package io.github.klaw.engine.tools.stubs
 
+import io.github.klaw.engine.memory.MemoryCategoryInfo
 import io.github.klaw.engine.memory.MemoryService
 import jakarta.inject.Singleton
 
@@ -8,10 +9,33 @@ class StubMemoryService : MemoryService {
     override suspend fun search(
         query: String,
         topK: Int,
-    ): String = "Memory service not yet implemented"
+        trackAccess: Boolean,
+    ): String = "Memory service not available"
 
     override suspend fun save(
         content: String,
+        category: String,
         source: String,
-    ): String = "Memory service not yet implemented"
+    ): String = "Memory service not available"
+
+    override suspend fun getTopCategories(limit: Int): List<MemoryCategoryInfo> = emptyList()
+
+    override suspend fun getTotalCategoryCount(): Long = 0
+
+    override suspend fun renameCategory(
+        oldName: String,
+        newName: String,
+    ): String = "Memory service not available"
+
+    override suspend fun mergeCategories(
+        sourceNames: List<String>,
+        targetName: String,
+    ): String = "Memory service not available"
+
+    override suspend fun deleteCategory(
+        name: String,
+        deleteFacts: Boolean,
+    ): String = "Memory service not available"
+
+    override suspend fun hasCategories(): Boolean = false
 }

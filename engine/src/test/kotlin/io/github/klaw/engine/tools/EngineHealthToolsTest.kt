@@ -38,7 +38,7 @@ class EngineHealthToolsTest {
             pendingDeliveries = 5,
             heartbeatRunning = true,
             docsEnabled = true,
-            memoryChunks = 100,
+            memoryFacts = 100,
             runningSubagents = 0,
         )
 
@@ -72,7 +72,7 @@ class EngineHealthToolsTest {
                     "pending_deliveries",
                     "heartbeat_running",
                     "docs_enabled",
-                    "memory_chunks",
+                    "memory_facts",
                 )
             for (key in expectedKeys) {
                 assertNotNull(obj[key], "Missing key: $key")

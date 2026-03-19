@@ -340,13 +340,13 @@ class EngineHealthProviderTest {
         }
 
     @Test
-    fun `memory chunks count from database`() =
+    fun `memory facts count from database`() =
         runTest {
             stubDefaults()
             val provider = buildProvider()
             provider.markStarted()
             val health = provider.getHealth()
-            assertEquals(0, health.memoryChunks)
+            assertEquals(0, health.memoryFacts)
         }
 
     @Test

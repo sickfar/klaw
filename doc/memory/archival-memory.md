@@ -4,7 +4,7 @@ Archival memory stores chunks of text that the agent can save and retrieve later
 
 ## Storage
 
-Chunks are stored in the `memory_chunks` table in `klaw.db`. Each chunk has a source label, optional chat_id, content text, and timestamps. Embeddings are stored in the `vec_memory` sqlite-vec virtual table (384-dimensional float vectors).
+Chunks are stored in the `memory_facts` table in `klaw.db`. Each chunk has a source label, optional chat_id, content text, and timestamps. Embeddings are stored in the `vec_memory` sqlite-vec virtual table (384-dimensional float vectors).
 
 All data in SQLite is cache/index only and can be rebuilt via `klaw reindex`.
 

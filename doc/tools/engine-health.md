@@ -23,7 +23,7 @@ Get engine health status including gateway connection, uptime, database, sandbox
 | `pending_deliveries` | int | Messages buffered for gateway delivery |
 | `heartbeat_running` | boolean | Whether a heartbeat run is in progress |
 | `docs_enabled` | boolean | Whether documentation service is enabled |
-| `memory_chunks` | int | Total memory chunks in long-term memory |
+| `memory_facts` | int | Total memory facts in long-term memory |
 
 ### Sandbox object
 

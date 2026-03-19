@@ -244,11 +244,83 @@ class DbInspector(
                 }
         }
 
+    fun getMemoryCategories(): List<MemoryCategoryRow> =
+        withRetry("getMemoryCategories") {
+            val results = mutableListOf<MemoryCategoryRow>()
+            connection
+                .prepareStatement(
+                    "SELECT id, name, access_count, created_at FROM memory_categories ORDER BY access_count DESC",
+                ).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            results.add(
+                                MemoryCategoryRow(
+                                    id = rs.getLong("id"),
+                                    name = rs.getString("name"),
+                                    accessCount = rs.getLong("access_count"),
+                                    createdAt = rs.getString("created_at"),
+                                ),
+                            )
+                        }
+                    }
+                }
+            results
+        }
+
+    fun getMemoryCategoryCount(): Int =
+        withRetry("getMemoryCategoryCount") {
+            connection
+                .prepareStatement("SELECT COUNT(*) FROM memory_categories")
+                .use { ps ->
+                    ps.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1)
+                    }
+                }
+        }
+
+    fun getMemoryFactCount(): Int =
+        withRetry("getMemoryFactCount") {
+            connection
+                .prepareStatement("SELECT COUNT(*) FROM memory_facts")
+                .use { ps ->
+                    ps.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1)
+                    }
+                }
+        }
+
+    fun getMemoryFactCountByCategory(categoryName: String): Int =
+        withRetry("getMemoryFactCountByCategory") {
+            connection
+                .prepareStatement(
+                    """
+                    SELECT COUNT(*) FROM memory_facts mf
+                    JOIN memory_categories mc ON mc.id = mf.category_id
+                    WHERE mc.name = ? COLLATE NOCASE
+                    """.trimIndent(),
+                ).use { ps ->
+                    ps.setString(1, categoryName)
+                    ps.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1)
+                    }
+                }
+        }
+
     override fun close() {
         connection.close()
         logger.debug { "DB inspector closed" }
     }
 }
+
+data class MemoryCategoryRow(
+    val id: Long,
+    val name: String,
+    val accessCount: Long,
+    val createdAt: String,
+)
 
 data class SubagentRunRow(
     val id: String,

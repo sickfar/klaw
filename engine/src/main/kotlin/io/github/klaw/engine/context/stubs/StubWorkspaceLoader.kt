@@ -6,4 +6,6 @@ import jakarta.inject.Singleton
 @Singleton
 class StubWorkspaceLoader : WorkspaceLoader {
     override suspend fun loadSystemPrompt(): String = ""
+
+    override suspend fun loadMemorySummary(): String? = null
 }

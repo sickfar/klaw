@@ -48,12 +48,12 @@ object VirtualTableSetup {
             0,
         )
 
-        // FTS5 for memory_chunks (archival memory search)
+        // FTS5 for memory_facts (archival memory search)
         driver.execute(
             null,
             """
-            CREATE VIRTUAL TABLE IF NOT EXISTS memory_chunks_fts
-            USING fts5(content, content=memory_chunks, content_rowid=id)
+            CREATE VIRTUAL TABLE IF NOT EXISTS memory_facts_fts
+            USING fts5(content, content=memory_facts, content_rowid=id)
             """.trimIndent(),
             0,
         )
@@ -61,8 +61,8 @@ object VirtualTableSetup {
         driver.execute(
             null,
             """
-            CREATE TRIGGER IF NOT EXISTS memory_chunks_ai AFTER INSERT ON memory_chunks BEGIN
-                INSERT INTO memory_chunks_fts(rowid, content) VALUES (new.id, new.content);
+            CREATE TRIGGER IF NOT EXISTS memory_facts_ai AFTER INSERT ON memory_facts BEGIN
+                INSERT INTO memory_facts_fts(rowid, content) VALUES (new.id, new.content);
             END
             """.trimIndent(),
             0,
@@ -71,9 +71,21 @@ object VirtualTableSetup {
         driver.execute(
             null,
             """
-            CREATE TRIGGER IF NOT EXISTS memory_chunks_ad AFTER DELETE ON memory_chunks BEGIN
-                INSERT INTO memory_chunks_fts(memory_chunks_fts, rowid, content)
+            CREATE TRIGGER IF NOT EXISTS memory_facts_ad AFTER DELETE ON memory_facts BEGIN
+                INSERT INTO memory_facts_fts(memory_facts_fts, rowid, content)
                 VALUES('delete', old.id, old.content);
+            END
+            """.trimIndent(),
+            0,
+        )
+
+        driver.execute(
+            null,
+            """
+            CREATE TRIGGER IF NOT EXISTS memory_facts_au AFTER UPDATE ON memory_facts BEGIN
+                INSERT INTO memory_facts_fts(memory_facts_fts, rowid, content)
+                VALUES('delete', old.id, old.content);
+                INSERT INTO memory_facts_fts(rowid, content) VALUES (new.id, new.content);
             END
             """.trimIndent(),
             0,

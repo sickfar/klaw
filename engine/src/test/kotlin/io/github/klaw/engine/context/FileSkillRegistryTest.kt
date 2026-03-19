@@ -51,9 +51,10 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val skills = registry.listAll()
-            assertEquals(1, skills.size)
-            assertEquals("test-skill", skills[0].name)
-            assertEquals("A test skill", skills[0].description)
+            // +1 for bundled "memory-management" skill from classpath
+            assertTrue(skills.size >= 2, "Expected at least 2 skills (1 user + bundled), got ${skills.size}")
+            val testSkill = skills.first { it.name == "test-skill" }
+            assertEquals("A test skill", testSkill.description)
         }
 
     @Test
@@ -64,8 +65,9 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val skills = registry.listAll()
-            assertEquals(1, skills.size)
-            assertEquals("ws-skill", skills[0].name)
+            // +1 for bundled "memory-management" skill from classpath
+            assertTrue(skills.size >= 2, "Expected at least 2 skills (1 user + bundled), got ${skills.size}")
+            assertTrue(skills.any { it.name == "ws-skill" })
         }
 
     @Test
@@ -77,8 +79,10 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val skills = registry.listAll()
-            assertEquals(1, skills.size)
-            assertEquals("Workspace version", skills[0].description)
+            // "shared" should appear exactly once (workspace overrides data), plus bundled skill(s)
+            assertEquals(1, skills.count { it.name == "shared" })
+            val shared = skills.first { it.name == "shared" }
+            assertEquals("Workspace version", shared.description)
         }
 
     @Test
@@ -111,7 +115,11 @@ class FileSkillRegistryTest {
             registry.discover()
 
             val descriptions = registry.listSkillDescriptions()
-            assertEquals(2, descriptions.size)
+            // 2 user skills + bundled skill(s)
+            assertTrue(
+                descriptions.size >= 3,
+                "Expected at least 3 descriptions (2 user + bundled), got ${descriptions.size}",
+            )
             assertTrue(descriptions.any { it.contains("s1") && it.contains("First skill") })
         }
 
@@ -130,7 +138,9 @@ class FileSkillRegistryTest {
                 )
             registry.discover()
 
-            assertEquals(emptyList<SkillMeta>(), registry.listAll())
+            // Only bundled skills should be present when dirs don't exist
+            val skills = registry.listAll()
+            assertTrue(skills.all { it.name == "memory-management" }, "Only bundled skills expected, got: $skills")
         }
 
     // --- Environment variable interpolation tests ---

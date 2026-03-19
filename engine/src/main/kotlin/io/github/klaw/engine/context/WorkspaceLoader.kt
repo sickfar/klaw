@@ -2,4 +2,6 @@ package io.github.klaw.engine.context
 
 interface WorkspaceLoader {
     suspend fun loadSystemPrompt(): String
+
+    suspend fun loadMemorySummary(): String?
 }

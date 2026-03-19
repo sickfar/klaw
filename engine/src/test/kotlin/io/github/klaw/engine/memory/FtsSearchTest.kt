@@ -42,7 +42,7 @@ class FtsSearchTest {
             insertMessage(db, "m1", "Kotlin coroutines are powerful for async programming")
 
             val service =
-                MemoryServiceImpl(db, driver, MockEmbeddingService(), MarkdownChunker(), NoOpSqliteVecLoader())
+                MemoryServiceImpl(db, driver, MockEmbeddingService(), NoOpSqliteVecLoader())
             val results = service.ftsSearch("kotlin coroutines", 10)
 
             assertEquals(1, results.size)
@@ -56,7 +56,7 @@ class FtsSearchTest {
             insertMessage(db, "m1", "Kotlin coroutines are powerful")
 
             val service =
-                MemoryServiceImpl(db, driver, MockEmbeddingService(), MarkdownChunker(), NoOpSqliteVecLoader())
+                MemoryServiceImpl(db, driver, MockEmbeddingService(), NoOpSqliteVecLoader())
             val results = service.ftsSearch("python django", 10)
 
             assertTrue(results.isEmpty())
@@ -71,7 +71,7 @@ class FtsSearchTest {
             insertMessage(db, "m3", "Java is also a programming language")
 
             val service =
-                MemoryServiceImpl(db, driver, MockEmbeddingService(), MarkdownChunker(), NoOpSqliteVecLoader())
+                MemoryServiceImpl(db, driver, MockEmbeddingService(), NoOpSqliteVecLoader())
             val results = service.ftsSearch("kotlin", 10)
 
             assertEquals(2, results.size)

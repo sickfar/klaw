@@ -91,7 +91,7 @@ class CompactionRunnerTest {
         messageRepository = MessageRepository(db)
         compactionTracker = CompactionTracker()
 
-        coEvery { memoryService.save(any(), any()) } returns "Saved"
+        coEvery { memoryService.save(any(), any(), any()) } returns "Saved"
     }
 
     private fun buildRunner(config: EngineConfig): CompactionRunner {
@@ -174,7 +174,7 @@ class CompactionRunnerTest {
             assertTrue(lastSummary?.to_created_at != null)
 
             // Memory indexed
-            coVerify(exactly = 1) { memoryService.save("Summary: discussed topics 1-5", "summary:chat-1") }
+            coVerify(exactly = 1) { memoryService.save("Summary: discussed topics 1-5", "summary:chat-1", any()) }
 
             // Tracker should be IDLE after completion
             assertEquals(CompactionTracker.Status.IDLE, compactionTracker.status("chat-1"))

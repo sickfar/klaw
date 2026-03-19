@@ -28,42 +28,51 @@ class SchemaTest {
     }
 
     @Test
-    fun `memory_chunks insert and getById round-trips`() {
-        db.memoryChunksQueries.insert(
+    fun `memory_facts insert and getById round-trips`() {
+        db.memoryCategoriesQueries.insert("general", "2025-01-01T00:00:00Z")
+        val categoryId = db.memoryCategoriesQueries.lastInsertRowId().executeAsOne()
+
+        db.memoryFactsQueries.insert(
+            category_id = categoryId,
             source = "workspace",
-            chat_id = "chat1",
             content = "Hello world",
             created_at = "2025-01-01T00:00:00Z",
             updated_at = "2025-01-01T00:00:00Z",
         )
-        val rowId = db.memoryChunksQueries.lastInsertRowId().executeAsOne()
-        val chunk = db.memoryChunksQueries.getById(rowId).executeAsOneOrNull()
-        assertNotNull(chunk)
-        assertEquals("workspace", chunk!!.source)
-        assertEquals("chat1", chunk.chat_id)
-        assertEquals("Hello world", chunk.content)
-        assertEquals("2025-01-01T00:00:00Z", chunk.created_at)
+        val rowId = db.memoryFactsQueries.lastInsertRowId().executeAsOne()
+        val fact = db.memoryFactsQueries.getById(rowId).executeAsOneOrNull()
+        assertNotNull(fact)
+        assertEquals("workspace", fact!!.source)
+        assertEquals(categoryId, fact.category_id)
+        assertEquals("Hello world", fact.content)
+        assertEquals("2025-01-01T00:00:00Z", fact.created_at)
     }
 
     @Test
-    fun `memory_chunks getBySource works`() {
-        db.memoryChunksQueries.insert("src_a", "c1", "content a1", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
-        db.memoryChunksQueries.insert("src_a", "c2", "content a2", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
-        db.memoryChunksQueries.insert("src_b", "c3", "content b1", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+    fun `memory_facts getBySource works`() {
+        db.memoryCategoriesQueries.insert("general", "2025-01-01T00:00:00Z")
+        val categoryId = db.memoryCategoriesQueries.lastInsertRowId().executeAsOne()
 
-        val results = db.memoryChunksQueries.getBySource("src_a").executeAsList()
+        db.memoryFactsQueries.insert(categoryId, "src_a", "content a1", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+        db.memoryFactsQueries.insert(categoryId, "src_a", "content a2", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+        db.memoryFactsQueries.insert(categoryId, "src_b", "content b1", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+
+        val results = db.memoryFactsQueries.getBySource("src_a").executeAsList()
         assertEquals(2, results.size)
         assertTrue(results.all { it.source == "src_a" })
     }
 
     @Test
-    fun `memory_chunks deleteBySource works`() {
-        db.memoryChunksQueries.insert("src_a", null, "content a", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
-        db.memoryChunksQueries.insert("src_b", null, "content b", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+    fun `memory_facts deleteBySource works`() {
+        db.memoryCategoriesQueries.insert("general", "2025-01-01T00:00:00Z")
+        val categoryId = db.memoryCategoriesQueries.lastInsertRowId().executeAsOne()
 
-        db.memoryChunksQueries.deleteBySource("src_a")
+        db.memoryFactsQueries.insert(categoryId, "src_a", "content a", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+        db.memoryFactsQueries.insert(categoryId, "src_b", "content b", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
 
-        val remaining = db.memoryChunksQueries.allChunks().executeAsList()
+        db.memoryFactsQueries.deleteBySource("src_a")
+
+        val remaining = db.memoryFactsQueries.allFacts().executeAsList()
         assertEquals(1, remaining.size)
         assertEquals("src_b", remaining[0].source)
     }
@@ -154,12 +163,18 @@ class SchemaTest {
     }
 
     @Test
-    fun `memory_chunks allows null chat_id`() {
-        db.memoryChunksQueries.insert("core", null, "data", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
-        val rowId = db.memoryChunksQueries.lastInsertRowId().executeAsOne()
-        val chunk = db.memoryChunksQueries.getById(rowId).executeAsOneOrNull()
-        assertNotNull(chunk)
-        assertNull(chunk!!.chat_id)
+    fun `memory_facts getByCategoryId works`() {
+        db.memoryCategoriesQueries.insert("cat-a", "2025-01-01T00:00:00Z")
+        val catAId = db.memoryCategoriesQueries.lastInsertRowId().executeAsOne()
+        db.memoryCategoriesQueries.insert("cat-b", "2025-01-01T00:00:00Z")
+        val catBId = db.memoryCategoriesQueries.lastInsertRowId().executeAsOne()
+
+        db.memoryFactsQueries.insert(catAId, "core", "data a", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+        db.memoryFactsQueries.insert(catBId, "core", "data b", "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z")
+
+        val results = db.memoryFactsQueries.getByCategoryId(catAId).executeAsList()
+        assertEquals(1, results.size)
+        assertEquals("data a", results[0].content)
     }
 
     @Test

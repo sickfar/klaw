@@ -225,6 +225,12 @@ class ContextBuilder(
                     "`history_search` to find specific past messages by topic.",
             )
         }
+        if (config.memory.injectSummary) {
+            val memorySummary = workspaceLoader.loadMemorySummary()
+            if (memorySummary != null) {
+                parts.add(memorySummary)
+            }
+        }
         if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")

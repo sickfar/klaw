@@ -170,8 +170,8 @@ class EngineHealthToolE2eTest {
         assertTrue("docs_enabled" in health, "Missing docs_enabled")
         assertFalse(health["docs_enabled"]!!.jsonPrimitive.boolean, "Docs should be disabled in test config")
 
-        assertTrue("memory_chunks" in health, "Missing memory_chunks")
-        assertTrue(health["memory_chunks"]!!.jsonPrimitive.int >= 0, "Memory chunks should be non-negative")
+        assertTrue("memory_facts" in health, "Missing memory_facts")
+        assertTrue(health["memory_facts"]!!.jsonPrimitive.int >= 0, "Memory facts should be non-negative")
 
         assertTrue("mcp_servers" in health, "Missing mcp_servers")
         health["mcp_servers"]!!.jsonArray // Should not throw — validates it's an array

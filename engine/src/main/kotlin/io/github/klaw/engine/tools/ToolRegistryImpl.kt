@@ -16,6 +16,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.coroutines.cancellation.CancellationException
@@ -117,7 +118,27 @@ class ToolRegistryImpl(
             }
 
             "memory_save" -> {
-                memoryTools.save(args.str("content"), args.strOrNull("source") ?: "manual")
+                memoryTools.save(
+                    args.str("content"),
+                    args.str("category"),
+                    args.strOrNull("source") ?: "manual",
+                )
+            }
+
+            "memory_rename_category" -> {
+                memoryTools.renameCategory(args.str("oldName"), args.str("newName"))
+            }
+
+            "memory_merge_categories" -> {
+                val sources = args.strList("sourceNames")
+                memoryTools.mergeCategories(sources, args.str("targetName"))
+            }
+
+            "memory_delete_category" -> {
+                memoryTools.deleteCategory(
+                    args.str("name"),
+                    args.boolOrNull("deleteFacts") ?: true,
+                )
             }
 
             "history_search" -> {
@@ -268,6 +289,10 @@ class ToolRegistryImpl(
 
     private fun JsonObject.boolOrNull(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
 
+    private fun JsonObject.strList(key: String): List<String> =
+        this[key]?.jsonArray?.map { it.jsonPrimitive.content }
+            ?: throw IllegalArgumentException("Missing required parameter: $key")
+
     companion object {
         private const val DEFAULT_MEMORY_TOP_K = 10
         private const val DEFAULT_HISTORY_TOP_K = 10
@@ -377,11 +402,13 @@ class ToolRegistryImpl(
                     "memory_save",
                     "Save information to long-term memory that persists across conversations. " +
                         "Use when the user asks you to remember something " +
-                        "or when you learn important facts worth retaining.",
+                        "or when you learn important facts worth retaining. " +
+                        "Specify a category to organize facts — use an existing category or create a new one.",
                     toolParams(
-                        listOf("content"),
+                        listOf("content", "category"),
                         mapOf(
                             "content" to stringProp("Text to save"),
+                            "category" to stringProp("Memory category (e.g. 'User preferences', 'Project notes')"),
                             "source" to stringProp("Information source (default: manual)"),
                         ),
                     ),

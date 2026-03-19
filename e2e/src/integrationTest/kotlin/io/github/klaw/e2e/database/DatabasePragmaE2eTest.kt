@@ -92,7 +92,8 @@ class DatabasePragmaE2eTest {
                     }
                 assertTrue(tables.contains("messages"), "messages table should exist")
                 assertTrue(tables.contains("sessions"), "sessions table should exist")
-                assertTrue(tables.contains("memory_chunks"), "memory_chunks table should exist")
+                assertTrue(tables.contains("memory_facts"), "memory_facts table should exist")
+                assertTrue(tables.contains("memory_categories"), "memory_categories table should exist")
                 assertTrue(tables.contains("summaries"), "summaries table should exist")
             }
         }

@@ -171,6 +171,28 @@ val downloadSqliteVec by tasks.registering {
     }
 }
 
+val generateSkillsIndex by tasks.registering {
+    val skillsDir = file("src/main/resources/klaw-skills")
+    val indexFile =
+        layout.buildDirectory
+            .file("generated/klaw-skills/skills-index.txt")
+            .get()
+            .asFile
+    inputs.dir(skillsDir)
+    outputs.file(indexFile)
+    doLast {
+        val paths =
+            skillsDir
+                .walkTopDown()
+                .filter { it.isDirectory && it.resolve("SKILL.md").exists() }
+                .map { it.relativeTo(skillsDir).path.replace(File.separatorChar, '/') }
+                .sorted()
+                .toList()
+        indexFile.parentFile.mkdirs()
+        indexFile.writeText(paths.joinToString("\n"))
+    }
+}
+
 val generateDocsIndex by tasks.registering {
     val docDir = rootProject.file("doc")
     val indexFile =
@@ -195,9 +217,11 @@ val generateDocsIndex by tasks.registering {
 
 tasks.named<ProcessResources>("processResources") {
     dependsOn(generateDocsIndex)
+    dependsOn(generateSkillsIndex)
     dependsOn(downloadSqliteVec)
     from(rootProject.file("doc")) { into("klaw-docs") }
     from(layout.buildDirectory.dir("generated/klaw-docs")) { into("klaw-docs") }
+    from(layout.buildDirectory.dir("generated/klaw-skills")) { into("klaw-skills") }
 }
 
 // Micronaut's inspectRuntimeClasspath reads resources — needs downloadSqliteVec to run first

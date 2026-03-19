@@ -29,16 +29,24 @@ Index: `idx_messages_chat_id(chat_id)`.
 | segment_start | TEXT | ISO-8601 start of current context window |
 | created_at | TEXT | Session creation timestamp |
 
-### memory_chunks
+### memory_facts
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | INTEGER PK AUTO | Chunk row ID |
+| id | INTEGER PK AUTO | Fact row ID |
 | source | TEXT | Origin label (manual, reindex, etc.) |
 | chat_id | TEXT | Associated conversation (nullable) |
-| content | TEXT | Chunk text |
+| content | TEXT | Fact text |
 | created_at | TEXT | ISO-8601 |
 | updated_at | TEXT | ISO-8601 |
+
+### memory_categories
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK AUTO | Category row ID |
+| name | TEXT | Category name |
+| fact_count | INTEGER | Number of facts in this category |
 
 ### doc_chunks
 
@@ -64,8 +72,8 @@ Index: `idx_messages_chat_id(chat_id)`.
 ### Virtual tables
 
 - **messages_fts** — FTS5 virtual table over messages for full-text search.
-- **memory_chunks_fts** — FTS5 virtual table over memory_chunks for full-text search.
-- **vec_memory** — sqlite-vec virtual table, 384-dimensional float embeddings for memory chunks. Joined to `memory_chunks` on rowid.
+- **memory_facts_fts** — FTS5 virtual table over memory_facts for full-text search.
+- **vec_memory** — sqlite-vec virtual table, 384-dimensional float embeddings for memory facts. Joined to `memory_facts` on rowid.
 - **vec_docs** — sqlite-vec virtual table, 384-dimensional float embeddings for doc chunks. Joined to `doc_chunks` on rowid.
 - **vec_messages** — sqlite-vec virtual table, 384-dimensional float embeddings for messages. Used by auto-RAG and history search.
 

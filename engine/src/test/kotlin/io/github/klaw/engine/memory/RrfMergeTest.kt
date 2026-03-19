@@ -8,7 +8,13 @@ class RrfMergeTest {
     private fun result(
         content: String,
         score: Double = 0.0,
-    ) = MemorySearchResult(content = content, source = "test", createdAt = "2026-01-01T00:00:00Z", score = score)
+    ) = MemorySearchResult(
+        content = content,
+        category = null,
+        source = "test",
+        createdAt = "2026-01-01T00:00:00Z",
+        score = score,
+    )
 
     @Test
     fun `doc in both lists scores higher than doc in one`() {

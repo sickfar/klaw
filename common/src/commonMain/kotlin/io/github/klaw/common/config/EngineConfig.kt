@@ -111,6 +111,10 @@ data class MemoryConfig(
     val chunking: ChunkingConfig,
     @ConfigDoc("Hybrid search settings for memory retrieval")
     val search: SearchConfig,
+    @ConfigDoc("Inject a Memory Map of database categories into the system prompt")
+    val injectSummary: Boolean = false,
+    @ConfigDoc("Maximum number of categories displayed in the memory map")
+    val mapMaxCategories: Int = 10,
 )
 
 @Serializable

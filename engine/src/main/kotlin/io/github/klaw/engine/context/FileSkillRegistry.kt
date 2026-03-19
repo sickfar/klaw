@@ -1,10 +1,13 @@
 package io.github.klaw.engine.context
 
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
+
+private val logger = KotlinLogging.logger {}
 
 class FileSkillRegistry(
     private val dataSkillsDir: Path,
@@ -17,13 +20,37 @@ class FileSkillRegistry(
 
     private data class SkillEntry(
         val meta: SkillMeta,
-        val filePath: Path,
+        val filePath: Path? = null,
+        val classpathResource: String? = null,
     )
 
     override fun discover() {
         skills.clear()
+        scanBundledSkills()
         scanDir(dataSkillsDir)
         scanDir(workspaceSkillsDir) // workspace overrides data
+    }
+
+    private fun scanBundledSkills() {
+        val index =
+            javaClass.classLoader
+                .getResourceAsStream("klaw-skills/skills-index.txt")
+                ?.use { it.bufferedReader().readText() }
+                ?.lines()
+                ?.filter { it.isNotBlank() }
+                ?: return
+
+        for (skillName in index) {
+            val resourcePath = "klaw-skills/$skillName/SKILL.md"
+            val content =
+                javaClass.classLoader
+                    .getResourceAsStream(resourcePath)
+                    ?.use { it.bufferedReader().readText() }
+                    ?: continue
+            val meta = parseFrontmatterFromContent(content) ?: continue
+            skills[meta.name] = SkillEntry(meta = meta, classpathResource = resourcePath)
+            logger.debug { "Loaded bundled skill: ${meta.name}" }
+        }
     }
 
     private fun scanDir(dir: Path) {
@@ -40,6 +67,22 @@ class FileSkillRegistry(
         if (!Files.exists(skillFile)) return
         val meta = parseFrontmatter(skillFile) ?: return
         skills[meta.name] = SkillEntry(meta, skillFile)
+    }
+
+    private fun parseFrontmatterFromContent(content: String): SkillMeta? {
+        val lines = content.lines()
+        if (lines.isEmpty() || lines[0].trim() != "---") return null
+        var name: String? = null
+        var description: String? = null
+        for (i in 1 until lines.size) {
+            val line = lines[i].trim()
+            if (line == "---") break
+            when {
+                line.startsWith("name:") -> name = line.removePrefix("name:").trim()
+                line.startsWith("description:") -> description = line.removePrefix("description:").trim()
+            }
+        }
+        return if (name != null && description != null) SkillMeta(name, description) else null
     }
 
     private fun parseFrontmatter(file: Path): SkillMeta? {
@@ -134,10 +177,18 @@ class FileSkillRegistry(
     override suspend fun getFullContent(name: String): String? {
         val entry = skills[name] ?: return null
         val rawContent =
-            withContext(Dispatchers.VT) {
-                Files.readString(entry.filePath)
+            if (entry.filePath != null) {
+                withContext(Dispatchers.VT) { Files.readString(entry.filePath) }
+            } else if (entry.classpathResource != null) {
+                javaClass.classLoader
+                    .getResourceAsStream(entry.classpathResource)
+                    ?.use { it.bufferedReader().readText() }
+                    ?: return null
+            } else {
+                return null
             }
-        return interpolateVariables(rawContent, entry.filePath.parent)
+        val skillDir = entry.filePath?.parent ?: workspaceDir
+        return interpolateVariables(rawContent, skillDir)
     }
 
     private fun interpolateVariables(

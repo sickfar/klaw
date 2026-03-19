@@ -23,51 +23,100 @@ class CliCommandDispatcher(
 ) {
     suspend fun dispatch(request: CliRequestMessage): String =
         withContext(Dispatchers.VT) {
-            when (request.command) {
-                "klaw_init_status" -> {
-                    initCliHandler.handleStatus()
-                }
+            dispatchMemoryCommand(request) ?: dispatchCoreCommand(request)
+        }
 
-                "klaw_init_generate_identity" -> {
-                    initCliHandler.handleGenerateIdentity(request.params)
-                }
+    private suspend fun dispatchMemoryCommand(request: CliRequestMessage): String? =
+        when (request.command) {
+            "memory_search" -> {
+                handleMemorySearch(request.params)
+            }
 
-                "status" -> {
-                    handleStatus()
-                }
+            "memory_categories_list" -> {
+                handleMemoryCategoriesList()
+            }
 
-                "sessions" -> {
-                    handleSessions()
+            "memory_categories_rename" -> {
+                handleMemoryCategoryOp(request.params, "old_name", "new_name") { a, b ->
+                    memoryService.renameCategory(a, b)
                 }
+            }
 
-                "schedule_list" -> {
-                    klawScheduler.list()
+            "memory_categories_merge" -> {
+                handleMemoryCategoryOp(request.params, "sources", "target") { s, t ->
+                    memoryService.mergeCategories(s.split(",").map { it.trim() }.filter { it.isNotEmpty() }, t)
                 }
+            }
 
-                "schedule_add" -> {
-                    handleScheduleAdd(request.params)
+            "memory_categories_delete" -> {
+                handleMemoryCategoryOp(request.params, "name", null) { name, _ ->
+                    memoryService.deleteCategory(name, deleteFacts = request.params["keep_facts"]?.toBoolean() != true)
                 }
+            }
 
-                "schedule_remove" -> {
-                    handleScheduleRemove(request.params)
+            "memory_facts_add" -> {
+                handleMemoryCategoryOp(request.params, "category", "content") { cat, content ->
+                    memoryService.save(content, cat, source = "cli")
                 }
+            }
 
-                "memory_search" -> {
-                    handleMemorySearch(request.params)
-                }
+            else -> {
+                null
+            }
+        }
 
-                "reindex" -> {
-                    handleReindex(request.params)
-                }
+    private suspend fun handleMemoryCategoryOp(
+        params: Map<String, String>,
+        key1: String,
+        key2: String?,
+        action: suspend (String, String) -> String,
+    ): String {
+        val v1 = params[key1] ?: return """{"error":"missing $key1"}"""
+        val v2 = if (key2 != null) params[key2] ?: return """{"error":"missing $key2"}""" else ""
+        return action(v1, v2)
+    }
 
-                "skills_validate" -> {
-                    handleSkillsValidate()
-                }
+    private suspend fun dispatchCoreCommand(request: CliRequestMessage): String =
+        when (request.command) {
+            "klaw_init_status" -> {
+                initCliHandler.handleStatus()
+            }
 
-                else -> {
-                    val safe = request.command.replace("\\", "\\\\").replace("\"", "\\\"")
-                    """{"error":"unknown command: $safe"}"""
-                }
+            "klaw_init_generate_identity" -> {
+                initCliHandler.handleGenerateIdentity(request.params)
+            }
+
+            "status" -> {
+                handleStatus()
+            }
+
+            "sessions" -> {
+                handleSessions()
+            }
+
+            "schedule_list" -> {
+                klawScheduler.list()
+            }
+
+            "schedule_add" -> {
+                handleScheduleAdd(request.params)
+            }
+
+            "schedule_remove" -> {
+                handleScheduleRemove(request.params)
+            }
+
+            "reindex" -> {
+                handleReindex(request.params)
+            }
+
+            "skills_validate" -> {
+                handleSkillsValidate()
+            }
+
+            else -> {
+                val safe = request.command.replace("\\", "\\\\").replace("\"", "\\\"")
+                """{"error":"unknown command: $safe"}"""
             }
         }
 
@@ -103,7 +152,15 @@ class CliCommandDispatcher(
     private suspend fun handleMemorySearch(params: Map<String, String>): String {
         val query = params["query"] ?: return """{"error":"missing query"}"""
         val topK = params["top_k"]?.toIntOrNull() ?: DEFAULT_TOP_K
-        return memoryService.search(query, topK)
+        return memoryService.search(query, topK, trackAccess = true)
+    }
+
+    private suspend fun handleMemoryCategoriesList(): String {
+        val categories = memoryService.getTopCategories(MAX_CATEGORIES_DISPLAY)
+        if (categories.isEmpty()) return "No memory categories found."
+        return categories.joinToString("\n") { cat ->
+            "${cat.name} (${cat.entryCount} entries, accessed ${cat.accessCount} times)"
+        }
     }
 
     private suspend fun handleReindex(params: Map<String, String>): String {
@@ -133,5 +190,6 @@ class CliCommandDispatcher(
 
     private companion object {
         private const val DEFAULT_TOP_K = 10
+        private const val MAX_CATEGORIES_DISPLAY = 50
     }
 }

@@ -48,7 +48,7 @@ data class EngineHealth(
     @SerialName("pending_deliveries") val pendingDeliveries: Int,
     @SerialName("heartbeat_running") val heartbeatRunning: Boolean,
     @SerialName("docs_enabled") val docsEnabled: Boolean,
-    @SerialName("memory_chunks") val memoryChunks: Int,
+    @SerialName("memory_facts") val memoryFacts: Int,
     @SerialName("running_subagents") val runningSubagents: Int,
 )
 
@@ -93,7 +93,7 @@ class EngineHealthProvider(
         val jobCount = infra.scheduler.jobCount()
         val sessionCount = infra.sessionManager.listSessions().size
         val dbOk = checkDatabase()
-        val chunks = countMemoryChunks()
+        val chunks = countMemoryFacts()
         val runningSubagents = subagentRunRepository.countByStatus("RUNNING")
 
         return buildHealth(jobCount, sessionCount, dbOk, chunks, runningSubagents)
@@ -137,7 +137,7 @@ class EngineHealthProvider(
             pendingDeliveries = infra.outboundBuffer.pendingCount(),
             heartbeatRunning = heartbeatRunnerFactoryProvider.get().runner?.isRunning ?: false,
             docsEnabled = config.docs.enabled,
-            memoryChunks = chunks,
+            memoryFacts = chunks,
             runningSubagents = runningSubagents,
         )
 
@@ -161,13 +161,13 @@ class EngineHealthProvider(
             }
         }
 
-    private suspend fun countMemoryChunks(): Int =
+    private suspend fun countMemoryFacts(): Int =
         withContext(Dispatchers.VT) {
             try {
                 var count = 0
                 driver.executeQuery(
                     null,
-                    "SELECT count(*) FROM memory_chunks",
+                    "SELECT count(*) FROM memory_facts",
                     { cursor ->
                         if (cursor.next().value) {
                             count = cursor.getLong(0)?.toInt() ?: 0

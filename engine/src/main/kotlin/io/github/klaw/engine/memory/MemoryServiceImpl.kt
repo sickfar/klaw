@@ -12,78 +12,207 @@ import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
-@Suppress("MagicNumber")
+@Suppress("TooManyFunctions", "MagicNumber")
 class MemoryServiceImpl(
     private val database: KlawDatabase,
     private val driver: JdbcSqliteDriver,
     private val embeddingService: EmbeddingService,
-    private val chunker: MarkdownChunker,
     private val sqliteVecLoader: SqliteVecLoader,
 ) : MemoryService {
+    private var onSaveCallback: (suspend () -> Unit)? = null
+
+    fun setOnSaveCallback(callback: suspend () -> Unit) {
+        onSaveCallback = callback
+    }
+
     override suspend fun save(
         content: String,
+        category: String,
         source: String,
     ): String {
-        logger.debug { "Reindex started for source=$source inputLength=${content.length}" }
-        val chunks = chunker.chunk(content)
-        if (chunks.isEmpty()) {
-            logger.debug { "No chunks produced for source=$source" }
-            return "No content to save."
-        }
-        logger.trace { "Chunked source=$source into ${chunks.size} chunks" }
+        if (content.isBlank()) return "No content to save."
 
         val now = Clock.System.now().toString()
-        val embeddings =
+        val categoryId = getOrCreateCategory(category, now)
+
+        val embedding =
             if (sqliteVecLoader.isAvailable()) {
-                logger.trace { "Computing embeddings for ${chunks.size} chunks source=$source" }
-                embeddingService.embedBatch(chunks.map { it.content })
+                embeddingService.embed(content)
             } else {
                 null
             }
 
         withContext(Dispatchers.VT) {
-            database.memoryChunksQueries.transaction {
-                for ((index, chunk) in chunks.withIndex()) {
-                    database.memoryChunksQueries.insert(
-                        source = source,
-                        chat_id = null,
-                        content = chunk.content,
-                        created_at = now,
-                        updated_at = now,
-                    )
+            database.memoryFactsQueries.transaction {
+                database.memoryFactsQueries.insert(
+                    category_id = categoryId,
+                    source = source,
+                    content = content,
+                    created_at = now,
+                    updated_at = now,
+                )
 
-                    if (embeddings != null) {
-                        val rowId = database.memoryChunksQueries.lastInsertRowId().executeAsOne()
-                        val blob = floatArrayToBlob(embeddings[index])
-                        logger.trace { "Memory chunk saved: chunkIndex=$index source=$source rowId=$rowId" }
-                        driver.execute(
-                            null,
-                            "INSERT INTO vec_memory(rowid, embedding) VALUES (?, ?)",
-                            2,
-                        ) {
-                            bindLong(0, rowId)
-                            bindBytes(1, blob)
-                        }
+                if (embedding != null) {
+                    val rowId = database.memoryFactsQueries.lastInsertRowId().executeAsOne()
+                    val blob = floatArrayToBlob(embedding)
+                    driver.execute(
+                        null,
+                        "INSERT INTO vec_memory(rowid, embedding) VALUES (?, ?)",
+                        2,
+                    ) {
+                        bindLong(0, rowId)
+                        bindBytes(1, blob)
                     }
                 }
+                database.memoryCategoriesQueries.incrementAccessCount(categoryId)
             }
         }
-        logger.debug { "Memory chunk saved: count=${chunks.size} source=$source" }
+        logger.debug { "Fact saved: category=$category source=$source" }
 
-        return "Saved ${chunks.size} chunk(s) from source '$source'."
+        onSaveCallback?.invoke()
+        return "Saved to category '$category'."
     }
 
     override suspend fun search(
         query: String,
         topK: Int,
+        trackAccess: Boolean,
     ): String {
         logger.debug { "Memory search: queryLength=${query.length} topK=$topK" }
         val results = hybridSearch(query, topK)
-        logger.debug { "Memory search: found ${results.size} chunks for query (${query.length} chars)" }
+        logger.debug { "Memory search: found ${results.size} results" }
         if (results.isEmpty()) return "No relevant memories found."
 
+        if (trackAccess) {
+            trackAccessForResults(results)
+        }
+
         return results.joinToString("\n\n---\n\n") { result ->
-            "[${result.source}] (${result.createdAt})\n${result.content}"
+            val categoryLabel = result.category?.let { "[$it | ${result.source}]" } ?: "[${result.source}]"
+            "$categoryLabel (${result.createdAt})\n${result.content}"
+        }
+    }
+
+    override suspend fun getTopCategories(limit: Int): List<MemoryCategoryInfo> =
+        withContext(Dispatchers.VT) {
+            database.memoryCategoriesQueries.getTopN(limit.toLong()).executeAsList().map {
+                MemoryCategoryInfo(
+                    id = it.id,
+                    name = it.name,
+                    accessCount = it.access_count,
+                    entryCount = it.entry_count,
+                )
+            }
+        }
+
+    override suspend fun getTotalCategoryCount(): Long =
+        withContext(Dispatchers.VT) {
+            database.memoryCategoriesQueries.getTotalCount().executeAsOne()
+        }
+
+    override suspend fun renameCategory(
+        oldName: String,
+        newName: String,
+    ): String =
+        withContext(Dispatchers.VT) {
+            val cat =
+                database.memoryCategoriesQueries.getByName(oldName).executeAsOneOrNull()
+                    ?: return@withContext "Category '$oldName' not found."
+            val existing = database.memoryCategoriesQueries.getByName(newName).executeAsOneOrNull()
+            if (existing != null && existing.id != cat.id) {
+                return@withContext "Category '$newName' already exists. Use merge instead."
+            }
+            database.memoryCategoriesQueries.rename(newName, cat.id)
+            onSaveCallback?.invoke()
+            "Renamed '$oldName' to '$newName'."
+        }
+
+    override suspend fun mergeCategories(
+        sourceNames: List<String>,
+        targetName: String,
+    ): String =
+        withContext(Dispatchers.VT) {
+            val now = Clock.System.now().toString()
+            val targetId = getOrCreateCategory(targetName, now)
+            var movedCount = 0L
+
+            database.memoryCategoriesQueries.transaction {
+                for (name in sourceNames) {
+                    val cat = database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull() ?: continue
+                    if (cat.id == targetId) continue
+                    val factCount = database.memoryFactsQueries.countByCategoryId(cat.id).executeAsOne()
+                    database.memoryFactsQueries.updateCategoryId(targetId, cat.id)
+                    database.memoryCategoriesQueries.deleteById(cat.id)
+                    movedCount += factCount
+                }
+            }
+            onSaveCallback?.invoke()
+            "Merged ${sourceNames.size} categories into '$targetName' ($movedCount facts moved)."
+        }
+
+    override suspend fun deleteCategory(
+        name: String,
+        deleteFacts: Boolean,
+    ): String =
+        withContext(Dispatchers.VT) {
+            val cat =
+                database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull()
+                    ?: return@withContext "Category '$name' not found."
+            database.memoryCategoriesQueries.transaction {
+                if (deleteFacts) {
+                    if (sqliteVecLoader.isAvailable()) {
+                        cleanupVecMemoryForCategory(cat.id)
+                    }
+                    database.memoryFactsQueries.deleteByCategoryId(cat.id)
+                }
+                database.memoryCategoriesQueries.deleteById(cat.id)
+            }
+            onSaveCallback?.invoke()
+            "Deleted category '$name'${if (deleteFacts) " and its facts" else ""}."
+        }
+
+    override suspend fun hasCategories(): Boolean =
+        withContext(Dispatchers.VT) {
+            database.memoryCategoriesQueries.getTotalCount().executeAsOne() > 0
+        }
+
+    private fun cleanupVecMemoryForCategory(categoryId: Long) {
+        driver.execute(
+            null,
+            "DELETE FROM vec_memory WHERE rowid IN (SELECT id FROM memory_facts WHERE category_id = ?)",
+            1,
+        ) {
+            bindLong(0, categoryId)
+        }
+    }
+
+    private suspend fun getOrCreateCategory(
+        name: String,
+        now: String,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            database.memoryCategoriesQueries.transactionWithResult {
+                val existing = database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull()
+                if (existing != null) return@transactionWithResult existing.id
+
+                database.memoryCategoriesQueries.insert(name, now)
+                // Re-select after INSERT OR IGNORE to handle concurrent creation
+                database.memoryCategoriesQueries
+                    .getByName(name)
+                    .executeAsOne()
+                    .id
+            }
+        }
+
+    private suspend fun trackAccessForResults(results: List<MemorySearchResult>) {
+        val categoryNames = results.mapNotNull { it.category }.toSet()
+        if (categoryNames.isEmpty()) return
+
+        withContext(Dispatchers.VT) {
+            for (catName in categoryNames) {
+                val cat = database.memoryCategoriesQueries.getByName(catName).executeAsOneOrNull() ?: continue
+                database.memoryCategoriesQueries.incrementAccessCount(cat.id)
+            }
         }
     }
 
@@ -93,7 +222,6 @@ class MemoryServiceImpl(
         topK: Int,
     ): List<MemorySearchResult> =
         withContext(Dispatchers.VT) {
-            logger.trace { "FTS search: queryLength=${query.length} topK=$topK" }
             val results = mutableListOf<MemorySearchResult>()
 
             // Search messages via messages_fts
@@ -116,6 +244,7 @@ class MemoryServiceImpl(
                         results.add(
                             MemorySearchResult(
                                 content = content,
+                                category = null,
                                 source = "message:$chatId",
                                 createdAt = createdAt,
                                 score = -rank,
@@ -131,14 +260,15 @@ class MemoryServiceImpl(
                 bindLong(1, topK.toLong())
             }
 
-            // Search memory_chunks via memory_chunks_fts
+            // Search memory_facts via memory_facts_fts
             driver.executeQuery(
                 null,
                 """
-                SELECT mc.content, mc.created_at, mc.source, rank
-                FROM memory_chunks_fts fts
-                JOIN memory_chunks mc ON mc.id = fts.rowid
-                WHERE memory_chunks_fts MATCH ?
+                SELECT mf.content, mf.created_at, mf.source, rank, mc.name
+                FROM memory_facts_fts fts
+                JOIN memory_facts mf ON mf.id = fts.rowid
+                JOIN memory_categories mc ON mc.id = mf.category_id
+                WHERE memory_facts_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
                 """.trimIndent(),
@@ -148,9 +278,11 @@ class MemoryServiceImpl(
                         val createdAt = cursor.getString(1) ?: ""
                         val source = cursor.getString(2) ?: "unknown"
                         val rank = cursor.getDouble(3) ?: 0.0
+                        val categoryName = cursor.getString(4)
                         results.add(
                             MemorySearchResult(
                                 content = content,
+                                category = categoryName,
                                 source = source,
                                 createdAt = createdAt,
                                 score = -rank,
@@ -167,7 +299,6 @@ class MemoryServiceImpl(
             }
 
             val sorted = results.sortedByDescending { it.score }.take(topK)
-            logger.trace { "FTS search: returned ${sorted.size} results" }
             sorted
         }
 
@@ -175,14 +306,9 @@ class MemoryServiceImpl(
         query: String,
         topK: Int,
     ): List<MemorySearchResult> {
-        if (!sqliteVecLoader.isAvailable()) {
-            logger.trace { "Vector search skipped: sqlite-vec not available" }
-            return emptyList()
-        }
+        if (!sqliteVecLoader.isAvailable()) return emptyList()
 
-        logger.trace { "Vector search: computing embedding for queryLength=${query.length}" }
         val queryEmbedding = embeddingService.embed(query)
-        logger.trace { "Embedding computed: dims=${queryEmbedding.size} for input (${query.length} chars)" }
         val blob = floatArrayToBlob(queryEmbedding)
 
         return withContext(Dispatchers.VT) {
@@ -190,9 +316,10 @@ class MemoryServiceImpl(
             driver.executeQuery(
                 null,
                 """
-                SELECT v.rowid, v.distance, mc.content, mc.source, mc.created_at
+                SELECT v.rowid, v.distance, mf.content, mf.source, mf.created_at, mc.name
                 FROM vec_memory v
-                JOIN memory_chunks mc ON mc.id = v.rowid
+                JOIN memory_facts mf ON mf.id = v.rowid
+                JOIN memory_categories mc ON mc.id = mf.category_id
                 WHERE v.embedding MATCH ?
                 ORDER BY v.distance
                 LIMIT ?
@@ -203,12 +330,14 @@ class MemoryServiceImpl(
                         val source = cursor.getString(3) ?: "unknown"
                         val createdAt = cursor.getString(4) ?: ""
                         val distance = cursor.getDouble(1) ?: 1.0
+                        val categoryName = cursor.getString(5)
                         results.add(
                             MemorySearchResult(
                                 content = content,
+                                category = categoryName,
                                 source = source,
                                 createdAt = createdAt,
-                                score = 1.0 - distance, // Convert distance to similarity
+                                score = 1.0 - distance,
                             ),
                         )
                     }
@@ -220,7 +349,6 @@ class MemoryServiceImpl(
                 bindBytes(0, blob)
                 bindLong(1, topK.toLong())
             }
-            logger.trace { "Vector search: returned ${results.size} results" }
             results
         }
     }
@@ -229,12 +357,8 @@ class MemoryServiceImpl(
         query: String,
         topK: Int,
     ): List<MemorySearchResult> {
-        logger.trace { "Hybrid search started: queryLength=${query.length} topK=$topK" }
         val ftsResults = ftsSearch(query, topK)
         val vectorResults = vectorSearch(query, topK)
-        logger.trace { "Hybrid search: fts=${ftsResults.size} vector=${vectorResults.size} before merge" }
-        val merged = RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
-        logger.trace { "Hybrid search: merged=${merged.size} results after RRF" }
-        return merged
+        return RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
     }
 }

@@ -17,6 +17,15 @@ object WorkspaceGenerator {
         return dir
     }
 
+    fun createMemoryMd(
+        workspaceDir: File,
+        content: String,
+    ) {
+        val memoryFile = File(workspaceDir, "MEMORY.md")
+        memoryFile.writeText(content)
+        memoryFile.setReadable(true, false)
+    }
+
     fun createSkillFile(
         skillsBaseDir: File,
         name: String,
