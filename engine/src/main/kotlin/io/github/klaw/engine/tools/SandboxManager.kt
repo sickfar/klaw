@@ -12,6 +12,8 @@ private val logger = KotlinLogging.logger {}
 const val SANDBOX_WORKSPACE_PATH = "/workspace"
 private const val MAX_OUTPUT_CHARS = 10_000
 private const val PID_FILE_NAME = "sandbox.pid"
+private const val CLEANUP_TIMEOUT_SECONDS = 5
+private const val PIDS_LIMIT = 64
 
 class SandboxManager(
     private val config: CodeExecutionConfig,
@@ -23,6 +25,8 @@ class SandboxManager(
     @Volatile private var containerId: String? = null
 
     @Volatile private var executionCount = 0
+
+    @Volatile private var orphanCleanupDone = false
     private var lastExecutionTime: Instant = Instant.DISTANT_PAST
 
     val isContainerActive: Boolean get() = containerId != null
@@ -46,6 +50,7 @@ class SandboxManager(
         val id = getOrCreateContainer()
         executionCount++
         lastExecutionTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+        clearTmp(id)
         val cmd = listOf("bash", "-c", code)
         val raw = docker.exec(id, cmd, timeout)
         val result = ProcessDockerClient.classifyExecResult(raw, config.maxMemory)
@@ -75,6 +80,7 @@ class SandboxManager(
     }
 
     private suspend fun getOrCreateContainer(): String {
+        cleanupOrphanContainers()
         val current = containerId ?: recoverPersistedContainer()
         val isOrphaned = containerId == null && current != null
         val shouldRecreate =
@@ -99,6 +105,40 @@ class SandboxManager(
             return id
         }
         return current
+    }
+
+    private suspend fun cleanupOrphanContainers() {
+        if (orphanCleanupDone) return
+        orphanCleanupDone = true
+        try {
+            val containers = docker.listContainers("klaw-sandbox-")
+            val persisted = recoverPersistedContainer()
+            for (container in containers) {
+                if (container != persisted) {
+                    removeOrphanContainer(container)
+                }
+            }
+        } catch (_: Exception) {
+            logger.trace { "Orphan scan skipped due to error" }
+        }
+    }
+
+    private suspend fun removeOrphanContainer(container: String) {
+        try {
+            docker.stop(container)
+            docker.rm(container)
+            logger.debug { "Cleaned up orphaned sandbox container" }
+        } catch (_: Exception) {
+            logger.trace { "Orphan cleanup completed with warnings" }
+        }
+    }
+
+    private suspend fun clearTmp(containerId: String) {
+        try {
+            docker.exec(containerId, listOf("sh", "-c", "find /tmp -mindepth 1 -delete"), CLEANUP_TIMEOUT_SECONDS)
+        } catch (_: Exception) {
+            logger.trace { "tmp cleanup completed with warnings" }
+        }
     }
 
     private fun recoverPersistedContainer(): String? {
@@ -171,15 +211,54 @@ class SandboxManager(
             entrypoint = "",
             detach = detach,
             remove = remove,
+            user = config.runAsUser,
+            capDrop = listOf("ALL"),
+            securityOpts = listOf("no-new-privileges"),
+            pidsLimit = PIDS_LIMIT,
         )
     }
 
     companion object {
+        private val BLOCKED_HOST_PATHS =
+            listOf(
+                "/etc/passwd",
+                "/etc/shadow",
+                "/etc/gshadow",
+                "/etc/ssh",
+                "/root/.ssh",
+                "/root/.gnupg",
+                "/root/.aws",
+                "/var/run/docker.sock",
+                "/var/run/docker",
+                "/proc",
+                "/sys",
+            )
+
         fun filterVolumes(volumes: List<String>): List<String> =
             volumes.filter { vol ->
-                val hostPath = vol.substringBefore(":")
-                !hostPath.contains("docker.sock")
+                val hostPath = vol.substringBefore(":").trimEnd('/')
+                !isBlockedPath(hostPath)
             }
+
+        // Blocks /home and /home/<user> but allows deeper paths like /home/klaw/workspace.
+        // The workspace volume mount goes through a separate trusted path in buildRunOptions(),
+        // so blocking user-level home dirs in volumeMounts config is safe.
+        private fun isBlockedPath(hostPath: String): Boolean {
+            val normalized = normalizePath(hostPath)
+            if (BLOCKED_HOST_PATHS.any { normalized == it || normalized.startsWith("$it/") }) return true
+            if (normalized == "/home") return true
+            if (normalized.startsWith("/home/") && normalized.removePrefix("/home/").count { it == '/' } == 0) {
+                return true
+            }
+            return false
+        }
+
+        private fun normalizePath(path: String): String =
+            path
+                .replace("//", "/")
+                .replace("/./", "/")
+                .removeSuffix("/.")
+                .trimEnd('/')
     }
 }
 

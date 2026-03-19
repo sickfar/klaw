@@ -268,6 +268,9 @@ object GeneratedSchemas {
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "runAsUser": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

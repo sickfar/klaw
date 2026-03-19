@@ -56,6 +56,10 @@ data class DockerRunOptions(
     val remove: Boolean = false,
     val privileged: Boolean = false,
     val pidHost: Boolean = false,
+    val user: String? = null,
+    val capDrop: List<String> = emptyList(),
+    val securityOpts: List<String> = emptyList(),
+    val pidsLimit: Int? = null,
 )
 
 data class ExecutionResult(
@@ -77,6 +81,8 @@ interface DockerClient {
     suspend fun stop(containerId: String)
 
     suspend fun rm(containerId: String)
+
+    suspend fun listContainers(nameFilter: String): List<String>
 }
 
 @Singleton
@@ -192,26 +198,81 @@ class ProcessDockerClient : DockerClient {
         }
     }
 
-    @Suppress("CyclomaticComplexMethod")
+    override suspend fun listContainers(nameFilter: String): List<String> =
+        withContext(Dispatchers.VT) {
+            val cmd = listOf("docker", "ps", "-a", "--filter", "name=$nameFilter", "--format", "{{.Names}}")
+            logger.trace { "docker ps: filter=$nameFilter" }
+            val process =
+                ProcessBuilder(cmd)
+                    .redirectErrorStream(true)
+                    .start()
+            val output =
+                process.inputStream
+                    .bufferedReader()
+                    .readText()
+                    .trim()
+            process.waitFor()
+            if (output.isEmpty()) emptyList() else output.lines()
+        }
+
     private fun buildRunCommand(options: DockerRunOptions): List<String> {
         val cmd = mutableListOf("docker", "run")
+        addRunFlags(cmd, options)
+        addResourceLimits(cmd, options)
+        addSecurityOptions(cmd, options)
+        addMounts(cmd, options)
+        addEntrypointAndCommand(cmd, options)
+        return cmd
+    }
+
+    private fun addRunFlags(
+        cmd: MutableList<String>,
+        options: DockerRunOptions,
+    ) {
         if (options.detach) cmd.add("-d")
         if (options.remove) cmd.add("--rm")
         cmd.addAll(listOf("--name", options.name))
+    }
+
+    private fun addResourceLimits(
+        cmd: MutableList<String>,
+        options: DockerRunOptions,
+    ) {
         cmd.addAll(listOf("--memory", options.memoryLimit))
         cmd.addAll(listOf("--cpus", options.cpuLimit))
+        options.pidsLimit?.let { cmd.addAll(listOf("--pids-limit", it.toString())) }
+    }
+
+    private fun addSecurityOptions(
+        cmd: MutableList<String>,
+        options: DockerRunOptions,
+    ) {
         if (options.readOnly) cmd.add("--read-only")
         cmd.addAll(listOf("--network", options.networkMode))
+        options.user?.let { cmd.addAll(listOf("--user", it)) }
+        options.capDrop.forEach { cmd.addAll(listOf("--cap-drop", it)) }
+        options.securityOpts.forEach { cmd.addAll(listOf("--security-opt", it)) }
+    }
+
+    private fun addMounts(
+        cmd: MutableList<String>,
+        options: DockerRunOptions,
+    ) {
         options.tmpfs.forEach { (path, opts) ->
             cmd.addAll(listOf("--tmpfs", "$path:$opts"))
         }
         options.volumes.forEach { vol ->
             cmd.addAll(listOf("-v", vol))
         }
+    }
+
+    private fun addEntrypointAndCommand(
+        cmd: MutableList<String>,
+        options: DockerRunOptions,
+    ) {
         options.entrypoint?.let { cmd.addAll(listOf("--entrypoint", it)) }
         cmd.add(options.image)
         cmd.addAll(options.command)
-        return cmd
     }
 
     companion object {
@@ -233,41 +294,51 @@ class ProcessDockerClient : DockerClient {
                 lower.contains("is docker installed")
         }
 
-        @Suppress("ThrowsCount", "ComplexCondition")
         internal fun throwTypedRunException(
             stderr: String,
             image: String,
         ): Nothing {
             val lower = stderr.lowercase()
+            throw classifyRunError(lower, stderr, image)
+        }
+
+        private fun classifyRunError(
+            lower: String,
+            stderr: String,
+            image: String,
+        ): SandboxExecutionException =
             when {
-                lower.contains("cannot connect to the docker daemon") ||
-                    lower.contains("is docker installed") ||
-                    lower.contains("command not found") ||
-                    (lower.contains("no such file or directory") && lower.contains("docker")) -> {
+                isDockerUnavailableError(lower) -> {
                     logger.debug { "docker error classified as DockerUnavailable, stderrLen=${stderr.length}" }
-                    throw SandboxExecutionException.DockerUnavailable()
+                    SandboxExecutionException.DockerUnavailable()
                 }
 
-                lower.contains("no such image") ||
-                    lower.contains("pull access denied") ||
-                    lower.contains("manifest unknown") -> {
+                isImageNotFoundError(lower) -> {
                     logger.debug { "docker error classified as ImageNotFound, image=$image" }
-                    throw SandboxExecutionException.ImageNotFound(image)
+                    SandboxExecutionException.ImageNotFound(image)
                 }
 
                 lower.contains("permission denied") -> {
                     logger.debug { "docker error classified as PermissionDenied, stderrLen=${stderr.length}" }
-                    throw SandboxExecutionException.PermissionDenied()
+                    SandboxExecutionException.PermissionDenied()
                 }
 
                 else -> {
                     logger.debug { "docker error classified as ContainerStartFailure, stderrLen=${stderr.length}" }
-                    throw SandboxExecutionException.ContainerStartFailure(
-                        sanitizeErrorDetail(stderr),
-                    )
+                    SandboxExecutionException.ContainerStartFailure(sanitizeErrorDetail(stderr))
                 }
             }
-        }
+
+        private fun isDockerUnavailableError(lower: String): Boolean =
+            lower.contains("cannot connect to the docker daemon") ||
+                lower.contains("is docker installed") ||
+                lower.contains("command not found") ||
+                (lower.contains("no such file or directory") && lower.contains("docker"))
+
+        private fun isImageNotFoundError(lower: String): Boolean =
+            lower.contains("no such image") ||
+                lower.contains("pull access denied") ||
+                lower.contains("manifest unknown")
 
         internal fun classifyExecResult(
             result: ExecutionResult,

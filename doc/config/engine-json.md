@@ -127,7 +127,8 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     "readOnlyRootfs": true,
     "keepAlive": false,
     "keepAliveIdleTimeoutMin": 5,
-    "keepAliveMaxExecutions": 100
+    "keepAliveMaxExecutions": 100,
+    "runAsUser": "1000:1000"
   },
   "files": {
     "maxFileSizeBytes": 10485760
@@ -264,6 +265,62 @@ Background compaction of old conversation messages. Uses a fraction-based trigge
 | `compactionThresholdFraction` | double | `0.5` | Fraction of context budget that defines the compaction zone (exclusive range `(0.0, 1.0)`). Compaction triggers when `messageTokens > budget * (summaryBudgetFraction + compactionThresholdFraction)`. |
 
 **Validation**: `summaryBudgetFraction + compactionThresholdFraction` must be less than `1.0`.
+
+## codeExecution
+
+Configures the Docker-based sandbox for code execution by agents.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `dockerImage` | string | `"ghcr.io/sickfar/klaw-sandbox:latest"` | Docker image used for the sandbox container. |
+| `timeout` | int | `30` | Maximum execution timeout in seconds. |
+| `allowNetwork` | bool | `false` | Allow network access inside the sandbox. |
+| `maxMemory` | string | `"256m"` | Maximum memory limit for the container. |
+| `maxCpus` | string | `"1.0"` | Maximum CPU cores for the container. |
+| `readOnlyRootfs` | bool | `true` | Mount the container root filesystem as read-only. |
+| `keepAlive` | bool | `false` | Reuse the container between executions for faster startup. |
+| `keepAliveIdleTimeoutMin` | int | `5` | Idle timeout in minutes before stopping a kept-alive container. |
+| `keepAliveMaxExecutions` | int | `100` | Maximum executions before recycling a kept-alive container. |
+| `volumeMounts` | string[] | `[]` | Additional Docker volume mounts. Dangerous paths are blocked (see below). |
+| `runAsUser` | string | `"1000:1000"` | User:group ID for the sandbox container process. |
+
+### Hardcoded Security Defaults
+
+The following security measures are always enforced and cannot be disabled:
+
+- **`--privileged=false`** — privileged mode is hardcoded forbidden
+- **`--cap-drop=ALL`** — all Linux capabilities are dropped
+- **`--security-opt=no-new-privileges`** — prevents privilege escalation via setuid/setgid binaries
+- **`--pids-limit=64`** — limits the number of processes (fork bomb protection)
+- **`--read-only`** — root filesystem is read-only (writable `/tmp` via tmpfs)
+- **`--network=none`** — network is disabled by default (configurable via `allowNetwork`)
+- **Volume blocklist** — sensitive host paths are automatically filtered: `/etc/passwd`, `/etc/shadow`, `/etc/gshadow`, `/etc/ssh`, `/root/.ssh`, `/root/.gnupg`, `/root/.aws`, `/home`, `/proc`, `/sys`, `/var/run/docker`
+
+In keep-alive mode, `/tmp` is cleared between executions to prevent state leakage. Orphaned `klaw-sandbox-*` containers are automatically cleaned up on engine startup.
+
+### Custom Docker Image
+
+The sandbox runs with a read-only filesystem, non-root user, and dropped capabilities. Installing packages at runtime is impossible by design.
+
+To add languages or tools (Node.js, Go, etc.), create a custom Docker image:
+
+```dockerfile
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs npm golang-go curl jq \
+    && rm -rf /var/lib/apt/lists/*
+RUN useradd -u 1000 -m sandbox
+```
+
+Then configure it in `engine.json`:
+
+```json
+{
+  "codeExecution": {
+    "dockerImage": "my-custom-sandbox:latest"
+  }
+}
+```
 
 ## Notes
 

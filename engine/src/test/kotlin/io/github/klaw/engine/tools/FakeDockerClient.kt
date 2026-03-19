@@ -5,11 +5,16 @@ class FakeDockerClient : DockerClient {
     val execCalls = mutableListOf<ExecCall>()
     val stopCalls = mutableListOf<String>()
     val rmCalls = mutableListOf<String>()
+    val listContainersCalls = mutableListOf<String>()
 
     var nextRunResult: ExecutionResult = ExecutionResult(stdout = "fake-container-id", stderr = "", exitCode = 0)
     var nextRunException: Exception? = null
     var nextExecResult: ExecutionResult = ExecutionResult(stdout = "", stderr = "", exitCode = 0)
     var nextExecException: Exception? = null
+    var listContainersResult: List<String> = emptyList()
+    var listContainersException: Exception? = null
+
+    val execResults: MutableList<ExecutionResult> = mutableListOf()
 
     data class ExecCall(
         val containerId: String,
@@ -30,7 +35,7 @@ class FakeDockerClient : DockerClient {
     ): ExecutionResult {
         execCalls.add(ExecCall(containerId, cmd, timeoutSeconds))
         nextExecException?.let { throw it }
-        return nextExecResult
+        return if (execResults.isNotEmpty()) execResults.removeFirst() else nextExecResult
     }
 
     override suspend fun stop(containerId: String) {
@@ -39,5 +44,11 @@ class FakeDockerClient : DockerClient {
 
     override suspend fun rm(containerId: String) {
         rmCalls.add(containerId)
+    }
+
+    override suspend fun listContainers(nameFilter: String): List<String> {
+        listContainersCalls.add(nameFilter)
+        listContainersException?.let { throw it }
+        return listContainersResult
     }
 }

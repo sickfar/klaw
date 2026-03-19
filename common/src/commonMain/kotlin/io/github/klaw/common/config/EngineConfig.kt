@@ -240,6 +240,8 @@ data class CodeExecutionConfig(
     val keepAliveMaxExecutions: Int = 100,
     @ConfigDoc("Additional Docker volume mounts for the sandbox")
     val volumeMounts: List<String> = emptyList(),
+    @ConfigDoc("User:group ID for sandbox container process (default: 1000:1000)")
+    val runAsUser: String = "1000:1000",
 ) {
     // --privileged is hardcoded forbidden, never configurable
     @Transient

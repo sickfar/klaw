@@ -51,7 +51,8 @@ class SandboxManagerTest {
             manager.execute("echo 2", 30)
 
             assertEquals(1, docker.runCalls.size, "Expected 1 docker run call for keep-alive")
-            assertEquals(2, docker.execCalls.size, "Expected 2 docker exec calls for keep-alive")
+            // 2 cleanup execs + 2 user execs = 4 total
+            assertEquals(4, docker.execCalls.size, "Expected 4 docker exec calls (2 cleanup + 2 user)")
         }
 
     @Test
@@ -272,5 +273,113 @@ class SandboxManagerTest {
 
             val pidFile = File(stateDir, "sandbox.pid")
             assertFalse(pidFile.exists(), "sandbox.pid should not exist in oneshot mode")
+        }
+
+    // --- /tmp Clearing Tests (Issue #20) ---
+
+    @Test
+    fun `keepAlive clears tmp before each execution`() =
+        runTest {
+            val docker = FakeDockerClient()
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+            manager.execute("echo 2", 30)
+
+            // Each execution should produce: 1 cleanup exec + 1 user exec = 2 per execution
+            // Total: 4 exec calls for 2 executions
+            val cleanupCalls =
+                docker.execCalls.filter {
+                    it.cmd.any { arg -> arg.contains("find /tmp -mindepth 1 -delete") }
+                }
+            assertEquals(2, cleanupCalls.size, "Should clear /tmp before each execution")
+        }
+
+    @Test
+    fun `tmp clearing failure does not prevent execution`() =
+        runTest {
+            val docker = FakeDockerClient()
+            // Queue: first exec (cleanup) fails, second exec (user cmd) succeeds
+            docker.execResults.add(ExecutionResult(stdout = "", stderr = "error", exitCode = 1))
+            docker.execResults.add(ExecutionResult(stdout = "output", stderr = "", exitCode = 0))
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            val result = manager.execute("echo test", 30)
+
+            assertEquals(0, result.exitCode, "User command should still execute after cleanup failure")
+            assertTrue(result.stdout.contains("output"))
+        }
+
+    // --- Orphan Cleanup Tests (Issue #20) ---
+
+    @Test
+    fun `startup cleans orphaned containers matching klaw-sandbox prefix`() =
+        runTest {
+            val pidFile = File(stateDir, "sandbox.pid")
+            pidFile.writeText("klaw-sandbox-persisted")
+
+            val docker = FakeDockerClient()
+            docker.listContainersResult = listOf("klaw-sandbox-persisted", "klaw-sandbox-orphan")
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            assertTrue(docker.stopCalls.contains("klaw-sandbox-orphan"), "Orphan should be stopped")
+            assertTrue(docker.rmCalls.contains("klaw-sandbox-orphan"), "Orphan should be removed")
+        }
+
+    @Test
+    fun `startup does not remove current persisted container`() =
+        runTest {
+            val pidFile = File(stateDir, "sandbox.pid")
+            pidFile.writeText("klaw-sandbox-current")
+
+            val docker = FakeDockerClient()
+            docker.listContainersResult = listOf("klaw-sandbox-current", "klaw-sandbox-orphan")
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            val orphanStops = docker.stopCalls.filter { it == "klaw-sandbox-orphan" }
+            assertTrue(orphanStops.isNotEmpty(), "Orphan should be stopped")
+            // Persisted container is NOT stopped by orphan cleanup — it matches the state file.
+            // It may be stopped later by getOrCreateContainer's regular recreation logic.
+            val orphanCleanupStoppedPersisted =
+                docker.stopCalls.indexOf("klaw-sandbox-current") < docker.stopCalls.indexOf("klaw-sandbox-orphan")
+            assertFalse(
+                orphanCleanupStoppedPersisted,
+                "Orphan cleanup should not stop persisted container before orphan",
+            )
+        }
+
+    @Test
+    fun `startup with no orphans is no-op`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.listContainersResult = emptyList()
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            manager.execute("echo 1", 30)
+
+            assertTrue(docker.listContainersCalls.isNotEmpty(), "Should have called listContainers")
+            // Only the regular container creation calls, no orphan cleanup
+        }
+
+    @Test
+    fun `orphan cleanup tolerates docker errors`() =
+        runTest {
+            val docker = FakeDockerClient()
+            docker.listContainersException = RuntimeException("docker not available")
+            val manager =
+                SandboxManager(config(keepAlive = true, maxExecutions = 10), docker, stateDir = stateDir.absolutePath)
+
+            // Should not throw — cleanup errors are silently handled
+            val result = manager.execute("echo 1", 30)
+            assertEquals(0, result.exitCode)
         }
 }

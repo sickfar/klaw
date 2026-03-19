@@ -26,7 +26,8 @@ class SandboxExecToolTest {
             val result = tool.execute("echo hello")
 
             assertEquals("hello\n", result)
-            assertTrue(docker.execCalls[0].cmd.contains("bash"))
+            val userExec = docker.execCalls.last()
+            assertTrue(userExec.cmd.contains("bash"))
         }
 
     @Test
@@ -39,7 +40,8 @@ class SandboxExecToolTest {
 
             tool.execute("echo 1", timeout = 60)
 
-            assertEquals(60, docker.execCalls[0].timeout)
+            val userExec = docker.execCalls.last()
+            assertEquals(60, userExec.timeout)
         }
 
     @Test
@@ -52,7 +54,8 @@ class SandboxExecToolTest {
 
             tool.execute("echo 1")
 
-            assertEquals(config.timeout, docker.execCalls[0].timeout)
+            val userExec = docker.execCalls.last()
+            assertEquals(config.timeout, userExec.timeout)
         }
 
     @Test

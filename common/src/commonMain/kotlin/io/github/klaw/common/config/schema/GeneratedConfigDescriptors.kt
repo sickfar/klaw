@@ -396,6 +396,15 @@ object GeneratedConfigDescriptors {
                 false,
             ),
             ConfigPropertyDescriptor(
+                "codeExecution.runAsUser",
+                ConfigValueType.STRING,
+                "User:group ID for sandbox container process (default: 1000:1000)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
                 "files.maxFileSizeBytes",
                 ConfigValueType.LONG,
                 "Maximum file size in bytes that file tools can read",
