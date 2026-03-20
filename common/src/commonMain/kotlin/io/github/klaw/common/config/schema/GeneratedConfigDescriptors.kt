@@ -989,6 +989,15 @@ object GeneratedConfigDescriptors {
                 false,
                 false,
             ),
+            ConfigPropertyDescriptor(
+                "vision.attachmentsDirectory",
+                ConfigValueType.STRING,
+                "Directory where gateway stores image attachments (must match gateway attachments.directory)",
+                null,
+                null,
+                false,
+                false,
+            ),
         )
 
     val GATEWAY: List<ConfigPropertyDescriptor> =

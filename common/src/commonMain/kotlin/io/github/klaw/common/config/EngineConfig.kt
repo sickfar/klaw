@@ -559,6 +559,8 @@ data class VisionConfig(
     val maxImagesPerMessage: Int = DEFAULT_MAX_IMAGES_PER_MESSAGE,
     @ConfigDoc("Supported image MIME types")
     val supportedFormats: List<String> = listOf("image/jpeg", "image/png", "image/gif", "image/webp"),
+    @ConfigDoc("Directory where gateway stores image attachments (must match gateway attachments.directory)")
+    val attachmentsDirectory: String = "",
 ) {
     init {
         require(maxTokens > 0) { "maxTokens must be > 0, got $maxTokens" }

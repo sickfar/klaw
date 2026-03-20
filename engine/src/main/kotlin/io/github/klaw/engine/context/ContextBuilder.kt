@@ -69,8 +69,15 @@ class ContextBuilder(
     private val subagentHistoryLoader: SubagentHistoryLoader,
     private val healthProviderLazy: Provider<EngineHealthProvider>,
     private val llmRouter: LlmRouter,
-    private val allowedImageDirs: List<Path> = listOf(Path.of(KlawPaths.workspace)),
+    allowedImageDirs: List<Path>? = null,
 ) {
+    private val allowedImageDirs: List<Path> =
+        allowedImageDirs ?: buildList {
+            add(Path.of(KlawPaths.workspace))
+            val attachDir = config.vision.attachmentsDirectory
+            if (attachDir.isNotBlank()) add(Path.of(attachDir))
+        }
+
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
         session: Session,
@@ -319,7 +326,9 @@ class ContextBuilder(
     private fun isPathWithinAllowedDirs(filePath: Path): Boolean {
         val normalized = filePath.normalize()
         return allowedImageDirs.any { base ->
-            normalized.startsWith(base) && (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, base))
+            normalized.startsWith(base) &&
+                (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, base)) &&
+                (!Files.exists(normalized) || isRealPathWithin(normalized, base))
         }
     }
 

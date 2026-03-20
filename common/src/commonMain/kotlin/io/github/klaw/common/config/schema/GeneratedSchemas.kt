@@ -614,6 +614,9 @@ object GeneratedSchemas {
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "attachmentsDirectory": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false
