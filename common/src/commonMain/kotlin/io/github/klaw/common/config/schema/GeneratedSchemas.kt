@@ -572,6 +572,24 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "documents": {
+                    "type": "object",
+                    "properties": {
+                        "maxPdfSizeBytes": {
+                            "type": "integer"
+                        },
+                        "maxPages": {
+                            "type": "integer"
+                        },
+                        "maxOutputChars": {
+                            "type": "integer"
+                        },
+                        "pdfFontSize": {
+                            "type": "number"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

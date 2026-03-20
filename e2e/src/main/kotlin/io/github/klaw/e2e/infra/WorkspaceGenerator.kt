@@ -1,5 +1,9 @@
 package io.github.klaw.e2e.infra
 
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
@@ -41,4 +45,34 @@ object WorkspaceGenerator {
         skillFile.writeText("---\nname: $name\ndescription: $description\n---\n$body")
         skillFile.setReadable(true, false)
     }
+
+    fun createPdfFile(
+        workspaceDir: File,
+        name: String,
+        pages: List<String>,
+    ) {
+        val pdfFile = File(workspaceDir, name)
+        PDDocument().use { doc ->
+            val font =
+                org.apache.pdfbox.pdmodel.font
+                    .PDType1Font(Standard14Fonts.FontName.HELVETICA)
+            for (pageText in pages) {
+                val page = PDPage()
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { cs ->
+                    cs.beginText()
+                    cs.setFont(font, FONT_SIZE)
+                    cs.newLineAtOffset(MARGIN_X, MARGIN_Y)
+                    cs.showText(pageText)
+                    cs.endText()
+                }
+            }
+            doc.save(pdfFile)
+        }
+        pdfFile.setReadable(true, false)
+    }
+
+    private const val FONT_SIZE = 12f
+    private const val MARGIN_X = 72f
+    private const val MARGIN_Y = 700f
 }

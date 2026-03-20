@@ -361,6 +361,19 @@ Internet search tool with configurable provider. Disabled by default — require
 
 See [web-fetch.md](../tools/web-fetch.md) and [web-search.md](../tools/web-search.md) for tool documentation.
 
+## documents
+
+Document tools for reading PDFs and converting Markdown to PDF. Available via the `documents` bundled skill.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `maxPdfSizeBytes` | long | `52428800` (50MB) | Maximum PDF file size for `pdf_read`. |
+| `maxPages` | int | `100` | Maximum number of pages to extract in `pdf_read` (0 = unlimited). |
+| `maxOutputChars` | int | `100000` | Maximum output text length in characters before truncation. |
+| `pdfFontSize` | float | `12` | Default font size for `md_to_pdf` output. |
+
+See [documents.md](../tools/documents.md) for tool documentation.
+
 ## Notes
 
 - `routing.fallback` lists model IDs tried in order if the primary model fails.

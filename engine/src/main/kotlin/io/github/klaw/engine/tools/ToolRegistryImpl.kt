@@ -42,6 +42,8 @@ class ToolRegistryImpl(
     private val subagentStatusTools: SubagentStatusTools,
     private val webFetchTool: WebFetchTool,
     private val webSearchTool: WebSearchTool,
+    private val pdfReadTool: PdfReadTool,
+    private val mdToPdfTool: MdToPdfTool,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -263,6 +265,14 @@ class ToolRegistryImpl(
 
             "web_search" -> {
                 webSearchTool.search(args.str("query"), args.intOrNull("max_results"))
+            }
+
+            "pdf_read" -> {
+                pdfReadTool.read(args.str("path"), args.intOrNull("start_page"), args.intOrNull("end_page"))
+            }
+
+            "md_to_pdf" -> {
+                mdToPdfTool.convert(args.str("input_path"), args.str("output_path"), args.strOrNull("title"))
             }
 
             "heartbeat_deliver" -> {

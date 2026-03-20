@@ -140,12 +140,12 @@ class FileSkillRegistryTest {
 
             // Only bundled skills should be present when dirs don't exist
             val skills = registry.listAll()
-            val bundledNames = setOf("memory-management", "scheduling", "configuration")
+            val bundledNames = setOf("memory-management", "scheduling", "configuration", "documents")
             assertTrue(
                 skills.all { it.name in bundledNames },
                 "Only bundled skills expected, got: $skills",
             )
-            assertEquals(3, skills.size, "Should have exactly 3 bundled skills")
+            assertEquals(4, skills.size, "Should have exactly 4 bundled skills")
         }
 
     @Test

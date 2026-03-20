@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.onnxruntime)
     implementation(libs.djl.tokenizers)
     implementation(libs.jsoup)
+    implementation(libs.pdfbox)
     implementation(libs.kotlin.logging)
 
     testImplementation(libs.mockk)

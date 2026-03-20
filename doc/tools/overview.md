@@ -79,6 +79,14 @@ See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 
 See [history-search.md](history-search.md).
 
+### Document Tools (via `documents` skill)
+| Tool | Description |
+|------|-------------|
+| `pdf_read` | Read a PDF file and extract text content with page markers |
+| `md_to_pdf` | Convert a Markdown file to PDF format |
+
+Document tools are available via the `documents` bundled skill. Load it with `skill_load("documents")` to see full tool definitions and usage guidelines. See [documents.md](documents.md).
+
 ### Configuration Tools (via `configuration` skill)
 | Tool | Description |
 |------|-------------|

@@ -51,6 +51,8 @@ class ToolRegistryImplTest {
     private val engineHealthTools = mockk<EngineHealthTools>()
     private val webFetchTool = mockk<WebFetchTool>()
     private val webSearchTool = mockk<WebSearchTool>()
+    private val pdfReadTool = mockk<PdfReadTool>()
+    private val mdToPdfTool = mockk<MdToPdfTool>()
     private val mcpToolRegistry = McpToolRegistry()
 
     @Suppress("LongMethod")
@@ -104,6 +106,8 @@ class ToolRegistryImplTest {
             mockk<SubagentStatusTools>(),
             webFetchTool,
             webSearchTool,
+            pdfReadTool,
+            mdToPdfTool,
             testEngineConfig(docsEnabled = true, hostExecEnabled = true),
             mcpToolRegistry,
         )
@@ -246,6 +250,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     testEngineConfig(docsEnabled = false, hostExecEnabled = true),
                     mcpToolRegistry,
                 )
@@ -332,6 +338,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     testEngineConfig(hostExecEnabled = false),
                     mcpToolRegistry,
                 )
@@ -377,6 +385,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     testEngineConfig(hostExecEnabled = true),
                     mcpToolRegistry,
                 )
@@ -507,6 +517,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
@@ -561,6 +573,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     testEngineConfig(docsEnabled = true, hostExecEnabled = true),
                     mcpReg,
                 )
@@ -636,6 +650,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     disabledConfig,
                     mcpToolRegistry,
                 )
@@ -670,6 +686,8 @@ class ToolRegistryImplTest {
                     mockk<SubagentStatusTools>(),
                     webFetchTool,
                     webSearchTool,
+                    pdfReadTool,
+                    mdToPdfTool,
                     disabledConfig,
                     mcpToolRegistry,
                 )

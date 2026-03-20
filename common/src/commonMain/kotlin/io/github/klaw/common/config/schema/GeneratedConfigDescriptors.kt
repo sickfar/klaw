@@ -899,6 +899,42 @@ object GeneratedConfigDescriptors {
                 false,
                 false,
             ),
+            ConfigPropertyDescriptor(
+                "documents.maxPdfSizeBytes",
+                ConfigValueType.LONG,
+                "Maximum PDF file size in bytes for pdf_read (default 50MB)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
+                "documents.maxPages",
+                ConfigValueType.INT,
+                "Maximum number of pages to extract in pdf_read (0 = unlimited)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
+                "documents.maxOutputChars",
+                ConfigValueType.INT,
+                "Maximum output text length in characters before truncation",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
+                "documents.pdfFontSize",
+                ConfigValueType.DOUBLE,
+                "Default font size for md_to_pdf output",
+                null,
+                null,
+                false,
+                false,
+            ),
         )
 
     val GATEWAY: List<ConfigPropertyDescriptor> =

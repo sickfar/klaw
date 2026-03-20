@@ -19,6 +19,10 @@ class FileTools(
     // First allowed path is the workspace — the only writable path
     private val workspace: Path get() = allowedPaths.first()
 
+    fun resolveReadPath(userPath: String): Result<Path> = safePath(userPath, writeAccess = false)
+
+    fun resolveWritePath(userPath: String): Result<Path> = safePath(userPath, writeAccess = true)
+
     private fun expandPlaceholders(path: String): String =
         placeholders.entries.fold(path) { p, (k, v) -> p.replace(k, v) }
 

@@ -49,6 +49,8 @@ data class EngineConfig(
     val webFetch: WebFetchConfig = WebFetchConfig(),
     @ConfigDoc("Web search tool settings for searching the internet")
     val webSearch: WebSearchConfig = WebSearchConfig(),
+    @ConfigDoc("Document tools settings (pdf_read, md_to_pdf) — available via 'documents' skill")
+    val documents: DocumentsConfig = DocumentsConfig(),
 )
 
 @Serializable
@@ -512,5 +514,31 @@ data class WebSearchConfig(
     companion object {
         private const val MAX_SEARCH_RESULTS = 20
         private val VALID_PROVIDERS = setOf("brave", "tavily")
+    }
+}
+
+@Serializable
+data class DocumentsConfig(
+    @ConfigDoc("Maximum PDF file size in bytes for pdf_read (default 50MB)")
+    val maxPdfSizeBytes: Long = DEFAULT_MAX_PDF_SIZE_BYTES,
+    @ConfigDoc("Maximum number of pages to extract in pdf_read (0 = unlimited)")
+    val maxPages: Int = DEFAULT_MAX_PAGES,
+    @ConfigDoc("Maximum output text length in characters before truncation")
+    val maxOutputChars: Int = DEFAULT_MAX_OUTPUT_CHARS,
+    @ConfigDoc("Default font size for md_to_pdf output")
+    val pdfFontSize: Float = DEFAULT_PDF_FONT_SIZE,
+) {
+    init {
+        require(maxPdfSizeBytes > 0) { "maxPdfSizeBytes must be > 0, got $maxPdfSizeBytes" }
+        require(maxPages >= 0) { "maxPages must be >= 0, got $maxPages" }
+        require(maxOutputChars > 0) { "maxOutputChars must be > 0, got $maxOutputChars" }
+        require(pdfFontSize > 0f) { "pdfFontSize must be > 0, got $pdfFontSize" }
+    }
+
+    companion object {
+        private const val DEFAULT_MAX_PDF_SIZE_BYTES = 52_428_800L
+        private const val DEFAULT_MAX_PAGES = 100
+        private const val DEFAULT_MAX_OUTPUT_CHARS = 100_000
+        private const val DEFAULT_PDF_FONT_SIZE = 12f
     }
 }
