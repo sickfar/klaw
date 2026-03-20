@@ -326,9 +326,9 @@ class ContextBuilder(
     private fun isPathWithinAllowedDirs(filePath: Path): Boolean {
         val normalized = filePath.normalize()
         return allowedImageDirs.any { base ->
-            normalized.startsWith(base) &&
-                (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, base)) &&
-                (!Files.exists(normalized) || isRealPathWithin(normalized, base))
+            val baseNorm = base.normalize()
+            normalized.startsWith(baseNorm) &&
+                (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, baseNorm))
         }
     }
 

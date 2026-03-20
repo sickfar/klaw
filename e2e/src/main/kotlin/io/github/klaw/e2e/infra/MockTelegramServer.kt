@@ -183,7 +183,9 @@ class MockTelegramServer(
                         .withHeader("Content-Type", "application/json")
                         .withBody(
                             """{"ok":true,"result":{"message_id":1,""" +
-                                """"chat":{"id":12345,"type":"private"},"text":"ok"}}""",
+                                """"from":{"id":123456,"is_bot":true,"first_name":"TestBot"},""" +
+                                """"chat":{"id":12345,"type":"private"},""" +
+                                """"date":1700000000,"text":"ok"}}""",
                         ),
                 ),
         )
