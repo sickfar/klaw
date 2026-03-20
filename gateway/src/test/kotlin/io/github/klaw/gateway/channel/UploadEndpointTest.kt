@@ -1,5 +1,7 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.GatewayConfig
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -21,7 +23,7 @@ import org.junit.jupiter.api.Test
 class UploadEndpointTest {
     private val json = Json { ignoreUnknownKeys = true }
     private val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-    private val uploadStore = UploadStore()
+    private val uploadStore = UploadStore(GatewayConfig(channels = ChannelsConfig()))
 
     @Test
     fun `upload PNG returns ID`() =

@@ -64,6 +64,7 @@ class InlineVisionE2eTest {
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
                         visionEnabled = true,
                         visionModel = "test/vision-model",
+                        visionAttachmentsDirectory = "/workspace/.attachments",
                         defaultModelId = "test/model",
                     ),
                 gatewayJson =
@@ -102,10 +103,11 @@ class InlineVisionE2eTest {
             ),
         )
 
-        // Send message with attachment
+        // Send message with attachment (upload file, then send ID via ChatFrame)
+        val imageFile = File(workspaceDir, ".attachments/local_ws_default/photo.png")
         client.sendMessageWithAttachments(
             "What do you see in this photo?",
-            listOf(".attachments/local_ws_default/photo.png"),
+            listOf(imageFile),
         )
         val response = client.waitForAssistantResponse(RESPONSE_TIMEOUT_MS)
 
@@ -147,6 +149,7 @@ class InlineVisionE2eTest {
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
                         visionEnabled = true,
                         visionModel = "test/vision-model",
+                        visionAttachmentsDirectory = "/workspace/.attachments",
                         defaultModelId = "test/model",
                     ),
                 gatewayJson =
@@ -166,9 +169,10 @@ class InlineVisionE2eTest {
                 // Stub a chat response (no separate vision stub — image should go directly)
                 directWireMock.stubChatResponse("VISION-DIRECT-OK: I can see the image directly")
 
+                val directImageFile = File(directWorkspace, ".attachments/local_ws_default/photo.png")
                 directClient.sendMessageWithAttachments(
                     "Describe what you see",
-                    listOf(".attachments/local_ws_default/photo.png"),
+                    listOf(directImageFile),
                 )
                 val response = directClient.waitForAssistantResponse(RESPONSE_TIMEOUT_MS)
 

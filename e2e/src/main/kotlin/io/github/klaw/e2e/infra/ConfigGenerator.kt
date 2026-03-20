@@ -63,6 +63,7 @@ object ConfigGenerator {
         visionEnabled: Boolean = false,
         visionModel: String = "",
         visionMaxTokens: Int = DEFAULT_VISION_MAX_TOKENS,
+        visionAttachmentsDirectory: String = "",
         defaultModelId: String = "test/model",
     ): String {
         val root =
@@ -106,7 +107,7 @@ object ConfigGenerator {
                     webSearchApiKey,
                     webSearchEndpoint,
                 )
-                buildVision(visionEnabled, visionModel, visionMaxTokens)
+                buildVision(visionEnabled, visionModel, visionMaxTokens, visionAttachmentsDirectory)
             }
         return root.toString()
     }
@@ -367,6 +368,7 @@ object ConfigGenerator {
         enabled: Boolean,
         model: String,
         maxTokens: Int,
+        attachmentsDirectory: String,
     ) {
         if (enabled) {
             putJsonObject("vision") {
@@ -380,6 +382,9 @@ object ConfigGenerator {
                     add(JsonPrimitive("image/png"))
                     add(JsonPrimitive("image/gif"))
                     add(JsonPrimitive("image/webp"))
+                }
+                if (attachmentsDirectory.isNotBlank()) {
+                    put("attachmentsDirectory", attachmentsDirectory)
                 }
             }
         }

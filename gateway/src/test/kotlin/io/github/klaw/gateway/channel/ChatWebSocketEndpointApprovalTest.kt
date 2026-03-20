@@ -1,5 +1,7 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.GatewayConfig
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.server.routing.routing
@@ -14,7 +16,7 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response frame dispatches to localWsChannel resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore())
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -36,7 +38,7 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response with approved=false dispatches correctly`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore())
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -58,7 +60,7 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response missing approvalId does not call resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore())
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -80,7 +82,7 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response missing approved does not call resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore())
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)

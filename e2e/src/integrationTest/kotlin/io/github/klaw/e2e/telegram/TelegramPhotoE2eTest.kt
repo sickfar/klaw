@@ -16,6 +16,7 @@ import java.time.Duration
 private const val AWAIT_TIMEOUT_SECONDS = 60L
 private const val CONTEXT_BUDGET_TOKENS = 5000
 private const val TEST_CHAT_ID = 12345L
+private const val TEST_SENDER_ID = "999"
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TelegramPhotoE2eTest {
@@ -39,6 +40,7 @@ class TelegramPhotoE2eTest {
                 contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
                 visionEnabled = true,
                 visionModel = "test/vision-model",
+                visionAttachmentsDirectory = "/workspace/.attachments",
             )
         val gatewayJson =
             ConfigGenerator.gatewayJson(
@@ -47,9 +49,9 @@ class TelegramPhotoE2eTest {
                 telegramApiBaseUrl = mockTelegram.baseUrl,
                 telegramAllowedChats =
                     listOf(
-                        Pair(TEST_CHAT_ID.toString(), emptyList()),
+                        Pair("telegram_$TEST_CHAT_ID", listOf(TEST_SENDER_ID)),
                     ),
-                attachmentsDirectory = "/home/klaw/.local/share/klaw/attachments",
+                attachmentsDirectory = "/workspace/.attachments",
             )
 
         containers =
