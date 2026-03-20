@@ -69,7 +69,7 @@ object ConfigGenerator {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
-                buildModels(contextBudgetTokens, visionModel)
+                buildModels(contextBudgetTokens, visionModel, defaultModelId)
                 buildRouting(defaultModelId)
                 buildMemory(memoryInjectSummary, mmrEnabled, mmrLambda, temporalDecayEnabled, temporalDecayHalfLifeDays)
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
@@ -220,12 +220,18 @@ object ConfigGenerator {
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(
         contextBudgetTokens: Int,
         visionModel: String,
+        defaultModelId: String = "test/model",
     ) {
         putJsonObject("models") {
             putJsonObject("test/model") {
                 put("contextBudget", contextBudgetTokens)
             }
-            if (visionModel.isNotEmpty()) {
+            if (defaultModelId != "test/model") {
+                putJsonObject(defaultModelId) {
+                    put("contextBudget", contextBudgetTokens)
+                }
+            }
+            if (visionModel.isNotEmpty() && visionModel != defaultModelId) {
                 putJsonObject(visionModel) {
                     put("contextBudget", contextBudgetTokens)
                 }

@@ -150,7 +150,7 @@ class InlineVisionE2eTest {
                         visionEnabled = true,
                         visionModel = "test/vision-model",
                         visionAttachmentsDirectory = "/workspace/.attachments",
-                        defaultModelId = "test/model",
+                        defaultModelId = "test/gpt-4o",
                     ),
                 gatewayJson =
                     ConfigGenerator.gatewayJson(
