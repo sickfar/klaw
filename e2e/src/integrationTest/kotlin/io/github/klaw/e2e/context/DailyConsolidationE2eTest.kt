@@ -182,7 +182,7 @@ class DailyConsolidationE2eTest {
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val MAX_TOOL_CALL_ROUNDS = 3
-        private const val CONSOLIDATION_CRON = "*/5 * * * * ?"
+        private const val CONSOLIDATION_CRON = "*/5 * * * * *"
         private const val CONSOLIDATION_MIN_MESSAGES = 1
         private const val CONSOLIDATION_CATEGORY = "daily-summary"
         private const val SOURCE_PREFIX = "daily-consolidation:"

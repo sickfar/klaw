@@ -9,6 +9,8 @@ import io.github.klaw.engine.util.blobToFloatArray
 import io.github.klaw.engine.util.floatArrayToBlob
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
@@ -22,6 +24,7 @@ class MemoryServiceImpl(
     private val sqliteVecLoader: SqliteVecLoader,
     private val searchConfig: SearchConfig = SearchConfig(topK = 10),
 ) : MemoryService {
+    private val writeMutex = Mutex()
     private var onSaveCallback: (suspend () -> Unit)? = null
 
     fun setOnSaveCallback(callback: suspend () -> Unit) {
@@ -35,9 +38,7 @@ class MemoryServiceImpl(
     ): String {
         if (content.isBlank()) return "No content to save."
 
-        val now = Clock.System.now().toString()
-        val categoryId = getOrCreateCategory(category, now)
-
+        // Compute embedding outside the lock (CPU-intensive, no DB access)
         val embedding =
             if (sqliteVecLoader.isAvailable()) {
                 embeddingService.embed(content)
@@ -45,29 +46,33 @@ class MemoryServiceImpl(
                 null
             }
 
-        withContext(Dispatchers.VT) {
-            database.memoryFactsQueries.transaction {
-                database.memoryFactsQueries.insert(
-                    category_id = categoryId,
-                    source = source,
-                    content = content,
-                    created_at = now,
-                    updated_at = now,
-                )
+        writeMutex.withLock {
+            val now = Clock.System.now().toString()
+            withContext(Dispatchers.VT) {
+                val categoryId = getOrCreateCategorySync(category, now)
+                database.memoryFactsQueries.transaction {
+                    database.memoryFactsQueries.insert(
+                        category_id = categoryId,
+                        source = source,
+                        content = content,
+                        created_at = now,
+                        updated_at = now,
+                    )
 
-                if (embedding != null) {
-                    val rowId = database.memoryFactsQueries.lastInsertRowId().executeAsOne()
-                    val blob = floatArrayToBlob(embedding)
-                    driver.execute(
-                        null,
-                        "INSERT INTO vec_memory(rowid, embedding) VALUES (?, ?)",
-                        2,
-                    ) {
-                        bindLong(0, rowId)
-                        bindBytes(1, blob)
+                    if (embedding != null) {
+                        val rowId = database.memoryFactsQueries.lastInsertRowId().executeAsOne()
+                        val blob = floatArrayToBlob(embedding)
+                        driver.execute(
+                            null,
+                            "INSERT INTO vec_memory(rowid, embedding) VALUES (?, ?)",
+                            2,
+                        ) {
+                            bindLong(0, rowId)
+                            bindBytes(1, blob)
+                        }
                     }
+                    database.memoryCategoriesQueries.incrementAccessCount(categoryId)
                 }
-                database.memoryCategoriesQueries.incrementAccessCount(categoryId)
             }
         }
         logger.debug { "Fact saved: category=$category source=$source" }
@@ -219,17 +224,23 @@ class MemoryServiceImpl(
         now: String,
     ): Long =
         withContext(Dispatchers.VT) {
-            database.memoryCategoriesQueries.transactionWithResult {
-                val existing = database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull()
-                if (existing != null) return@transactionWithResult existing.id
+            getOrCreateCategorySync(name, now)
+        }
 
-                database.memoryCategoriesQueries.insert(name, now)
-                // Re-select after INSERT OR IGNORE to handle concurrent creation
-                database.memoryCategoriesQueries
-                    .getByName(name)
-                    .executeAsOne()
-                    .id
-            }
+    private fun getOrCreateCategorySync(
+        name: String,
+        now: String,
+    ): Long =
+        database.memoryCategoriesQueries.transactionWithResult {
+            val existing = database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull()
+            if (existing != null) return@transactionWithResult existing.id
+
+            database.memoryCategoriesQueries.insert(name, now)
+            // Re-select after INSERT OR IGNORE to handle concurrent creation
+            database.memoryCategoriesQueries
+                .getByName(name)
+                .executeAsOne()
+                .id
         }
 
     private suspend fun trackAccessForResults(results: List<MemorySearchResult>) {

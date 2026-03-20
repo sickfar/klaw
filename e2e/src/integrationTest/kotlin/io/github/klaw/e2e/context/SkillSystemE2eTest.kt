@@ -33,8 +33,8 @@ import java.io.File
  * - Env var skill: env-vars-skill (contains $KLAW_WORKSPACE and $KLAW_SKILL_DIR placeholders)
  *
  * Total: 5 unique user skills (ws-alpha, ws-beta, data-only, override-test=workspace wins, env-vars-skill)
- * + 1 bundled skill (memory-management) = 6 skills total.
- * maxInlineSkills set to 6, so all should be inlined.
+ * + 4 bundled skills (configuration, documents, memory-management, scheduling) = 9 skills total.
+ * maxInlineSkills set to 10, so all should be inlined.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -403,7 +403,7 @@ class SkillSystemE2eTest {
     companion object {
         private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val MAX_TOOL_CALL_ROUNDS = 3
-        private const val MAX_INLINE_SKILLS = 6 // 5 workspace/data + 1 bundled (memory-management)
+        private const val MAX_INLINE_SKILLS = 10 // 5 workspace/data + 4 bundled + 1 buffer
         private const val STUB_PROMPT_TOKENS = 50
         private const val STUB_COMPLETION_TOKENS = 30
         private const val RESPONSE_TIMEOUT_MS = 30_000L
