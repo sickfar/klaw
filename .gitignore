@@ -65,3 +65,4 @@ engine/src/main/resources/native/
 
 # Claude Code worktrees
 .claude/worktrees/
+.worktrees/
