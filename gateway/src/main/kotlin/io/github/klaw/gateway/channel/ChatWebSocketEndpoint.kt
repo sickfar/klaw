@@ -40,7 +40,7 @@ class ChatWebSocketEndpoint(
         when (chatFrame.type) {
             "user" -> {
                 logger.trace { "Local WS frame received: ${chatFrame.content.length} chars" }
-                localWsChannel.handleIncoming(chatFrame.content, this)
+                localWsChannel.handleIncoming(chatFrame.content, this, chatFrame.attachments.orEmpty())
             }
 
             "approval_response" -> {

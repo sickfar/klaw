@@ -266,38 +266,46 @@ internal class ToolCallLoopRunner(
      * (from file_read on an image file for a vision-capable model), constructs a multimodal
      * message with both text and image content parts. Otherwise, wraps in safe XML delimiters.
      */
-    @Suppress("TooGenericExceptionCaught")
     private fun buildToolResultMessage(result: ToolResult): LlmMessage {
         val content = result.content
         if (content.startsWith(INLINE_IMAGE_PREFIX)) {
-            val parts = content.removePrefix(INLINE_IMAGE_PREFIX).split(INLINE_IMAGE_SEPARATOR)
-            if (parts.size == 2) {
-                val filePath = parts[0]
-                val mimeType = parts[1]
-                try {
-                    val path = Path.of(filePath)
-                    if (Files.exists(path)) {
-                        val bytes = Files.readAllBytes(path)
-                        val base64 = Base64.getEncoder().encodeToString(bytes)
-                        val dataUrl = "data:$mimeType;base64,$base64"
-                        logger.trace { "Inline image: mimeType=$mimeType size=${bytes.size}" }
-                        return LlmMessage(
-                            role = "tool",
-                            contentParts = listOf(
-                                TextContentPart("Image file: ${path.fileName} ($mimeType)"),
-                                ImageUrlContentPart(ImageUrlData(dataUrl)),
-                            ),
-                            toolCallId = result.callId,
-                        )
-                    }
-                } catch (e: Exception) {
-                    logger.warn(e) { "Failed to read inline image" }
-                }
-            }
+            val inlineMessage = tryBuildInlineImageMessage(content, result.callId)
+            if (inlineMessage != null) return inlineMessage
         }
         // Default: text-only tool result with safe XML wrapping
         val safeContent = buildSafeToolContent(result.callId, content, maxToolOutputChars)
         return LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId)
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun tryBuildInlineImageMessage(
+        content: String,
+        callId: String,
+    ): LlmMessage? {
+        val parts = content.removePrefix(INLINE_IMAGE_PREFIX).split(INLINE_IMAGE_SEPARATOR)
+        if (parts.size != 2) return null
+        val filePath = parts[0]
+        val mimeType = parts[1]
+        return try {
+            val path = Path.of(filePath)
+            if (!Files.exists(path)) return null
+            val bytes = Files.readAllBytes(path)
+            val base64 = Base64.getEncoder().encodeToString(bytes)
+            val dataUrl = "data:$mimeType;base64,$base64"
+            logger.trace { "Inline image: mimeType=$mimeType size=${bytes.size}" }
+            LlmMessage(
+                role = "tool",
+                contentParts =
+                    listOf(
+                        TextContentPart("Image file: ${path.fileName} ($mimeType)"),
+                        ImageUrlContentPart(ImageUrlData(dataUrl)),
+                    ),
+                toolCallId = callId,
+            )
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to read inline image" }
+            null
+        }
     }
 
     /** Wraps tool output in XML delimiters and truncates to [limit] chars for prompt injection mitigation. */

@@ -5,10 +5,13 @@ import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.bot.exceptions.CommonBotException
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
+import dev.inmo.tgbotapi.extensions.api.files.downloadFile
+import dev.inmo.tgbotapi.extensions.api.get.getFileAdditionalInfo
 import dev.inmo.tgbotapi.extensions.api.send.sendActionTyping
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
+import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onPhoto
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onText
 import dev.inmo.tgbotapi.types.BotCommand
 import dev.inmo.tgbotapi.types.ChatId
@@ -29,7 +32,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
@@ -175,6 +180,9 @@ class TelegramChannel(
                         logger.error(e) { "Error processing Telegram message" }
                     }
                 }
+                onPhoto { message ->
+                    handlePhotoMessage(message, onMessage)
+                }
                 onDataCallbackQuery { query ->
                     val data = query.data
                     if (data.startsWith("approval:")) {
@@ -266,6 +274,98 @@ class TelegramChannel(
         }.onFailure { e ->
             pendingApprovals.remove(request.id)
             logger.error(e) { "Failed to send approval request to chatId=$chatId" }
+        }
+    }
+
+    private suspend fun handlePhotoMessage(
+        message: dev.inmo.tgbotapi.types.message.abstracts.CommonMessage<
+            dev.inmo.tgbotapi.types.message.content.PhotoContent,
+        >,
+        onMessage: suspend (IncomingMessage) -> Unit,
+    ) {
+        val chatId = message.chat.id.chatId.long
+        val caption = message.content.text.orEmpty()
+        val fromUser = (message as? dev.inmo.tgbotapi.abstracts.FromUser)?.from
+        val fromUserId = fromUser?.id?.chatId?.long
+        val senderName =
+            fromUser?.let { user ->
+                buildString {
+                    append(user.firstName)
+                    if (user.lastName.isNotEmpty()) append(" ${user.lastName}")
+                }
+            }
+        val chat = message.chat
+        val chatTypeStr =
+            when (chat) {
+                is dev.inmo.tgbotapi.types.chat.PrivateChat -> "private"
+                is dev.inmo.tgbotapi.types.chat.SupergroupChat -> "supergroup"
+                is dev.inmo.tgbotapi.types.chat.GroupChat -> "group"
+                is dev.inmo.tgbotapi.types.chat.ChannelChat -> "channel"
+                else -> "unknown"
+            }
+        val chatTitleStr = (chat as? dev.inmo.tgbotapi.types.chat.PublicChat)?.title
+        val platformMsgId = message.messageId.long.toString()
+
+        val attachments = downloadAndSavePhoto(message, chatId)
+
+        val incoming =
+            TelegramNormalizer.normalize(
+                chatId = chatId,
+                text = caption,
+                userId = fromUserId,
+                senderName = senderName,
+                chatType = chatTypeStr,
+                chatTitle = chatTitleStr,
+                platformMessageId = platformMsgId,
+                attachments = attachments,
+            )
+        startTyping(incoming.chatId, chatId)
+        logger.trace { "Telegram photo received: chatId=$chatId attachments=${attachments.size}" }
+        runCatching {
+            jsonlWriter.writeInbound(incoming)
+            onMessage(incoming)
+        }.onFailure { e ->
+            logger.error(e) { "Error processing Telegram photo message" }
+        }
+    }
+
+    private suspend fun downloadAndSavePhoto(
+        message: dev.inmo.tgbotapi.types.message.abstracts.CommonMessage<
+            dev.inmo.tgbotapi.types.message.content.PhotoContent,
+        >,
+        chatId: Long,
+    ): List<AttachmentInfo> {
+        val attachmentsDir = config.attachments.directory
+        if (attachmentsDir.isBlank()) {
+            logger.debug { "Attachments directory not configured, skipping photo download" }
+            return emptyList()
+        }
+        val b = bot ?: return emptyList()
+        return try {
+            val photoSizes = message.content.mediaCollection
+            val largest = photoSizes.maxByOrNull { it.width.toLong() * it.height } ?: return emptyList()
+            val fileInfo = b.getFileAdditionalInfo(largest)
+            val fileBytes = b.downloadFile(fileInfo)
+            val chatDir = File(attachmentsDir, "telegram_$chatId")
+            chatDir.mkdirs()
+            val filePath = fileInfo.filePath
+            val ext = filePath.substringAfterLast('.', "jpg")
+            val fileName = "${UUID.randomUUID()}.$ext"
+            val savedFile = File(chatDir, fileName)
+            savedFile.writeBytes(fileBytes)
+            logger.debug { "Telegram photo saved: ${savedFile.absolutePath.length} path chars" }
+            listOf(
+                AttachmentInfo(
+                    path = savedFile.absolutePath,
+                    mimeType = detectMimeType(savedFile.name),
+                    originalName = filePath.substringAfterLast('/'),
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            logger.warn(e) { "Failed to download Telegram photo for chatId=$chatId" }
+            emptyList()
         }
     }
 

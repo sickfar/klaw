@@ -1,19 +1,37 @@
 package io.github.klaw.engine.context
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.VisionConfig
+import io.github.klaw.common.llm.ImageUrlContentPart
+import io.github.klaw.common.llm.ImageUrlData
 import io.github.klaw.common.llm.LlmMessage
+import io.github.klaw.common.llm.LlmRequest
+import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
+import io.github.klaw.engine.message.AttachmentMetadata
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.EngineHealthProvider
+import io.github.klaw.engine.tools.ImageAnalyzeTool
+import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Base64
+import kotlin.coroutines.cancellation.CancellationException
 
 data class SenderContext(
     val senderId: String?,
@@ -32,6 +50,10 @@ data class ContextResult(
     val budget: Int = 0,
 )
 
+private val logger = KotlinLogging.logger {}
+
+private val metadataJson = Json { ignoreUnknownKeys = true }
+
 @Singleton
 @Suppress("LongParameterList")
 class ContextBuilder(
@@ -44,6 +66,7 @@ class ContextBuilder(
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
     private val healthProviderLazy: Provider<EngineHealthProvider>,
+    private val llmRouter: LlmRouter,
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
@@ -176,8 +199,18 @@ class ContextBuilder(
             messages.add(LlmMessage(role = "system", content = autoRagContent))
         }
 
-        dbMessages.forEach { msg ->
-            if (msg.role != "session_break") {
+        val visionCapable = ModelRegistry.supportsImage(session.model)
+        for (msg in dbMessages) {
+            if (msg.role == "session_break") continue
+            if (msg.type == "multimodal" && msg.metadata != null) {
+                val llmMsg =
+                    buildMultimodalLlmMessage(
+                        msg,
+                        visionCapable,
+                        config.vision,
+                    )
+                messages.add(llmMsg)
+            } else {
                 messages.add(LlmMessage(role = msg.role, content = msg.content))
             }
         }
@@ -194,6 +227,166 @@ class ContextBuilder(
             budget = budgetTokens,
         )
     }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun buildMultimodalLlmMessage(
+        msg: MessageRepository.MessageRow,
+        visionCapable: Boolean,
+        visionConfig: VisionConfig,
+    ): LlmMessage {
+        val attachmentMeta =
+            parseAttachmentMetadata(msg.metadata!!) ?: return LlmMessage(
+                role = msg.role,
+                content = msg.content,
+            )
+
+        val limit = visionConfig.maxImagesPerMessage
+        val limitedAttachments = attachmentMeta.attachments.take(limit)
+
+        if (visionCapable) {
+            return buildInlineImageMessage(msg.content, msg.role, limitedAttachments)
+        }
+
+        if (visionConfig.model.isNotBlank()) {
+            val description = getOrAutoDescribe(msg, attachmentMeta, limitedAttachments, visionConfig)
+            val enrichedContent =
+                if (description.isNotBlank()) {
+                    "[Image descriptions: $description]\n\n${msg.content}"
+                } else {
+                    msg.content
+                }
+            return LlmMessage(role = msg.role, content = enrichedContent)
+        }
+
+        logger.warn { "Multimodal message skipped: attachmentCount=${limitedAttachments.size}, no vision model" }
+        return LlmMessage(role = msg.role, content = msg.content)
+    }
+
+    private suspend fun buildInlineImageMessage(
+        content: String,
+        role: String,
+        attachments: List<io.github.klaw.engine.message.AttachmentRef>,
+    ): LlmMessage {
+        val parts = mutableListOf<io.github.klaw.common.llm.ContentPart>()
+        parts.add(TextContentPart(content))
+
+        for (att in attachments) {
+            val dataUrl = readImageAsDataUrl(att.path, att.mimeType)
+            if (dataUrl != null) {
+                parts.add(ImageUrlContentPart(ImageUrlData(dataUrl)))
+            }
+        }
+
+        return if (parts.size > 1) {
+            LlmMessage(role = role, contentParts = parts)
+        } else {
+            LlmMessage(role = role, content = content)
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun readImageAsDataUrl(
+        path: String,
+        mimeType: String,
+    ): String? =
+        try {
+            withContext(Dispatchers.VT) {
+                val filePath = Path.of(path)
+                if (!Files.exists(filePath)) {
+                    logger.debug { "Image file not found: pathLength=${path.length}" }
+                    null
+                } else {
+                    val bytes = Files.readAllBytes(filePath)
+                    val base64 = Base64.getEncoder().encodeToString(bytes)
+                    "data:$mimeType;base64,$base64"
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn { "Failed to read image: ${e::class.simpleName}" }
+            null
+        }
+
+    private suspend fun getOrAutoDescribe(
+        msg: MessageRepository.MessageRow,
+        attachmentMeta: AttachmentMetadata,
+        limitedAttachments: List<io.github.klaw.engine.message.AttachmentRef>,
+        visionConfig: VisionConfig,
+    ): String {
+        // Check for cached descriptions
+        val cachedDescriptions = attachmentMeta.descriptions
+        val uncachedAttachments = limitedAttachments.filter { it.path !in cachedDescriptions }
+
+        if (uncachedAttachments.isEmpty()) {
+            return cachedDescriptions.values.joinToString("\n\n")
+        }
+
+        val newDescriptions = autoDescribe(uncachedAttachments, visionConfig)
+
+        // Merge and cache
+        val allDescriptions = cachedDescriptions + newDescriptions
+        if (newDescriptions.isNotEmpty()) {
+            val updatedMeta = attachmentMeta.copy(descriptions = allDescriptions)
+            messageRepository.updateMetadata(msg.id, metadataJson.encodeToString(updatedMeta))
+        }
+
+        return allDescriptions.values.joinToString("\n\n")
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun autoDescribe(
+        attachments: List<io.github.klaw.engine.message.AttachmentRef>,
+        visionConfig: VisionConfig,
+    ): Map<String, String> {
+        val results = mutableMapOf<String, String>()
+
+        for (att in attachments) {
+            val dataUrl = readImageAsDataUrl(att.path, att.mimeType) ?: continue
+
+            try {
+                val request =
+                    LlmRequest(
+                        messages =
+                            listOf(
+                                LlmMessage(role = "system", content = ImageAnalyzeTool.VISION_SYSTEM_PROMPT),
+                                LlmMessage(
+                                    role = "user",
+                                    contentParts =
+                                        listOf(
+                                            TextContentPart(ImageAnalyzeTool.DEFAULT_PROMPT),
+                                            ImageUrlContentPart(ImageUrlData(dataUrl)),
+                                        ),
+                                ),
+                            ),
+                        maxTokens = visionConfig.maxTokens,
+                    )
+
+                val response = llmRouter.chat(request, visionConfig.model)
+                val description = response.content
+                if (!description.isNullOrBlank()) {
+                    results[att.path] = description
+                }
+                logger.debug { "Auto-describe completed: mimeType=${att.mimeType}" }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn { "Auto-describe failed: ${e::class.simpleName}" }
+            }
+        }
+
+        return results
+    }
+
+    private fun parseAttachmentMetadata(metadata: String): AttachmentMetadata? =
+        try {
+            metadataJson.decodeFromString<AttachmentMetadata>(metadata)
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            logger.warn { "Failed to parse attachment metadata: ${e::class.simpleName}" }
+            null
+        }
 
     private fun buildSubagentContext(
         systemContent: String,

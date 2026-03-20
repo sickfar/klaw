@@ -47,8 +47,22 @@ class FileToolsImageTest {
     private fun createPng(name: String): Path {
         val pngBytes =
             byteArrayOf(
-                0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-                0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+                0x89.toByte(),
+                0x50,
+                0x4E,
+                0x47,
+                0x0D,
+                0x0A,
+                0x1A,
+                0x0A,
+                0x00,
+                0x00,
+                0x00,
+                0x01,
+                0x00,
+                0x00,
+                0x00,
+                0x01,
             )
         val path = workspace.resolve(name)
         path.parent?.let { Files.createDirectories(it) }

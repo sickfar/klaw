@@ -36,9 +36,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
@@ -134,6 +137,13 @@ class DiscordChannel(
         listenAction = { onMessage ->
             kord.on<MessageCreateEvent> {
                 val message = this.message
+                val imageAtts =
+                    downloadDiscordAttachments(
+                        message.channelId.toString(),
+                        message.attachments
+                            .filter { it.contentType?.startsWith("image/") == true }
+                            .map { DiscordAttachmentRef(it.url, it.contentType ?: "image/png", it.filename) },
+                    )
                 handleIncomingMessage(
                     channelId = message.channelId.toString(),
                     guildId = message.getGuildOrNull()?.id?.toString(),
@@ -145,6 +155,7 @@ class DiscordChannel(
                             .asChannel()
                             .data.name.value,
                     platformMessageId = message.id.toString(),
+                    imageAttachments = imageAtts,
                     onMessage = onMessage,
                 )
             }
@@ -256,6 +267,9 @@ class DiscordChannel(
     ) {
         val parsed = parseDispatchFields(d) ?: return
 
+        val attachmentRefs = parseDiscordAttachments(d)
+        val imageAtts = downloadDiscordAttachments(parsed.channelId, attachmentRefs)
+
         handleIncomingMessage(
             channelId = parsed.channelId,
             guildId = parsed.guildId,
@@ -265,6 +279,7 @@ class DiscordChannel(
             chatTitle = null,
             platformMessageId = parsed.messageId,
             threadType = parsed.threadType,
+            imageAttachments = imageAtts,
             onMessage = onMessage,
         )
     }
@@ -300,6 +315,63 @@ class DiscordChannel(
         val threadType: Int? = null,
     )
 
+    internal data class DiscordAttachmentRef(
+        val url: String,
+        val contentType: String,
+        val filename: String,
+    )
+
+    internal var downloadAction: (suspend (url: String) -> ByteArray)? = null
+
+    private fun parseDiscordAttachments(d: kotlinx.serialization.json.JsonObject): List<DiscordAttachmentRef> {
+        val attachmentsArray = d["attachments"]?.jsonArray ?: return emptyList()
+        return attachmentsArray.mapNotNull { elem ->
+            val obj = elem.jsonObject
+            val ct = obj["content_type"]?.jsonPrimitive?.content ?: return@mapNotNull null
+            if (!ct.startsWith("image/")) return@mapNotNull null
+            val url = obj["url"]?.jsonPrimitive?.content ?: return@mapNotNull null
+            val filename = obj["filename"]?.jsonPrimitive?.content ?: "unknown"
+            DiscordAttachmentRef(url = url, contentType = ct, filename = filename)
+        }
+    }
+
+    private suspend fun downloadDiscordAttachments(
+        channelId: String,
+        refs: List<DiscordAttachmentRef>,
+    ): List<AttachmentInfo> {
+        val attachmentsDir = config.attachments.directory
+        if (attachmentsDir.isBlank() || refs.isEmpty()) return emptyList()
+        val chatDir = File(attachmentsDir, "discord_$channelId")
+        chatDir.mkdirs()
+        return refs.mapNotNull { ref ->
+            try {
+                val bytes = downloadAttachmentBytes(ref.url)
+                val ext = ref.filename.substringAfterLast('.', "png")
+                val fileName = "${UUID.randomUUID()}.$ext"
+                val savedFile = File(chatDir, fileName)
+                savedFile.writeBytes(bytes)
+                logger.debug { "Discord attachment saved: mimeType=${ref.contentType}" }
+                AttachmentInfo(
+                    path = savedFile.absolutePath,
+                    mimeType = ref.contentType,
+                    originalName = ref.filename,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                logger.warn(e) { "Failed to download Discord attachment for channelId=$channelId" }
+                null
+            }
+        }
+    }
+
+    private suspend fun downloadAttachmentBytes(url: String): ByteArray {
+        val action = downloadAction
+        if (action != null) return action(url)
+        val client = customHttpClient ?: buildCustomHttpClient().also { customHttpClient = it }
+        return client.get(url).body()
+    }
+
     companion object {
         private const val TYPING_REFRESH_INTERVAL_MS = 8_000L
         private const val THREAD_TYPE_FORUM = 15
@@ -331,6 +403,7 @@ class DiscordChannel(
         chatTitle: String? = null,
         platformMessageId: String? = null,
         threadType: Int? = null,
+        imageAttachments: List<AttachmentInfo> = emptyList(),
         onMessage: suspend (IncomingMessage) -> Unit,
     ) {
         logger.trace {
@@ -366,6 +439,7 @@ class DiscordChannel(
                 chatTitle = chatTitle,
                 platformMessageId = platformMessageId,
                 guildId = guildId,
+                attachments = imageAttachments,
             )
 
         logger.trace { "discord message normalized chatId=${incoming.chatId} chatType=$chatType" }
@@ -374,7 +448,7 @@ class DiscordChannel(
 
         jsonlWriter.writeInbound(incoming)
 
-        logger.debug { "discord message forwarded chatId=${incoming.chatId}" }
+        logger.debug { "discord message forwarded chatId=${incoming.chatId} attachments=${imageAttachments.size}" }
         onMessage(incoming)
     }
 

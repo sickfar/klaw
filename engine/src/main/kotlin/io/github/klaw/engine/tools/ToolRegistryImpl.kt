@@ -346,8 +346,9 @@ class ToolRegistryImpl(
         val modelIdWithoutProvider = modelId.substringAfter('/')
 
         return if (ModelRegistry.supportsImage(modelIdWithoutProvider)) {
-            val resolvedPath = imageAnalyzeTool.resolveAndValidate(path)
-                ?: return imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+            val resolvedPath =
+                imageAnalyzeTool.resolveAndValidate(path)
+                    ?: return imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
             "$INLINE_IMAGE_PREFIX${resolvedPath.first}$INLINE_IMAGE_SEPARATOR${resolvedPath.second}"
         } else {
             imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)

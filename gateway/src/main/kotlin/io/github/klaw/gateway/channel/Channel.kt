@@ -31,6 +31,12 @@ interface Channel {
     suspend fun stop()
 }
 
+data class AttachmentInfo(
+    val path: String,
+    val mimeType: String,
+    val originalName: String? = null,
+)
+
 data class IncomingMessage(
     val id: String,
     val channel: String,
@@ -46,6 +52,7 @@ data class IncomingMessage(
     val chatTitle: String? = null,
     val messageId: String? = null,
     val guildId: String? = null,
+    val attachments: List<AttachmentInfo> = emptyList(),
 )
 
 data class OutgoingMessage(

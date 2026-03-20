@@ -204,6 +204,7 @@ class MessageProcessorEmbeddingTest {
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,
                 healthProviderLazy = { healthProvider },
+                llmRouter = io.mockk.mockk(relaxed = true),
             )
 
         val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)

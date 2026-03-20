@@ -178,6 +178,21 @@ class MessageProcessorIntegrationTest {
                 config = config,
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,
+                healthProviderLazy = {
+                    io.mockk.mockk<io.github.klaw.engine.tools.EngineHealthProvider> {
+                        io.mockk.coEvery { getContextStatus() } returns
+                            io.github.klaw.engine.tools.ContextStatus(
+                                gatewayConnected = true,
+                                uptime = java.time.Duration.ofHours(1),
+                                scheduledJobs = 0,
+                                activeSessions = 0,
+                                sandboxReady = true,
+                                embeddingType = "onnx",
+                                docker = false,
+                            )
+                    }
+                },
+                llmRouter = io.mockk.mockk(relaxed = true),
             )
 
         val commandHandler =
