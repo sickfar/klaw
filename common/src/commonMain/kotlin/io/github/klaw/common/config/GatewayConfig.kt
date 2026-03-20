@@ -62,6 +62,8 @@ data class TelegramConfig(
     val token: String,
     @ConfigDoc("List of chats allowed to interact with the bot")
     val allowedChats: List<AllowedChat> = emptyList(),
+    @ConfigDoc("Custom API base URL (testing only)")
+    val apiBaseUrl: String? = null,
 ) {
     override fun toString(): String = "TelegramConfig(token=***, allowedChats=$allowedChats)"
 }

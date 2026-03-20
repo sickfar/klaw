@@ -1030,6 +1030,15 @@ object GeneratedConfigDescriptors {
                 false,
             ),
             ConfigPropertyDescriptor(
+                "channels.telegram.apiBaseUrl",
+                ConfigValueType.STRING,
+                "Custom API base URL (testing only)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
                 "channels.discord.enabled",
                 ConfigValueType.BOOLEAN,
                 "Enable the Discord bot channel",

@@ -669,6 +669,9 @@ object GeneratedSchemas {
                                         ],
                                         "additionalProperties": false
                                     }
+                                },
+                                "apiBaseUrl": {
+                                    "type": "string"
                                 }
                             },
                             "required": [

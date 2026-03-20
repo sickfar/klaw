@@ -120,6 +120,10 @@ object ConfigGenerator {
         discordToken: String? = null,
         discordApiBaseUrl: String? = null,
         discordAllowedGuilds: List<Triple<String, List<String>, List<String>>> = emptyList(),
+        telegramEnabled: Boolean = false,
+        telegramToken: String? = null,
+        telegramApiBaseUrl: String? = null,
+        telegramAllowedChats: List<Pair<String, List<String>>> = emptyList(),
         attachmentsDirectory: String = "",
     ): String {
         val root =
@@ -130,26 +134,10 @@ object ConfigGenerator {
                         put("port", GATEWAY_LOCAL_WS_PORT)
                     }
                     if (discordEnabled) {
-                        putJsonObject("discord") {
-                            put("enabled", true)
-                            put("token", discordToken ?: "test-discord-token")
-                            if (discordApiBaseUrl != null) {
-                                put("apiBaseUrl", discordApiBaseUrl)
-                            }
-                            putJsonArray("allowedGuilds") {
-                                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
-                                    addJsonObject {
-                                        put("guildId", guildId)
-                                        putJsonArray("allowedChannelIds") {
-                                            channelIds.forEach { add(JsonPrimitive(it)) }
-                                        }
-                                        putJsonArray("allowedUserIds") {
-                                            userIds.forEach { add(JsonPrimitive(it)) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        buildDiscordChannel(discordToken, discordApiBaseUrl, discordAllowedGuilds)
+                    }
+                    if (telegramEnabled) {
+                        buildTelegramChannel(telegramToken, telegramApiBaseUrl, telegramAllowedChats)
                     }
                 }
                 if (attachmentsDirectory.isNotEmpty()) {
@@ -166,6 +154,56 @@ object ConfigGenerator {
                 }
             }
         return root.toString()
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildDiscordChannel(
+        discordToken: String?,
+        discordApiBaseUrl: String?,
+        discordAllowedGuilds: List<Triple<String, List<String>, List<String>>>,
+    ) {
+        putJsonObject("discord") {
+            put("enabled", true)
+            put("token", discordToken ?: "test-discord-token")
+            if (discordApiBaseUrl != null) {
+                put("apiBaseUrl", discordApiBaseUrl)
+            }
+            putJsonArray("allowedGuilds") {
+                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
+                    addJsonObject {
+                        put("guildId", guildId)
+                        putJsonArray("allowedChannelIds") {
+                            channelIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                        putJsonArray("allowedUserIds") {
+                            userIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildTelegramChannel(
+        telegramToken: String?,
+        telegramApiBaseUrl: String?,
+        telegramAllowedChats: List<Pair<String, List<String>>>,
+    ) {
+        putJsonObject("telegram") {
+            put("token", telegramToken ?: "test-bot-token")
+            if (telegramApiBaseUrl != null) {
+                put("apiBaseUrl", telegramApiBaseUrl)
+            }
+            putJsonArray("allowedChats") {
+                telegramAllowedChats.forEach { (chatId, userIds) ->
+                    addJsonObject {
+                        put("chatId", chatId)
+                        putJsonArray("allowedUserIds") {
+                            userIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildProviders(wiremockBaseUrl: String) {

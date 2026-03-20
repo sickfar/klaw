@@ -81,12 +81,22 @@ class TelegramChannel(
             }
         logger.info { "Starting TelegramChannel" }
         val b =
-            telegramBot(telegramConfig.token) {
-                logger =
-                    logger.filtered { _, _, throwable ->
-                        throwable !is HttpRequestTimeoutException &&
-                            throwable?.cause !is HttpRequestTimeoutException
-                    }
+            if (telegramConfig.apiBaseUrl != null) {
+                telegramBot(telegramConfig.token, telegramConfig.apiBaseUrl!!) {
+                    logger =
+                        logger.filtered { _, _, throwable ->
+                            throwable !is HttpRequestTimeoutException &&
+                                throwable?.cause !is HttpRequestTimeoutException
+                        }
+                }
+            } else {
+                telegramBot(telegramConfig.token) {
+                    logger =
+                        logger.filtered { _, _, throwable ->
+                            throwable !is HttpRequestTimeoutException &&
+                                throwable?.cause !is HttpRequestTimeoutException
+                        }
+                }
             }
         bot = b
         setAlive(true)
