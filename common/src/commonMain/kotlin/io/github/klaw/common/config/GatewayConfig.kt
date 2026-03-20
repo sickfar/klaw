@@ -10,6 +10,8 @@ data class GatewayConfig(
     val commands: List<CommandConfig> = emptyList(),
     @ConfigDoc("Delivery reliability settings")
     val delivery: DeliveryConfig = DeliveryConfig(),
+    @ConfigDoc("Attachment handling settings")
+    val attachments: AttachmentsConfig = AttachmentsConfig(),
 )
 
 @Serializable
@@ -87,4 +89,10 @@ data class AllowedGuild(
     val allowedChannelIds: List<String> = emptyList(),
     @ConfigDoc("Allowed user IDs (empty = deny all)")
     val allowedUserIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class AttachmentsConfig(
+    @ConfigDoc("Directory for storing received image attachments (empty = disabled)")
+    val directory: String = "",
 )

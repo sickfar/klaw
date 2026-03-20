@@ -87,4 +87,62 @@ class ModelRegistryTest {
             assertTrue(ctx > 0, "contextLength for $modelId should be positive")
         }
     }
+
+    @Test
+    fun `supportsImage returns true for vision models`() {
+        assertTrue(ModelRegistry.supportsImage("glm-4.6v"))
+        assertTrue(ModelRegistry.supportsImage("glm-4.5v"))
+    }
+
+    @Test
+    fun `supportsImage returns false for text-only models`() {
+        assertFalse(ModelRegistry.supportsImage("glm-5"))
+        assertFalse(ModelRegistry.supportsImage("glm-4.7"))
+    }
+
+    @Test
+    fun `supportsImage returns false for unknown model`() {
+        assertFalse(ModelRegistry.supportsImage("nonexistent-model"))
+    }
+
+    @Test
+    fun `supportsImage with provider prefix`() {
+        assertTrue(ModelRegistry.supportsImage("glm/glm-4.6v"))
+        assertFalse(ModelRegistry.supportsImage("glm/glm-5"))
+    }
+
+    @Test
+    fun `gpt-4o supports image`() {
+        val caps = ModelRegistry.get("gpt-4o")
+        assertNotNull(caps)
+        assertTrue(caps.image)
+    }
+
+    @Test
+    fun `gpt-4o-mini supports image`() {
+        val caps = ModelRegistry.get("gpt-4o-mini")
+        assertNotNull(caps)
+        assertTrue(caps.image)
+    }
+
+    @Test
+    fun `claude-sonnet-4 supports image`() {
+        val caps = ModelRegistry.get("claude-sonnet-4-20250514")
+        assertNotNull(caps)
+        assertTrue(caps.image)
+    }
+
+    @Test
+    fun `deepseek-chat does not support image`() {
+        val caps = ModelRegistry.get("deepseek-chat")
+        assertNotNull(caps)
+        assertFalse(caps.image)
+    }
+
+    @Test
+    fun `qwen-vl-max supports image`() {
+        val caps = ModelRegistry.get("qwen-vl-max")
+        assertNotNull(caps)
+        assertTrue(caps.image)
+    }
 }

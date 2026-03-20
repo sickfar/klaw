@@ -4,5 +4,38 @@
     "glm-4.6":  { "contextLength": 200000, "maxOutput": 128000, "image": false, "video": false, "audio": false },
     "glm-4.5":  { "contextLength": 128000, "maxOutput":  96000, "image": false, "video": false, "audio": false },
     "glm-4.6v": { "contextLength": 128000,                     "image": true,  "video": true,  "audio": false },
-    "glm-4.5v": { "contextLength": 128000, "maxOutput":  16000, "image": true,  "video": true,  "audio": false }
+    "glm-4.5v": { "contextLength": 128000, "maxOutput":  16000, "image": true,  "video": true,  "audio": false },
+
+    "gpt-4o":           { "contextLength": 128000, "maxOutput": 16384, "image": true,  "video": false, "audio": false },
+    "gpt-4o-mini":      { "contextLength": 128000, "maxOutput": 16384, "image": true,  "video": false, "audio": false },
+    "gpt-4-turbo":      { "contextLength": 128000, "maxOutput":  4096, "image": true,  "video": false, "audio": false },
+    "gpt-3.5-turbo":    { "contextLength":  16385, "maxOutput":  4096, "image": false, "video": false, "audio": false },
+
+    "claude-opus-4-6":              { "contextLength": 1000000, "maxOutput": 128000, "image": true, "video": false, "audio": false },
+    "claude-sonnet-4-6":            { "contextLength": 1000000, "maxOutput":  64000, "image": true, "video": false, "audio": false },
+    "claude-sonnet-4-5-20250514":   { "contextLength": 200000,  "maxOutput":  64000, "image": true, "video": false, "audio": false },
+    "claude-sonnet-4-20250514":     { "contextLength": 200000,  "maxOutput":  16000, "image": true, "video": false, "audio": false },
+    "claude-opus-4-20250514":       { "contextLength": 200000,  "maxOutput":  16000, "image": true, "video": false, "audio": false },
+    "claude-3-5-sonnet-20241022":   { "contextLength": 200000,  "maxOutput":   8192, "image": true, "video": false, "audio": false },
+    "claude-3-5-haiku-20241022":    { "contextLength": 200000,  "maxOutput":   8192, "image": true, "video": false, "audio": false },
+    "claude-3-opus-20240229":       { "contextLength": 200000,  "maxOutput":   4096, "image": true, "video": false, "audio": false },
+
+    "gemini-2.0-flash":     { "contextLength": 1048576, "maxOutput":  8192, "image": true, "video": true, "audio": true },
+    "gemini-2.0-pro":       { "contextLength": 2097152, "maxOutput":  8192, "image": true, "video": true, "audio": true },
+    "gemini-1.5-pro":       { "contextLength": 2097152, "maxOutput":  8192, "image": true, "video": true, "audio": true },
+    "gemini-1.5-flash":     { "contextLength": 1048576, "maxOutput":  8192, "image": true, "video": true, "audio": true },
+
+    "deepseek-chat":     { "contextLength": 64000,  "maxOutput": 8192, "image": false, "video": false, "audio": false },
+    "deepseek-reasoner": { "contextLength": 64000,  "maxOutput": 8192, "image": false, "video": false, "audio": false },
+
+    "qwen-max":     { "contextLength":  32768, "maxOutput":  8192, "image": false, "video": false, "audio": false },
+    "qwen-plus":    { "contextLength": 131072, "maxOutput":  8192, "image": false, "video": false, "audio": false },
+    "qwen-turbo":   { "contextLength": 131072, "maxOutput":  8192, "image": false, "video": false, "audio": false },
+    "qwen-vl-max":  { "contextLength": 131072, "maxOutput": 32768, "image": true,  "video": true,  "audio": false },
+
+    "llama3":       { "contextLength":   8192, "maxOutput":  4096, "image": false, "video": false, "audio": false },
+    "llama3.1":     { "contextLength": 131072, "maxOutput":  4096, "image": false, "video": false, "audio": false },
+    "llama3.2":     { "contextLength": 131072, "maxOutput":  4096, "image": false, "video": false, "audio": false },
+    "mistral":      { "contextLength":  32768, "maxOutput":  4096, "image": false, "video": false, "audio": false },
+    "qwen3:8b":     { "contextLength":  32768, "maxOutput":  4096, "image": false, "video": false, "audio": false }
 }

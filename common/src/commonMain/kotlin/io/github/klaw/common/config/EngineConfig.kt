@@ -51,6 +51,8 @@ data class EngineConfig(
     val webSearch: WebSearchConfig = WebSearchConfig(),
     @ConfigDoc("Document tools settings (pdf_read, md_to_pdf) — available via 'documents' skill")
     val documents: DocumentsConfig = DocumentsConfig(),
+    @ConfigDoc("Vision/image analysis settings")
+    val vision: VisionConfig = VisionConfig(),
 )
 
 @Serializable
@@ -540,5 +542,33 @@ data class DocumentsConfig(
         private const val DEFAULT_MAX_PAGES = 100
         private const val DEFAULT_MAX_OUTPUT_CHARS = 100_000
         private const val DEFAULT_PDF_FONT_SIZE = 12f
+    }
+}
+
+@Serializable
+data class VisionConfig(
+    @ConfigDoc("Enable vision/image analysis capabilities")
+    val enabled: Boolean = false,
+    @ConfigDoc("Model reference for vision analysis (e.g. 'glm/glm-4.6v')")
+    val model: String = "",
+    @ConfigDoc("Maximum output tokens for vision model responses")
+    val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    @ConfigDoc("Maximum image file size in bytes (default 10MB)")
+    val maxImageSizeBytes: Long = DEFAULT_MAX_IMAGE_SIZE_BYTES,
+    @ConfigDoc("Maximum images per message for inline vision")
+    val maxImagesPerMessage: Int = DEFAULT_MAX_IMAGES_PER_MESSAGE,
+    @ConfigDoc("Supported image MIME types")
+    val supportedFormats: List<String> = listOf("image/jpeg", "image/png", "image/gif", "image/webp"),
+) {
+    init {
+        require(maxTokens > 0) { "maxTokens must be > 0, got $maxTokens" }
+        require(maxImageSizeBytes > 0) { "maxImageSizeBytes must be > 0, got $maxImageSizeBytes" }
+        require(maxImagesPerMessage > 0) { "maxImagesPerMessage must be > 0, got $maxImagesPerMessage" }
+    }
+
+    companion object {
+        private const val DEFAULT_MAX_TOKENS = 1024
+        private const val DEFAULT_MAX_IMAGE_SIZE_BYTES = 10_485_760L
+        private const val DEFAULT_MAX_IMAGES_PER_MESSAGE = 5
     }
 }

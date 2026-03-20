@@ -1,7 +1,32 @@
 package io.github.klaw.common.llm
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonObject
+
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+@JsonClassDiscriminator("type")
+sealed interface ContentPart
+
+@Serializable
+@SerialName("text")
+data class TextContentPart(
+    val text: String,
+) : ContentPart
+
+@Serializable
+@SerialName("image_url")
+data class ImageUrlContentPart(
+    @SerialName("image_url") val imageUrl: ImageUrlData,
+) : ContentPart
+
+@Serializable
+data class ImageUrlData(
+    val url: String,
+)
 
 @Serializable
 data class LlmMessage(
@@ -9,6 +34,7 @@ data class LlmMessage(
     val content: String? = null,
     val toolCalls: List<ToolCall>? = null,
     val toolCallId: String? = null,
+    val contentParts: List<ContentPart>? = null,
 )
 
 @Serializable
