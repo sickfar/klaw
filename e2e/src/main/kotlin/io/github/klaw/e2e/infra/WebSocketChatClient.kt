@@ -110,6 +110,16 @@ class WebSocketChatClient {
             logger.debug { "Sent user message (length=${text.length})" }
         }
 
+    fun sendMessageWithAttachments(
+        text: String,
+        attachmentPaths: List<String>,
+    ) = runBlocking {
+        val frame = ChatFrame(type = "user", content = text, attachments = attachmentPaths)
+        session?.send(Frame.Text(json.encodeToString(frame)))
+            ?: error("Not connected")
+        logger.debug { "Sent user message with ${attachmentPaths.size} attachments (length=${text.length})" }
+    }
+
     fun sendCommand(command: String) {
         sendMessage("/$command")
     }

@@ -4,9 +4,12 @@ import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
 import io.github.klaw.engine.mcp.McpToolRegistry
+import io.github.klaw.engine.message.INLINE_IMAGE_PREFIX
+import io.github.klaw.engine.message.INLINE_IMAGE_SEPARATOR
 import io.github.klaw.engine.workspace.HeartbeatDeliverContext
 import io.github.klaw.engine.workspace.ScheduleDeliverContext
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -100,12 +103,7 @@ class ToolRegistryImpl(
                 val path = args.str("path")
                 val ext = path.substringAfterLast('.', "").lowercase()
                 if (ext in IMAGE_EXTENSIONS) {
-                    if (config.vision.enabled) {
-                        imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
-                    } else {
-                        "Error: Cannot read image file — vision is not enabled. " +
-                            "Configure vision in engine config."
-                    }
+                    handleImageFileRead(path)
                 } else {
                     fileTools.read(
                         path,
@@ -331,6 +329,30 @@ class ToolRegistryImpl(
     private fun JsonObject.strList(key: String): List<String> =
         this[key]?.jsonArray?.map { it.jsonPrimitive.content }
             ?: throw IllegalArgumentException("Missing required parameter: $key")
+
+    /**
+     * Handles file_read on an image file. If the current model supports images (per ModelRegistry),
+     * returns an inline image marker so ToolCallLoopRunner injects the image directly into context.
+     * If not vision-capable, falls back to ImageAnalyzeTool for text description.
+     */
+    private suspend fun handleImageFileRead(path: String): String {
+        if (!config.vision.enabled) {
+            return "Error: Cannot read image file — vision is not enabled. " +
+                "Configure vision in engine config."
+        }
+
+        val ctx = kotlin.coroutines.coroutineContext[ChatContext]
+        val modelId = ctx?.modelId ?: ""
+        val modelIdWithoutProvider = modelId.substringAfter('/')
+
+        return if (ModelRegistry.supportsImage(modelIdWithoutProvider)) {
+            val resolvedPath = imageAnalyzeTool.resolveAndValidate(path)
+                ?: return imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+            "$INLINE_IMAGE_PREFIX${resolvedPath.first}$INLINE_IMAGE_SEPARATOR${resolvedPath.second}"
+        } else {
+            imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+        }
+    }
 
     companion object {
         private const val DEFAULT_MEMORY_TOP_K = 10

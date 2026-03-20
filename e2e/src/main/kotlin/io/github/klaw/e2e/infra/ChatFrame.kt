@@ -14,4 +14,5 @@ data class ChatFrame(
     val riskScore: Int? = null,
     val timeout: Int? = null,
     val approved: Boolean? = null,
+    val attachments: List<String>? = null,
 )

@@ -1,8 +1,11 @@
 package io.github.klaw.engine.message
 
+import io.github.klaw.common.llm.ImageUrlContentPart
+import io.github.klaw.common.llm.ImageUrlData
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
+import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
@@ -14,9 +17,18 @@ import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.Base64
 import java.util.UUID
 
 private const val MODEL_LIMIT_SAFETY_FRACTION = 0.9
+
+/** Marker prefix for inline image results from file_read on vision-capable models. */
+internal const val INLINE_IMAGE_PREFIX = "@@INLINE_IMAGE@@"
+
+/** Separator between path and mimeType in inline image marker. */
+internal const val INLINE_IMAGE_SEPARATOR = "@@"
 
 /**
  * Executes the LLM ↔ tool call loop for a given conversation context.
@@ -78,11 +90,10 @@ internal class ToolCallLoopRunner(
 
             if (response.toolCalls.isNullOrEmpty()) return response
             val toolCalls = response.toolCalls!!
-            val results = executeToolCalls(toolCalls)
+            val results = executeToolCalls(toolCalls, session.model)
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->
-                val safeContent = buildSafeToolContent(result.callId, result.content, maxToolOutputChars)
-                context.add(LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId))
+                context.add(buildToolResultMessage(result))
             }
             val savedIds = persistToolCallResults(toolCalls, results, response)
 
@@ -168,9 +179,17 @@ internal class ToolCallLoopRunner(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun executeToolCalls(toolCalls: List<ToolCall>): List<ToolResult> =
+    private suspend fun executeToolCalls(
+        toolCalls: List<ToolCall>,
+        modelId: String,
+    ): List<ToolResult> =
         try {
-            val ctx = if (chatId != null && channel != null) ChatContext(chatId, channel) else null
+            val ctx =
+                if (chatId != null && channel != null) {
+                    ChatContext(chatId, channel, modelId)
+                } else {
+                    null
+                }
             if (ctx != null) {
                 withContext(ctx) { toolExecutor.executeAll(toolCalls) }
             } else {
@@ -240,6 +259,45 @@ internal class ToolCallLoopRunner(
             savedIds.add(id)
         }
         return savedIds
+    }
+
+    /**
+     * Builds an [LlmMessage] for a tool result. If the result contains an inline image marker
+     * (from file_read on an image file for a vision-capable model), constructs a multimodal
+     * message with both text and image content parts. Otherwise, wraps in safe XML delimiters.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun buildToolResultMessage(result: ToolResult): LlmMessage {
+        val content = result.content
+        if (content.startsWith(INLINE_IMAGE_PREFIX)) {
+            val parts = content.removePrefix(INLINE_IMAGE_PREFIX).split(INLINE_IMAGE_SEPARATOR)
+            if (parts.size == 2) {
+                val filePath = parts[0]
+                val mimeType = parts[1]
+                try {
+                    val path = Path.of(filePath)
+                    if (Files.exists(path)) {
+                        val bytes = Files.readAllBytes(path)
+                        val base64 = Base64.getEncoder().encodeToString(bytes)
+                        val dataUrl = "data:$mimeType;base64,$base64"
+                        logger.trace { "Inline image: mimeType=$mimeType size=${bytes.size}" }
+                        return LlmMessage(
+                            role = "tool",
+                            contentParts = listOf(
+                                TextContentPart("Image file: ${path.fileName} ($mimeType)"),
+                                ImageUrlContentPart(ImageUrlData(dataUrl)),
+                            ),
+                            toolCallId = result.callId,
+                        )
+                    }
+                } catch (e: Exception) {
+                    logger.warn(e) { "Failed to read inline image" }
+                }
+            }
+        }
+        // Default: text-only tool result with safe XML wrapping
+        val safeContent = buildSafeToolContent(result.callId, content, maxToolOutputChars)
+        return LlmMessage(role = "tool", content = safeContent, toolCallId = result.callId)
     }
 
     /** Wraps tool output in XML delimiters and truncates to [limit] chars for prompt injection mitigation. */

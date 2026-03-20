@@ -4,7 +4,9 @@ import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts
+import java.awt.image.BufferedImage
 import java.io.File
+import javax.imageio.ImageIO
 import kotlin.io.path.createTempDirectory
 
 object WorkspaceGenerator {
@@ -70,6 +72,26 @@ object WorkspaceGenerator {
             doc.save(pdfFile)
         }
         pdfFile.setReadable(true, false)
+    }
+
+    private const val DEFAULT_IMAGE_SIZE = 10
+
+    fun createImageFile(
+        dir: File,
+        name: String,
+        width: Int = DEFAULT_IMAGE_SIZE,
+        height: Int = DEFAULT_IMAGE_SIZE,
+    ): File {
+        dir.mkdirs()
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.color = java.awt.Color.BLUE
+        g.fillRect(0, 0, width, height)
+        g.dispose()
+        val file = File(dir, name)
+        ImageIO.write(image, "png", file)
+        file.setReadable(true, false)
+        return file
     }
 
     private const val FONT_SIZE = 12f

@@ -19,6 +19,9 @@ object ConfigGenerator {
     private const val DEFAULT_AUTO_RAG_MAX_TOKENS = 400
     private const val DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD = 0.5
     private const val DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS = 10
+    private const val DEFAULT_VISION_MAX_TOKENS = 1024
+    private const val DEFAULT_VISION_MAX_IMAGE_SIZE_BYTES = 10485760
+    private const val DEFAULT_VISION_MAX_IMAGES_PER_MESSAGE = 5
 
     @Suppress("LongParameterList")
     fun engineJson(
@@ -57,12 +60,16 @@ object ConfigGenerator {
         webSearchProvider: String = "brave",
         webSearchApiKey: String? = null,
         webSearchEndpoint: String? = null,
+        visionEnabled: Boolean = false,
+        visionModel: String = "",
+        visionMaxTokens: Int = DEFAULT_VISION_MAX_TOKENS,
+        defaultModelId: String = "test/model",
     ): String {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
-                buildModels(contextBudgetTokens)
-                buildRouting()
+                buildModels(contextBudgetTokens, visionModel)
+                buildRouting(defaultModelId)
                 buildMemory(memoryInjectSummary, mmrEnabled, mmrLambda, temporalDecayEnabled, temporalDecayHalfLifeDays)
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 if (maxInlineSkills != null) {
@@ -99,6 +106,7 @@ object ConfigGenerator {
                     webSearchApiKey,
                     webSearchEndpoint,
                 )
+                buildVision(visionEnabled, visionModel, visionMaxTokens)
             }
         return root.toString()
     }
@@ -112,6 +120,7 @@ object ConfigGenerator {
         discordToken: String? = null,
         discordApiBaseUrl: String? = null,
         discordAllowedGuilds: List<Triple<String, List<String>, List<String>>> = emptyList(),
+        attachmentsDirectory: String = "",
     ): String {
         val root =
             buildJsonObject {
@@ -143,6 +152,11 @@ object ConfigGenerator {
                         }
                     }
                 }
+                if (attachmentsDirectory.isNotEmpty()) {
+                    putJsonObject("attachments") {
+                        put("directory", attachmentsDirectory)
+                    }
+                }
                 if (maxReconnectAttempts > 0 || drainBudgetSeconds > 0 || channelDrainBudgetSeconds > 0) {
                     putJsonObject("delivery") {
                         put("maxReconnectAttempts", maxReconnectAttempts)
@@ -164,17 +178,25 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(contextBudgetTokens: Int) {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(
+        contextBudgetTokens: Int,
+        visionModel: String,
+    ) {
         putJsonObject("models") {
             putJsonObject("test/model") {
                 put("contextBudget", contextBudgetTokens)
             }
+            if (visionModel.isNotEmpty()) {
+                putJsonObject(visionModel) {
+                    put("contextBudget", contextBudgetTokens)
+                }
+            }
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting() {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting(defaultModelId: String) {
         putJsonObject("routing") {
-            put("default", "test/model")
+            put("default", defaultModelId)
             putJsonArray("fallback") {}
             putJsonObject("tasks") {
                 put("summarization", "test/model")
@@ -300,6 +322,28 @@ object ConfigGenerator {
             put("enabled", enabled)
             put("compactionThresholdFraction", compactionThresholdFraction)
             put("summaryBudgetFraction", summaryBudgetFraction)
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildVision(
+        enabled: Boolean,
+        model: String,
+        maxTokens: Int,
+    ) {
+        if (enabled) {
+            putJsonObject("vision") {
+                put("enabled", true)
+                put("model", model)
+                put("maxTokens", maxTokens)
+                put("maxImageSizeBytes", DEFAULT_VISION_MAX_IMAGE_SIZE_BYTES)
+                put("maxImagesPerMessage", DEFAULT_VISION_MAX_IMAGES_PER_MESSAGE)
+                putJsonArray("supportedFormats") {
+                    add(JsonPrimitive("image/jpeg"))
+                    add(JsonPrimitive("image/png"))
+                    add(JsonPrimitive("image/gif"))
+                    add(JsonPrimitive("image/webp"))
+                }
+            }
         }
     }
 

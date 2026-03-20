@@ -99,6 +99,24 @@ class ImageAnalyzeTool(
         }
     }
 
+    /**
+     * Validates the image path and returns (absolutePath, mimeType) if valid, null if invalid.
+     * Used by ToolRegistryImpl to build inline image markers without calling the vision model.
+     */
+    fun resolveAndValidate(path: String): Pair<String, String>? {
+        val safePath = resolveSafePath(path) ?: return null
+        if (!Files.exists(safePath)) return null
+
+        val extension = path.substringAfterLast('.', "").lowercase()
+        val mimeType = EXTENSION_TO_MIME[extension] ?: return null
+        if (mimeType !in config.supportedFormats) return null
+
+        val fileSize = Files.size(safePath)
+        if (fileSize > config.maxImageSizeBytes) return null
+
+        return safePath.toAbsolutePath().toString() to mimeType
+    }
+
     private fun resolveSafePath(userPath: String): Path? =
         allowedPaths.firstNotNullOfOrNull { base ->
             val resolved = base.resolve(userPath).normalize()

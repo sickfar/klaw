@@ -4,6 +4,7 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.engine.llm.openai.OpenAiContent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -29,7 +30,7 @@ class OpenAiRequestMappingTest {
         assertEquals("glm-5", openAiRequest.model)
         assertEquals(1, openAiRequest.messages.size)
         assertEquals("user", openAiRequest.messages[0].role)
-        assertEquals("Hello", openAiRequest.messages[0].content)
+        assertEquals(OpenAiContent.Text("Hello"), openAiRequest.messages[0].content)
         assertNull(openAiRequest.messages[0].toolCalls)
         assertNull(openAiRequest.tools)
     }
@@ -48,7 +49,7 @@ class OpenAiRequestMappingTest {
 
         assertEquals(2, openAiRequest.messages.size)
         assertEquals("system", openAiRequest.messages[0].role)
-        assertEquals("You are an assistant", openAiRequest.messages[0].content)
+        assertEquals(OpenAiContent.Text("You are an assistant"), openAiRequest.messages[0].content)
         assertEquals("user", openAiRequest.messages[1].role)
     }
 
@@ -119,7 +120,7 @@ class OpenAiRequestMappingTest {
 
         val toolMsg = openAiRequest.messages[2]
         assertEquals("tool", toolMsg.role)
-        assertEquals("""{"temperature": 15}""", toolMsg.content)
+        assertEquals(OpenAiContent.Text("""{"temperature": 15}"""), toolMsg.content)
         assertEquals("call_123", toolMsg.toolCallId)
     }
 
