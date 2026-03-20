@@ -7,6 +7,7 @@ import io.github.klaw.common.llm.ImageUrlData
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.TextContentPart
+import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.memory.AutoRagResult
@@ -26,6 +27,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.ZonedDateTime
@@ -67,6 +69,7 @@ class ContextBuilder(
     private val subagentHistoryLoader: SubagentHistoryLoader,
     private val healthProviderLazy: Provider<EngineHealthProvider>,
     private val llmRouter: LlmRouter,
+    private val allowedImageDirs: List<Path> = listOf(Path.of(KlawPaths.workspace)),
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
@@ -284,7 +287,6 @@ class ContextBuilder(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private suspend fun readImageAsDataUrl(
         path: String,
         mimeType: String,
@@ -292,20 +294,43 @@ class ContextBuilder(
         try {
             withContext(Dispatchers.VT) {
                 val filePath = Path.of(path)
+                if (!isPathWithinAllowedDirs(filePath)) {
+                    logger.warn { "Image path outside allowed directories: pathLength=${path.length}" }
+                    return@withContext null
+                }
                 if (!Files.exists(filePath)) {
                     logger.debug { "Image file not found: pathLength=${path.length}" }
-                    null
-                } else {
-                    val bytes = Files.readAllBytes(filePath)
-                    val base64 = Base64.getEncoder().encodeToString(bytes)
-                    "data:$mimeType;base64,$base64"
+                    return@withContext null
                 }
+                val bytes = Files.readAllBytes(filePath)
+                val base64 = Base64.getEncoder().encodeToString(bytes)
+                "data:$mimeType;base64,$base64"
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             logger.warn { "Failed to read image: ${e::class.simpleName}" }
             null
+        } catch (e: SecurityException) {
+            logger.warn { "Security error reading image: ${e::class.simpleName}" }
+            null
+        }
+
+    private fun isPathWithinAllowedDirs(filePath: Path): Boolean {
+        val normalized = filePath.normalize()
+        return allowedImageDirs.any { base ->
+            normalized.startsWith(base) && (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, base))
+        }
+    }
+
+    private fun isRealPathWithin(
+        path: Path,
+        base: Path,
+    ): Boolean =
+        try {
+            path.toRealPath().startsWith(base.toRealPath())
+        } catch (_: IOException) {
+            false
         }
 
     private suspend fun getOrAutoDescribe(
@@ -319,7 +344,7 @@ class ContextBuilder(
         val uncachedAttachments = limitedAttachments.filter { it.path !in cachedDescriptions }
 
         if (uncachedAttachments.isEmpty()) {
-            return cachedDescriptions.values.joinToString("\n\n")
+            return limitedAttachments.mapNotNull { cachedDescriptions[it.path] }.joinToString("\n\n")
         }
 
         val newDescriptions = autoDescribe(uncachedAttachments, visionConfig)
@@ -331,7 +356,7 @@ class ContextBuilder(
             messageRepository.updateMetadata(msg.id, metadataJson.encodeToString(updatedMeta))
         }
 
-        return allDescriptions.values.joinToString("\n\n")
+        return limitedAttachments.mapNotNull { allDescriptions[it.path] }.joinToString("\n\n")
     }
 
     @Suppress("TooGenericExceptionCaught")

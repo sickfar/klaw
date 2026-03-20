@@ -130,6 +130,7 @@ class ContextBuilderVisionTest {
             subagentHistoryLoader = subagentHistoryLoader,
             healthProviderLazy = { healthProvider },
             llmRouter = llmRouter,
+            allowedImageDirs = listOf(tempDir),
         )
 
     @BeforeEach
