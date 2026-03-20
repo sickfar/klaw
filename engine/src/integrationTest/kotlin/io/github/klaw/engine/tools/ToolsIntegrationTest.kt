@@ -79,6 +79,13 @@ class ToolsIntegrationTest {
             hostExecTool = mockk(),
             configTools = mockk(),
             historyTools = mockk(),
+            engineHealthTools = mockk(),
+            subagentStatusTools = mockk(),
+            webFetchTool = mockk(),
+            webSearchTool = mockk(),
+            pdfReadTool = mockk(),
+            mdToPdfTool = mockk(),
+            imageAnalyzeTool = mockk(),
             config = testEngineConfig(),
             mcpToolRegistry = McpToolRegistry(),
         )

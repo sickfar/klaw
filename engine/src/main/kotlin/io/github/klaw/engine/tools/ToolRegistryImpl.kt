@@ -44,6 +44,7 @@ class ToolRegistryImpl(
     private val webSearchTool: WebSearchTool,
     private val pdfReadTool: PdfReadTool,
     private val mdToPdfTool: MdToPdfTool,
+    private val imageAnalyzeTool: ImageAnalyzeTool,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -58,6 +59,7 @@ class ToolRegistryImpl(
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
         if (!config.webFetch.enabled) result = result.filter { it.name != WEB_FETCH_TOOL_NAME }
         if (!config.webSearch.enabled) result = result.filter { it.name != WEB_SEARCH_TOOL_NAME }
+        if (!config.vision.enabled) result = result.filter { it.name != IMAGE_ANALYZE_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
         if (!includeSendMessage) result = result.filter { it.name != SEND_MESSAGE_TOOL_NAME }
@@ -95,11 +97,22 @@ class ToolRegistryImpl(
     ): String =
         when (name) {
             "file_read" -> {
-                fileTools.read(
-                    args.str("path"),
-                    args.intOrNull("startLine"),
-                    args.intOrNull("maxLines"),
-                )
+                val path = args.str("path")
+                val ext = path.substringAfterLast('.', "").lowercase()
+                if (ext in IMAGE_EXTENSIONS) {
+                    if (config.vision.enabled) {
+                        imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+                    } else {
+                        "Error: Cannot read image file — vision is not enabled. " +
+                            "Configure vision in engine config."
+                    }
+                } else {
+                    fileTools.read(
+                        path,
+                        args.intOrNull("startLine"),
+                        args.intOrNull("maxLines"),
+                    )
+                }
             }
 
             "file_write" -> {
@@ -275,6 +288,10 @@ class ToolRegistryImpl(
                 mdToPdfTool.convert(args.str("input_path"), args.str("output_path"), args.strOrNull("title"))
             }
 
+            "image_analyze" -> {
+                imageAnalyzeTool.analyze(args.str("path"), args.strOrNull("prompt"))
+            }
+
             "heartbeat_deliver" -> {
                 val ctx =
                     kotlin.coroutines.coroutineContext[HeartbeatDeliverContext]
@@ -326,6 +343,8 @@ class ToolRegistryImpl(
         private const val SEND_MESSAGE_TOOL_NAME = "send_message"
         private const val WEB_FETCH_TOOL_NAME = "web_fetch"
         private const val WEB_SEARCH_TOOL_NAME = "web_search"
+        private const val IMAGE_ANALYZE_TOOL_NAME = "image_analyze"
+        private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private val HEARTBEAT_DELIVER_DEF =
             ToolDef(
                 "heartbeat_deliver",
@@ -597,6 +616,24 @@ class ToolRegistryImpl(
                         mapOf(
                             "query" to stringProp("Search query"),
                             "max_results" to intProp("Maximum number of results (default 5, max 20)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "image_analyze",
+                    "Analyze an image file from the workspace. Sends the image to a vision-capable model " +
+                        "and returns a detailed text description. Supports JPEG, PNG, GIF, and WebP formats.",
+                    toolParams(
+                        listOf("path"),
+                        mapOf(
+                            "path" to
+                                stringProp(
+                                    "Image file path relative to workspace (e.g. 'screenshots/page.png')",
+                                ),
+                            "prompt" to
+                                stringProp(
+                                    "Analysis prompt — what to focus on (default: 'Describe this image in detail')",
+                                ),
                         ),
                     ),
                 ),
