@@ -6,7 +6,6 @@ import io.github.klaw.e2e.infra.StubToolCall
 import io.github.klaw.e2e.infra.WebSocketChatClient
 import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -35,7 +34,6 @@ class DocumentToolsE2eTest {
     private val wireMock = WireMockLlmServer()
     private lateinit var containers: KlawContainers
     private lateinit var client: WebSocketChatClient
-    private val json = Json { ignoreUnknownKeys = true }
 
     @BeforeAll
     fun startInfrastructure() {

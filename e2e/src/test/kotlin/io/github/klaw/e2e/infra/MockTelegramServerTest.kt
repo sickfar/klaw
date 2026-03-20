@@ -12,7 +12,6 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -164,6 +163,75 @@ class MockTelegramServerTest {
                 httpClient.post("${telegramServer.localBaseUrl}/bot${MockTelegramServer.TEST_TOKEN}/setMyCommands") {
                     contentType(ContentType.Application.Json)
                     setBody("""{"commands":[]}""")
+                }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            assertTrue(body["ok"]?.jsonPrimitive?.boolean ?: false)
+        }
+
+    @Test
+    fun `after sendTextUpdate, getUpdates returns text message`() =
+        runBlocking {
+            telegramServer.reset()
+            telegramServer.sendTextUpdate(chatId = TEST_CHAT_ID, text = "Hello bot")
+
+            val response =
+                httpClient.post("${telegramServer.localBaseUrl}/bot${MockTelegramServer.TEST_TOKEN}/getUpdates") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"offset":0,"timeout":0}""")
+                }
+            assertEquals(HttpStatusCode.OK, response.status)
+            val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            val result = body["result"]!!.jsonArray
+            assertEquals(1, result.size)
+
+            val update = result[0].jsonObject
+            val message = update["message"]!!.jsonObject
+            val chatId =
+                message["chat"]
+                    ?.jsonObject
+                    ?.get("id")
+                    ?.jsonPrimitive
+                    ?.long
+            assertEquals(TEST_CHAT_ID, chatId)
+            assertEquals("Hello bot", message["text"]?.jsonPrimitive?.content)
+
+            // Text message should not have photo field
+            assertTrue(message["photo"] == null, "Text message should not contain photo field")
+        }
+
+    @Test
+    fun `sendTextUpdate with custom senderId`() =
+        runBlocking {
+            telegramServer.reset()
+            val customSenderId = 42L
+            telegramServer.sendTextUpdate(chatId = TEST_CHAT_ID, text = "Hi", senderId = customSenderId)
+
+            val response =
+                httpClient.post("${telegramServer.localBaseUrl}/bot${MockTelegramServer.TEST_TOKEN}/getUpdates") {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"offset":0,"timeout":0}""")
+                }
+            val body = json.parseToJsonElement(response.bodyAsText()).jsonObject
+            val message = body["result"]!!.jsonArray[0].jsonObject["message"]!!.jsonObject
+            val fromId =
+                message["from"]
+                    ?.jsonObject
+                    ?.get("id")
+                    ?.jsonPrimitive
+                    ?.long
+            assertEquals(customSenderId, fromId)
+        }
+
+    @Test
+    fun `sendChatAction returns ok`() =
+        runBlocking {
+            val response =
+                httpClient.post(
+                    "${telegramServer.localBaseUrl}/bot${MockTelegramServer.TEST_TOKEN}/sendChatAction",
+                ) {
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"chat_id":$TEST_CHAT_ID,"action":"typing"}""")
                 }
             assertEquals(HttpStatusCode.OK, response.status)
             val body = json.parseToJsonElement(response.bodyAsText()).jsonObject

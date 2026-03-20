@@ -16,10 +16,12 @@ private val logger = KotlinLogging.logger {}
 private const val HTTP_OK = 200
 private const val SCENARIO_NAME = "telegram-updates"
 private const val STATE_PHOTO_READY = "photo-ready"
+private const val STATE_TEXT_READY = "text-ready"
 private const val BOT_ID = 123456L
 private const val PHOTO_MESSAGE_ID = 100
-private const val PHOTO_SENDER_ID = 999
-private const val PHOTO_DATE = 1700000000
+private const val TEXT_MESSAGE_ID = 101
+private const val DEFAULT_SENDER_ID = 999L
+private const val MESSAGE_DATE = 1700000000
 private const val SMALL_PHOTO_WIDTH = 90
 private const val SMALL_PHOTO_HEIGHT = 90
 private const val SMALL_PHOTO_SIZE = 500
@@ -55,6 +57,7 @@ class MockTelegramServer(
         stubGetFile()
         stubFileDownload()
         stubSendMessage()
+        stubSendChatAction()
         stubDeleteWebhook()
         stubSetMyCommands()
     }
@@ -103,9 +106,9 @@ class MockTelegramServer(
             buildString {
                 append("""{"ok":true,"result":[{"update_id":$updateCounter,"message":{""")
                 append(""""message_id":$PHOTO_MESSAGE_ID,""")
-                append(""""from":{"id":$PHOTO_SENDER_ID,"is_bot":false,"first_name":"TestUser"},""")
+                append(""""from":{"id":$DEFAULT_SENDER_ID,"is_bot":false,"first_name":"TestUser"},""")
                 append(""""chat":{"id":$chatId,"type":"private"},""")
-                append(""""date":$PHOTO_DATE,""")
+                append(""""date":$MESSAGE_DATE,""")
                 append(""""photo":[""")
                 append("""{"file_id":"small_id","file_unique_id":"u1",""")
                 append(""""width":$SMALL_PHOTO_WIDTH,"height":$SMALL_PHOTO_HEIGHT,"file_size":$SMALL_PHOTO_SIZE},""")
@@ -144,6 +147,63 @@ class MockTelegramServer(
         )
 
         logger.debug { "Photo update queued for chatId=$chatId" }
+    }
+
+    fun sendTextUpdate(
+        chatId: Long,
+        text: String,
+        senderId: Long = DEFAULT_SENDER_ID,
+    ) {
+        updateCounter++
+        val escapedText = text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        val updateJson =
+            buildString {
+                append("""{"ok":true,"result":[{"update_id":$updateCounter,"message":{""")
+                append(""""message_id":$TEXT_MESSAGE_ID,""")
+                append(""""from":{"id":$senderId,"is_bot":false,"first_name":"TestUser"},""")
+                append(""""chat":{"id":$chatId,"type":"private"},""")
+                append(""""date":$MESSAGE_DATE,""")
+                append(""""text":"$escapedText"}}]}""")
+            }
+
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/getUpdates"))
+                .inScenario(SCENARIO_NAME)
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willSetStateTo(STATE_TEXT_READY)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(updateJson),
+                ),
+        )
+
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/getUpdates"))
+                .inScenario(SCENARIO_NAME)
+                .whenScenarioStateIs(STATE_TEXT_READY)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"ok":true,"result":[]}"""),
+                ),
+        )
+
+        logger.debug { "Text update queued for chatId=$chatId" }
+    }
+
+    private fun stubSendChatAction() {
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/sendChatAction"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"ok":true,"result":true}"""),
+                ),
+        )
     }
 
     private fun stubGetFile() {
@@ -231,6 +291,9 @@ class MockTelegramServer(
     fun reset() {
         wireMock.resetRequests()
         wireMock.resetScenarios()
+        // Re-register the empty getUpdates stub so it takes priority
+        // over any stubs added by sendPhotoUpdate/sendTextUpdate
+        stubGetUpdatesEmpty()
     }
 
     companion object {

@@ -7,7 +7,6 @@ import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -199,10 +198,7 @@ class InlineVisionE2eTest {
                     "First LLM request should contain image_url in content for vision-capable model",
                 )
 
-                // No separate vision request should exist
-                val visionRequests = directWireMock.getVisionRequests()
-                // For a vision-capable model, images go directly — no separate vision API call needed
-                // (The vision request check here confirms the image is in the main chat request)
+                // For a vision-capable model, images go directly in the main chat request
             } finally {
                 directClient.close()
             }
