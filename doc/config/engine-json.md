@@ -163,7 +163,8 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     "maxTokens": 1024,
     "maxImageSizeBytes": 10485760,
     "maxImagesPerMessage": 5,
-    "supportedFormats": ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    "supportedFormats": ["image/jpeg", "image/png", "image/gif", "image/webp"],
+    "attachmentsDirectory": "/data/attachments"
   }
 }
 ```

@@ -95,22 +95,43 @@ In `engine.json`, under the `vision` key:
 
 ## Model Registry
 
-Vision capability is determined by `model-registry.json`. Models can declare support for vision with feature flags. The engine respects these declarations:
+Vision capability is determined by `model-registry.json`. Models declare multimodal support with capability flags:
 
 ```json
 {
-  "glm/glm-4.6v": {
-    "contextWindow": 8192,
-    "features": ["vision"]
-  }
+  "gpt-4o":   { "contextLength": 128000, "maxOutput": 16384, "image": true,  "video": false, "audio": false },
+  "glm-5":    { "contextLength": 200000, "maxOutput": 128000, "image": false, "video": false, "audio": false },
+  "glm-4.6v": { "contextLength": 128000, "image": true, "video": true, "audio": false }
 }
 ```
 
-When a model has the `"vision"` feature, images are loaded inline as multimodal content instead of being auto-described.
+When a model has `"image": true`, images are loaded inline as multimodal content. When `"image": false`, images are auto-described via the configured vision model.
 
 ## From Messaging Channels
 
-Images received from Telegram or Discord (when `attachments.directory` is configured in `gateway.json`) are automatically saved locally and become available via `file_read`. They flow through vision the same way as workspace images.
+### Telegram & Discord
+
+Images received from Telegram (photos) or Discord (image attachments) are automatically downloaded by the gateway, saved to `attachments.directory` (configured in `gateway.json`), and forwarded to the engine as attachment references. The engine must have `vision.attachmentsDirectory` set to the same directory so it can read the files.
+
+### Local WebSocket (Console Chat)
+
+The local WebSocket channel provides an HTTP upload endpoint:
+
+```
+POST /upload
+Content-Type: image/png
+X-Filename: screenshot.png
+Body: <raw image bytes>
+
+Response: {"id": "abc123-uuid"}
+```
+
+Then send a ChatFrame with the returned ID:
+```json
+{"type": "user", "content": "What's in this image?", "attachments": ["abc123-uuid"]}
+```
+
+The upload endpoint is only available when `channels.localWs.enabled` is `true`. Upload IDs are stored in memory and lost on gateway restart.
 
 ## Performance Considerations
 
