@@ -135,6 +135,7 @@ class KlawContainers(
             .withFileSystemBind(gatewayConfigDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(gatewayStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
+            .withFileSystemBind(workspaceDir.absolutePath, "/workspace", BindMode.READ_WRITE)
             .withExposedPorts(GATEWAY_LOCAL_WS_PORT)
             .waitingFor(
                 Wait

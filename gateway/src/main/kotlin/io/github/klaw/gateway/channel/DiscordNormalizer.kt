@@ -19,6 +19,7 @@ object DiscordNormalizer {
         chatTitle: String? = null,
         platformMessageId: String? = null,
         guildId: String? = null,
+        attachments: List<AttachmentInfo> = emptyList(),
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
@@ -36,6 +37,7 @@ object DiscordNormalizer {
             chatTitle = chatTitle,
             messageId = platformMessageId,
             guildId = guildId,
+            attachments = attachments,
         )
     }
 }

@@ -590,6 +590,36 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "vision": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "maxTokens": {
+                            "type": "integer"
+                        },
+                        "maxImageSizeBytes": {
+                            "type": "integer"
+                        },
+                        "maxImagesPerMessage": {
+                            "type": "integer"
+                        },
+                        "supportedFormats": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "attachmentsDirectory": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [
@@ -639,6 +669,9 @@ object GeneratedSchemas {
                                         ],
                                         "additionalProperties": false
                                     }
+                                },
+                                "apiBaseUrl": {
+                                    "type": "string"
                                 }
                             },
                             "required": [
@@ -733,6 +766,15 @@ object GeneratedSchemas {
                         },
                         "channelDrainBudgetSeconds": {
                             "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "attachments": {
+                    "type": "object",
+                    "properties": {
+                        "directory": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

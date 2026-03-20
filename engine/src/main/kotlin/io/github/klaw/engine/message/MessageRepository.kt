@@ -137,6 +137,14 @@ class MessageRepository(
             db.messagesQueries.updateTokensById(tokens.toLong(), id)
         }
 
+    suspend fun updateMetadata(
+        id: String,
+        metadata: String,
+    ): Unit =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.updateMetadataById(metadata, id)
+        }
+
     suspend fun getUncoveredMessages(
         chatId: String,
         segmentStart: String,

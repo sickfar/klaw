@@ -53,6 +53,9 @@ SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND create
 updateTokensById:
 UPDATE messages SET tokens = :tokens WHERE id = :id;
 
+updateMetadataById:
+UPDATE messages SET metadata = :metadata WHERE id = :id;
+
 getMessagesAfterCoverage:
 SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
 FROM messages

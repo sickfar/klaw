@@ -122,6 +122,7 @@ class ContextBuilderSummaryTest {
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
             healthProviderLazy = { healthProvider },
+            llmRouter = io.mockk.mockk(relaxed = true),
         )
 
     @BeforeEach

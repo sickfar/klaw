@@ -70,9 +70,17 @@ class LocalWsChannel(
     suspend fun handleIncoming(
         content: String,
         session: DefaultWebSocketServerSession,
+        attachmentPaths: List<String> = emptyList(),
     ) {
         activeSession = session
         val msgId = UUID.randomUUID().toString()
+        val attachments =
+            attachmentPaths.map { path ->
+                AttachmentInfo(
+                    path = path,
+                    mimeType = detectMimeType(path),
+                )
+            }
         val incoming =
             IncomingMessage(
                 id = msgId,
@@ -83,11 +91,12 @@ class LocalWsChannel(
                 senderName = "User",
                 chatType = "local",
                 messageId = msgId,
+                attachments = attachments,
             )
         jsonlWriter.writeInbound(incoming)
         incomingQueue.send(incoming)
         sendStatusFrame(session, "thinking")
-        logger.trace { "Local WS message enqueued: ${content.length} chars" }
+        logger.trace { "Local WS message enqueued: ${content.length} chars, attachments=${attachments.size}" }
     }
 
     override suspend fun send(

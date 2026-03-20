@@ -11,6 +11,13 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 sealed class SocketMessage
 
 @Serializable
+data class Attachment(
+    val path: String,
+    val mimeType: String,
+    val originalName: String? = null,
+)
+
+@Serializable
 @SerialName("inbound")
 data class InboundSocketMessage(
     val id: String,
@@ -23,6 +30,7 @@ data class InboundSocketMessage(
     val chatType: String? = null,
     val chatTitle: String? = null,
     val messageId: String? = null,
+    val attachments: List<Attachment> = emptyList(),
 ) : SocketMessage()
 
 @Serializable

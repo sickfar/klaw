@@ -1,5 +1,6 @@
 package io.github.klaw.gateway
 
+import io.github.klaw.common.protocol.Attachment
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
@@ -162,9 +163,19 @@ class GatewayLifecycle(
                         chatType = incoming.chatType,
                         chatTitle = incoming.chatTitle,
                         messageId = incoming.messageId,
+                        attachments =
+                            incoming.attachments.map { att ->
+                                Attachment(
+                                    path = att.path,
+                                    mimeType = att.mimeType,
+                                    originalName = att.originalName,
+                                )
+                            },
                     ),
                 )
-                logger.debug { "Inbound forwarded to engine: channel=${incoming.channel}" }
+                logger.debug {
+                    "Inbound forwarded to engine: channel=${incoming.channel} attachments=${incoming.attachments.size}"
+                }
             }
         }
 

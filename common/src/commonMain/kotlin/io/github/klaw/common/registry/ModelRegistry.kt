@@ -36,6 +36,9 @@ object ModelRegistry {
 
     /** Returns context length for the model, or null if unknown. */
     fun contextLength(modelId: String): Int? = get(modelId)?.contextLength
+
+    /** Returns true if the model supports image input, false if unknown or unsupported. */
+    fun supportsImage(modelId: String): Boolean = get(modelId)?.image == true
 }
 
 internal expect fun loadRegistryJson(): String

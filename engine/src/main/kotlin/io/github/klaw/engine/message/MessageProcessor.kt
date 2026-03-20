@@ -485,20 +485,36 @@ class MessageProcessor(
 
     private suspend fun persistInboundMessages(messages: List<InboundSocketMessage>) {
         messages.forEach { msg ->
+            val hasAttachments = msg.attachments.isNotEmpty()
+            val type = if (hasAttachments) "multimodal" else "text"
+            logger.debug { "persistInbound: chatId=${msg.chatId} type=$type attachments=${msg.attachments.size}" }
+            val metadata =
+                if (hasAttachments) {
+                    kotlinx.serialization.json.Json.encodeToString(
+                        AttachmentMetadata.serializer(),
+                        AttachmentMetadata(
+                            attachments = msg.attachments.map { AttachmentRef(it.path, it.mimeType) },
+                        ),
+                    )
+                } else {
+                    null
+                }
+
             val rowId =
                 messageRepository.saveAndGetRowId(
                     id = msg.id,
                     channel = msg.channel,
                     chatId = msg.chatId,
                     role = "user",
-                    type = "text",
+                    type = type,
                     content = msg.content,
+                    metadata = metadata,
                     tokens = approximateTokenCount(msg.content),
                 )
             messageEmbeddingService.embedAsync(
                 rowId,
                 "user",
-                "text",
+                type,
                 msg.content,
                 config.autoRag,
                 processingScope,

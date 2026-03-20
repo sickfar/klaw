@@ -4,9 +4,12 @@ import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.stubs.StubToolRegistry
 import io.github.klaw.engine.mcp.McpToolRegistry
+import io.github.klaw.engine.message.INLINE_IMAGE_PREFIX
+import io.github.klaw.engine.message.INLINE_IMAGE_SEPARATOR
 import io.github.klaw.engine.workspace.HeartbeatDeliverContext
 import io.github.klaw.engine.workspace.ScheduleDeliverContext
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -44,6 +47,7 @@ class ToolRegistryImpl(
     private val webSearchTool: WebSearchTool,
     private val pdfReadTool: PdfReadTool,
     private val mdToPdfTool: MdToPdfTool,
+    private val imageAnalyzeTool: ImageAnalyzeTool,
     private val config: EngineConfig,
     private val mcpToolRegistry: McpToolRegistry,
 ) : ToolRegistry {
@@ -58,6 +62,7 @@ class ToolRegistryImpl(
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
         if (!config.webFetch.enabled) result = result.filter { it.name != WEB_FETCH_TOOL_NAME }
         if (!config.webSearch.enabled) result = result.filter { it.name != WEB_SEARCH_TOOL_NAME }
+        if (!config.vision.enabled) result = result.filter { it.name != IMAGE_ANALYZE_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }
         if (!includeSendMessage) result = result.filter { it.name != SEND_MESSAGE_TOOL_NAME }
@@ -95,11 +100,17 @@ class ToolRegistryImpl(
     ): String =
         when (name) {
             "file_read" -> {
-                fileTools.read(
-                    args.str("path"),
-                    args.intOrNull("startLine"),
-                    args.intOrNull("maxLines"),
-                )
+                val path = args.str("path")
+                val ext = path.substringAfterLast('.', "").lowercase()
+                if (ext in IMAGE_EXTENSIONS) {
+                    handleImageFileRead(path)
+                } else {
+                    fileTools.read(
+                        path,
+                        args.intOrNull("startLine"),
+                        args.intOrNull("maxLines"),
+                    )
+                }
             }
 
             "file_write" -> {
@@ -275,6 +286,10 @@ class ToolRegistryImpl(
                 mdToPdfTool.convert(args.str("input_path"), args.str("output_path"), args.strOrNull("title"))
             }
 
+            "image_analyze" -> {
+                imageAnalyzeTool.analyze(args.str("path"), args.strOrNull("prompt"))
+            }
+
             "heartbeat_deliver" -> {
                 val ctx =
                     kotlin.coroutines.coroutineContext[HeartbeatDeliverContext]
@@ -315,6 +330,31 @@ class ToolRegistryImpl(
         this[key]?.jsonArray?.map { it.jsonPrimitive.content }
             ?: throw IllegalArgumentException("Missing required parameter: $key")
 
+    /**
+     * Handles file_read on an image file. If the current model supports images (per ModelRegistry),
+     * returns an inline image marker so ToolCallLoopRunner injects the image directly into context.
+     * If not vision-capable, falls back to ImageAnalyzeTool for text description.
+     */
+    private suspend fun handleImageFileRead(path: String): String {
+        if (!config.vision.enabled) {
+            return "Error: Cannot read image file — vision is not enabled. " +
+                "Configure vision in engine config."
+        }
+
+        val ctx = kotlin.coroutines.coroutineContext[ChatContext]
+        val modelId = ctx?.modelId ?: ""
+        val modelIdWithoutProvider = modelId.substringAfter('/')
+
+        return if (ModelRegistry.supportsImage(modelIdWithoutProvider)) {
+            val resolvedPath =
+                imageAnalyzeTool.resolveAndValidate(path)
+                    ?: return imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+            "$INLINE_IMAGE_PREFIX${resolvedPath.first}$INLINE_IMAGE_SEPARATOR${resolvedPath.second}"
+        } else {
+            imageAnalyzeTool.analyze(path, ImageAnalyzeTool.DEFAULT_PROMPT)
+        }
+    }
+
     companion object {
         private const val DEFAULT_MEMORY_TOP_K = 10
         private const val DEFAULT_HISTORY_TOP_K = 10
@@ -326,6 +366,8 @@ class ToolRegistryImpl(
         private const val SEND_MESSAGE_TOOL_NAME = "send_message"
         private const val WEB_FETCH_TOOL_NAME = "web_fetch"
         private const val WEB_SEARCH_TOOL_NAME = "web_search"
+        private const val IMAGE_ANALYZE_TOOL_NAME = "image_analyze"
+        private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private val HEARTBEAT_DELIVER_DEF =
             ToolDef(
                 "heartbeat_deliver",
@@ -597,6 +639,24 @@ class ToolRegistryImpl(
                         mapOf(
                             "query" to stringProp("Search query"),
                             "max_results" to intProp("Maximum number of results (default 5, max 20)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "image_analyze",
+                    "Analyze an image file from the workspace. Sends the image to a vision-capable model " +
+                        "and returns a detailed text description. Supports JPEG, PNG, GIF, and WebP formats.",
+                    toolParams(
+                        listOf("path"),
+                        mapOf(
+                            "path" to
+                                stringProp(
+                                    "Image file path relative to workspace (e.g. 'screenshots/page.png')",
+                                ),
+                            "prompt" to
+                                stringProp(
+                                    "Analysis prompt — what to focus on (default: 'Describe this image in detail')",
+                                ),
                         ),
                     ),
                 ),

@@ -10,6 +10,8 @@ data class GatewayConfig(
     val commands: List<CommandConfig> = emptyList(),
     @ConfigDoc("Delivery reliability settings")
     val delivery: DeliveryConfig = DeliveryConfig(),
+    @ConfigDoc("Attachment handling settings")
+    val attachments: AttachmentsConfig = AttachmentsConfig(),
 )
 
 @Serializable
@@ -60,6 +62,8 @@ data class TelegramConfig(
     val token: String,
     @ConfigDoc("List of chats allowed to interact with the bot")
     val allowedChats: List<AllowedChat> = emptyList(),
+    @ConfigDoc("Custom API base URL (testing only)")
+    val apiBaseUrl: String? = null,
 ) {
     override fun toString(): String = "TelegramConfig(token=***, allowedChats=$allowedChats)"
 }
@@ -87,4 +91,10 @@ data class AllowedGuild(
     val allowedChannelIds: List<String> = emptyList(),
     @ConfigDoc("Allowed user IDs (empty = deny all)")
     val allowedUserIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class AttachmentsConfig(
+    @ConfigDoc("Directory for storing received image attachments (empty = disabled)")
+    val directory: String = "",
 )

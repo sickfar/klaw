@@ -5,17 +5,23 @@ import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
+import io.github.klaw.common.llm.ImageUrlContentPart
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
+import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.engine.llm.openai.OpenAiChatRequest
 import io.github.klaw.engine.llm.openai.OpenAiChatResponse
+import io.github.klaw.engine.llm.openai.OpenAiContent
 import io.github.klaw.engine.llm.openai.OpenAiFunction
 import io.github.klaw.engine.llm.openai.OpenAiFunctionCall
+import io.github.klaw.engine.llm.openai.OpenAiImageUrl
+import io.github.klaw.engine.llm.openai.OpenAiImageUrlPart
 import io.github.klaw.engine.llm.openai.OpenAiMessage
+import io.github.klaw.engine.llm.openai.OpenAiTextPart
 import io.github.klaw.engine.llm.openai.OpenAiToolCallOut
 import io.github.klaw.engine.llm.openai.OpenAiToolDef
 import io.github.klaw.engine.util.VT
@@ -123,10 +129,32 @@ internal fun LlmRequest.toOpenAiRequest(modelId: String): OpenAiChatRequest =
         temperature = temperature,
     )
 
-internal fun LlmMessage.toOpenAiMessage(): OpenAiMessage =
-    OpenAiMessage(
+internal fun LlmMessage.toOpenAiMessage(): OpenAiMessage {
+    val parts = contentParts
+    val text = content
+    return OpenAiMessage(
         role = role,
-        content = content,
+        content =
+            when {
+                parts != null -> {
+                    OpenAiContent.Parts(
+                        parts.map { part ->
+                            when (part) {
+                                is TextContentPart -> OpenAiTextPart(part.text)
+                                is ImageUrlContentPart -> OpenAiImageUrlPart(OpenAiImageUrl(part.imageUrl.url))
+                            }
+                        },
+                    )
+                }
+
+                text != null -> {
+                    OpenAiContent.Text(text)
+                }
+
+                else -> {
+                    null
+                }
+            },
         toolCalls =
             toolCalls?.map { tc ->
                 OpenAiToolCallOut(
@@ -137,6 +165,7 @@ internal fun LlmMessage.toOpenAiMessage(): OpenAiMessage =
             },
         toolCallId = toolCallId,
     )
+}
 
 internal fun ToolDef.toOpenAiToolDef(): OpenAiToolDef =
     OpenAiToolDef(

@@ -19,6 +19,9 @@ object ConfigGenerator {
     private const val DEFAULT_AUTO_RAG_MAX_TOKENS = 400
     private const val DEFAULT_AUTO_RAG_RELEVANCE_THRESHOLD = 0.5
     private const val DEFAULT_AUTO_RAG_MIN_MESSAGE_TOKENS = 10
+    private const val DEFAULT_VISION_MAX_TOKENS = 1024
+    private const val DEFAULT_VISION_MAX_IMAGE_SIZE_BYTES = 10485760
+    private const val DEFAULT_VISION_MAX_IMAGES_PER_MESSAGE = 5
 
     @Suppress("LongParameterList")
     fun engineJson(
@@ -57,12 +60,17 @@ object ConfigGenerator {
         webSearchProvider: String = "brave",
         webSearchApiKey: String? = null,
         webSearchEndpoint: String? = null,
+        visionEnabled: Boolean = false,
+        visionModel: String = "",
+        visionMaxTokens: Int = DEFAULT_VISION_MAX_TOKENS,
+        visionAttachmentsDirectory: String = "",
+        defaultModelId: String = "test/model",
     ): String {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
-                buildModels(contextBudgetTokens)
-                buildRouting()
+                buildModels(contextBudgetTokens, visionModel, defaultModelId)
+                buildRouting(defaultModelId)
                 buildMemory(memoryInjectSummary, mmrEnabled, mmrLambda, temporalDecayEnabled, temporalDecayHalfLifeDays)
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 if (maxInlineSkills != null) {
@@ -99,6 +107,7 @@ object ConfigGenerator {
                     webSearchApiKey,
                     webSearchEndpoint,
                 )
+                buildVision(visionEnabled, visionModel, visionMaxTokens, visionAttachmentsDirectory)
             }
         return root.toString()
     }
@@ -112,6 +121,11 @@ object ConfigGenerator {
         discordToken: String? = null,
         discordApiBaseUrl: String? = null,
         discordAllowedGuilds: List<Triple<String, List<String>, List<String>>> = emptyList(),
+        telegramEnabled: Boolean = false,
+        telegramToken: String? = null,
+        telegramApiBaseUrl: String? = null,
+        telegramAllowedChats: List<Pair<String, List<String>>> = emptyList(),
+        attachmentsDirectory: String = "",
     ): String {
         val root =
             buildJsonObject {
@@ -121,26 +135,15 @@ object ConfigGenerator {
                         put("port", GATEWAY_LOCAL_WS_PORT)
                     }
                     if (discordEnabled) {
-                        putJsonObject("discord") {
-                            put("enabled", true)
-                            put("token", discordToken ?: "test-discord-token")
-                            if (discordApiBaseUrl != null) {
-                                put("apiBaseUrl", discordApiBaseUrl)
-                            }
-                            putJsonArray("allowedGuilds") {
-                                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
-                                    addJsonObject {
-                                        put("guildId", guildId)
-                                        putJsonArray("allowedChannelIds") {
-                                            channelIds.forEach { add(JsonPrimitive(it)) }
-                                        }
-                                        putJsonArray("allowedUserIds") {
-                                            userIds.forEach { add(JsonPrimitive(it)) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        buildDiscordChannel(discordToken, discordApiBaseUrl, discordAllowedGuilds)
+                    }
+                    if (telegramEnabled) {
+                        buildTelegramChannel(telegramToken, telegramApiBaseUrl, telegramAllowedChats)
+                    }
+                }
+                if (attachmentsDirectory.isNotEmpty()) {
+                    putJsonObject("attachments") {
+                        put("directory", attachmentsDirectory)
                     }
                 }
                 if (maxReconnectAttempts > 0 || drainBudgetSeconds > 0 || channelDrainBudgetSeconds > 0) {
@@ -154,6 +157,56 @@ object ConfigGenerator {
         return root.toString()
     }
 
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildDiscordChannel(
+        discordToken: String?,
+        discordApiBaseUrl: String?,
+        discordAllowedGuilds: List<Triple<String, List<String>, List<String>>>,
+    ) {
+        putJsonObject("discord") {
+            put("enabled", true)
+            put("token", discordToken ?: "test-discord-token")
+            if (discordApiBaseUrl != null) {
+                put("apiBaseUrl", discordApiBaseUrl)
+            }
+            putJsonArray("allowedGuilds") {
+                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
+                    addJsonObject {
+                        put("guildId", guildId)
+                        putJsonArray("allowedChannelIds") {
+                            channelIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                        putJsonArray("allowedUserIds") {
+                            userIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildTelegramChannel(
+        telegramToken: String?,
+        telegramApiBaseUrl: String?,
+        telegramAllowedChats: List<Pair<String, List<String>>>,
+    ) {
+        putJsonObject("telegram") {
+            put("token", telegramToken ?: "test-bot-token")
+            if (telegramApiBaseUrl != null) {
+                put("apiBaseUrl", telegramApiBaseUrl)
+            }
+            putJsonArray("allowedChats") {
+                telegramAllowedChats.forEach { (chatId, userIds) ->
+                    addJsonObject {
+                        put("chatId", chatId)
+                        putJsonArray("allowedUserIds") {
+                            userIds.forEach { add(JsonPrimitive(it)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildProviders(wiremockBaseUrl: String) {
         putJsonObject("providers") {
             putJsonObject("test") {
@@ -164,17 +217,31 @@ object ConfigGenerator {
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(contextBudgetTokens: Int) {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(
+        contextBudgetTokens: Int,
+        visionModel: String,
+        defaultModelId: String = "test/model",
+    ) {
         putJsonObject("models") {
             putJsonObject("test/model") {
                 put("contextBudget", contextBudgetTokens)
             }
+            if (defaultModelId != "test/model") {
+                putJsonObject(defaultModelId) {
+                    put("contextBudget", contextBudgetTokens)
+                }
+            }
+            if (visionModel.isNotEmpty() && visionModel != defaultModelId) {
+                putJsonObject(visionModel) {
+                    put("contextBudget", contextBudgetTokens)
+                }
+            }
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting() {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting(defaultModelId: String) {
         putJsonObject("routing") {
-            put("default", "test/model")
+            put("default", defaultModelId)
             putJsonArray("fallback") {}
             putJsonObject("tasks") {
                 put("summarization", "test/model")
@@ -300,6 +367,32 @@ object ConfigGenerator {
             put("enabled", enabled)
             put("compactionThresholdFraction", compactionThresholdFraction)
             put("summaryBudgetFraction", summaryBudgetFraction)
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildVision(
+        enabled: Boolean,
+        model: String,
+        maxTokens: Int,
+        attachmentsDirectory: String,
+    ) {
+        if (enabled) {
+            putJsonObject("vision") {
+                put("enabled", true)
+                put("model", model)
+                put("maxTokens", maxTokens)
+                put("maxImageSizeBytes", DEFAULT_VISION_MAX_IMAGE_SIZE_BYTES)
+                put("maxImagesPerMessage", DEFAULT_VISION_MAX_IMAGES_PER_MESSAGE)
+                putJsonArray("supportedFormats") {
+                    add(JsonPrimitive("image/jpeg"))
+                    add(JsonPrimitive("image/png"))
+                    add(JsonPrimitive("image/gif"))
+                    add(JsonPrimitive("image/webp"))
+                }
+                if (attachmentsDirectory.isNotBlank()) {
+                    put("attachmentsDirectory", attachmentsDirectory)
+                }
+            }
         }
     }
 

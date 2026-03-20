@@ -24,7 +24,9 @@ private const val CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
 private const val SUMMARIZATION_MARKER = "You are a conversation summarizer"
 private const val CONSOLIDATION_MARKER = "reviewing conversation history"
 private const val RISK_ASSESSMENT_MARKER = "security risk assessor"
+private const val VISION_MARKER = "image_url"
 private const val HTTP_OK = 200
+private const val PRIORITY_VISION = 1
 private const val PRIORITY_CONSOLIDATION = 1
 private const val PRIORITY_SUMMARIZATION = 1
 private const val PRIORITY_RISK_ASSESSMENT = 2
@@ -341,6 +343,30 @@ class WireMockLlmServer {
                 ),
         )
     }
+
+    fun stubVisionResponse(
+        content: String,
+        promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+        completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+    ) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(VISION_MARKER))
+                .atPriority(PRIORITY_VISION)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(buildChatResponseJson(content, promptTokens, completionTokens)),
+                ),
+        )
+    }
+
+    fun getVisionRequests(): List<LoggedRequest> =
+        server.findAll(
+            postRequestedFor(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(VISION_MARKER)),
+        )
 
     fun getNthRequestBody(n: Int): JsonObject {
         val requests = getRecordedRequests()

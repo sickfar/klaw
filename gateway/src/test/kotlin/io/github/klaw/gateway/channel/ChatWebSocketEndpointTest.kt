@@ -1,5 +1,7 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.GatewayConfig
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.server.routing.routing
@@ -15,7 +17,7 @@ class ChatWebSocketEndpointTest {
     @Test
     fun `valid user frame is forwarded to LocalWsChannel`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -33,7 +35,7 @@ class ChatWebSocketEndpointTest {
     @Test
     fun `frame with type not equal to user is ignored`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -51,7 +53,7 @@ class ChatWebSocketEndpointTest {
     @Test
     fun `malformed JSON is silently ignored`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
@@ -69,7 +71,7 @@ class ChatWebSocketEndpointTest {
     @Test
     fun `empty content with type=user is forwarded`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val endpoint = ChatWebSocketEndpoint(localWsChannel)
+        val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(GatewayConfig(channels = ChannelsConfig())))
 
         testApplication {
             install(ServerWebSockets)
