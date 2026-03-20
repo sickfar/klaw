@@ -220,6 +220,14 @@ class MockTelegramServer(
 
     fun getReceivedMessageCount(): Int = getReceivedMessages().size
 
+    fun getRequestCount(path: String): Int =
+        wireMock.findAll(postRequestedFor(urlEqualTo(path))).size +
+            wireMock
+                .findAll(
+                    com.github.tomakehurst.wiremock.client.WireMock
+                        .getRequestedFor(urlEqualTo(path)),
+                ).size
+
     fun reset() {
         wireMock.resetRequests()
         wireMock.resetScenarios()

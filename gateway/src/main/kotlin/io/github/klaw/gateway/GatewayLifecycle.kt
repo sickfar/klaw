@@ -173,7 +173,9 @@ class GatewayLifecycle(
                             },
                     ),
                 )
-                logger.debug { "Inbound forwarded to engine: channel=${incoming.channel}" }
+                logger.debug {
+                    "Inbound forwarded to engine: channel=${incoming.channel} attachments=${incoming.attachments.size}"
+                }
             }
         }
 

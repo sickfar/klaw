@@ -487,6 +487,7 @@ class MessageProcessor(
         messages.forEach { msg ->
             val hasAttachments = msg.attachments.isNotEmpty()
             val type = if (hasAttachments) "multimodal" else "text"
+            logger.debug { "persistInbound: chatId=${msg.chatId} type=$type attachments=${msg.attachments.size}" }
             val metadata =
                 if (hasAttachments) {
                     kotlinx.serialization.json.Json.encodeToString(

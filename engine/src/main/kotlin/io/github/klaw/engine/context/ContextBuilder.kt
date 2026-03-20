@@ -69,14 +69,24 @@ class ContextBuilder(
     private val subagentHistoryLoader: SubagentHistoryLoader,
     private val healthProviderLazy: Provider<EngineHealthProvider>,
     private val llmRouter: LlmRouter,
-    allowedImageDirs: List<Path>? = null,
 ) {
-    private val allowedImageDirs: List<Path> =
-        allowedImageDirs ?: buildList {
+    /**
+     * Directories from which the engine is allowed to read image attachments.
+     * Initialized from config by default. Tests override via [overrideAllowedImageDirs].
+     */
+    private var allowedImageDirs: List<Path> =
+        buildList {
             add(Path.of(KlawPaths.workspace))
             val attachDir = config.vision.attachmentsDirectory
             if (attachDir.isNotBlank()) add(Path.of(attachDir))
+        }.also { dirs ->
+            logger.debug { "allowedImageDirs: ${dirs.map { it.toAbsolutePath() }}" }
         }
+
+    /** Visible for testing — allows tests to set custom allowed dirs. */
+    internal fun overrideAllowedImageDirs(dirs: List<Path>) {
+        allowedImageDirs = dirs
+    }
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     suspend fun buildContext(
@@ -325,11 +335,15 @@ class ContextBuilder(
 
     private fun isPathWithinAllowedDirs(filePath: Path): Boolean {
         val normalized = filePath.normalize()
-        return allowedImageDirs.any { base ->
-            val baseNorm = base.normalize()
-            normalized.startsWith(baseNorm) &&
-                (!Files.isSymbolicLink(normalized) || isRealPathWithin(normalized, baseNorm))
-        }
+        val result =
+            allowedImageDirs.any { base ->
+                val baseNorm = base.normalize()
+                val starts = normalized.startsWith(baseNorm)
+                val symlink = Files.isSymbolicLink(normalized)
+                logger.trace { "pathCheck: normalized=$normalized base=$baseNorm starts=$starts symlink=$symlink" }
+                starts && (!symlink || isRealPathWithin(normalized, baseNorm))
+            }
+        return result
     }
 
     private fun isRealPathWithin(

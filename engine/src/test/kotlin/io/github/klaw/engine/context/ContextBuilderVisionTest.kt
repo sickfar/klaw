@@ -118,20 +118,23 @@ class ContextBuilderVisionTest {
         createdAt = Instant.parse("2024-01-01T00:00:00Z"),
     )
 
-    private fun buildContextBuilder(config: EngineConfig): ContextBuilder =
-        ContextBuilder(
-            workspaceLoader = workspaceLoader,
-            messageRepository = messageRepository,
-            summaryService = summaryService,
-            skillRegistry = skillRegistry,
-            toolRegistry = toolRegistry,
-            config = config,
-            autoRagService = autoRagService,
-            subagentHistoryLoader = subagentHistoryLoader,
-            healthProviderLazy = { healthProvider },
-            llmRouter = llmRouter,
-            allowedImageDirs = listOf(tempDir),
-        )
+    private fun buildContextBuilder(config: EngineConfig): ContextBuilder {
+        val builder =
+            ContextBuilder(
+                workspaceLoader = workspaceLoader,
+                messageRepository = messageRepository,
+                summaryService = summaryService,
+                skillRegistry = skillRegistry,
+                toolRegistry = toolRegistry,
+                config = config,
+                autoRagService = autoRagService,
+                subagentHistoryLoader = subagentHistoryLoader,
+                healthProviderLazy = { healthProvider },
+                llmRouter = llmRouter,
+            )
+        builder.overrideAllowedImageDirs(listOf(tempDir))
+        return builder
+    }
 
     @BeforeEach
     fun setUp() {
