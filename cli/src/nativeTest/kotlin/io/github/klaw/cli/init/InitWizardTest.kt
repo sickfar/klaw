@@ -151,6 +151,7 @@ class InitWizardTest {
                 "test/model", // model text
                 "n", // Configure Telegram? → n = skip
                 // NO telegram token or chat IDs prompts
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -183,6 +184,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -220,6 +222,7 @@ class InitWizardTest {
                 "y", // configure telegram
                 "my-bot-token", // token
                 "", // chat IDs
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -474,6 +477,7 @@ class InitWizardTest {
                 "valid-key",
                 // radio selection at index 0 (glm-5) via lambda — no text prompts for URL or alias
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -512,6 +516,7 @@ class InitWizardTest {
                 // radioSelector returns null for model → text prompt
                 "my/custom-model", // text fallback
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -584,6 +589,7 @@ class InitWizardTest {
                 "", // Configure Telegram? [Y/n]: blank = Y
                 "bot-token-123", // telegram token
                 "", // allowed chat IDs (empty = allow all)
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "TestAgent", // agent name
@@ -620,6 +626,7 @@ class InitWizardTest {
                 "", // Configure Telegram? blank = Y
                 "telegram-bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -656,6 +663,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "MyBot",
@@ -713,6 +721,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "MyBot",
@@ -759,6 +768,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "my-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -792,6 +802,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 6: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -836,6 +847,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 6: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -876,6 +888,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 6: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -923,6 +936,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 6: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -957,6 +971,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -990,6 +1005,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token",
                 "",
+                "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "Klaw",
@@ -1028,6 +1044,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
+                "n", // discord
                 "y", // Phase 5: enable localWs
                 "37474", // Phase 5: port
                 "n", // skip web search
@@ -1063,6 +1080,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
+                "n", // discord
                 "n", // Phase 5: do not enable localWs
                 "n", // skip web search
                 "Klaw",
@@ -1094,6 +1112,7 @@ class InitWizardTest {
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
+                "n", // discord
                 "y", // Phase 5: enable localWs
                 "9090", // Phase 5: custom port
                 "n", // skip web search
@@ -1128,6 +1147,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -1159,6 +1179,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -1196,6 +1217,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -1228,6 +1250,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // telegram
+                "n", // discord
                 "n", // localWs
                 "n", // skip web search
                 "Klaw",
@@ -1567,6 +1590,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw", // agent name
@@ -1613,6 +1637,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw",
@@ -1650,6 +1675,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw",
@@ -1700,6 +1726,7 @@ class InitWizardTest {
                     "my-key", // API key
                     "test/model", // model
                     "n", // skip telegram
+                    "n", // discord
                     "n", // skip localWs
                     "n", // skip web search
                 ),
@@ -1785,6 +1812,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw", // agent name (identity hatching runs)
@@ -1828,6 +1856,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw", // agent name (identity hatching runs)
@@ -1869,6 +1898,7 @@ class InitWizardTest {
                     "my-key", // API key
                     "test/model", // model
                     "n", // skip telegram
+                    "n", // discord
                     "n", // skip localWs
                     "n", // skip web search
                 ),
@@ -1935,6 +1965,7 @@ class InitWizardTest {
                 "my-key", // API key
                 "test/model", // model
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "NewBot", // agent name (hatching runs on fresh init)
@@ -1973,6 +2004,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
                 "Klaw",
@@ -2017,6 +2049,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "y", // enable web search
                 "brave-api-key-123", // search API key
@@ -2070,6 +2103,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "y", // enable web search
                 "tavily-api-key-456", // search API key
@@ -2127,6 +2161,7 @@ class InitWizardTest {
                 "my-key",
                 "test/model",
                 "n", // skip telegram
+                "n", // discord
                 "n", // skip localWs
                 "y", // enable web search
                 "bad-search-key", // first attempt (will fail validation)

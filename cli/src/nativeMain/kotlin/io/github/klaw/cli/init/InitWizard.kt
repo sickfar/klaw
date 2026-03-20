@@ -29,23 +29,23 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.OsFamily
 import kotlin.native.Platform
 
-private const val TOTAL_PHASES = 9
+private const val TOTAL_PHASES = 10
 private const val DEFAULT_MODEL = "zai/glm-5"
 private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
-private const val ID_KEY_OFFSET = 4 // length of "\"id\"" to skip to the value
 private const val SEARCH_VALIDATION_TIMEOUT = 10
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3
 private const val PHASE_TELEGRAM = 4
-private const val PHASE_WEBSOCKET = 5
-private const val PHASE_WEB_SEARCH = 6
-private const val PHASE_SETUP = 7
-private const val PHASE_ENGINE_START = 8
-private const val PHASE_SERVICE_INSTALL = 9
+private const val PHASE_DISCORD = 5
+private const val PHASE_WEBSOCKET = 6
+private const val PHASE_WEB_SEARCH = 7
+private const val PHASE_SETUP = 8
+private const val PHASE_ENGINE_START = 9
+private const val PHASE_SERVICE_INSTALL = 10
 
 internal data class LlmProvider(
     val label: String,
@@ -231,7 +231,30 @@ internal class InitWizard(
             chatIds = emptyList()
         }
 
-        CliLogger.info { "phase 5: WebSocket chat setup" }
+        CliLogger.info { "phase 5: Discord setup" }
+        phase(PHASE_DISCORD, "Discord setup")
+        printer("Configure Discord bot? [y/N]:")
+        val discordAnswer = readLineOrExit() ?: return
+        val configureDiscord = discordAnswer.trim().lowercase() == "y"
+        val discordToken: String
+        val discordGuildIds: List<String>
+        if (configureDiscord) {
+            printer("Discord bot token:")
+            discordToken = (readLineOrExit() ?: return).trim()
+            printer("Allowed guild (server) IDs (comma-separated, empty for pairing later):")
+            val rawGuildIds = readLineOrExit()?.trim().orEmpty()
+            discordGuildIds =
+                if (rawGuildIds.isBlank()) {
+                    emptyList()
+                } else {
+                    rawGuildIds.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                }
+        } else {
+            discordToken = ""
+            discordGuildIds = emptyList()
+        }
+
+        CliLogger.info { "phase 6: WebSocket chat setup" }
         phase(PHASE_WEBSOCKET, "WebSocket chat setup")
         printer("Enable WebSocket chat for klaw chat and future web UI? [y/N]:")
         val enableLocalWs = readLineOrExit()?.trim()?.lowercase() == "y"
@@ -244,7 +267,7 @@ internal class InitWizard(
             printer("WebSocket chat disabled (can be enabled later in gateway.json)")
         }
 
-        CliLogger.info { "phase 6: Web search setup" }
+        CliLogger.info { "phase 7: Web search setup" }
         phase(PHASE_WEB_SEARCH, "Web search setup")
         printer("Enable web search? (y/n) [n]:")
         val enableWebSearch = readLineOrExit()?.trim()?.lowercase() == "y"
@@ -286,7 +309,7 @@ internal class InitWizard(
                 DeployMode.NATIVE -> ""
             }
 
-        CliLogger.info { "phase 7: setup" }
+        CliLogger.info { "phase 8: setup" }
         phase(PHASE_SETUP, "Setup")
         WorkspaceInitializer(
             configDir = configDir,
@@ -311,6 +334,7 @@ internal class InitWizard(
         val heartbeatChannel =
             when {
                 configureTelegram -> "telegram"
+                configureDiscord -> "discord"
                 enableLocalWs -> "local_ws"
                 else -> null
             }
@@ -334,6 +358,8 @@ internal class InitWizard(
                         io.github.klaw.common.config
                             .AllowedChat(chatId = it)
                     },
+                discordEnabled = configureDiscord,
+                discordAllowedGuilds = discordGuildIds,
                 enableLocalWs = enableLocalWs,
                 localWsPort = localWsPort,
             ),
@@ -344,6 +370,9 @@ internal class InitWizard(
                 apiKeyEnvVar to llmApiKey,
                 "KLAW_TELEGRAM_TOKEN" to telegramToken,
             )
+        if (configureDiscord && discordToken.isNotBlank()) {
+            envEntries["KLAW_DISCORD_TOKEN"] = discordToken
+        }
         if (webSearchProvider != null) {
             envEntries[webSearchProvider.envVar] = webSearchApiKey
         }
@@ -365,7 +394,7 @@ internal class InitWizard(
         }
         success("Directories and configuration written")
 
-        CliLogger.info { "phase 8: engine auto-start" }
+        CliLogger.info { "phase 9: engine auto-start" }
         phase(PHASE_ENGINE_START, "Engine auto-start")
         val spinner = Spinner("Starting Engine...")
         val startCommand =
@@ -407,7 +436,7 @@ internal class InitWizard(
             spinner.done("Engine started")
         }
 
-        CliLogger.info { "phase 9: service/container startup" }
+        CliLogger.info { "phase 10: service/container startup" }
         when (resolvedMode) {
             DeployMode.DOCKER -> {
                 phase(PHASE_SERVICE_INSTALL, "Container startup")
@@ -680,61 +709,6 @@ internal class InitWizard(
         return (readLineOrExit() ?: return null).trim().ifBlank { DEFAULT_MODEL }
     }
 
-    /**
-     * Parses model IDs from an OpenAI-compatible /models response JSON.
-     * Returns empty list if json is null or malformed.
-     *
-     * Example: `{"data":[{"id":"glm-5"},{"id":"glm-4-plus"}]}` → `["glm-5", "glm-4-plus"]`
-     */
-    private fun parseModels(json: String?): List<String> {
-        if (json == null) return emptyList()
-        val arrayContent = extractDataArrayContent(json) ?: return emptyList()
-        val result = mutableListOf<String>()
-        var searchFrom = 0
-        while (true) {
-            val idKey = arrayContent.indexOf("\"id\"", searchFrom)
-            if (idKey < 0) break
-            val (modelId, nextPos) = parseOneModelId(arrayContent, idKey + ID_KEY_OFFSET) ?: break
-            if (modelId.isNotEmpty()) result += modelId
-            searchFrom = nextPos
-        }
-        return result
-    }
-
-    private fun extractDataArrayContent(json: String): String? {
-        val dataStart = json.indexOf("\"data\"")
-        if (dataStart < 0) return null
-        val arrayStart = json.indexOf('[', dataStart)
-        if (arrayStart < 0) return null
-        val arrayEnd = json.indexOf(']', arrayStart)
-        if (arrayEnd < 0) return null
-        return json.substring(arrayStart + 1, arrayEnd)
-    }
-
-    private fun parseOneModelId(
-        content: String,
-        startIdx: Int,
-    ): Pair<String, Int>? {
-        var i = startIdx
-        while (i < content.length && (content[i] == ':' || content[i] == ' ')) i++
-        if (i >= content.length || content[i] != '"') return null
-        i++ // skip opening quote
-        val sb = StringBuilder()
-        while (i < content.length) {
-            val c = content[i]
-            if (c == '\\' && i + 1 < content.length && content[i + 1] == '"') {
-                sb.append('"')
-                i += 2
-            } else if (c == '"') {
-                break
-            } else {
-                sb.append(c)
-                i++
-            }
-        }
-        return sb.toString() to i + 1
-    }
-
     private fun phase(
         n: Int,
         title: String,
@@ -788,52 +762,5 @@ internal class InitWizard(
                 // No additional summary for native mode
             }
         }
-    }
-
-    /** Returns (unescaped char, new index after escape sequence). */
-    private fun unescapeChar(
-        json: String,
-        backslashIdx: Int,
-    ): Pair<Char, Int> {
-        val next = if (backslashIdx + 1 < json.length) json[backslashIdx + 1] else '\\'
-        val ch =
-            when (next) {
-                'n' -> '\n'
-                '"' -> '"'
-                '\\' -> '\\'
-                'r' -> '\r'
-                't' -> '\t'
-                else -> next
-            }
-        return ch to backslashIdx + 2
-    }
-
-    private fun extractJsonField(
-        json: String,
-        field: String,
-    ): String? {
-        val keyPattern = """"$field""""
-        var i = json.indexOf(keyPattern)
-        if (i < 0) return null
-        i += keyPattern.length
-        // skip whitespace and colon
-        while (i < json.length && (json[i] == ':' || json[i] == ' ')) i++
-        if (i >= json.length || json[i] != '"') return null
-        i++ // skip opening quote
-        val sb = StringBuilder()
-        while (i < json.length) {
-            val c = json[i]
-            if (c == '\\' && i + 1 < json.length) {
-                val (ch, next) = unescapeChar(json, i)
-                sb.append(ch)
-                i = next
-            } else if (c == '"') {
-                break
-            } else {
-                sb.append(c)
-                i++
-            }
-        }
-        return sb.toString()
     }
 }

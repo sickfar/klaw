@@ -189,6 +189,42 @@ class ConfigGeneratorTest {
     }
 
     @Test
+    fun `gateway json with discord enabled contains discord channel config`() {
+        val gatewayJson =
+            ConfigGenerator.gatewayJson(
+                discordEnabled = true,
+                discordToken = "my-bot-token",
+                discordApiBaseUrl = "http://host.testcontainers.internal:9999",
+                discordAllowedGuilds =
+                    listOf(
+                        Triple("111222333", listOf("444555666"), listOf("777888999")),
+                    ),
+            )
+
+        val root = json.parseToJsonElement(gatewayJson).jsonObject
+        val discord = root["channels"]!!.jsonObject["discord"]!!.jsonObject
+        assertTrue(discord["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals("my-bot-token", discord["token"]!!.jsonPrimitive.content)
+        assertEquals("http://host.testcontainers.internal:9999", discord["apiBaseUrl"]!!.jsonPrimitive.content)
+
+        val guilds = discord["allowedGuilds"]!!.jsonArray
+        assertEquals(1, guilds.size)
+        val guild = guilds[0].jsonObject
+        assertEquals("111222333", guild["guildId"]!!.jsonPrimitive.content)
+        assertEquals("444555666", guild["allowedChannelIds"]!!.jsonArray[0].jsonPrimitive.content)
+        assertEquals("777888999", guild["allowedUserIds"]!!.jsonArray[0].jsonPrimitive.content)
+    }
+
+    @Test
+    fun `gateway json without discord does not contain discord block`() {
+        val gatewayJson = ConfigGenerator.gatewayJson()
+
+        val root = json.parseToJsonElement(gatewayJson).jsonObject
+        val channels = root["channels"]!!.jsonObject
+        assertFalse(channels.containsKey("discord"))
+    }
+
+    @Test
     fun `engine json defaults have empty allowList and notifyList`() {
         val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
 

@@ -636,6 +636,36 @@ object GeneratedSchemas {
                                 },
                                 "token": {
                                     "type": "string"
+                                },
+                                "allowedGuilds": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "guildId": {
+                                                "type": "string"
+                                            },
+                                            "allowedChannelIds": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "allowedUserIds": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "guildId"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "apiBaseUrl": {
+                                    "type": "string"
                                 }
                             },
                             "additionalProperties": false

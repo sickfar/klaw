@@ -7,6 +7,7 @@ import io.github.klaw.common.config.parseGatewayConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ConfigTemplatesTest {
@@ -506,5 +507,80 @@ class ConfigTemplatesTest {
         val result = ConfigTemplates.deployConf(DeployMode.HYBRID, "unstable")
         assertTrue(result.contains("mode=hybrid"), "Expected mode=hybrid in:\n$result")
         assertTrue(result.contains("docker_tag=unstable"), "Expected docker_tag=unstable in:\n$result")
+    }
+
+    // --- Discord ---
+
+    @Test
+    fun `gatewayJson with discordEnabled=true includes discord section`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, discordEnabled = true)
+        assertTrue(json.contains("discord"), "Expected 'discord' in:\n$json")
+        val config = parseGatewayConfig(json)
+        assertNotNull(config.channels.discord, "Expected discord config in parsed result")
+        assertTrue(config.channels.discord!!.enabled, "Expected discord enabled=true")
+    }
+
+    @Test
+    fun `gatewayJson with discordEnabled=true uses env var token`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, discordEnabled = true)
+        assertTrue(json.contains("KLAW_DISCORD_TOKEN"), "Expected KLAW_DISCORD_TOKEN env var in:\n$json")
+    }
+
+    @Test
+    fun `gatewayJson with discordEnabled=true and allowedGuilds includes guild IDs`() {
+        val json =
+            ConfigTemplates.gatewayJson(
+                telegramEnabled = false,
+                discordEnabled = true,
+                discordAllowedGuilds = listOf("111222333", "444555666"),
+            )
+        val config = parseGatewayConfig(json)
+        val guilds = config.channels.discord?.allowedGuilds
+        assertNotNull(guilds, "Expected allowedGuilds")
+        assertEquals(2, guilds.size, "Expected 2 guilds")
+        assertEquals("111222333", guilds[0].guildId)
+        assertEquals("444555666", guilds[1].guildId)
+    }
+
+    @Test
+    fun `gatewayJson with discordEnabled=false omits discord section`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = true, discordEnabled = false)
+        assertTrue(!json.contains("discord"), "Expected no 'discord' section in:\n$json")
+        val config = parseGatewayConfig(json)
+        assertNull(config.channels.discord, "Expected null discord in parsed result")
+    }
+
+    @Test
+    fun `gatewayJson with discord and telegram both enabled includes both`() {
+        val json =
+            ConfigTemplates.gatewayJson(
+                telegramEnabled = true,
+                allowedChats = listOf(AllowedChat("123")),
+                discordEnabled = true,
+                discordAllowedGuilds = listOf("999"),
+            )
+        val config = parseGatewayConfig(json)
+        assertNotNull(config.channels.telegram, "Expected telegram config")
+        assertNotNull(config.channels.discord, "Expected discord config")
+        val guilds = config.channels.discord!!.allowedGuilds
+        assertEquals("999", guilds.first().guildId)
+    }
+
+    @Test
+    fun `gatewayJson discord round-trips through parser`() {
+        val json =
+            ConfigTemplates.gatewayJson(
+                telegramEnabled = false,
+                discordEnabled = true,
+                discordAllowedGuilds = listOf("guild1"),
+                enableLocalWs = true,
+                localWsPort = 9090,
+            )
+        val config = parseGatewayConfig(json)
+        assertNull(config.channels.telegram, "Expected no telegram")
+        assertNotNull(config.channels.discord, "Expected discord")
+        assertTrue(config.channels.discord!!.enabled)
+        assertNotNull(config.channels.localWs, "Expected localWs")
+        assertEquals(9090, config.channels.localWs?.port)
     }
 }

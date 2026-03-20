@@ -709,4 +709,124 @@ class ConfigParsingTest {
             DatabaseConfig(backupMaxCount = -1)
         }
     }
+
+    @Test
+    fun `parse gateway json - discord with allowedGuilds and apiBaseUrl`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "enabled": true,
+                  "token": "discord_token",
+                  "allowedGuilds": [
+                    {
+                      "guildId": "guild_001",
+                      "allowedChannelIds": ["ch_1", "ch_2"],
+                      "allowedUserIds": ["user_a", "user_b"]
+                    },
+                    {
+                      "guildId": "guild_002",
+                      "allowedChannelIds": [],
+                      "allowedUserIds": ["user_c"]
+                    }
+                  ],
+                  "apiBaseUrl": "https://discord.example.com/api"
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val discord = assertNotNull(config.channels.discord)
+        assertTrue(discord.enabled)
+        assertEquals(2, discord.allowedGuilds.size)
+
+        val guild1 = discord.allowedGuilds[0]
+        assertEquals("guild_001", guild1.guildId)
+        assertEquals(listOf("ch_1", "ch_2"), guild1.allowedChannelIds)
+        assertEquals(listOf("user_a", "user_b"), guild1.allowedUserIds)
+
+        val guild2 = discord.allowedGuilds[1]
+        assertEquals("guild_002", guild2.guildId)
+        assertTrue(guild2.allowedChannelIds.isEmpty())
+        assertEquals(listOf("user_c"), guild2.allowedUserIds)
+
+        assertEquals("https://discord.example.com/api", discord.apiBaseUrl)
+    }
+
+    @Test
+    fun `parse gateway json - discord with empty allowedGuilds defaults`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "enabled": true,
+                  "token": "discord_token"
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val discord = assertNotNull(config.channels.discord)
+        assertTrue(discord.enabled)
+        assertTrue(discord.allowedGuilds.isEmpty())
+        assertNull(discord.apiBaseUrl)
+    }
+
+    @Test
+    fun `parse gateway json - discord enabled false by default`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "token": "discord_token"
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val discord = assertNotNull(config.channels.discord)
+        assertFalse(discord.enabled)
+    }
+
+    @Test
+    fun `parse gateway json - discord allowedGuild with defaults for channelIds and userIds`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "enabled": true,
+                  "token": "t",
+                  "allowedGuilds": [{"guildId": "g1"}]
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val guild = config.channels.discord!!.allowedGuilds[0]
+        assertEquals("g1", guild.guildId)
+        assertTrue(guild.allowedChannelIds.isEmpty())
+        assertTrue(guild.allowedUserIds.isEmpty())
+    }
+
+    @Test
+    fun `backward compat - existing config without discord section still parses`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "token": "bot_token",
+                  "allowedChats": [{"chatId": "123"}]
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertNull(config.channels.discord)
+        assertNotNull(config.channels.telegram)
+    }
 }

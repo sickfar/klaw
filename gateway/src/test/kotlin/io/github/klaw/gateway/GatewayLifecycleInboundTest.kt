@@ -142,7 +142,7 @@ class GatewayLifecycleInboundTest {
 
             val pairingService = mockk<PairingService>()
             every {
-                pairingService.generateCode("telegram", "telegram_123", "user1")
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
             } returns PairingCodeResult.Success("ABC123")
             every { pairingService.hasPendingRequests() } returns true
 
@@ -174,7 +174,7 @@ class GatewayLifecycleInboundTest {
 
             val pairingService = mockk<PairingService>()
             every {
-                pairingService.generateCode("telegram", "telegram_123", "user1")
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
             } returns PairingCodeResult.RateLimited
 
             val replies = mutableListOf<Pair<String, String>>()
@@ -229,7 +229,7 @@ class GatewayLifecycleInboundTest {
 
             val pairingService = mockk<PairingService>()
             every {
-                pairingService.generateCode("telegram", "telegram_123", "user1")
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
             } returns PairingCodeResult.Success("ABC123")
             every { pairingService.hasPendingRequests() } returns true
 
@@ -284,7 +284,7 @@ class GatewayLifecycleInboundTest {
 
             val pairingService = mockk<PairingService>()
             every {
-                pairingService.generateCode("telegram", "telegram_123", "user1")
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
             } returns PairingCodeResult.Success("DEF456")
             every { pairingService.hasPendingRequests() } returns true
 
@@ -332,7 +332,7 @@ class GatewayLifecycleInboundTest {
 
             val pairingService = mockk<PairingService>()
             every {
-                pairingService.generateCode("telegram", "telegram_123", "user1")
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
             } returns PairingCodeResult.Success("XYZ999")
             every { pairingService.hasPendingRequests() } returns true
 

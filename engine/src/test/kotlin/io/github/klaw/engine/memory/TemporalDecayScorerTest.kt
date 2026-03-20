@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Instant
 
 class TemporalDecayScorerTest {
     private fun result(

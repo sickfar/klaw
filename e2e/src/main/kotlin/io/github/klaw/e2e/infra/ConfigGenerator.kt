@@ -1,6 +1,7 @@
 package io.github.klaw.e2e.infra
 
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -102,10 +103,15 @@ object ConfigGenerator {
         return root.toString()
     }
 
+    @Suppress("LongParameterList")
     fun gatewayJson(
         maxReconnectAttempts: Int = 0,
         drainBudgetSeconds: Int = 0,
         channelDrainBudgetSeconds: Int = 0,
+        discordEnabled: Boolean = false,
+        discordToken: String? = null,
+        discordApiBaseUrl: String? = null,
+        discordAllowedGuilds: List<Triple<String, List<String>, List<String>>> = emptyList(),
     ): String {
         val root =
             buildJsonObject {
@@ -113,6 +119,28 @@ object ConfigGenerator {
                     putJsonObject("localWs") {
                         put("enabled", true)
                         put("port", GATEWAY_LOCAL_WS_PORT)
+                    }
+                    if (discordEnabled) {
+                        putJsonObject("discord") {
+                            put("enabled", true)
+                            put("token", discordToken ?: "test-discord-token")
+                            if (discordApiBaseUrl != null) {
+                                put("apiBaseUrl", discordApiBaseUrl)
+                            }
+                            putJsonArray("allowedGuilds") {
+                                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
+                                    addJsonObject {
+                                        put("guildId", guildId)
+                                        putJsonArray("allowedChannelIds") {
+                                            channelIds.forEach { add(JsonPrimitive(it)) }
+                                        }
+                                        putJsonArray("allowedUserIds") {
+                                            userIds.forEach { add(JsonPrimitive(it)) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 if (maxReconnectAttempts > 0 || drainBudgetSeconds > 0 || channelDrainBudgetSeconds > 0) {

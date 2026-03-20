@@ -263,6 +263,7 @@ class GatewayOutboundHandler(
     private fun detectChannel(chatId: String): String =
         when {
             chatId.startsWith("telegram_") -> "telegram"
+            chatId.startsWith("discord_") -> "discord"
             chatId.startsWith("local_ws") -> "local_ws"
             else -> "unknown"
         }

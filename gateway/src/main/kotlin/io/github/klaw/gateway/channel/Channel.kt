@@ -45,6 +45,7 @@ data class IncomingMessage(
     val chatType: String? = null,
     val chatTitle: String? = null,
     val messageId: String? = null,
+    val guildId: String? = null,
 )
 
 data class OutgoingMessage(

@@ -184,7 +184,13 @@ class GatewayLifecycle(
                 }
 
                 PairingStatus.NewChat, PairingStatus.NewUserInExistingChat -> {
-                    val result = pairingService.generateCode(incoming.channel, incoming.chatId, incoming.userId)
+                    val result =
+                        pairingService.generateCode(
+                            incoming.channel,
+                            incoming.chatId,
+                            incoming.userId,
+                            incoming.guildId,
+                        )
                     when (result) {
                         is PairingCodeResult.Success -> {
                             replyFn(

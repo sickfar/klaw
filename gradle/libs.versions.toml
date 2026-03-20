@@ -22,6 +22,7 @@ kotlin-logging = "7.0.7"
 shadow = "8.3.6"
 sqlite-jdbc = "3.49.1.0"
 jsoup = "1.18.3"
+kord = "0.17.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -48,6 +49,7 @@ testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+kord-core = { module = "dev.kord:kord-core", version.ref = "kord" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

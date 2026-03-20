@@ -1,12 +1,14 @@
 package io.github.klaw.cli.init
 
 import io.github.klaw.common.config.AllowedChat
+import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ComposeConfig
 import io.github.klaw.common.config.ComposeServiceConfig
 import io.github.klaw.common.config.ComposeVolumeConfig
 import io.github.klaw.common.config.ContextConfig
+import io.github.klaw.common.config.DiscordConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
@@ -89,6 +91,8 @@ internal object ConfigTemplates {
     fun gatewayJson(
         telegramEnabled: Boolean = true,
         allowedChats: List<AllowedChat> = emptyList(),
+        discordEnabled: Boolean = false,
+        discordAllowedGuilds: List<String> = emptyList(),
         enableLocalWs: Boolean = false,
         localWsPort: Int = 37474,
     ): String {
@@ -97,6 +101,16 @@ internal object ConfigTemplates {
                 TelegramConfig(
                     token = "\${KLAW_TELEGRAM_TOKEN}",
                     allowedChats = allowedChats,
+                )
+            } else {
+                null
+            }
+        val discord =
+            if (discordEnabled) {
+                DiscordConfig(
+                    enabled = true,
+                    token = "\${KLAW_DISCORD_TOKEN}",
+                    allowedGuilds = discordAllowedGuilds.map { AllowedGuild(guildId = it) },
                 )
             } else {
                 null
@@ -115,6 +129,7 @@ internal object ConfigTemplates {
                 channels =
                     ChannelsConfig(
                         telegram = telegram,
+                        discord = discord,
                         localWs = localWs,
                     ),
             )

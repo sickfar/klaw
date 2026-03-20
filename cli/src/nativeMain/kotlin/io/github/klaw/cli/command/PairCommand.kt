@@ -7,6 +7,7 @@ import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
+import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.PairingRequest
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.klawJson
@@ -59,7 +60,11 @@ internal class PairCommand(
                 return
             }
 
-        val updatedConfig = addChatToConfig(config, request)
+        val updatedConfig =
+            when (channel) {
+                "discord" -> addGuildToConfig(config, request)
+                else -> addChatToConfig(config, request)
+            }
         writeFileText(configPath, encodeGatewayConfig(updatedConfig))
 
         val remaining = requests.filter { it.code != code || it.channel != channel }
@@ -95,6 +100,37 @@ internal class PairCommand(
             channels =
                 config.channels.copy(
                     telegram = telegram.copy(allowedChats = updatedChats),
+                ),
+        )
+    }
+
+    private fun addGuildToConfig(
+        config: io.github.klaw.common.config.GatewayConfig,
+        request: PairingRequest,
+    ): io.github.klaw.common.config.GatewayConfig {
+        val discord = config.channels.discord ?: return config
+        val guildId = request.guildId ?: return config
+        val userId = request.userId
+        val existingGuild = discord.allowedGuilds.find { it.guildId == guildId }
+        val updatedGuilds =
+            if (existingGuild != null) {
+                val userIds =
+                    if (userId != null && userId !in existingGuild.allowedUserIds) {
+                        existingGuild.allowedUserIds + userId
+                    } else {
+                        existingGuild.allowedUserIds
+                    }
+                discord.allowedGuilds.map {
+                    if (it.guildId == guildId) it.copy(allowedUserIds = userIds) else it
+                }
+            } else {
+                val userIds = if (userId != null) listOf(userId) else emptyList()
+                discord.allowedGuilds + AllowedGuild(guildId = guildId, allowedUserIds = userIds)
+            }
+        return config.copy(
+            channels =
+                config.channels.copy(
+                    discord = discord.copy(allowedGuilds = updatedGuilds),
                 ),
         )
     }

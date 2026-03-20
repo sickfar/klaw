@@ -5,7 +5,9 @@ import io.github.klaw.cli.KlawCli
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
+import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
+import io.github.klaw.common.config.DiscordConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.PairingRequest
 import io.github.klaw.common.config.TelegramConfig
@@ -178,5 +180,100 @@ class PairCommandTest {
         val result = makeCli().test("pair telegram MIS001")
         assertEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Invalid"), result.output)
+    }
+
+    private fun makeDiscordGatewayConfig(allowedGuilds: List<AllowedGuild> = emptyList()): GatewayConfig =
+        GatewayConfig(
+            channels =
+                ChannelsConfig(
+                    discord = DiscordConfig(enabled = true, token = "tok", allowedGuilds = allowedGuilds),
+                ),
+        )
+
+    @Test
+    fun `pair discord adds AllowedGuild to config`() {
+        writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeDiscordGatewayConfig()))
+        writePairingRequests(
+            listOf(
+                PairingRequest(
+                    code = "DIS001",
+                    channel = "discord",
+                    chatId = "discord_555",
+                    userId = "user42",
+                    guildId = "guild_999",
+                    createdAt = "2099-01-01T00:00:00Z",
+                ),
+            ),
+        )
+
+        val result = makeCli().test("pair discord DIS001")
+        assertEquals(0, result.statusCode, "output: ${result.output}")
+        assertTrue(result.output.contains("Paired"), "Expected 'Paired' in: ${result.output}")
+
+        val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
+        val guilds = updatedConfig.channels.discord!!.allowedGuilds
+        assertEquals(1, guilds.size, "Expected 1 guild, got: $guilds")
+        assertEquals("guild_999", guilds[0].guildId)
+        assertTrue(guilds[0].allowedUserIds.contains("user42"), "Expected user42 in allowedUserIds")
+
+        val remaining = readPairingRequests()
+        assertTrue(remaining.isEmpty(), "Expected request to be removed")
+    }
+
+    @Test
+    fun `pair discord adds user to existing guild`() {
+        val existingGuilds = listOf(AllowedGuild(guildId = "guild_999", allowedUserIds = listOf("existingUser")))
+        writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeDiscordGatewayConfig(existingGuilds)))
+        writePairingRequests(
+            listOf(
+                PairingRequest(
+                    code = "DIS002",
+                    channel = "discord",
+                    chatId = "discord_555",
+                    userId = "newUser",
+                    guildId = "guild_999",
+                    createdAt = "2099-01-01T00:00:00Z",
+                ),
+            ),
+        )
+
+        val result = makeCli().test("pair discord DIS002")
+        assertEquals(0, result.statusCode, "output: ${result.output}")
+
+        val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
+        val guild =
+            updatedConfig.channels.discord!!
+                .allowedGuilds
+                .first { it.guildId == "guild_999" }
+        assertTrue(guild.allowedUserIds.contains("existingUser"), "Expected existingUser preserved")
+        assertTrue(guild.allowedUserIds.contains("newUser"), "Expected newUser added")
+    }
+
+    @Test
+    fun `pair discord creates new guild if not found`() {
+        val existingGuilds = listOf(AllowedGuild(guildId = "guild_111", allowedUserIds = listOf("user1")))
+        writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeDiscordGatewayConfig(existingGuilds)))
+        writePairingRequests(
+            listOf(
+                PairingRequest(
+                    code = "DIS003",
+                    channel = "discord",
+                    chatId = "discord_777",
+                    userId = "user99",
+                    guildId = "guild_222",
+                    createdAt = "2099-01-01T00:00:00Z",
+                ),
+            ),
+        )
+
+        val result = makeCli().test("pair discord DIS003")
+        assertEquals(0, result.statusCode, "output: ${result.output}")
+
+        val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
+        val guilds = updatedConfig.channels.discord!!.allowedGuilds
+        assertEquals(2, guilds.size, "Expected 2 guilds, got: $guilds")
+        assertTrue(guilds.any { it.guildId == "guild_111" }, "Expected existing guild preserved")
+        val newGuild = guilds.first { it.guildId == "guild_222" }
+        assertTrue(newGuild.allowedUserIds.contains("user99"), "Expected user99 in new guild")
     }
 }

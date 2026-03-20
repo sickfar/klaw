@@ -136,8 +136,8 @@ class PairingServiceTest {
         val service = PairingService(paths)
         val requests =
             listOf(
-                PairingRequest("ABC123", "telegram", "chat1", "user1", Instant.now().toString()),
-                PairingRequest("DEF456", "discord", "chat2", null, Instant.now().toString()),
+                PairingRequest("ABC123", "telegram", "chat1", "user1", createdAt = Instant.now().toString()),
+                PairingRequest("DEF456", "discord", "chat2", null, createdAt = Instant.now().toString()),
             )
         service.saveRequests(requests)
 
@@ -192,5 +192,29 @@ class PairingServiceTest {
         val service = PairingService(paths)
         val loaded = service.loadRequests()
         assertTrue(loaded.isEmpty())
+    }
+
+    @Test
+    fun `generateCode with guildId stores guildId in request`() {
+        val paths = testPaths()
+        val service = PairingService(paths)
+        val result = service.generateCode("discord", "discord_123", "user1", guildId = "guild_999")
+        assertTrue(result is PairingCodeResult.Success)
+
+        val loaded = service.loadRequests()
+        assertEquals(1, loaded.size)
+        assertEquals("guild_999", loaded[0].guildId)
+        assertEquals("discord", loaded[0].channel)
+    }
+
+    @Test
+    fun `generateCode without guildId has null guildId`() {
+        val service = PairingService(testPaths())
+        val result = service.generateCode("telegram", "chat1", "user1")
+        assertTrue(result is PairingCodeResult.Success)
+
+        val loaded = service.loadRequests()
+        assertEquals(1, loaded.size)
+        assertEquals(null, loaded[0].guildId)
     }
 }

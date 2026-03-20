@@ -35,6 +35,8 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.websockets)
     implementation(libs.sqlite.jdbc)
     implementation(libs.kotlin.logging)
     runtimeOnly("ch.qos.logback:logback-classic:1.5.18")

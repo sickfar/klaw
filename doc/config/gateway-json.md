@@ -44,7 +44,15 @@ klaw doctor --dump-schema gateway > gateway.schema.json
       "port": 37474
     },
     "discord": {
-      "enabled": false
+      "enabled": true,
+      "token": "${KLAW_DISCORD_TOKEN}",
+      "allowedGuilds": [
+        {
+          "guildId": "123456789012345678",
+          "allowedChannelIds": [],
+          "allowedUserIds": ["987654321098765432"]
+        }
+      ]
     }
   },
   "delivery": {
@@ -149,10 +157,80 @@ Then restart the gateway: `klaw gateway restart`
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable Discord channel |
-| `token` | string | `null` | Discord bot token (post-MVP) |
+| `enabled` | boolean | `false` | Enable the Discord bot channel |
+| `token` | string | `null` | Discord bot token (env var `${KLAW_DISCORD_TOKEN}`) |
+| `allowedGuilds` | list of objects | `[]` | Guild-level access control list |
+| `apiBaseUrl` | string | `null` | Custom API base URL (testing only, omit in production) |
 
-Set `enabled` to `true` to activate Discord support (post-MVP feature).
+### allowedGuilds — Guild & User Access Control
+
+The `allowedGuilds` list controls which Discord servers, channels, and users can interact with the bot. This is the primary access control mechanism — messages from unlisted guilds or users are silently dropped.
+
+Each entry is an object:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `guildId` | string | required | Discord guild (server) ID |
+| `allowedChannelIds` | list of strings | `[]` | Restrict to specific channel IDs (empty = all channels in guild) |
+| `allowedUserIds` | list of strings | `[]` | Allowed user IDs (empty = deny all users) |
+
+**Restrictive by default:**
+- **Empty `allowedGuilds`** — denies all messages. No guild can interact with the bot.
+- **Empty `allowedUserIds`** within a guild — denies all users in that guild, even if the guild is listed.
+- **Empty `allowedChannelIds`** — allows all channels within the guild.
+
+**Direct messages (DMs):** For DMs (no guild context), the bot checks if the sender's user ID appears in any guild's `allowedUserIds`. If not found in any guild, the DM is rejected.
+
+### Discord Example
+
+```json
+{
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "${KLAW_DISCORD_TOKEN}",
+      "allowedGuilds": [
+        {
+          "guildId": "123456789012345678",
+          "allowedChannelIds": [],
+          "allowedUserIds": ["987654321098765432"]
+        },
+        {
+          "guildId": "111222333444555666",
+          "allowedChannelIds": ["777888999000111222"],
+          "allowedUserIds": ["987654321098765432", "112233445566778899"]
+        }
+      ]
+    }
+  }
+}
+```
+
+### Pairing Flow
+
+New users pair with the bot using the `/start` command:
+
+1. User sends `/start` in a Discord channel where the bot is present
+2. Bot replies with a 6-character pairing code and instructions
+3. Operator runs `klaw pair discord <code>` on the server
+4. The guild, channel, and user are added to `allowedGuilds` in `gateway.json`
+5. Gateway detects the config change and reloads the allowlist
+
+To unpair a guild: `klaw unpair discord <guildId>`
+
+### chatId Format
+
+Discord chat IDs use the format `discord_{channelId}`:
+
+- Discord channel `123456789012345678` -> `"discord_123456789012345678"`
+
+Use this format in:
+- `send_message(chatId="discord_123456789012345678")`
+- `schedule_add(injectInto="discord_123456789012345678")`
+
+### Message Limits
+
+Discord has a 2000-character limit per message. Long responses are automatically split into multiple messages at paragraph or line boundaries.
 
 ---
 

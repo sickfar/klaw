@@ -20,6 +20,7 @@ class KlawContainers(
     private val engineJson: String,
     private val gatewayJson: String,
     private val workspaceDir: File,
+    private val additionalHostPorts: List<Int> = emptyList(),
 ) {
     private val network = Network.newNetwork()
     private lateinit var engineContainer: GenericContainer<*>
@@ -38,7 +39,7 @@ class KlawContainers(
     val gatewayStatePath: File get() = gatewayStateDir
 
     fun start() {
-        Testcontainers.exposeHostPorts(wireMockPort)
+        exposeAllHostPorts()
 
         setupDirectories()
 
@@ -196,6 +197,13 @@ class KlawContainers(
 
         File(configDir, "engine.json").writeText(engineJson)
         File(gatewayConfigDir, "gateway.json").writeText(gatewayJson)
+    }
+
+    private fun exposeAllHostPorts() {
+        Testcontainers.exposeHostPorts(wireMockPort)
+        additionalHostPorts.forEach { port ->
+            Testcontainers.exposeHostPorts(port)
+        }
     }
 
     private fun findProjectRoot(): File {

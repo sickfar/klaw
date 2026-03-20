@@ -21,6 +21,10 @@ private val PERMANENT_PATTERNS: List<Pair<Regex, PermanentErrorReason>> =
         Regex("PEER_ID_INVALID", RegexOption.IGNORE_CASE) to PermanentErrorReason.CHAT_NOT_FOUND,
         Regex("not enough rights", RegexOption.IGNORE_CASE) to PermanentErrorReason.INSUFFICIENT_PERMISSIONS,
         Regex("bot is not a member", RegexOption.IGNORE_CASE) to PermanentErrorReason.INSUFFICIENT_PERMISSIONS,
+        Regex("Missing Permissions", RegexOption.IGNORE_CASE) to PermanentErrorReason.INSUFFICIENT_PERMISSIONS,
+        Regex("Missing Access", RegexOption.IGNORE_CASE) to PermanentErrorReason.INSUFFICIENT_PERMISSIONS,
+        Regex("Unknown Channel", RegexOption.IGNORE_CASE) to PermanentErrorReason.CHAT_NOT_FOUND,
+        Regex("Cannot send messages to this user", RegexOption.IGNORE_CASE) to PermanentErrorReason.BOT_BLOCKED,
     )
 
 fun detectPermanentError(errorMessage: String): PermanentErrorReason? =

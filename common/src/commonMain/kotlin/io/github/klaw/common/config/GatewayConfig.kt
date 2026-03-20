@@ -70,6 +70,21 @@ data class DiscordConfig(
     val enabled: Boolean = false,
     @ConfigDoc("Discord bot token", sensitive = true)
     val token: String? = null,
+    @ConfigDoc("List of guilds (servers) allowed to interact with the bot")
+    val allowedGuilds: List<AllowedGuild> = emptyList(),
+    @ConfigDoc("Custom API base URL (testing only)")
+    val apiBaseUrl: String? = null,
 ) {
-    override fun toString(): String = "DiscordConfig(enabled=$enabled, token=${if (token != null) "***" else "null"})"
+    override fun toString(): String =
+        "DiscordConfig(enabled=$enabled, token=${if (token != null) "***" else "null"}, allowedGuilds=$allowedGuilds)"
 }
+
+@Serializable
+data class AllowedGuild(
+    @ConfigDoc("Discord guild (server) ID")
+    val guildId: String,
+    @ConfigDoc("Allowed channel IDs within guild (empty = all channels)")
+    val allowedChannelIds: List<String> = emptyList(),
+    @ConfigDoc("Allowed user IDs (empty = deny all)")
+    val allowedUserIds: List<String> = emptyList(),
+)

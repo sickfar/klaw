@@ -1,6 +1,7 @@
 package io.github.klaw.gateway.channel
 
 import dev.inmo.tgbotapi.bot.exceptions.CommonBotException
+import dev.kord.rest.request.RestRequestException
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -26,6 +27,14 @@ suspend fun <T> withSendRetry(
         } catch (e: CancellationException) {
             throw e
         } catch (e: CommonBotException) {
+            val permanentReason = detectPermanentError(e)
+            if (permanentReason != null) {
+                throw PermanentDeliveryError(permanentReason, e)
+            }
+            handleRetryableFailure(e, attempt, maxAttempts, delayMs)
+            delay(delayMs)
+            delayMs = (delayMs * multiplier).toLong()
+        } catch (e: RestRequestException) {
             val permanentReason = detectPermanentError(e)
             if (permanentReason != null) {
                 throw PermanentDeliveryError(permanentReason, e)

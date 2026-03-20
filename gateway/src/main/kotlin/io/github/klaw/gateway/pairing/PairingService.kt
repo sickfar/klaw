@@ -57,6 +57,7 @@ class PairingService(
         channel: String,
         chatId: String,
         userId: String?,
+        guildId: String? = null,
     ): PairingCodeResult {
         val now = Instant.now()
         val key = "$channel:$chatId"
@@ -73,6 +74,7 @@ class PairingService(
                 channel = channel,
                 chatId = chatId,
                 userId = userId,
+                guildId = guildId,
                 createdAt = now.toString(),
             )
         lock.withLock {

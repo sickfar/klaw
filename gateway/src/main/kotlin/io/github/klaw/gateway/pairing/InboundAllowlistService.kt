@@ -19,7 +19,6 @@ class InboundAllowlistService(
     @Volatile
     private var config: GatewayConfig = config
 
-    @Suppress("ReturnCount")
     fun isAllowed(
         channel: String,
         chatId: String,
@@ -29,19 +28,30 @@ class InboundAllowlistService(
             logger.trace { "local_ws channel always allowed" }
             return true
         }
-        val allowedChats =
-            when (channel) {
-                "telegram" -> {
-                    config.channels.telegram?.allowedChats ?: run {
-                        logger.trace { "telegram config absent, denied chatId=$chatId" }
-                        return false
-                    }
-                }
+        return when (channel) {
+            "telegram" -> {
+                isAllowedTelegram(chatId, userId)
+            }
 
-                else -> {
-                    logger.trace { "unknown channel=$channel, denied" }
-                    return false
-                }
+            "discord" -> {
+                isAllowedDiscord(chatId, userId)
+            }
+
+            else -> {
+                logger.trace { "unknown channel=$channel, denied" }
+                false
+            }
+        }
+    }
+
+    private fun isAllowedTelegram(
+        chatId: String,
+        userId: String?,
+    ): Boolean {
+        val allowedChats =
+            config.channels.telegram?.allowedChats ?: run {
+                logger.trace { "telegram config absent, denied chatId=$chatId" }
+                return false
             }
         val chat = allowedChats.find { it.chatId == chatId }
         if (chat == null) {
@@ -57,38 +67,79 @@ class InboundAllowlistService(
         return allowed
     }
 
-    @Suppress("ReturnCount")
+    private fun isAllowedDiscord(
+        chatId: String,
+        userId: String?,
+    ): Boolean {
+        val guilds =
+            config.channels.discord?.allowedGuilds ?: run {
+                logger.trace { "discord config absent, denied chatId=$chatId" }
+                return false
+            }
+        val allowed =
+            guilds.any { guild ->
+                guild.allowedUserIds.isNotEmpty() && userId != null && userId in guild.allowedUserIds
+            }
+        logger.trace { "discord allowlist check chatId=$chatId userId=$userId allowed=$allowed" }
+        return allowed
+    }
+
     fun isStartAllowed(
         channel: String,
         chatId: String,
         userId: String?,
+    ): PairingStatus =
+        when (channel) {
+            "local_ws" -> PairingStatus.AlreadyPaired
+            "discord" -> isStartAllowedDiscord(userId)
+            else -> isStartAllowedChat(channel, chatId, userId)
+        }
+
+    private fun isStartAllowedDiscord(userId: String?): PairingStatus {
+        val guilds = config.channels.discord?.allowedGuilds
+        if (guilds.isNullOrEmpty()) return PairingStatus.NewChat
+        val hasUser = guilds.any { g -> userId != null && userId in g.allowedUserIds }
+        return if (hasUser) PairingStatus.AlreadyPaired else PairingStatus.NewUserInExistingChat
+    }
+
+    private fun isStartAllowedChat(
+        channel: String,
+        chatId: String,
+        userId: String?,
     ): PairingStatus {
-        if (channel == "local_ws") return PairingStatus.AlreadyPaired
         val allowedChats =
             when (channel) {
                 "telegram" -> config.channels.telegram?.allowedChats ?: emptyList()
                 else -> emptyList()
             }
-        val chat =
-            allowedChats.find { it.chatId == chatId }
-                ?: return PairingStatus.NewChat
+        val chat = allowedChats.find { it.chatId == chatId } ?: return PairingStatus.NewChat
         if (chat.allowedUserIds.isEmpty()) return PairingStatus.NewUserInExistingChat
-        if (userId == null || userId !in chat.allowedUserIds) return PairingStatus.NewUserInExistingChat
-        return PairingStatus.AlreadyPaired
+        return if (userId != null && userId in chat.allowedUserIds) {
+            PairingStatus.AlreadyPaired
+        } else {
+            PairingStatus.NewUserInExistingChat
+        }
     }
 
-    @Suppress("ReturnCount")
     fun isChatAllowed(
         channel: String,
         chatId: String,
-    ): Boolean {
-        if (channel == "local_ws") return chatId == "local_ws_default"
-        val allowedChats =
-            when (channel) {
-                "telegram" -> config.channels.telegram?.allowedChats ?: return false
-                else -> return false
-            }
+    ): Boolean =
+        when (channel) {
+            "local_ws" -> chatId == "local_ws_default"
+            "telegram" -> isChatAllowedTelegram(chatId)
+            "discord" -> isChatAllowedDiscord()
+            else -> false
+        }
+
+    private fun isChatAllowedTelegram(chatId: String): Boolean {
+        val allowedChats = config.channels.telegram?.allowedChats ?: return false
         return allowedChats.any { it.chatId == chatId }
+    }
+
+    private fun isChatAllowedDiscord(): Boolean {
+        val guilds = config.channels.discord?.allowedGuilds ?: return false
+        return guilds.isNotEmpty()
     }
 
     fun reload(newConfig: GatewayConfig) {

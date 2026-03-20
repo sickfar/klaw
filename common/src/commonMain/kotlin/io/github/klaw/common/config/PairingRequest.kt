@@ -8,5 +8,6 @@ data class PairingRequest(
     val channel: String,
     val chatId: String,
     val userId: String? = null,
+    val guildId: String? = null,
     val createdAt: String,
 )
