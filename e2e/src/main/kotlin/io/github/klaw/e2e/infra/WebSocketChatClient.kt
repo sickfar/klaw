@@ -5,6 +5,11 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
@@ -29,6 +34,8 @@ class WebSocketChatClient {
         }
 
     private var session: WebSocketSession? = null
+    private var connectedHost: String = ""
+    private var connectedPort: Int = 0
     private val incomingFrames = Channel<ChatFrame>(Channel.UNLIMITED)
 
     @Volatile
@@ -70,6 +77,8 @@ class WebSocketChatClient {
         host: String,
         port: Int,
     ) {
+        connectedHost = host
+        connectedPort = port
         // Close existing session if reconnecting
         val existingSession = session
         if (existingSession != null) {
@@ -110,15 +119,59 @@ class WebSocketChatClient {
             logger.debug { "Sent user message (length=${text.length})" }
         }
 
+    /**
+     * Uploads files via HTTP POST /upload, then sends a ChatFrame with the returned IDs.
+     */
     fun sendMessageWithAttachments(
         text: String,
-        attachmentPaths: List<String>,
+        attachmentFiles: List<java.io.File>,
     ) = runBlocking {
-        val frame = ChatFrame(type = "user", content = text, attachments = attachmentPaths)
+        val ids = uploadFiles(attachmentFiles)
+        val frame = ChatFrame(type = "user", content = text, attachments = ids)
         session?.send(Frame.Text(json.encodeToString(frame)))
             ?: error("Not connected")
-        logger.debug { "Sent user message with ${attachmentPaths.size} attachments (length=${text.length})" }
+        logger.debug { "Sent user message with ${ids.size} attachment IDs (length=${text.length})" }
     }
+
+    /**
+     * Uploads files to the gateway's /upload endpoint one by one and returns the assigned IDs.
+     * Each file is sent as raw binary POST with Content-Type and X-Filename headers.
+     */
+    private suspend fun uploadFiles(files: List<java.io.File>): List<String> {
+        if (files.isEmpty()) return emptyList()
+        val ids = mutableListOf<String>()
+        val uploadClient = HttpClient(CIO)
+        try {
+            for (file in files) {
+                val response =
+                    uploadClient.post("http://$connectedHost:$connectedPort/upload") {
+                        header(HttpHeaders.ContentType, detectContentType(file.name))
+                        header("X-Filename", file.name)
+                        setBody(file.readBytes())
+                    }
+                val body = response.bodyAsText()
+                val parsed = json.decodeFromString<UploadResponse>(body)
+                ids.add(parsed.id)
+            }
+        } finally {
+            uploadClient.close()
+        }
+        return ids
+    }
+
+    private fun detectContentType(name: String): String =
+        when (name.substringAfterLast('.').lowercase()) {
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "gif" -> "image/gif"
+            "webp" -> "image/webp"
+            else -> "application/octet-stream"
+        }
+
+    @kotlinx.serialization.Serializable
+    private data class UploadResponse(
+        val id: String,
+    )
 
     fun sendCommand(command: String) {
         sendMessage("/$command")
