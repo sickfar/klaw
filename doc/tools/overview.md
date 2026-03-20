@@ -15,12 +15,19 @@ See [memory.md](memory.md) for details.
 ### File Tools (4)
 | Tool | Description |
 |------|-------------|
-| `file_read` | Read a file from the workspace |
+| `file_read` | Read a file from the workspace (supports inline vision for images) |
 | `file_write` | Write content to a file |
 | `file_list` | List directory contents |
 | `file_patch` | Replace a text fragment in a file by exact match |
 
 All paths are restricted to `$KLAW_WORKSPACE`. Path traversal attempts are rejected. See [files.md](files.md).
+
+### Vision Tools (1)
+| Tool | Description |
+|------|-------------|
+| `image_analyze` | Send an image to a vision-capable model for text description |
+
+Vision tools are available only when `vision.enabled` is `true` in `engine.json` and a vision model is configured. See [vision.md](vision.md).
 
 ### Documentation Tools (3)
 | Tool | Description |

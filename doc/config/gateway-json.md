@@ -55,6 +55,9 @@ klaw doctor --dump-schema gateway > gateway.schema.json
       ]
     }
   },
+  "attachments": {
+    "directory": ""
+  },
   "delivery": {
     "maxReconnectAttempts": 0,
     "drainBudgetSeconds": 30,
@@ -231,6 +234,30 @@ Use this format in:
 ### Message Limits
 
 Discord has a 2000-character limit per message. Long responses are automatically split into multiple messages at paragraph or line boundaries.
+
+---
+
+## attachments
+
+Image attachment handling for Telegram and Discord.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `directory` | string | `""` | Directory for storing received image attachments. Empty string disables attachment storage. |
+
+When `directory` is set to a valid path (e.g. `/home/klaw/attachments`), images sent in Telegram and Discord messages are saved locally. Images are then available via `file_read` and flow inline to vision-capable models or are auto-described via the vision model for text-only models.
+
+**Disabled by default.** To enable, set `directory` to an absolute or expandable path:
+
+```json
+{
+  "attachments": {
+    "directory": "~/.local/share/klaw/attachments"
+  }
+}
+```
+
+The gateway creates the directory if it doesn't exist. Received images are organized by chat/channel and timestamp.
 
 ---
 

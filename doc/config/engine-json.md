@@ -156,6 +156,14 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     "model": "zai/glm-5",
     "minMessages": 5,
     "category": "daily-summary"
+  },
+  "vision": {
+    "enabled": false,
+    "model": "glm/glm-4.6v",
+    "maxTokens": 1024,
+    "maxImageSizeBytes": 10485760,
+    "maxImagesPerMessage": 5,
+    "supportedFormats": ["image/jpeg", "image/png", "image/gif", "image/webp"]
   }
 }
 ```
@@ -373,6 +381,26 @@ Document tools for reading PDFs and converting Markdown to PDF. Available via th
 | `pdfFontSize` | float | `12` | Default font size for `md_to_pdf` output. |
 
 See [documents.md](../tools/documents.md) for tool documentation.
+
+## vision
+
+Image analysis and inline vision support. Enables the `image_analyze` tool and automatic image description for text-only models.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `enabled` | bool | `false` | Enable vision capabilities. |
+| `model` | string | `""` | Vision model ID (e.g. `"glm/glm-4.6v"`). Empty falls back to `routing.default`. |
+| `maxTokens` | int | `1024` | Maximum output tokens for vision model responses. |
+| `maxImageSizeBytes` | long | `10485760` (10MB) | Maximum image file size. |
+| `maxImagesPerMessage` | int | `5` | Maximum images per message for inline vision. |
+| `supportedFormats` | string[] | `["image/jpeg", "image/png", "image/gif", "image/webp"]` | Allowed image MIME types. |
+
+**How it works:**
+- **Vision-capable models** (as indicated in `model-registry.json`) receive images inline as multimodal content.
+- **Text-only models** automatically use the configured vision model to generate text descriptions of images via `image_analyze` when `file_read` is called on an image.
+- `image_analyze` is always available when `vision.enabled` is true, regardless of the active model.
+
+See [vision.md](../tools/vision.md) for tool documentation.
 
 ## Notes
 

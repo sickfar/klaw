@@ -23,16 +23,21 @@ Examples:
 
 ## file_read
 
-Read a file from any accessible directory.
+Read a file from any accessible directory. For images, behavior depends on model vision support:
+- **Vision-capable models** — images are loaded inline as multimodal content (no text conversion)
+- **Text-only models** — images are automatically described via the configured vision model (requires `vision.enabled` in `engine.json`)
+- **Vision disabled** — images return an error message
 
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `path` | string | yes | Path — relative (workspace) or with placeholder |
-| `startLine` | integer | no | Starting line number (1-based) |
-| `maxLines` | integer | no | Maximum number of lines to return |
+| `startLine` | integer | no | Starting line number (1-based, text files only) |
+| `maxLines` | integer | no | Maximum number of lines to return (text files only) |
 
-**Returns:** File contents as text. Use `startLine`/`maxLines` for large files.
+**Returns:** File contents as text (text files) or multimodal content (images). For images on text-only models, returns a text description. Use `startLine`/`maxLines` for large text files.
+
+**Supported image formats:** JPEG, PNG, GIF, WebP (configurable via `vision.supportedFormats`)
 
 ## file_write
 
