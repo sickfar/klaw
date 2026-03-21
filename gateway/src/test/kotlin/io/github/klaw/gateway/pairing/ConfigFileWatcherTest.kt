@@ -20,6 +20,20 @@ class ConfigFileWatcherTest {
     @TempDir
     lateinit var tempDir: File
 
+    /**
+     * Writes content to file ensuring the modification timestamp actually changes.
+     * Some filesystems (especially on Linux CI) have second-level mtime granularity,
+     * so WatchService may miss a write that lands within the same second.
+     */
+    private fun writeAndEnsureModified(file: File, content: String) {
+        val oldLastModified = file.lastModified()
+        file.writeText(content)
+        // If mtime didn't change (same-second write), bump it explicitly
+        if (file.lastModified() == oldLastModified) {
+            file.setLastModified(oldLastModified + 1000)
+        }
+    }
+
     @Test
     fun `detects gateway json change and invokes callback with parsed config`() {
         val configFile = File(tempDir, "gateway.json")
@@ -48,7 +62,7 @@ class ConfigFileWatcherTest {
                                 ),
                         ),
                 )
-            configFile.writeText(encodeGatewayConfig(updatedConfig))
+            writeAndEnsureModified(configFile, encodeGatewayConfig(updatedConfig))
 
             val received = latch.await(10, TimeUnit.SECONDS)
             assert(received) { "Callback was not invoked within timeout" }
@@ -71,9 +85,7 @@ class ConfigFileWatcherTest {
         val configFile = File(tempDir, "gateway.json")
         configFile.writeText(encodeGatewayConfig(GatewayConfig(channels = ChannelsConfig())))
 
-        val callCount =
-            java.util.concurrent.atomic
-                .AtomicInteger(0)
+        val callCount = AtomicInteger(0)
 
         val watcher = ConfigFileWatcher(tempDir.absolutePath)
         watcher.startWatching { callCount.incrementAndGet() }
@@ -119,7 +131,7 @@ class ConfigFileWatcherTest {
                             telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
                         ),
                 )
-            configFile.writeText(encodeGatewayConfig(updatedConfig))
+            writeAndEnsureModified(configFile, encodeGatewayConfig(updatedConfig))
 
             val received = latch.await(10, TimeUnit.SECONDS)
             assertTrue(received, "Both listeners should be invoked within timeout")
