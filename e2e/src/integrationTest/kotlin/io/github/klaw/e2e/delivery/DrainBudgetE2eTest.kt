@@ -72,12 +72,7 @@ class DrainBudgetE2eTest {
         wireMock.reset()
         containers.stopEngine()
 
-        // Gateway disconnection detection is not exported as a metric, so we wait a fixed duration.
-        // The reconnect loop uses 1-second backoff, so DISCONNECT_DETECT_SECONDS is enough to ensure
-        // the gateway has noticed the engine is gone before we buffer a message.
-        Thread.sleep(DISCONNECT_DETECT_SECONDS * 1000)
-
-        // Buffer a message while engine is down
+        // Buffer a message while engine is down (stopEngine is synchronous)
         client.sendMessage("drain-budget-test")
 
         // Restart engine with LLM response ready
@@ -98,6 +93,5 @@ class DrainBudgetE2eTest {
         private const val CHANNEL_DRAIN_BUDGET_SECONDS = 30
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val RECOVERY_TIMEOUT_MS = 90_000L
-        private const val DISCONNECT_DETECT_SECONDS = 10L
     }
 }

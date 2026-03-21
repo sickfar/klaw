@@ -289,11 +289,8 @@ class MockTelegramServer(
                 ).size
 
     fun reset() {
-        wireMock.resetRequests()
-        wireMock.resetScenarios()
-        // Re-register the empty getUpdates stub so it takes priority
-        // over any stubs added by sendPhotoUpdate/sendTextUpdate
-        stubGetUpdatesEmpty()
+        wireMock.resetAll()
+        setupStubs()
     }
 
     companion object {

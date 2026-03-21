@@ -1,6 +1,5 @@
 package io.github.klaw.e2e.delivery
 
-import io.github.klaw.e2e.context.awaitCondition
 import io.github.klaw.e2e.infra.ConfigGenerator
 import io.github.klaw.e2e.infra.KlawContainers
 import io.github.klaw.e2e.infra.WebSocketChatClient
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
-import java.time.Duration
 
 /**
  * E2E test verifying that gateway buffers inbound messages when engine is down
@@ -22,12 +20,11 @@ import java.time.Duration
  *
  * Flow:
  * 1. Baseline: send message, get response (verify system works)
- * 2. Stop engine container
- * 3. Wait for gateway to detect engine disconnection
- * 4. Send a message via WS (gateway buffers it in gateway-buffer.jsonl)
- * 5. Start engine container
- * 6. Gateway reconnects to engine, drains buffer, engine processes, LLM responds
- * 7. Verify the buffered message was processed and response received
+ * 2. Stop engine container (synchronous — container fully stopped on return)
+ * 3. Send a message via WS (gateway buffers it in gateway-buffer.jsonl)
+ * 4. Start engine container
+ * 5. Gateway reconnects to engine, drains buffer, engine processes, LLM responds
+ * 6. Verify the buffered message was processed and response received
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -68,27 +65,18 @@ class InboundRecoveryE2eTest {
         val baseline = client.sendAndReceive("hello baseline", timeoutMs = RESPONSE_TIMEOUT_MS)
         assertTrue(baseline.contains("baseline"), "Baseline response should be received")
 
-        // Step 2: Reset WireMock and stop engine
+        // Step 2: Reset WireMock and stop engine (stopEngine is synchronous)
         wireMock.reset()
         containers.stopEngine()
 
-        // Step 3: Wait for gateway to detect engine disconnection
-        awaitCondition(
-            description = "gateway detects engine disconnection",
-            timeout = Duration.ofSeconds(GATEWAY_DISCONNECT_DETECT_SECONDS),
-        ) {
-            // Gateway should detect TCP disconnect quickly; just wait a fixed duration
-            true
-        }
-
-        // Step 4: Send a message while engine is down (gateway buffers it)
+        // Step 3: Send a message while engine is down (gateway buffers it)
         client.sendMessage("buffered message")
 
-        // Step 5: Stub LLM response for recovery and start engine
+        // Step 4: Stub LLM response for recovery and start engine
         wireMock.stubChatResponse("recovery response")
         containers.startEngine()
 
-        // Step 6: Gateway reconnects to engine, drains buffer, engine processes
+        // Step 5: Gateway reconnects to engine, drains buffer, engine processes
         // Wait for assistant response with generous timeout (covers reconnect backoff + drain + LLM)
         val recovery = client.waitForAssistantResponse(timeoutMs = RECOVERY_TIMEOUT_MS)
         assertTrue(
@@ -101,6 +89,5 @@ class InboundRecoveryE2eTest {
         private const val CONTEXT_BUDGET_TOKENS = 2000
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val RECOVERY_TIMEOUT_MS = 90_000L
-        private const val GATEWAY_DISCONNECT_DETECT_SECONDS = 10L
     }
 }

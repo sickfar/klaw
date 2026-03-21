@@ -25,11 +25,9 @@ import org.junit.jupiter.api.TestMethodOrder
  *
  * Flow:
  * 1. Send 2 messages, get responses (establish conversation history in engine DB)
- * 2. Stop engine container (gateway detects disconnection)
- * 3. Start engine container (new container loads sessions from SQLite on bind-mounted volume)
- * 4. Gateway reconnects automatically via its reconnect loop
- * 5. Send a 3rd message after restart
- * 6. Inspect the WireMock request for the post-restart LLM call:
+ * 2. Stop and restart engine (both synchronous; gateway reconnects via backoff)
+ * 3. Send a 3rd message after restart (sendAndReceive timeout covers reconnect delay)
+ * 4. Inspect the WireMock request for the post-restart LLM call:
  *    verify it contains user messages from BEFORE the restart — proving engine loaded history from SQLite
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -77,22 +75,13 @@ class EngineRestartRecoveryE2eTest {
         client.sendAndReceive("PRE-RESTART-MSG-1", timeoutMs = RESPONSE_TIMEOUT_MS)
         client.sendAndReceive("PRE-RESTART-MSG-2", timeoutMs = RESPONSE_TIMEOUT_MS)
 
-        // Step 2: Reset WireMock and stop engine
+        // Step 2: Reset WireMock, stop and restart engine (both synchronous)
         wireMock.reset()
         containers.stopEngine()
-
-        // Step 3: Wait for gateway to detect disconnection
-        @Suppress("BlockingMethodInNonBlockingContext")
-        Thread.sleep(DISCONNECT_WAIT_MS)
-
-        // Step 4: Start engine — new container loads sessions from SQLite (bind-mounted volume)
         containers.startEngine()
 
-        // Step 5: Wait for gateway to reconnect (backoff starts at 1s, generous margin)
-        @Suppress("BlockingMethodInNonBlockingContext")
-        Thread.sleep(RECONNECT_WAIT_MS)
-
-        // Step 6: Stub post-restart LLM response and send message
+        // Step 3: Stub post-restart LLM response and send message
+        // Gateway reconnects via exponential backoff; sendAndReceive has 90s timeout to cover it
         wireMock.stubChatResponse("post-restart-response")
         val response = client.sendAndReceive("POST-RESTART-MSG", timeoutMs = RECOVERY_TIMEOUT_MS)
         assertTrue(
@@ -100,7 +89,7 @@ class EngineRestartRecoveryE2eTest {
             "Should receive post-restart response but got: $response",
         )
 
-        // Step 7: Inspect the WireMock request — verify it contains pre-restart history
+        // Step 4: Inspect the WireMock request — verify it contains pre-restart history
         val chatRequests = wireMock.getChatRequests()
         assertTrue(chatRequests.isNotEmpty(), "WireMock should have received a chat request after engine restart")
 
@@ -136,7 +125,5 @@ class EngineRestartRecoveryE2eTest {
         private const val CONTEXT_BUDGET_TOKENS = 2000
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val RECOVERY_TIMEOUT_MS = 90_000L
-        private const val DISCONNECT_WAIT_MS = 5_000L
-        private const val RECONNECT_WAIT_MS = 5_000L
     }
 }
