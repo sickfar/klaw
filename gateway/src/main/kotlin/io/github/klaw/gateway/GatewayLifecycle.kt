@@ -88,6 +88,7 @@ class GatewayLifecycle(
             configFileWatcher: ConfigFileWatcher,
             engineClient: EngineSocketClient,
             replyFn: suspend (chatId: String, message: String) -> Unit,
+            confirmationExpiryMs: Long = CONFIRMATION_EXPIRY_MS,
         ): suspend (IncomingMessage) -> Unit =
             callback@{ incoming ->
                 val isCmd: Boolean
@@ -112,6 +113,7 @@ class GatewayLifecycle(
                         pairingService = pairingService,
                         configFileWatcher = configFileWatcher,
                         replyFn = replyFn,
+                        confirmationExpiryMs = confirmationExpiryMs,
                     )
                     return@callback
                 }
@@ -179,6 +181,48 @@ class GatewayLifecycle(
             }
         }
 
+        private fun registerConfirmationListener(
+            incoming: IncomingMessage,
+            allowlistService: InboundAllowlistService,
+            configFileWatcher: ConfigFileWatcher,
+            replyFn: suspend (chatId: String, message: String) -> Unit,
+            expiryMs: Long = CONFIRMATION_EXPIRY_MS,
+        ) {
+            val confirmationSent = AtomicBoolean(false)
+            lateinit var listener: (io.github.klaw.common.config.GatewayConfig) -> Unit
+            listener = { _ ->
+                if (allowlistService.isChatAllowed(incoming.channel, incoming.chatId) &&
+                    confirmationSent.compareAndSet(false, true)
+                ) {
+                    configFileWatcher.removeListener(listener)
+                    runBlocking {
+                        replyFn(incoming.chatId, "Pairing successful! You can now send me messages.")
+                    }
+                } else {
+                    logger.trace { "No confirmation sent for chatId=${incoming.chatId}" }
+                }
+            }
+            configFileWatcher.addListener(listener)
+
+            // Auto-cleanup after code expiry to prevent memory leak from unpaired /start commands
+            CLEANUP_EXECUTOR.schedule(
+                {
+                    if (confirmationSent.compareAndSet(false, true)) {
+                        configFileWatcher.removeListener(listener)
+                        logger.debug { "Confirmation listener expired for chatId=${incoming.chatId}" }
+                    }
+                },
+                expiryMs,
+                java.util.concurrent.TimeUnit.MILLISECONDS,
+            )
+        }
+
+        private const val CONFIRMATION_EXPIRY_MS = 5L * 60 * 1000
+        private val CLEANUP_EXECUTOR =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->
+                Thread(r, "pairing-confirmation-cleanup").apply { isDaemon = true }
+            }
+
         @Suppress("LongParameterList")
         private suspend fun handleStartCommand(
             incoming: IncomingMessage,
@@ -186,6 +230,7 @@ class GatewayLifecycle(
             pairingService: PairingService,
             configFileWatcher: ConfigFileWatcher,
             replyFn: suspend (chatId: String, message: String) -> Unit,
+            confirmationExpiryMs: Long = CONFIRMATION_EXPIRY_MS,
         ) {
             val status = allowlistService.isStartAllowed(incoming.channel, incoming.chatId, incoming.userId)
             when (status) {
@@ -211,23 +256,13 @@ class GatewayLifecycle(
                                     "Code expires in 5 minutes.",
                             )
                             if (pairingService.hasPendingRequests()) {
-                                val confirmationSent = AtomicBoolean(false)
-                                configFileWatcher.startWatching { newConfig ->
-                                    allowlistService.reload(newConfig)
-                                    logger.debug { "Config reloaded after file change" }
-                                    if (allowlistService.isChatAllowed(incoming.channel, incoming.chatId) &&
-                                        confirmationSent.compareAndSet(false, true)
-                                    ) {
-                                        runBlocking {
-                                            replyFn(
-                                                incoming.chatId,
-                                                "Pairing successful! You can now send me messages.",
-                                            )
-                                        }
-                                    } else {
-                                        logger.trace { "No confirmation sent for chatId=${incoming.chatId}" }
-                                    }
-                                }
+                                registerConfirmationListener(
+                                    incoming,
+                                    allowlistService,
+                                    configFileWatcher,
+                                    replyFn,
+                                    confirmationExpiryMs,
+                                )
                             }
                             logger.debug { "Pairing code generated for chatId=${incoming.chatId}" }
                         }

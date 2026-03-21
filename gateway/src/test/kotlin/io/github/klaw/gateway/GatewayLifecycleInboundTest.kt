@@ -233,9 +233,9 @@ class GatewayLifecycleInboundTest {
             } returns PairingCodeResult.Success("ABC123")
             every { pairingService.hasPendingRequests() } returns true
 
-            val capturedCallback = slot<(GatewayConfig) -> Unit>()
-            val configFileWatcher = mockk<ConfigFileWatcher>()
-            every { configFileWatcher.startWatching(capture(capturedCallback)) } just runs
+            val capturedListener = slot<(GatewayConfig) -> Unit>()
+            val configFileWatcher = mockk<ConfigFileWatcher>(relaxed = true)
+            every { configFileWatcher.addListener(capture(capturedListener)) } just runs
 
             val replies = mutableListOf<Pair<String, String>>()
             val incoming = makeIncoming(isCommand = true, commandName = "start")
@@ -265,14 +265,15 @@ class GatewayLifecycleInboundTest {
                                 ),
                         ),
                 )
-            capturedCallback.captured.invoke(updatedConfig)
+            capturedListener.captured.invoke(updatedConfig)
 
             assert(replies.size == 2) { "Expected confirmation message, got: $replies" }
             assert(replies[1].first == "telegram_123") { "Expected chatId telegram_123, got: ${replies[1].first}" }
             assert(replies[1].second.contains("Pairing successful") || replies[1].second.contains("success")) {
                 "Expected success message, got: ${replies[1].second}"
             }
-            verify { allowlistService.reload(updatedConfig) }
+            // Startup listener handles reload — confirmation listener should NOT call reload
+            verify(exactly = 0) { allowlistService.reload(any()) }
         }
 
     @Test
@@ -288,9 +289,9 @@ class GatewayLifecycleInboundTest {
             } returns PairingCodeResult.Success("DEF456")
             every { pairingService.hasPendingRequests() } returns true
 
-            val capturedCallback = slot<(GatewayConfig) -> Unit>()
-            val configFileWatcher = mockk<ConfigFileWatcher>()
-            every { configFileWatcher.startWatching(capture(capturedCallback)) } just runs
+            val capturedListener = slot<(GatewayConfig) -> Unit>()
+            val configFileWatcher = mockk<ConfigFileWatcher>(relaxed = true)
+            every { configFileWatcher.addListener(capture(capturedListener)) } just runs
 
             val replies = mutableListOf<Pair<String, String>>()
             val incoming = makeIncoming(isCommand = true, commandName = "start")
@@ -315,8 +316,8 @@ class GatewayLifecycleInboundTest {
                                 ),
                         ),
                 )
-            capturedCallback.captured.invoke(updatedConfig) // first fire — confirmation sent
-            capturedCallback.captured.invoke(updatedConfig) // second fire — must NOT send again
+            capturedListener.captured.invoke(updatedConfig) // first fire — confirmation sent
+            capturedListener.captured.invoke(updatedConfig) // second fire — must NOT send again
 
             assert(replies.size == 2) {
                 "Expected no duplicate confirmation (1 code + 1 confirmation), got: $replies"
@@ -336,9 +337,9 @@ class GatewayLifecycleInboundTest {
             } returns PairingCodeResult.Success("XYZ999")
             every { pairingService.hasPendingRequests() } returns true
 
-            val capturedCallback = slot<(GatewayConfig) -> Unit>()
-            val configFileWatcher = mockk<ConfigFileWatcher>()
-            every { configFileWatcher.startWatching(capture(capturedCallback)) } just runs
+            val capturedListener = slot<(GatewayConfig) -> Unit>()
+            val configFileWatcher = mockk<ConfigFileWatcher>(relaxed = true)
+            every { configFileWatcher.addListener(capture(capturedListener)) } just runs
 
             val replies = mutableListOf<Pair<String, String>>()
             val incoming = makeIncoming(isCommand = true, commandName = "start")
@@ -364,11 +365,45 @@ class GatewayLifecycleInboundTest {
                             telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
                         ),
                 )
-            capturedCallback.captured.invoke(unrelatedConfig)
+            capturedListener.captured.invoke(unrelatedConfig)
 
             assert(replies.size == 1) {
                 "Expected no confirmation message after unrelated config change, got: $replies"
             }
+        }
+
+    @Test
+    fun `confirmation listener auto-removed after expiry`() =
+        runBlocking {
+            val allowlistService = mockk<InboundAllowlistService>(relaxed = true)
+            every { allowlistService.isStartAllowed("telegram", "telegram_123", "user1") } returns PairingStatus.NewChat
+            every { allowlistService.isChatAllowed("telegram", "telegram_123") } returns false
+
+            val pairingService = mockk<PairingService>()
+            every {
+                pairingService.generateCode("telegram", "telegram_123", "user1", null)
+            } returns PairingCodeResult.Success("EXP001")
+            every { pairingService.hasPendingRequests() } returns true
+
+            val configFileWatcher = mockk<ConfigFileWatcher>(relaxed = true)
+
+            val incoming = makeIncoming(isCommand = true, commandName = "start")
+            val callback =
+                GatewayLifecycle.buildInboundCallback(
+                    allowlistService = allowlistService,
+                    pairingService = pairingService,
+                    configFileWatcher = configFileWatcher,
+                    engineClient = mockk(relaxed = true),
+                    replyFn = { _, _ -> },
+                    confirmationExpiryMs = 200L, // short expiry for test
+                )
+            callback(incoming)
+
+            // Wait for auto-cleanup to fire
+            val latch = java.util.concurrent.CountDownLatch(1)
+            latch.await(1, java.util.concurrent.TimeUnit.SECONDS)
+
+            verify { configFileWatcher.removeListener(any()) }
         }
 
     @Test

@@ -7,11 +7,13 @@ import io.github.klaw.common.config.TelegramConfig
 import io.github.klaw.common.config.encodeGatewayConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 class ConfigFileWatcherTest {
@@ -81,6 +83,48 @@ class ConfigFileWatcherTest {
             File(tempDir, "engine.json").writeText("{}")
             Thread.sleep(2000)
             assertEquals(0, callCount.get())
+        } finally {
+            watcher.stopWatching()
+        }
+    }
+
+    @Test
+    fun `listener added after startWatching is also invoked on config change`() {
+        val configFile = File(tempDir, "gateway.json")
+        configFile.writeText(encodeGatewayConfig(GatewayConfig(channels = ChannelsConfig())))
+
+        val firstListenerCalled = AtomicInteger(0)
+        val secondListenerCalled = AtomicInteger(0)
+        val latch = CountDownLatch(2) // both listeners must fire
+
+        val watcher = ConfigFileWatcher(tempDir.absolutePath)
+        watcher.startWatching {
+            firstListenerCalled.incrementAndGet()
+            latch.countDown()
+        }
+
+        // Add a second listener AFTER the watcher thread is already running
+        Thread.sleep(200)
+        watcher.addListener {
+            secondListenerCalled.incrementAndGet()
+            latch.countDown()
+        }
+
+        try {
+            Thread.sleep(500)
+            val updatedConfig =
+                GatewayConfig(
+                    channels =
+                        ChannelsConfig(
+                            telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
+                        ),
+                )
+            configFile.writeText(encodeGatewayConfig(updatedConfig))
+
+            val received = latch.await(10, TimeUnit.SECONDS)
+            assertTrue(received, "Both listeners should be invoked within timeout")
+            assertEquals(1, firstListenerCalled.get(), "First listener should be called once")
+            assertEquals(1, secondListenerCalled.get(), "Second listener should be called once")
         } finally {
             watcher.stopWatching()
         }

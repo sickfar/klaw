@@ -37,6 +37,7 @@ class KlawContainers(
     val gatewayMappedPort: Int get() = gatewayContainer.getMappedPort(GATEWAY_LOCAL_WS_PORT)
     val engineDataPath: File get() = engineDataDir
     val gatewayStatePath: File get() = gatewayStateDir
+    val gatewayConfigPath: File get() = gatewayConfigDir
 
     fun start() {
         exposeAllHostPorts()
