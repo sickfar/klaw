@@ -59,6 +59,10 @@ class HostExecRiskAssessmentWireMockTest {
         }
     }
 
+    private val fakeCommandRunner: suspend (String) -> CommandResult = {
+        CommandResult(stdout = "fake output", stderr = "", exitCode = 0)
+    }
+
     @BeforeEach
     fun reset() {
         wireMock.resetAll()
@@ -126,7 +130,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
             val result = tool.execute("cat /etc/hostname", "chat_1")
 
             assertFalse(result.contains("rejected"), "Low risk should execute: $result")
@@ -152,7 +156,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
 
             val result = async { tool.execute("rm -rf /tmp/data", "chat_1") }
             val reqMsg = withTimeout(APPROVAL_AWAIT_TIMEOUT_MS) { approvalArrived.await() }
@@ -186,7 +190,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(), buildLlmRouter(), approval, fakeCommandRunner)
             tool.execute("df -h", "chat_1")
 
             wireMock.verify(
@@ -215,7 +219,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
 
             val result = async { tool.execute("some-command", "chat_1") }
             val reqMsg = withTimeout(APPROVAL_AWAIT_TIMEOUT_MS) { approvalArrived.await() }
@@ -247,7 +251,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
             val result = tool.execute("cat /etc/hostname", "chat_1")
 
             assertFalse(result.contains("rejected"), "Extracted score 2 should allow execution: $result")
@@ -285,7 +289,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
             val result = tool.execute("ls -la", "chat_1")
 
             assertFalse(result.contains("rejected"), "Retry should succeed with score 2: $result")
@@ -308,7 +312,7 @@ class HostExecRiskAssessmentWireMockTest {
             )
 
             val approval = ApprovalService(sender)
-            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval)
+            val tool = HostExecTool(config(riskThreshold = 5), buildLlmRouter(), approval, fakeCommandRunner)
 
             val result = async { tool.execute("uptime", "chat_1") }
             val reqMsg = withTimeout(APPROVAL_AWAIT_TIMEOUT_MS) { approvalArrived.await() }

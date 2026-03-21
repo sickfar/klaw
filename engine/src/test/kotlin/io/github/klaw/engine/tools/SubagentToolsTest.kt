@@ -59,17 +59,8 @@ class SubagentToolsTest {
         runTest {
             every { processor.handleScheduledMessage(any()) } returns Job()
 
-            val result = tools.spawn("my-task", "do it")
-            val runId =
-                json
-                    .parseToJsonElement(result)
-                    .jsonObject["id"]!!
-                    .jsonPrimitive.content
+            tools.spawn("my-task", "do it")
 
-            // Use global getById since we don't have ChatContext in this test
-            val runs = repo.listRecent("unknown", limit = 100)
-            // Without ChatContext, sourceChatId is null — query by null won't work with scoped getById
-            // Instead verify DB directly
             assertEquals(1, repo.countByStatus("RUNNING"))
         }
 

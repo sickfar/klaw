@@ -13,6 +13,45 @@ import java.util.concurrent.TimeUnit
 
 private val logger = KotlinLogging.logger {}
 
+data class CommandResult(
+    val stdout: String,
+    val stderr: String,
+    val exitCode: Int,
+    val timedOut: Boolean = false,
+)
+
+internal suspend fun defaultCommandRunner(command: String): CommandResult =
+    withContext(Dispatchers.VT) {
+        val process =
+            ProcessBuilder("sh", "-c", command)
+                .redirectErrorStream(false)
+                .start()
+        var stdout = ""
+        var stderr = ""
+        val stdoutThread = Thread { stdout = process.inputStream.bufferedReader().readText() }
+        val stderrThread = Thread { stderr = process.errorStream.bufferedReader().readText() }
+        stdoutThread.start()
+        stderrThread.start()
+        val completed = process.waitFor(DEFAULT_COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        if (!completed) {
+            process.destroyForcibly()
+            stdoutThread.join(DEFAULT_STREAM_JOIN_TIMEOUT_MS)
+            stderrThread.join(DEFAULT_STREAM_JOIN_TIMEOUT_MS)
+            return@withContext CommandResult(
+                stdout = stdout,
+                stderr = stderr,
+                exitCode = -1,
+                timedOut = true,
+            )
+        }
+        stdoutThread.join(DEFAULT_STREAM_JOIN_TIMEOUT_MS)
+        stderrThread.join(DEFAULT_STREAM_JOIN_TIMEOUT_MS)
+        CommandResult(stdout = stdout, stderr = stderr, exitCode = process.exitValue())
+    }
+
+private const val DEFAULT_COMMAND_TIMEOUT_SECONDS = 60L
+private const val DEFAULT_STREAM_JOIN_TIMEOUT_MS = 5000L
+
 private val RISK_NUMBER_REGEX = Regex("""\b(\d{1,2})\b""")
 private const val MAX_RISK_SCORE = 10
 
@@ -69,6 +108,7 @@ class HostExecTool(
     private val config: HostExecutionConfig,
     private val llmRouter: LlmRouter,
     private val approvalService: ApprovalService,
+    private val commandRunner: suspend (String) -> CommandResult = ::defaultCommandRunner,
 ) {
     @Suppress("ReturnCount")
     suspend fun execute(
@@ -168,34 +208,17 @@ class HostExecTool(
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun runCommand(command: String): String =
-        withContext(Dispatchers.VT) {
-            try {
-                logger.trace { "host_exec: executing command" }
-                val process =
-                    ProcessBuilder("sh", "-c", command)
-                        .redirectErrorStream(false)
-                        .start()
-                // Drain streams concurrently to avoid pipe buffer deadlock
-                var stdout = ""
-                var stderr = ""
-                val stdoutThread = Thread { stdout = process.inputStream.bufferedReader().readText() }
-                val stderrThread = Thread { stderr = process.errorStream.bufferedReader().readText() }
-                stdoutThread.start()
-                stderrThread.start()
-                val completed = process.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                if (!completed) {
-                    process.destroyForcibly()
-                    stdoutThread.join(STREAM_JOIN_TIMEOUT_MS)
-                    stderrThread.join(STREAM_JOIN_TIMEOUT_MS)
-                    return@withContext "Error: command timed out after ${COMMAND_TIMEOUT_SECONDS}s"
-                }
-                stdoutThread.join(STREAM_JOIN_TIMEOUT_MS)
-                stderrThread.join(STREAM_JOIN_TIMEOUT_MS)
-                formatOutput(stdout, stderr, process.exitValue())
-            } catch (e: Exception) {
-                logger.warn(e) { "host_exec: execution failed" }
-                "Error: command execution failed"
+        try {
+            logger.trace { "host_exec: executing command" }
+            val result = commandRunner(command)
+            if (result.timedOut) {
+                "Error: command timed out after ${DEFAULT_COMMAND_TIMEOUT_SECONDS}s"
+            } else {
+                formatOutput(result.stdout, result.stderr, result.exitCode)
             }
+        } catch (e: Exception) {
+            logger.warn(e) { "host_exec: execution failed" }
+            "Error: command execution failed"
         }
 
     private fun formatOutput(
@@ -211,8 +234,6 @@ class HostExecTool(
     }
 
     companion object {
-        private const val COMMAND_TIMEOUT_SECONDS = 60L
-        private const val STREAM_JOIN_TIMEOUT_MS = 5000L
         private const val SHELL_OPERATORS_ERROR =
             "Error: command contains shell operators and cannot be auto-approved"
     }

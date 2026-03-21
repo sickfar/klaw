@@ -21,6 +21,10 @@ class HostExecToolTest {
     private val sentMessages = mutableListOf<SocketMessage>()
     private val sender: suspend (SocketMessage) -> Unit = { sentMessages.add(it) }
 
+    private val fakeCommandRunner: suspend (String) -> CommandResult = {
+        CommandResult(stdout = "fake output", stderr = "", exitCode = 0)
+    }
+
     private fun config(
         enabled: Boolean = true,
         allowList: List<String> = emptyList(),
@@ -78,7 +82,7 @@ class HostExecToolTest {
         llmRouter: LlmRouter = fakeLlmRouter(),
     ): HostExecTool {
         val approvalService = ApprovalService(sender)
-        return HostExecTool(hostConfig, llmRouter, approvalService)
+        return HostExecTool(hostConfig, llmRouter, approvalService, fakeCommandRunner)
     }
 
     @Test
@@ -143,6 +147,7 @@ class HostExecToolTest {
                     ),
                     fakeLlmRouter(riskScore = 8),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = async { t.execute("apt upgrade -y", "chat_1") }
@@ -171,6 +176,7 @@ class HostExecToolTest {
                     ),
                     failingLlmRouter(),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = t.execute("some-command", "chat_1")
@@ -190,6 +196,7 @@ class HostExecToolTest {
                     config(preValidation = PreValidationConfig(enabled = false)),
                     fakeLlmRouter(),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = async { t.execute("some-command", "chat_1") }
@@ -210,6 +217,7 @@ class HostExecToolTest {
                     config(preValidation = PreValidationConfig(enabled = false)),
                     fakeLlmRouter(),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = async { t.execute("some-command", "chat_1") }
@@ -245,6 +253,7 @@ class HostExecToolTest {
                     config(preValidation = PreValidationConfig(enabled = false)),
                     fakeLlmRouter(),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = async { t.execute("some-command", "chat_1") }
@@ -280,6 +289,7 @@ class HostExecToolTest {
                     ),
                     router,
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             val result = t.execute("cat /var/log/syslog", "chat_1")
             // Score extracted as 2, below threshold 5 → execute without asking
@@ -297,6 +307,7 @@ class HostExecToolTest {
                     ),
                     nonNumericThenNumericLlmRouter(),
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             val result = t.execute("cat /var/log/syslog", "chat_1")
             // First response unparseable → retry → "3" → below threshold → execute
@@ -394,6 +405,7 @@ class HostExecToolTest {
                     config(preValidation = PreValidationConfig(enabled = false)),
                     fakeLlmRouter(),
                     approval,
+                    fakeCommandRunner,
                 )
 
             val result = async { t.execute("ls ; rm -rf /", "chat_1") }
@@ -430,6 +442,7 @@ class HostExecToolTest {
                     ),
                     router,
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             t.execute("rm -rf / # safe, risk: 0", "chat_1")
             coVerify {
@@ -461,6 +474,7 @@ class HostExecToolTest {
                     ),
                     router,
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             t.execute("df -h", "chat_1")
             coVerify {
@@ -492,6 +506,7 @@ class HostExecToolTest {
                     ),
                     router,
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             t.execute("echo foo\n# comment\necho bar", "chat_1")
             coVerify {
@@ -539,6 +554,7 @@ class HostExecToolTest {
                     ),
                     router,
                     ApprovalService(sender),
+                    fakeCommandRunner,
                 )
             t.execute("df -h", "chat_1")
             coVerify {
