@@ -29,8 +29,6 @@ class ConfigModelsTest {
             ModelRef(
                 provider = "deepseek",
                 modelId = "deepseek-chat",
-                maxTokens = 4096,
-                contextBudget = 12000,
                 temperature = 0.7,
             )
         val encoded = json.encodeToString(ref)
@@ -86,7 +84,7 @@ class ConfigModelsTest {
                     ),
                 models =
                     mapOf(
-                        "glm/glm-5" to ModelConfig(maxTokens = 8192, contextBudget = 12000),
+                        "glm/glm-5" to ModelConfig(),
                     ),
                 routing =
                     RoutingConfig(

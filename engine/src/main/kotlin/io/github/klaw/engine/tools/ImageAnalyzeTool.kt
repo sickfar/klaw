@@ -7,6 +7,7 @@ import io.github.klaw.common.llm.ImageUrlData
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.TextContentPart
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -99,7 +100,10 @@ class ImageAnalyzeTool(
                                 ),
                         ),
                     ),
-                maxTokens = config.maxTokens,
+                maxTokens =
+                    config.maxTokens
+                        ?: ModelRegistry.maxOutput(config.model)
+                        ?: DEFAULT_VISION_MAX_TOKENS,
             )
 
         logger.debug { "image_analyze: mimeType=$mimeType, fileSize=${bytes.size}" }
@@ -165,6 +169,7 @@ class ImageAnalyzeTool(
         }
 
     companion object {
+        private const val DEFAULT_VISION_MAX_TOKENS = 1024
         const val DEFAULT_PROMPT = "Describe this image in detail"
 
         internal const val VISION_SYSTEM_PROMPT =

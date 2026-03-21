@@ -61,7 +61,7 @@ class DeepSeekContractTest {
             apiKey = "test-deepseek-key",
         )
 
-    private fun buildModel() = ModelRef("deepseek", "deepseek-chat", maxTokens = 32768)
+    private fun buildModel() = ModelRef("deepseek", "deepseek-chat")
 
     private fun loadFixture(path: String): String =
         object {}

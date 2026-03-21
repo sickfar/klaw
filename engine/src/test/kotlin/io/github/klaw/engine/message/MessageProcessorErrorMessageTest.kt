@@ -43,7 +43,7 @@ class MessageProcessorErrorMessageTest {
                 mapOf(
                     "test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost", apiKey = "key"),
                 ),
-            models = mapOf("test/model" to ModelConfig(contextBudget = 4096)),
+            models = mapOf("test/model" to ModelConfig()),
             routing =
                 RoutingConfig(
                     default = "test/model",

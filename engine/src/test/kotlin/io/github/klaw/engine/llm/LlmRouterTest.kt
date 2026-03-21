@@ -37,9 +37,9 @@ class LlmRouterTest {
 
     private val models =
         mapOf(
-            "zai/glm-5" to ModelRef("zai", "glm-5", maxTokens = 8192),
-            "deepseek/deepseek-chat" to ModelRef("deepseek", "deepseek-chat", maxTokens = 32768),
-            "ollama/qwen3:8b" to ModelRef("ollama", "qwen3:8b", maxTokens = 32768),
+            "zai/glm-5" to ModelRef("zai", "glm-5"),
+            "deepseek/deepseek-chat" to ModelRef("deepseek", "deepseek-chat"),
+            "ollama/qwen3:8b" to ModelRef("ollama", "qwen3:8b"),
         )
 
     private val routing =
@@ -205,7 +205,7 @@ class LlmRouterTest {
             )
         val unknownModels =
             mapOf(
-                "unknown/claude" to ModelRef("unknown", "claude", maxTokens = 200000),
+                "unknown/claude" to ModelRef("unknown", "claude"),
             )
         val unknownRouting =
             RoutingConfig(

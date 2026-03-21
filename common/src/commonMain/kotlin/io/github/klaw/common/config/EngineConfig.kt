@@ -75,10 +75,6 @@ data class ModelRef(
     val provider: String,
     @ConfigDoc("Model identifier at the provider")
     val modelId: String,
-    @ConfigDoc("Maximum output tokens for completions")
-    val maxTokens: Int? = null,
-    @ConfigDoc("Maximum input context budget in tokens")
-    val contextBudget: Int? = null,
     @ConfigDoc("Sampling temperature for generation")
     val temperature: Double? = null,
 ) {
@@ -87,10 +83,6 @@ data class ModelRef(
 
 @Serializable
 data class ModelConfig(
-    @ConfigDoc("Maximum output tokens for completions")
-    val maxTokens: Int? = null,
-    @ConfigDoc("Maximum input context budget in tokens")
-    val contextBudget: Int? = null,
     @ConfigDoc("Sampling temperature for generation")
     val temperature: Double? = null,
 )
@@ -551,8 +543,8 @@ data class VisionConfig(
     val enabled: Boolean = false,
     @ConfigDoc("Model reference for vision analysis (e.g. 'glm/glm-4.6v')")
     val model: String = "",
-    @ConfigDoc("Maximum output tokens for vision model responses")
-    val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    @ConfigDoc("Maximum output tokens for vision model responses (null = use model registry default)")
+    val maxTokens: Int? = null,
     @ConfigDoc("Maximum image file size in bytes (default 10MB)")
     val maxImageSizeBytes: Long = DEFAULT_MAX_IMAGE_SIZE_BYTES,
     @ConfigDoc("Maximum images per message for inline vision")
@@ -563,13 +555,12 @@ data class VisionConfig(
     val attachmentsDirectory: String = "",
 ) {
     init {
-        require(maxTokens > 0) { "maxTokens must be > 0, got $maxTokens" }
+        require(maxTokens == null || maxTokens > 0) { "maxTokens must be > 0 or null, got $maxTokens" }
         require(maxImageSizeBytes > 0) { "maxImageSizeBytes must be > 0, got $maxImageSizeBytes" }
         require(maxImagesPerMessage > 0) { "maxImagesPerMessage must be > 0, got $maxImagesPerMessage" }
     }
 
     companion object {
-        private const val DEFAULT_MAX_TOKENS = 1024
         private const val DEFAULT_MAX_IMAGE_SIZE_BYTES = 10_485_760L
         private const val DEFAULT_MAX_IMAGES_PER_MESSAGE = 5
     }

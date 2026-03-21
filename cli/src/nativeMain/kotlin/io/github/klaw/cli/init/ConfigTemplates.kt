@@ -284,8 +284,7 @@ private fun buildConfigProviders(
             ),
     )
 
-private fun buildConfigModels(modelId: String): Map<String, ModelConfig> =
-    mapOf(modelId to ModelConfig(maxTokens = 8192))
+private fun buildConfigModels(modelId: String): Map<String, ModelConfig> = mapOf(modelId to ModelConfig())
 
 private fun buildConfigRouting(modelId: String): RoutingConfig =
     RoutingConfig(

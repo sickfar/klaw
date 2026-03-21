@@ -20,7 +20,7 @@ The model must be defined in `engine.json` under `models:`. Use `/models` to lis
 
 ## /models
 
-Lists all models configured in `engine.json` with their `contextBudget` values. Useful before recommending a model switch.
+Lists all models configured in `engine.json` with their context length from the model registry. Useful before recommending a model switch.
 
 ## /memory
 

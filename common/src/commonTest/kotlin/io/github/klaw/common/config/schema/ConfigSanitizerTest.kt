@@ -89,7 +89,7 @@ class ConfigSanitizerTest {
                 "my-provider": {"type": "openai-compatible", "endpoint": "http://localhost"},
                 "another": {"type": "openai-compatible", "endpoint": "http://other"}
               },
-              "models": {"gpt-4": {"maxTokens": 100}},
+              "models": {"gpt-4": {"temperature": 0.7}},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
               "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},

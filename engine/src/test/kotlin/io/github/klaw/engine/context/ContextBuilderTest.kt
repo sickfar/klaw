@@ -56,7 +56,6 @@ class ContextBuilderTest {
     private fun buildConfig(
         contextBudget: Int = 4096,
         subagentHistory: Int = 5,
-        modelContextBudget: Int? = null,
         skills: SkillsConfig = SkillsConfig(),
         docs: DocsConfig = DocsConfig(),
         hostExecution: HostExecutionConfig = HostExecutionConfig(),
@@ -65,10 +64,7 @@ class ContextBuilderTest {
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
             models =
                 mapOf(
-                    "test/model" to
-                        ModelConfig(
-                            contextBudget = modelContextBudget,
-                        ),
+                    "test/model" to ModelConfig(),
                 ),
             routing =
                 RoutingConfig(

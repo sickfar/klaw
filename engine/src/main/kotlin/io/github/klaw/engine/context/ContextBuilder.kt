@@ -149,8 +149,7 @@ class ContextBuilder(
             buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, senderContext)
 
         val budgetTokens =
-            config.models[session.model]?.contextBudget
-                ?: ModelRegistry.contextLength(session.model)
+            ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
         // Summarization: compute summary budget, fetch summaries with coverage info
         val summaryResult: SummaryContextResult
@@ -407,7 +406,10 @@ class ContextBuilder(
                                         ),
                                 ),
                             ),
-                        maxTokens = visionConfig.maxTokens,
+                        maxTokens =
+                            visionConfig.maxTokens
+                                ?: ModelRegistry.maxOutput(visionConfig.model)
+                                ?: DEFAULT_VISION_MAX_TOKENS,
                     )
 
                 val response = llmRouter.chat(request, visionConfig.model)
@@ -525,6 +527,7 @@ class ContextBuilder(
     companion object {
         private const val HOURS_PER_DAY = 24
         private const val MINUTES_PER_HOUR = 60
+        private const val DEFAULT_VISION_MAX_TOKENS = 1024
     }
 
     private fun buildCapabilitiesSection(skillCount: Int): String =

@@ -21,8 +21,6 @@ class LlmRouterFactory {
                 ModelRef(
                     provider = parts[0],
                     modelId = parts[1],
-                    maxTokens = cfg.maxTokens,
-                    contextBudget = cfg.contextBudget,
                     temperature = cfg.temperature,
                 )
             }

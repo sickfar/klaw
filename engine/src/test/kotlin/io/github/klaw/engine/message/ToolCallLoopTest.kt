@@ -40,7 +40,7 @@ class ToolCallLoopTest {
     private fun buildRouter(factory: (ProviderConfig) -> LlmClient): LlmRouter =
         LlmRouter(
             providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:9999", "key")),
-            models = mapOf("test/test-model" to ModelRef("test", "test-model", maxTokens = 4096, contextBudget = 4096)),
+            models = mapOf("test/test-model" to ModelRef("test", "test-model")),
             routing =
                 RoutingConfig(
                     default = "test/test-model",

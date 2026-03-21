@@ -43,7 +43,7 @@ class MessageProcessorNewCommandTest {
     private fun buildTestConfig(): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:9999", "key")),
-            models = mapOf("test/model" to ModelConfig(maxTokens = 4096, contextBudget = 8192)),
+            models = mapOf("test/model" to ModelConfig()),
             routing =
                 RoutingConfig(
                     default = "test/model",

@@ -57,7 +57,7 @@ class OllamaContractTest {
             apiKey = null,
         )
 
-    private fun buildModel() = ModelRef("ollama", "qwen3:8b", maxTokens = 32768)
+    private fun buildModel() = ModelRef("ollama", "qwen3:8b")
 
     private fun loadFixture(path: String): String =
         object {}

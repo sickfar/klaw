@@ -64,15 +64,9 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
     }
   },
   "models": {
-    "zai/glm-5": {
-      "maxTokens": 8192
-    },
-    "deepseek/deepseek-chat": {
-      "maxTokens": 32768
-    },
-    "ollama/qwen3:8b": {
-      "maxTokens": 32768
-    }
+    "zai/glm-5": {},
+    "deepseek/deepseek-chat": {},
+    "ollama/qwen3:8b": {}
   },
   "routing": {
     "default": "zai/glm-5",
@@ -160,7 +154,6 @@ Only `openai-compatible` is currently supported. `anthropic-compatible` is plann
   "vision": {
     "enabled": false,
     "model": "glm/glm-4.6v",
-    "maxTokens": 1024,
     "maxImageSizeBytes": 10485760,
     "maxImagesPerMessage": 5,
     "supportedFormats": ["image/jpeg", "image/png", "image/gif", "image/webp"],
@@ -391,7 +384,7 @@ Image analysis and inline vision support. Enables the `image_analyze` tool and a
 |-----|------|---------|-------------|
 | `enabled` | bool | `false` | Enable vision capabilities. |
 | `model` | string | `""` | Vision model ID (e.g. `"glm/glm-4.6v"`). Empty falls back to `routing.default`. |
-| `maxTokens` | int | `1024` | Maximum output tokens for vision model responses. |
+| `maxTokens` | int | — | Maximum output tokens for vision model responses. If not set, uses `maxOutput` from model registry, or 1024. |
 | `maxImageSizeBytes` | long | `10485760` (10MB) | Maximum image file size. |
 | `maxImagesPerMessage` | int | `5` | Maximum images per message for inline vision. |
 | `supportedFormats` | string[] | `["image/jpeg", "image/png", "image/gif", "image/webp"]` | Allowed image MIME types. |

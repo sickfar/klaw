@@ -50,7 +50,6 @@ class DailyConsolidationServiceTest {
         category: String = "daily-summary",
         minMessages: Int = 5,
         consolidationTask: String = "",
-        contextBudget: Int = 4096,
     ): EngineConfig =
         EngineConfig(
             providers =
@@ -59,7 +58,7 @@ class DailyConsolidationServiceTest {
                 ),
             models =
                 mapOf(
-                    "test/test-model" to ModelConfig(maxTokens = 4096, contextBudget = contextBudget),
+                    "test/test-model" to ModelConfig(),
                 ),
             routing =
                 RoutingConfig(
@@ -369,7 +368,7 @@ class DailyConsolidationServiceTest {
         runBlocking {
             // Budget = 4096 - 500 - 500 = 3096 tokens per chunk
             // Each message has 2000 tokens → 2 messages per chunk won't fit, so 1 message per chunk
-            val config = buildConfig(minMessages = 2, contextBudget = 4096)
+            val config = buildConfig(minMessages = 2)
             val service = buildService(config)
 
             coEvery { memoryService.hasFactsWithSourcePrefix(any()) } returns false

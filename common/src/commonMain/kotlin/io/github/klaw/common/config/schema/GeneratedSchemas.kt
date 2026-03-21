@@ -36,12 +36,6 @@ object GeneratedSchemas {
                     "additionalProperties": {
                         "type": "object",
                         "properties": {
-                            "maxTokens": {
-                                "type": "integer"
-                            },
-                            "contextBudget": {
-                                "type": "integer"
-                            },
                             "temperature": {
                                 "type": "number"
                             }

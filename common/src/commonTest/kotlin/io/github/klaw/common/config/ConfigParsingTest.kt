@@ -50,28 +50,12 @@ class ConfigParsingTest {
     }
   },
   "models": {
-    "glm/glm-4-plus": {
-      "maxTokens": 4096,
-      "contextBudget": 8000
-    },
-    "glm/glm-5": {
-      "maxTokens": 8192,
-      "contextBudget": 12000
-    },
-    "deepseek/deepseek-chat": {
-      "contextBudget": 12000
-    },
-    "deepseek/deepseek-reasoner": {
-      "maxTokens": 16384,
-      "contextBudget": 16000
-    },
-    "ollama/qwen3:8b": {
-      "contextBudget": 6000
-    },
-    "anthropic/claude-sonnet-4-20250514": {
-      "maxTokens": 8192,
-      "contextBudget": 16000
-    }
+    "glm/glm-4-plus": {},
+    "glm/glm-5": {},
+    "deepseek/deepseek-chat": {},
+    "deepseek/deepseek-reasoner": {},
+    "ollama/qwen3:8b": {},
+    "anthropic/claude-sonnet-4-20250514": {}
   },
   "routing": {
     "default": "glm/glm-5",

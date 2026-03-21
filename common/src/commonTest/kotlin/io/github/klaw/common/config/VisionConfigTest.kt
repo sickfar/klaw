@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class VisionConfigTest {
@@ -12,7 +13,7 @@ class VisionConfigTest {
         val config = VisionConfig()
         assertFalse(config.enabled)
         assertEquals("", config.model)
-        assertEquals(1024, config.maxTokens)
+        assertNull(config.maxTokens)
         assertEquals(10_485_760L, config.maxImageSizeBytes)
         assertEquals(5, config.maxImagesPerMessage)
         assertEquals(
@@ -77,7 +78,7 @@ class VisionConfigTest {
         val config = parseEngineConfig(json)
         assertFalse(config.vision.enabled)
         assertEquals("", config.vision.model)
-        assertEquals(1024, config.vision.maxTokens)
+        assertNull(config.vision.maxTokens)
     }
 
     @Test

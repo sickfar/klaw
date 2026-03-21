@@ -22,7 +22,6 @@ data class ModelCapabilities(
  * Lookup strips the provider prefix automatically:
  * `ModelRegistry.get("zai/glm-5")` → matches `"glm-5"`.
  *
- * `ModelConfig.contextBudget` in engine.json always takes precedence over registry values.
  */
 object ModelRegistry {
     private val json = Json { ignoreUnknownKeys = true }
@@ -36,6 +35,9 @@ object ModelRegistry {
 
     /** Returns context length for the model, or null if unknown. */
     fun contextLength(modelId: String): Int? = get(modelId)?.contextLength
+
+    /** Returns max output tokens for the model, or null if unknown or zero. */
+    fun maxOutput(modelId: String): Int? = get(modelId)?.maxOutput?.takeIf { it > 0 }
 
     /** Returns true if the model supports image input, false if unknown or unsupported. */
     fun supportsImage(modelId: String): Boolean = get(modelId)?.image == true

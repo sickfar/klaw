@@ -46,7 +46,7 @@ class CommandHandlerTest {
     private val heartbeatRunnerFactory = mockk<HeartbeatRunnerFactory>(relaxed = true)
     private val skillRegistry = mockk<SkillRegistry>(relaxed = true)
 
-    private val defaultModels = mapOf("test/model" to ModelConfig(contextBudget = 4096))
+    private val defaultModels = mapOf("test/model" to ModelConfig())
 
     private fun makeConfig(models: Map<String, ModelConfig> = defaultModels) =
         EngineConfig(
@@ -144,8 +144,8 @@ class CommandHandlerTest {
         runTest {
             val models =
                 mapOf(
-                    "test/model" to ModelConfig(contextBudget = 4096),
-                    "other/model" to ModelConfig(contextBudget = 8192),
+                    "test/model" to ModelConfig(),
+                    "other/model" to ModelConfig(),
                 )
             val handler = makeHandler(models)
             val session = makeSession(model = "test/model")
@@ -177,8 +177,8 @@ class CommandHandlerTest {
         runTest {
             val models =
                 mapOf(
-                    "glm/glm-5" to ModelConfig(contextBudget = 8192),
-                    "deepseek/deepseek-chat" to ModelConfig(contextBudget = 32768),
+                    "glm/glm-5" to ModelConfig(),
+                    "deepseek/deepseek-chat" to ModelConfig(),
                 )
             val handler = makeHandler(models)
             val session = makeSession()

@@ -54,7 +54,7 @@ class ContextBuilderSummaryTest {
     ): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
-            models = mapOf("test/model" to ModelConfig(contextBudget = null)),
+            models = mapOf("test/model" to ModelConfig()),
             routing =
                 RoutingConfig(
                     default = "test/model",

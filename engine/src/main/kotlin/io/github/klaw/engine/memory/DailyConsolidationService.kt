@@ -5,6 +5,7 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.message.MessageRepository
@@ -104,7 +105,7 @@ class DailyConsolidationService(
 
         val modelId = resolveModelId()
         val contextBudget =
-            config.models[modelId]?.contextBudget
+            ModelRegistry.contextLength(modelId)
                 ?: config.context.defaultBudgetTokens
         val messageBudget = contextBudget - PROMPT_OVERHEAD_TOKENS - RESPONSE_RESERVE_TOKENS
 

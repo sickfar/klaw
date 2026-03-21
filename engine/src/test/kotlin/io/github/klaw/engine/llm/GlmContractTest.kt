@@ -61,7 +61,7 @@ class GlmContractTest {
             apiKey = "test-key",
         )
 
-    private fun buildModel() = ModelRef("zai", "glm-5", maxTokens = 8192)
+    private fun buildModel() = ModelRef("zai", "glm-5")
 
     private fun loadFixture(path: String): String =
         object {}

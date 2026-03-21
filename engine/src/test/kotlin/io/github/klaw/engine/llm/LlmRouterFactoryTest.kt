@@ -31,7 +31,7 @@ class LlmRouterFactoryTest {
                         apiKey = "\${TEST_API_KEY}",
                     ),
             ),
-        models: Map<String, ModelConfig> = mapOf("test/model" to ModelConfig(contextBudget = 4096)),
+        models: Map<String, ModelConfig> = mapOf("test/model" to ModelConfig()),
     ): EngineConfig =
         EngineConfig(
             providers = providers,
@@ -107,7 +107,7 @@ class LlmRouterFactoryTest {
 
     @Test
     fun `model key without slash throws clear error`() {
-        val config = makeConfig(models = mapOf("invalid-key" to ModelConfig(contextBudget = 4096)))
+        val config = makeConfig(models = mapOf("invalid-key" to ModelConfig()))
         val factory = LlmRouterFactory()
         val ex =
             assertThrows(IllegalArgumentException::class.java) {

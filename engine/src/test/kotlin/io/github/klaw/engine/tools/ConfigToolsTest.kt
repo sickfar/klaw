@@ -28,10 +28,7 @@ class ConfigToolsTest {
                 }
             },
             "models": {
-                "zai/glm-4-plus": {
-                    "maxTokens": 8192,
-                    "contextBudget": 32768
-                }
+                "zai/glm-4-plus": {}
             },
             "routing": {
                 "default": "zai/glm-4-plus",

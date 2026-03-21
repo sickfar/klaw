@@ -73,8 +73,8 @@ class CommandHandler(
 
     private fun listModels(): String {
         val lines =
-            config.models.entries.joinToString("\n") { (key, cfg) ->
-                val budget = cfg.contextBudget?.toString() ?: "default"
+            config.models.entries.joinToString("\n") { (key, _) ->
+                val budget = ModelRegistry.contextLength(key)?.toString() ?: "default"
                 "  $key (context budget: $budget)"
             }
         return "Available models:\n$lines"
@@ -93,8 +93,7 @@ class CommandHandler(
 
     private suspend fun showStatus(session: Session): String {
         val budgetTokens =
-            config.models[session.model]?.contextBudget
-                ?: ModelRegistry.contextLength(session.model)
+            ModelRegistry.contextLength(session.model)
                 ?: config.context.defaultBudgetTokens
         val windowTokens = messageRepository.getWindowTokenCount(session.chatId, session.segmentStart, budgetTokens)
         val totalTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)

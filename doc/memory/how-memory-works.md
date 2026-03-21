@@ -15,11 +15,11 @@ Four layers are assembled in this order:
 3. Sliding window — last N messages from the current segment (fills remaining budget)
 4. Tool descriptions (~500 tokens) — available tools and loaded skills
 
-The total budget is controlled by `context.defaultBudgetTokens` (default: 100,000 tokens) or per-model `contextBudget` overrides.
+The total budget is determined by the model's `contextLength` from the built-in model registry, or `context.defaultBudgetTokens` (default: 100,000 tokens) for unknown models.
 
 ## Context budget
 
-Each model can have a `contextBudget` in `engine.json` (under `models`). If not set, the engine uses `context.defaultBudgetTokens` (default: 100,000). The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
+The engine reads context length from `model-registry.json` for known models. If the model is not in the registry, it falls back to `context.defaultBudgetTokens` (default: 100,000). The Engine uses 90% of the budget as a safety margin for approximate token counting. The sliding window shrinks to fit whatever space remains after the fixed layers are placed.
 
 ## Why archival memory is on-demand
 

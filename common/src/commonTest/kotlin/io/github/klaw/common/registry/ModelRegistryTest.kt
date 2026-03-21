@@ -145,4 +145,27 @@ class ModelRegistryTest {
         assertNotNull(caps)
         assertTrue(caps.image)
     }
+
+    @Test
+    fun `maxOutput returns correct value for known model`() {
+        assertEquals(128000, ModelRegistry.maxOutput("glm-5"))
+        assertEquals(16384, ModelRegistry.maxOutput("gpt-4o"))
+    }
+
+    @Test
+    fun `maxOutput returns null for unknown model`() {
+        assertNull(ModelRegistry.maxOutput("nonexistent-model"))
+    }
+
+    @Test
+    fun `maxOutput returns null when maxOutput is zero`() {
+        // glm-4.6v has no maxOutput in registry (defaults to 0)
+        assertNull(ModelRegistry.maxOutput("glm-4.6v"))
+    }
+
+    @Test
+    fun `maxOutput strips provider prefix`() {
+        assertEquals(128000, ModelRegistry.maxOutput("zai/glm-5"))
+        assertEquals(16384, ModelRegistry.maxOutput("openai/gpt-4o"))
+    }
 }

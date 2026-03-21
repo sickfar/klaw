@@ -385,11 +385,9 @@ class MessageProcessor(
                             includeSkillLoad = contextResult.includeSkillLoad,
                         )
 
-                    val rawBudget =
-                        config.models[session.model]?.contextBudget
-                            ?: ModelRegistry.contextLength(session.model)
-                            ?: config.context.defaultBudgetTokens
-                    val modelContextLimit = ModelRegistry.contextLength(session.model) ?: 0
+                    val registryContextLength = ModelRegistry.contextLength(session.model)
+                    val rawBudget = registryContextLength ?: config.context.defaultBudgetTokens
+                    val modelContextLimit = registryContextLength ?: 0
                     val runner =
                         ToolCallLoopRunner(
                             llmRouter,

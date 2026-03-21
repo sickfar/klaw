@@ -6,10 +6,7 @@
     }
   },
   "models": {
-    "test/test-model": {
-      "maxTokens": 4096,
-      "contextBudget": 4096
-    }
+    "test/test-model": {}
   },
   "routing": {
     "default": "test/test-model",

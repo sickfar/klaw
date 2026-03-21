@@ -83,7 +83,7 @@ class HostExecRiskAssessmentWireMockTest {
                         apiKey = "test-key",
                     ),
             )
-        val models = mapOf("test/haiku" to ModelRef("test", "test-model", maxTokens = 4096))
+        val models = mapOf("test/haiku" to ModelRef("test", "test-model"))
         val routing =
             RoutingConfig(
                 default = "test/haiku",

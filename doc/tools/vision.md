@@ -76,7 +76,6 @@ In `engine.json`, under the `vision` key:
   "vision": {
     "enabled": false,
     "model": "glm/glm-4.6v",
-    "maxTokens": 1024,
     "maxImageSizeBytes": 10485760,
     "maxImagesPerMessage": 5,
     "supportedFormats": ["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -88,7 +87,7 @@ In `engine.json`, under the `vision` key:
 |-------|------|---------|-------------|
 | `enabled` | bool | `false` | Enable vision capabilities |
 | `model` | string | `""` | Vision model ID. Empty falls back to `routing.default` |
-| `maxTokens` | int | `1024` | Maximum output tokens for vision model responses |
+| `maxTokens` | int | — | Maximum output tokens for vision model responses. Falls back to model registry `maxOutput`, then 1024. |
 | `maxImageSizeBytes` | long | `10485760` | Maximum image file size in bytes |
 | `maxImagesPerMessage` | int | `5` | Maximum images per message for inline vision |
 | `supportedFormats` | string[] | `["image/jpeg", "image/png", "image/gif", "image/webp"]` | Allowed image MIME types |

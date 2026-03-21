@@ -92,7 +92,7 @@ class ChineseLlmFunctionCallingTest {
                             ),
                     ),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
-                    ModelRef("zai", "glm-5", maxTokens = 8192),
+                    ModelRef("zai", "glm-5"),
                 )
 
             // Locked: finish_reason MUST be TOOL_CALLS for function calling
@@ -122,7 +122,7 @@ class ChineseLlmFunctionCallingTest {
                 buildClient().chat(
                     LlmRequest(listOf(LlmMessage("user", "Hello"))),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
-                    ModelRef("zai", "glm-5", maxTokens = 8192),
+                    ModelRef("zai", "glm-5"),
                 )
 
             // Must be null, not emptyList()
@@ -153,7 +153,7 @@ class ChineseLlmFunctionCallingTest {
                         tools = listOf(ToolDef("get_weather", "Weather", buildJsonObject { put("type", "object") })),
                     ),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
-                    ModelRef("zai", "glm-5", maxTokens = 8192),
+                    ModelRef("zai", "glm-5"),
                 )
 
             val args = response.toolCalls!![0].arguments
@@ -187,7 +187,7 @@ class ChineseLlmFunctionCallingTest {
                             ),
                     ),
                     ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
-                    ModelRef("deepseek", "deepseek-chat", maxTokens = 32768),
+                    ModelRef("deepseek", "deepseek-chat"),
                 )
 
             assertEquals(FinishReason.TOOL_CALLS, response.finishReason)
@@ -226,7 +226,7 @@ class ChineseLlmFunctionCallingTest {
                     maxTokens = 256,
                 ),
                 ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
-                ModelRef("zai", "glm-5", maxTokens = 8192),
+                ModelRef("zai", "glm-5"),
             )
 
             wireMock.verify(

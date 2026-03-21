@@ -24,7 +24,6 @@ import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.VisionConfig
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.ImageUrlContentPart
-import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.TokenUsage
@@ -40,7 +39,6 @@ import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json

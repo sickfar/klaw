@@ -94,7 +94,7 @@ class MessageProcessorEmbeddingTest {
         val port = wireMock.port()
         return EngineConfig(
             providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:$port", "test-key")),
-            models = mapOf("test/model" to ModelConfig(maxTokens = 4096, contextBudget = 8192)),
+            models = mapOf("test/model" to ModelConfig()),
             routing =
                 RoutingConfig(
                     default = "test/model",
@@ -135,7 +135,7 @@ class MessageProcessorEmbeddingTest {
 
     private fun buildLlmRouter(config: EngineConfig): LlmRouter {
         val port = wireMock.port()
-        val modelRef = ModelRef("test", "model", maxTokens = 4096, contextBudget = 8192)
+        val modelRef = ModelRef("test", "model")
         return LlmRouter(
             providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:$port", "test-key")),
             models = mapOf("test/model" to modelRef),
