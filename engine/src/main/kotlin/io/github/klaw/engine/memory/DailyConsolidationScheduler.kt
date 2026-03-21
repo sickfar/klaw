@@ -2,9 +2,9 @@ package io.github.klaw.engine.memory
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micronaut.context.annotation.Context
 import io.micronaut.scheduling.TaskScheduler
 import jakarta.annotation.PostConstruct
-import jakarta.inject.Singleton
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -12,7 +12,7 @@ import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
-@Singleton
+@Context
 class DailyConsolidationScheduler(
     private val config: EngineConfig,
     private val service: DailyConsolidationService,
