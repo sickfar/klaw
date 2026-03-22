@@ -25,7 +25,10 @@ class ConfigFileWatcherTest {
      * Some filesystems (especially on Linux CI) have second-level mtime granularity,
      * so WatchService may miss a write that lands within the same second.
      */
-    private fun writeAndEnsureModified(file: File, content: String) {
+    private fun writeAndEnsureModified(
+        file: File,
+        content: String,
+    ) {
         val oldLastModified = file.lastModified()
         file.writeText(content)
         // If mtime didn't change (same-second write), bump it explicitly
