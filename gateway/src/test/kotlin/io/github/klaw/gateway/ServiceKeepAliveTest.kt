@@ -3,6 +3,8 @@ package io.github.klaw.gateway
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.LocalWsConfig
+import io.github.klaw.gateway.api.ApiRoutes
+import io.github.klaw.gateway.api.WebuiStaticRoutes
 import io.github.klaw.gateway.channel.ChatWebSocketEndpoint
 import io.micronaut.context.ApplicationContext
 import io.micronaut.runtime.ApplicationConfiguration
@@ -15,6 +17,8 @@ class ServiceKeepAliveTest {
     private val appContext = mockk<ApplicationContext>(relaxed = true)
     private val appConfig = mockk<ApplicationConfiguration>(relaxed = true)
     private val chatEndpoint = mockk<ChatWebSocketEndpoint>(relaxed = true)
+    private val apiRoutes = mockk<ApiRoutes>(relaxed = true)
+    private val webuiStaticRoutes = mockk<WebuiStaticRoutes>(relaxed = true)
 
     private fun makeConfig(
         enabled: Boolean = true,
@@ -25,19 +29,22 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `isServer returns true`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, makeConfig())
         assertTrue(keepAlive.isServer)
     }
 
     @Test
     fun `isRunning is false before start`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, makeConfig())
         assertFalse(keepAlive.isRunning)
     }
 
     @Test
     fun `start sets running to true`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, makeConfig())
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
         keepAlive.stop()
@@ -45,7 +52,8 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `stop sets running to false`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, makeConfig())
         keepAlive.start()
         keepAlive.stop()
         assertFalse(keepAlive.isRunning)
@@ -53,7 +61,15 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `start with localWs disabled does not throw`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig(enabled = false))
+        val keepAlive =
+            ServiceKeepAlive(
+                appContext,
+                appConfig,
+                chatEndpoint,
+                apiRoutes,
+                webuiStaticRoutes,
+                makeConfig(enabled = false),
+            )
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
         keepAlive.stop()
@@ -61,7 +77,8 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `start with no localWs config does not throw`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, configNoLocalWs())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, configNoLocalWs())
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
         keepAlive.stop()
@@ -69,7 +86,15 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `start with localWs enabled starts Ktor server on specified port`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig(enabled = true, port = 0))
+        val keepAlive =
+            ServiceKeepAlive(
+                appContext,
+                appConfig,
+                chatEndpoint,
+                apiRoutes,
+                webuiStaticRoutes,
+                makeConfig(enabled = true, port = 0),
+            )
         keepAlive.start()
         assertTrue(keepAlive.isRunning)
         keepAlive.stop()
@@ -77,7 +102,8 @@ class ServiceKeepAliveTest {
 
     @Test
     fun `stop without start does not throw`() {
-        val keepAlive = ServiceKeepAlive(appContext, appConfig, chatEndpoint, makeConfig())
+        val keepAlive =
+            ServiceKeepAlive(appContext, appConfig, chatEndpoint, apiRoutes, webuiStaticRoutes, makeConfig())
         keepAlive.stop()
         assertFalse(keepAlive.isRunning)
     }

@@ -48,7 +48,7 @@ class CliCommandDispatcher(
             }
 
             "memory_categories_list" -> {
-                handleMemoryCategoriesList()
+                handleMemoryCategoriesList(request.params)
             }
 
             "memory_categories_rename" -> {
@@ -401,8 +401,19 @@ class CliCommandDispatcher(
         return memoryService.search(query, topK, trackAccess = true)
     }
 
-    private suspend fun handleMemoryCategoriesList(): String {
+    private suspend fun handleMemoryCategoriesList(params: Map<String, String>): String {
         val categories = memoryService.getTopCategories(MAX_CATEGORIES_DISPLAY)
+        val jsonOutput = params["json"]?.toBoolean() ?: false
+        if (jsonOutput) {
+            val total = memoryService.getTotalCategoryCount()
+            val items =
+                categories.joinToString(",") { cat ->
+                    val name = escapeJson(cat.name)
+                    """{"id":${cat.id},"name":"$name",""" +
+                        """"entryCount":${cat.entryCount},"accessCount":${cat.accessCount}}"""
+                }
+            return """{"categories":[$items],"total":$total}"""
+        }
         if (categories.isEmpty()) return "No memory categories found."
         return categories.joinToString("\n") { cat ->
             "${cat.name} (${cat.entryCount} entries, accessed ${cat.accessCount} times)"

@@ -9,6 +9,7 @@ import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmUsageTracker
 import io.github.klaw.engine.maintenance.ReindexService
 import io.github.klaw.engine.memory.DailyConsolidationService
+import io.github.klaw.engine.memory.MemoryCategoryInfo
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.Session
@@ -362,6 +363,73 @@ class CliCommandDispatcherTest {
             dispatcher.dispatch(CliRequestMessage("schedule_runs", mapOf("name" to "my-job", "limit" to "5")))
 
             coVerify { klawScheduler.runs("my-job", 5) }
+        }
+
+    // ── memory_categories_list ──
+
+    @Test
+    fun `memory_categories_list returns plain text by default`() =
+        runTest {
+            val categories =
+                listOf(
+                    MemoryCategoryInfo(1, "daily-summary", 15, 42),
+                    MemoryCategoryInfo(2, "project-notes", 3, 10),
+                )
+            coEvery { memoryService.getTopCategories(any()) } returns categories
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("memory_categories_list"))
+
+            assertTrue(result.contains("daily-summary"))
+            assertTrue(result.contains("42 entries"))
+            assertFalse(result.startsWith("{"))
+        }
+
+    @Test
+    fun `memory_categories_list with json param returns JSON array`() =
+        runTest {
+            val categories =
+                listOf(
+                    MemoryCategoryInfo(1, "daily-summary", 15, 42),
+                    MemoryCategoryInfo(2, "project-notes", 3, 10),
+                )
+            coEvery { memoryService.getTopCategories(any()) } returns categories
+            coEvery { memoryService.getTotalCategoryCount() } returns 2L
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage("memory_categories_list", mapOf("json" to "true")),
+                )
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            assertEquals(2, json["total"]?.jsonPrimitive?.int)
+
+            val cats = json["categories"]?.jsonArray
+            assertEquals(2, cats?.size)
+
+            val first = cats?.first()?.jsonObject
+            assertEquals("daily-summary", first?.get("name")?.jsonPrimitive?.content)
+            assertEquals(42, first?.get("entryCount")?.jsonPrimitive?.long)
+            assertEquals(15, first?.get("accessCount")?.jsonPrimitive?.long)
+            assertEquals(1, first?.get("id")?.jsonPrimitive?.long)
+        }
+
+    @Test
+    fun `memory_categories_list json with empty categories`() =
+        runTest {
+            coEvery { memoryService.getTopCategories(any()) } returns emptyList()
+            coEvery { memoryService.getTotalCategoryCount() } returns 0L
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage("memory_categories_list", mapOf("json" to "true")),
+                )
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            assertEquals(0, json["total"]?.jsonPrimitive?.int)
+            assertTrue(json["categories"]?.jsonArray?.isEmpty() == true)
         }
 
     // ── schedule_status ──

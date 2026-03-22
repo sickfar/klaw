@@ -23,6 +23,10 @@ dependencies {
     implementation("org.slf4j:jul-to-slf4j")
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.websockets)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlin.logging)
 
     "kapt"("io.micronaut:micronaut-inject-java:$micronautVersion")

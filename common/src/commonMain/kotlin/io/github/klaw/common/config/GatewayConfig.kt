@@ -12,6 +12,8 @@ data class GatewayConfig(
     val delivery: DeliveryConfig = DeliveryConfig(),
     @ConfigDoc("Attachment handling settings")
     val attachments: AttachmentsConfig = AttachmentsConfig(),
+    @ConfigDoc("Web UI settings")
+    val webui: WebuiConfig = WebuiConfig(),
 )
 
 @Serializable
@@ -91,6 +93,12 @@ data class AllowedGuild(
     val allowedChannelIds: List<String> = emptyList(),
     @ConfigDoc("Allowed user IDs (empty = deny all)")
     val allowedUserIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class WebuiConfig(
+    @ConfigDoc("Enable the Web UI (REST API + SPA)")
+    val enabled: Boolean = true,
 )
 
 @Serializable

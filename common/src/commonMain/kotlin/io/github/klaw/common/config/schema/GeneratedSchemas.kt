@@ -772,6 +772,15 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "webui": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "required": [

@@ -1,6 +1,8 @@
 package io.github.klaw.gateway
 
 import io.github.klaw.common.config.GatewayConfig
+import io.github.klaw.gateway.api.ApiRoutes
+import io.github.klaw.gateway.api.WebuiStaticRoutes
 import io.github.klaw.gateway.channel.ChatWebSocketEndpoint
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.install
@@ -21,6 +23,8 @@ class ServiceKeepAlive(
     private val applicationContext: ApplicationContext,
     private val applicationConfiguration: ApplicationConfiguration,
     private val chatEndpoint: ChatWebSocketEndpoint,
+    private val apiRoutes: ApiRoutes,
+    private val webuiStaticRoutes: WebuiStaticRoutes,
     private val config: GatewayConfig,
 ) : EmbeddedApplication<ServiceKeepAlive> {
     @Volatile
@@ -37,14 +41,22 @@ class ServiceKeepAlive(
 
     override fun start(): ServiceKeepAlive {
         running = true
-        if (config.channels.localWs?.enabled == true) {
+        val wsEnabled = config.channels.localWs?.enabled == true
+        val webuiEnabled = config.webui.enabled
+        if (wsEnabled || webuiEnabled) {
             val port = config.channels.localWs?.port ?: DEFAULT_LOCAL_WS_PORT
             server =
                 embeddedServer(CIO, port = port) {
                     install(WebSockets) {
                         pingPeriodMillis = PING_PERIOD_MS
                     }
-                    routing { chatEndpoint.install(this) }
+                    routing {
+                        if (wsEnabled) chatEndpoint.install(this)
+                        if (webuiEnabled) {
+                            apiRoutes.install(this)
+                            webuiStaticRoutes.install(this)
+                        }
+                    }
                 }.start(wait = false)
             logger.info { "Ktor server started on port $port" }
         }
