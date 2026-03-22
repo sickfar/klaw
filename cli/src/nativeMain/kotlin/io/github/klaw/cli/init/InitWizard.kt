@@ -528,7 +528,7 @@ internal class InitWizard(
             val errorMsg = extractJsonField(identityJson, "error")
             if (errorMsg != null) {
                 identitySpinner.fail("Identity generation failed: $errorMsg")
-                printer("  Stub files written. Run 'klaw identity edit' to update later.")
+                printer("  Stub files written. Edit IDENTITY.md and USER.md in the workspace to update later.")
                 CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
             } else {
                 identitySpinner.done("Identity generated")

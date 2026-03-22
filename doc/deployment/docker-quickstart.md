@@ -88,11 +88,11 @@ klaw status              # check engine status
 klaw doctor              # diagnose installation issues
 klaw logs                # recent conversation messages
 klaw logs --follow       # stream messages live
-klaw engine restart      # restart the engine container
-klaw gateway restart     # restart the gateway container
-klaw stop                # stop both engine and gateway
+klaw service restart engine  # restart the engine container
+klaw service restart gateway # restart the gateway container
+klaw service stop all        # stop both engine and gateway
 klaw memory show         # show MEMORY.md
-klaw sessions            # list active sessions
+klaw status --sessions   # include active sessions
 ```
 
 ---
@@ -120,15 +120,15 @@ docker pull ghcr.io/sickfar/klaw-gateway:latest
 docker pull ghcr.io/sickfar/klaw-cli:latest
 
 # Restart services to use new images
-klaw engine restart
-klaw gateway restart
+klaw service restart engine
+klaw service restart gateway
 ```
 
 Or stop and let Docker Compose recreate the containers:
 
 ```bash
-klaw stop
-klaw engine start
+klaw service stop all
+klaw service start all
 ```
 
 ---

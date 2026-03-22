@@ -31,7 +31,7 @@ internal class ScheduleListCommand(
             echo(requestFn("schedule_list", emptyMap()))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
-            echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -59,7 +59,7 @@ internal class ScheduleAddCommand(
             echo(requestFn("schedule_add", params))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
-            echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -75,7 +75,7 @@ internal class ScheduleRemoveCommand(
             echo(requestFn("schedule_remove", mapOf("name" to name)))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
-            echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }

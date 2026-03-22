@@ -35,7 +35,7 @@ internal class MemorySearchCommand(
             echo(requestFn("memory_search", mapOf("query" to query)))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
-            echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -62,7 +62,8 @@ internal class MemoryCategoriesListCommand(
         try {
             echo(requestFn("memory_categories_list", emptyMap()))
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -77,7 +78,8 @@ internal class MemoryCategoriesRenameCommand(
         try {
             echo(requestFn("memory_categories_rename", mapOf("old_name" to oldName, "new_name" to newName)))
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -92,7 +94,8 @@ internal class MemoryCategoriesMergeCommand(
         try {
             echo(requestFn("memory_categories_merge", mapOf("sources" to sources, "target" to target)))
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -112,7 +115,8 @@ internal class MemoryCategoriesDeleteCommand(
                 ),
             )
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -139,7 +143,8 @@ internal class MemoryFactsAddCommand(
         try {
             echo(requestFn("memory_facts_add", mapOf("category" to category, "content" to content)))
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }
@@ -157,7 +162,8 @@ internal class MemoryConsolidateCommand(
         try {
             echo(requestFn("memory_consolidate", params))
         } catch (_: EngineNotRunningException) {
-            echo("Engine is not running.")
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }

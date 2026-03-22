@@ -41,12 +41,12 @@ class ServiceCommandTest {
             commandRunner = runner,
         )
 
-    // --- StopCommand ---
+    // --- service stop all ---
 
     @Test
-    fun `stop uses docker compose when deploy conf is docker`() {
+    fun `service stop all uses docker compose when deploy conf is docker`() {
         writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
-        val result = cli().test("stop")
+        val result = cli().test("service stop all")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("docker compose") && it.contains("stop") },
@@ -55,9 +55,9 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `stop uses hybrid compose file path when deploy conf is hybrid`() {
+    fun `service stop all uses hybrid compose file path when deploy conf is hybrid`() {
         writeFileText("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
-        val result = cli().test("stop")
+        val result = cli().test("service stop all")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
@@ -69,9 +69,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `stop uses systemctl when deploy conf is native or missing`() {
-        // No deploy.conf → defaults to NATIVE
-        val result = cli().test("stop")
+    fun `service stop all uses systemctl when deploy conf is native or missing`() {
+        val result = cli().test("service stop all")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("systemctl") || it.contains("launchctl") },
@@ -80,8 +79,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `stop prints success message on success`() {
-        val result = cli().test("stop")
+    fun `service stop all prints success message on success`() {
+        val result = cli().test("service stop all")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("stopped", ignoreCase = true),
@@ -90,12 +89,12 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `stop prints failure message on failure`() {
+    fun `service stop all prints failure message on failure`() {
         val failRunner: (String) -> Int = {
             commands += it
             1
         }
-        val result = cli(failRunner).test("stop")
+        val result = cli(failRunner).test("service stop all")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("failed", ignoreCase = true),
@@ -103,12 +102,12 @@ class ServiceCommandTest {
         )
     }
 
-    // --- EngineCommand ---
+    // --- service start engine ---
 
     @Test
-    fun `engine start uses docker compose when deploy conf is docker`() {
+    fun `service start engine uses docker compose when deploy conf is docker`() {
         writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
-        val result = cli().test("engine start")
+        val result = cli().test("service start engine")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("docker compose") && it.contains("up -d") && it.contains("engine") },
@@ -117,9 +116,9 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine stop uses hybrid compose file when deploy conf is hybrid`() {
+    fun `service stop engine uses hybrid compose file when deploy conf is hybrid`() {
         writeFileText("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
-        val result = cli().test("engine stop")
+        val result = cli().test("service stop engine")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
@@ -131,9 +130,9 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine restart uses docker compose up force-recreate when deploy conf is docker`() {
+    fun `service restart engine uses docker compose up force-recreate when deploy conf is docker`() {
         writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
-        val result = cli().test("engine restart")
+        val result = cli().test("service restart engine")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
@@ -145,8 +144,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine restart uses native when deploy conf missing`() {
-        val result = cli().test("engine restart")
+    fun `service restart engine uses native when deploy conf missing`() {
+        val result = cli().test("service restart engine")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("systemctl") || it.contains("launchctl") },
@@ -155,8 +154,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine start prints success message`() {
-        val result = cli().test("engine start")
+    fun `service start engine prints success message`() {
+        val result = cli().test("service start engine")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("started", ignoreCase = true),
@@ -165,12 +164,12 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine stop prints failure message on failure`() {
+    fun `service stop engine prints failure message on failure`() {
         val failRunner: (String) -> Int = {
             commands += it
             1
         }
-        val result = cli(failRunner).test("engine stop")
+        val result = cli(failRunner).test("service stop engine")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("failed", ignoreCase = true),
@@ -179,8 +178,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `engine restart prints success message`() {
-        val result = cli().test("engine restart")
+    fun `service restart engine prints success message`() {
+        val result = cli().test("service restart engine")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("restarted", ignoreCase = true),
@@ -188,12 +187,12 @@ class ServiceCommandTest {
         )
     }
 
-    // --- GatewayCommand ---
+    // --- service start/stop/restart gateway ---
 
     @Test
-    fun `gateway start uses docker compose when deploy conf is docker`() {
+    fun `service start gateway uses docker compose when deploy conf is docker`() {
         writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
-        val result = cli().test("gateway start")
+        val result = cli().test("service start gateway")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("docker compose") && it.contains("up -d") && it.contains("gateway") },
@@ -202,9 +201,9 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway stop uses hybrid compose file when deploy conf is hybrid`() {
+    fun `service stop gateway uses hybrid compose file when deploy conf is hybrid`() {
         writeFileText("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
-        val result = cli().test("gateway stop")
+        val result = cli().test("service stop gateway")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
@@ -216,9 +215,9 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway restart uses docker compose up force-recreate when deploy conf is docker`() {
+    fun `service restart gateway uses docker compose up force-recreate when deploy conf is docker`() {
         writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
-        val result = cli().test("gateway restart")
+        val result = cli().test("service restart gateway")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any {
@@ -230,8 +229,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway restart uses native when deploy conf missing`() {
-        val result = cli().test("gateway restart")
+    fun `service restart gateway uses native when deploy conf missing`() {
+        val result = cli().test("service restart gateway")
         assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
         assertTrue(
             commands.any { it.contains("systemctl") || it.contains("launchctl") },
@@ -240,8 +239,8 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway start prints success message`() {
-        val result = cli().test("gateway start")
+    fun `service start gateway prints success message`() {
+        val result = cli().test("service start gateway")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("started", ignoreCase = true),
@@ -250,12 +249,12 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway stop prints failure message on failure`() {
+    fun `service stop gateway prints failure message on failure`() {
         val failRunner: (String) -> Int = {
             commands += it
             1
         }
-        val result = cli(failRunner).test("gateway stop")
+        val result = cli(failRunner).test("service stop gateway")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("failed", ignoreCase = true),
@@ -264,12 +263,66 @@ class ServiceCommandTest {
     }
 
     @Test
-    fun `gateway restart prints success message`() {
-        val result = cli().test("gateway restart")
+    fun `service restart gateway prints success message`() {
+        val result = cli().test("service restart gateway")
         assertEquals(0, result.statusCode)
         assertTrue(
             result.output.contains("restarted", ignoreCase = true),
             "Expected success message, got: ${result.output}",
         )
+    }
+
+    // --- service start/restart all ---
+
+    @Test
+    fun `service start all starts both engine and gateway`() {
+        writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
+        val result = cli().test("service start all")
+        assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d") &&
+                    it.contains("engine") && it.contains("gateway")
+            },
+            "Expected docker compose up -d engine gateway, got: $commands",
+        )
+    }
+
+    @Test
+    fun `service restart all restarts both`() {
+        writeFileText("$tmpDir/deploy.conf", "mode=docker\ndocker_tag=latest\n")
+        val result = cli().test("service restart all")
+        assertEquals(0, result.statusCode, "Expected exit 0: ${result.output}")
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
+                    it.contains("engine") && it.contains("gateway")
+            },
+            "Expected docker compose up force-recreate for both, got: $commands",
+        )
+    }
+
+    // --- missing argument ---
+
+    @Test
+    fun `service start without argument shows error`() {
+        val result = cli().test("service start")
+        assertTrue(
+            result.statusCode != 0,
+            "Expected non-zero exit for missing argument, got: ${result.statusCode}",
+        )
+    }
+
+    // --- unknown target ---
+
+    @Test
+    fun `service start with unknown target prints error`() {
+        val result = cli().test("service start invalid-target")
+        assertEquals(0, result.statusCode)
+        assertTrue(
+            result.output.contains("Unknown target"),
+            "Expected unknown target message, got: ${result.output}",
+        )
+        assertTrue(commands.isEmpty(), "No commands should run for unknown target, got: $commands")
     }
 }

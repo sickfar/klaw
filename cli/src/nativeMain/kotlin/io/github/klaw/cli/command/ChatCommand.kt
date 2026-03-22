@@ -52,7 +52,7 @@ internal class ChatCommand(
         echo("To enable it, add to $configDir/gateway.json:")
         echo("  \"channels\": { \"localWs\": { \"enabled\": true, \"port\": 37474 } }")
         echo("")
-        echo("Then restart the gateway: klaw gateway restart")
+        echo("Then restart the gateway: klaw service restart gateway")
         echo("")
         echo("Or re-run: klaw init")
     }

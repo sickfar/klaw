@@ -59,9 +59,17 @@ nano ~/.config/klaw/gateway.json
 
 ## Start services
 
+If the `klaw` CLI is available, prefer `klaw service start all` — it routes through `deploy.conf` automatically:
+
 ```bash
-systemctl --user start klaw-engine
-systemctl --user start klaw-gateway
+klaw service start all
+klaw status
+```
+
+Or use systemctl directly (native mode only):
+
+```bash
+systemctl --user start klaw-engine klaw-gateway
 
 # Check status:
 systemctl --user status klaw-engine klaw-gateway
@@ -74,10 +82,13 @@ journalctl --user -u klaw-gateway -f
 ## Service management
 
 ```bash
-# Stop all:
-systemctl --user stop klaw-gateway klaw-engine
+# Via klaw CLI (preferred — routes automatically based on deploy mode):
+klaw service stop all
+klaw service restart engine
+klaw service restart gateway
 
-# Restart engine only (gateway reconnects automatically):
+# Or via systemctl directly (native mode only):
+systemctl --user stop klaw-gateway klaw-engine
 systemctl --user restart klaw-engine
 
 # Disable autostart:

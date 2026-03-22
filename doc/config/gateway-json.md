@@ -152,7 +152,7 @@ To enable via `klaw init`, answer `y` at the "WebSocket chat setup" phase. To en
 }
 ```
 
-Then restart the gateway: `klaw gateway restart`
+Then restart the gateway: `klaw service restart gateway`
 
 ---
 

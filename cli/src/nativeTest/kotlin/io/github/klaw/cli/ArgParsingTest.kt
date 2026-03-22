@@ -99,7 +99,7 @@ class ArgParsingTest {
     }
 
     @Test
-    fun `klaw engine start is a valid command`() {
+    fun `klaw service start engine is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -110,12 +110,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("engine start")
+        val result = cli.test("service start engine")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw engine stop is a valid command`() {
+    fun `klaw service stop engine is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -126,12 +126,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("engine stop")
+        val result = cli.test("service stop engine")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw engine restart is a valid command`() {
+    fun `klaw service restart engine is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -142,12 +142,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("engine restart")
+        val result = cli.test("service restart engine")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw gateway start is a valid command`() {
+    fun `klaw service start gateway is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -158,12 +158,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("gateway start")
+        val result = cli.test("service start gateway")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw gateway stop is a valid command`() {
+    fun `klaw service stop gateway is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -174,12 +174,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("gateway stop")
+        val result = cli.test("service stop gateway")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw gateway restart is a valid command`() {
+    fun `klaw service restart gateway is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -190,12 +190,12 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("gateway restart")
+        val result = cli.test("service restart gateway")
         assertEquals(0, result.statusCode)
     }
 
     @Test
-    fun `klaw stop is a valid command`() {
+    fun `klaw service stop all is a valid command`() {
         val cli =
             KlawCli(
                 requestFn = fakeRequest("{}"),
@@ -206,7 +206,7 @@ class ArgParsingTest {
                 logDir = "/nonexistent/logs",
                 commandRunner = { 0 },
             )
-        val result = cli.test("stop")
+        val result = cli.test("service stop all")
         assertEquals(0, result.statusCode)
     }
 

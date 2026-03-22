@@ -3,10 +3,12 @@ package io.github.klaw.cli.command
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.option
+import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.init.DeployMode
 import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.init.readDeployConf
+import io.github.klaw.cli.socket.EngineNotRunningException
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
@@ -35,6 +37,7 @@ internal class DoctorCommand(
     private val workspaceDir: String = KlawPaths.workspace,
     private val commandOutput: (String) -> String? = ::runCommandOutput,
     private val commandRunner: (String) -> Int = { cmd -> platform.posix.system(cmd) },
+    private val requestFn: EngineRequest,
 ) : CliktCommand(name = "doctor") {
     override val invokeWithoutSubcommand = true
     private val dumpSchema by option("--dump-schema")
@@ -68,6 +71,19 @@ internal class DoctorCommand(
 
         if (deployConfig.mode != DeployMode.NATIVE) {
             checkDocker()
+        }
+
+        checkSkills()
+    }
+
+    private fun checkSkills() {
+        try {
+            requestFn("skills_validate", emptyMap())
+            CliLogger.debug { "skills validation passed" }
+            echo("\u2713 Skills: valid")
+        } catch (_: EngineNotRunningException) {
+            CliLogger.debug { "skills validation skipped \u2014 engine not running" }
+            echo("\u26a0 Skills: skipped (engine not running)")
         }
     }
 

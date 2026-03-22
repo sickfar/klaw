@@ -52,7 +52,7 @@ internal class DoctorFixCommand(
         // Step 4: Stopped services
         if (!engineChecker()) {
             echo("Starting engine...")
-            val result = commandRunner("klaw engine start")
+            val result = commandRunner("klaw service start engine")
             if (result == 0) {
                 echo("Fixed: engine started")
             } else {

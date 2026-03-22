@@ -8,9 +8,10 @@ import kotlin.native.Platform
 internal enum class KlawService(
     val dockerName: String,
     val systemdName: String,
+    val launchdLabel: String,
 ) {
-    ENGINE("engine", "klaw-engine"),
-    GATEWAY("gateway", "klaw-gateway"),
+    ENGINE("engine", "klaw-engine", "io.github.klaw.engine"),
+    GATEWAY("gateway", "klaw-gateway", "io.github.klaw.gateway"),
 }
 
 @OptIn(ExperimentalNativeApi::class)
@@ -32,7 +33,7 @@ internal class ServiceManager(
 
                 DeployMode.NATIVE -> {
                     when (osFamily) {
-                        OsFamily.MACOSX -> "launchctl start io.github.klaw.${service.systemdName}"
+                        OsFamily.MACOSX -> "launchctl start ${service.launchdLabel}"
                         else -> "systemctl --user start ${service.systemdName}"
                     }
                 }
@@ -51,7 +52,7 @@ internal class ServiceManager(
 
                 DeployMode.NATIVE -> {
                     when (osFamily) {
-                        OsFamily.MACOSX -> "launchctl stop io.github.klaw.${service.systemdName}"
+                        OsFamily.MACOSX -> "launchctl stop ${service.launchdLabel}"
                         else -> "systemctl --user stop ${service.systemdName}"
                     }
                 }
@@ -71,8 +72,8 @@ internal class ServiceManager(
             DeployMode.NATIVE -> {
                 when (osFamily) {
                     OsFamily.MACOSX -> {
-                        val stopResult = commandRunner("launchctl stop io.github.klaw.${service.systemdName}")
-                        val startResult = commandRunner("launchctl start io.github.klaw.${service.systemdName}")
+                        val stopResult = commandRunner("launchctl stop ${service.launchdLabel}")
+                        val startResult = commandRunner("launchctl start ${service.launchdLabel}")
                         stopResult == 0 && startResult == 0
                     }
 
@@ -100,6 +101,60 @@ internal class ServiceManager(
         }
     }
 
+    fun startAll(): Boolean {
+        CliLogger.debug { "starting all services mode=$deployMode" }
+        printer("Starting all klaw services...")
+        return when (deployMode) {
+            DeployMode.DOCKER, DeployMode.HYBRID -> {
+                val cmd = "docker compose -f '$composeFile' up -d engine gateway"
+                commandRunner(cmd) == 0
+            }
+
+            DeployMode.NATIVE -> {
+                when (osFamily) {
+                    OsFamily.MACOSX -> {
+                        val startEngine = commandRunner("launchctl start ${KlawService.ENGINE.launchdLabel}")
+                        val startGateway = commandRunner("launchctl start ${KlawService.GATEWAY.launchdLabel}")
+                        startEngine == 0 && startGateway == 0
+                    }
+
+                    else -> {
+                        val cmd = "systemctl --user start klaw-engine klaw-gateway"
+                        commandRunner(cmd) == 0
+                    }
+                }
+            }
+        }
+    }
+
+    fun restartAll(): Boolean {
+        CliLogger.debug { "restarting all services mode=$deployMode" }
+        printer("Restarting all klaw services...")
+        return when (deployMode) {
+            DeployMode.DOCKER, DeployMode.HYBRID -> {
+                val cmd = "docker compose -f '$composeFile' up -d --no-deps --force-recreate engine gateway"
+                commandRunner(cmd) == 0
+            }
+
+            DeployMode.NATIVE -> {
+                when (osFamily) {
+                    OsFamily.MACOSX -> {
+                        val stopEngine = commandRunner("launchctl stop ${KlawService.ENGINE.launchdLabel}")
+                        val stopGateway = commandRunner("launchctl stop ${KlawService.GATEWAY.launchdLabel}")
+                        val startEngine = commandRunner("launchctl start ${KlawService.ENGINE.launchdLabel}")
+                        val startGateway = commandRunner("launchctl start ${KlawService.GATEWAY.launchdLabel}")
+                        stopEngine == 0 && stopGateway == 0 && startEngine == 0 && startGateway == 0
+                    }
+
+                    else -> {
+                        val cmd = "systemctl --user restart klaw-engine klaw-gateway"
+                        commandRunner(cmd) == 0
+                    }
+                }
+            }
+        }
+    }
+
     fun stopAll(): Boolean {
         CliLogger.debug { "stopping all services mode=$deployMode" }
         printer("Stopping all klaw services...")
@@ -112,8 +167,8 @@ internal class ServiceManager(
             DeployMode.NATIVE -> {
                 when (osFamily) {
                     OsFamily.MACOSX -> {
-                        val stopGateway = commandRunner("launchctl stop io.github.klaw.klaw-gateway")
-                        val stopEngine = commandRunner("launchctl stop io.github.klaw.klaw-engine")
+                        val stopGateway = commandRunner("launchctl stop ${KlawService.GATEWAY.launchdLabel}")
+                        val stopEngine = commandRunner("launchctl stop ${KlawService.ENGINE.launchdLabel}")
                         stopGateway == 0 && stopEngine == 0
                     }
 

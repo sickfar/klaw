@@ -477,4 +477,75 @@ class DoctorCommandTest {
         val result = cli().test("doctor")
         assertContains(result.output, "bad: unknown transport 'websocket'")
     }
+
+    // --- Skills validation ---
+
+    @Test
+    fun `doctor runs skills validation when engine is running`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val calledCommands = mutableListOf<String>()
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    calledCommands += cmd
+                    """{"valid": true}"""
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor")
+        assertTrue(
+            calledCommands.contains("skills_validate"),
+            "Expected skills_validate to be called, got: $calledCommands",
+        )
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor skips skills validation when engine is not running`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result =
+            KlawCli(
+                requestFn = { _, _ ->
+                    throw io.github.klaw.cli.socket
+                        .EngineNotRunningException()
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { false },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor")
+        // Should not crash, just skip
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor dump-schema engine does not run skills validation`() {
+        val calledCommands = mutableListOf<String>()
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    calledCommands += cmd
+                    "{}"
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --dump-schema engine")
+        assertTrue(!calledCommands.contains("skills_validate"), "skills_validate should NOT be called for dump-schema")
+        assertEquals(0, result.statusCode)
+    }
 }

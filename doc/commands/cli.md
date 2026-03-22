@@ -35,7 +35,7 @@ When running inside a Docker container (detected via `/.dockerenv`), mode is aut
 
 For hybrid and Docker modes, Phase 2 also prompts for a **Docker image tag** (default: `latest`).
 
-The chosen mode and tag are persisted to `~/.config/klaw/deploy.conf` so subsequent `klaw engine start`, `klaw stop`, etc. route commands correctly without re-prompting.
+The chosen mode and tag are persisted to `~/.config/klaw/deploy.conf` so subsequent `klaw service start engine`, `klaw service stop all`, etc. route commands correctly without re-prompting.
 
 ### `klaw config set KEY VALUE`
 
@@ -83,47 +83,20 @@ klaw config edit gateway
 
 **Validation:** On save, the editor validates the modified config against the JSON schema. If validation fails, errors are displayed and changes are not written until fixed.
 
-### `klaw engine start / stop / restart`
+### `klaw service start / stop / restart TARGET`
 
-Starts, stops, or restarts the engine service.
+Manages Klaw services. TARGET is required and must be one of: `engine`, `gateway`, or `all`.
 
 ```
-klaw engine start
-klaw engine stop
-klaw engine restart
+klaw service start engine
+klaw service stop gateway
+klaw service restart all
+klaw service stop all
 ```
 
 Routing depends on the deployment mode stored in `deploy.conf`:
 - **Native:** delegates to `systemctl --user` (Linux) or `launchctl` (macOS).
 - **Hybrid / Docker:** uses `docker compose` with the appropriate compose file.
-
-### `klaw gateway start / stop / restart`
-
-Starts, stops, or restarts the gateway service.
-
-```
-klaw gateway start
-klaw gateway stop
-klaw gateway restart
-```
-
-### `klaw stop`
-
-Stops both gateway and engine (gateway first, then engine).
-
-```
-klaw stop
-```
-
----
-
-### `klaw identity edit`
-
-Opens `SOUL.md` and `IDENTITY.md` from the workspace in your `$EDITOR` (falls back to `vi`).
-
-```
-klaw identity edit
-```
 
 ---
 
@@ -168,7 +141,7 @@ channels:
 Then restart the gateway:
 
 ```
-klaw gateway restart
+klaw service restart gateway
 ```
 
 **Quit:** Press `Ctrl+C` or type `/exit` and press Enter.
@@ -197,7 +170,7 @@ klaw unpair telegram 123456789
 
 ---
 
-## Status & Sessions
+## Status
 
 ### `klaw status`
 
@@ -207,12 +180,12 @@ Displays current Engine status and active session count.
 klaw status
 ```
 
-### `klaw sessions`
+#### `--sessions`
 
-Lists all active chat sessions with chat ID and model.
+Include a list of all active chat sessions with chat ID and model.
 
 ```
-klaw sessions
+klaw status --sessions
 ```
 
 ---
@@ -248,19 +221,6 @@ Removes a scheduled job by name.
 
 ```
 klaw schedule remove daily
-```
-
----
-
-## Skills
-
-### `klaw skills validate`
-
-Validates all skill directories and reports their status (delegated to Engine).
-Checks each skill directory for valid `SKILL.md` with required frontmatter fields (`name`, `description`).
-
-```
-klaw skills validate
 ```
 
 ---
@@ -339,6 +299,7 @@ Checks the Klaw installation for common issues:
 - Engine TCP port reachable (Engine running/stopped)
 - ONNX embedding model present
 - sqlite-vec extension present
+- Skills validation (when Engine is running)
 
 ```
 klaw doctor
@@ -399,7 +360,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `sessions`, `schedule`, `memory search`, `memory consolidate`, `skills validate`, `reindex`) print a
+- Commands requiring the Engine (`status`, `schedule`, `memory search`, `memory consolidate`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

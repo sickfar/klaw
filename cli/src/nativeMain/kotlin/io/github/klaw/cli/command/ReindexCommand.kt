@@ -20,7 +20,7 @@ internal class ReindexCommand(
             echo(requestFn("reindex", params))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
-            echo("Engine is not running. Start it with: systemctl --user start klaw-engine")
+            echo("Engine is not running. Start it with: klaw service start engine")
         }
     }
 }

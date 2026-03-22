@@ -94,15 +94,15 @@ Service commands route automatically based on the mode stored in `deploy.conf`.
 
 ```bash
 # Start / stop / restart individual services
-klaw engine start
-klaw engine stop
-klaw engine restart
-klaw gateway start
-klaw gateway stop
-klaw gateway restart
+klaw service start engine
+klaw service stop engine
+klaw service restart engine
+klaw service start gateway
+klaw service stop gateway
+klaw service restart gateway
 
 # Stop both at once
-klaw stop
+klaw service stop all
 ```
 
 Under the hood, these run `systemctl --user start/stop/restart klaw-engine` etc.
@@ -117,10 +117,10 @@ loginctl enable-linger $USER
 ### Native mode — macOS (launchd)
 
 ```bash
-klaw engine start
-klaw engine stop
-klaw engine restart
-klaw stop
+klaw service start engine
+klaw service stop engine
+klaw service restart engine
+klaw service stop all
 ```
 
 Under the hood, these run `launchctl start/stop io.github.klaw.klaw-engine` etc.
@@ -129,12 +129,12 @@ Plist files are in `~/Library/LaunchAgents/` — they load automatically on logi
 
 ### Hybrid mode (Docker services)
 
-If you chose "Docker services" during `klaw init`, the same `klaw engine start/stop/restart` commands route through Docker Compose using `~/.config/klaw/docker-compose.json`:
+If you chose "Docker services" during `klaw init`, the same `klaw service start/stop/restart` commands route through Docker Compose using `~/.config/klaw/docker-compose.json`:
 
 ```bash
-klaw engine start    # docker compose -f ~/.config/klaw/docker-compose.json up -d engine
-klaw engine stop     # docker compose -f ~/.config/klaw/docker-compose.json stop engine
-klaw stop            # stops both engine and gateway containers
+klaw service start engine    # docker compose -f ~/.config/klaw/docker-compose.json up -d engine
+klaw service stop engine     # docker compose -f ~/.config/klaw/docker-compose.json stop engine
+klaw service stop all        # stops both engine and gateway containers
 ```
 
 Data stays on the host filesystem (bind mounts to XDG paths), so you can access config, logs, and databases directly without entering a container.
@@ -148,11 +148,11 @@ klaw status              # check engine status
 klaw doctor              # diagnose installation issues
 klaw logs                # recent conversation messages
 klaw logs --follow       # stream messages live
-klaw engine restart      # restart the engine
-klaw gateway restart     # restart the gateway
-klaw stop                # stop both
+klaw service restart engine  # restart the engine
+klaw service restart gateway # restart the gateway
+klaw service stop all        # stop both
 klaw memory show         # show MEMORY.md
-klaw sessions            # list active sessions
+klaw status --sessions   # include active sessions
 ```
 
 ---
@@ -170,8 +170,8 @@ The script overwrites the existing binaries and JARs. Your config and data in `~
 After updating, restart services:
 
 ```bash
-klaw engine restart
-klaw gateway restart
+klaw service restart engine
+klaw service restart gateway
 ```
 
 ---
@@ -218,5 +218,5 @@ $EDITOR ~/.config/klaw/engine.json
 Restart engine after config changes:
 
 ```bash
-klaw engine restart
+klaw service restart engine
 ```

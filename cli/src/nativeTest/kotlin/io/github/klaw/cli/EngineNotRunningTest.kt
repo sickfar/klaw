@@ -45,8 +45,8 @@ class EngineNotRunningTest {
     }
 
     @Test
-    fun `error message includes systemctl start command`() {
+    fun `error message includes service start command`() {
         val result = cli().test("status")
-        assertContains(result.output, "klaw-engine")
+        assertContains(result.output, "klaw service start engine")
     }
 }

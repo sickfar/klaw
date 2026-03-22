@@ -9,19 +9,14 @@ import com.github.ajalt.clikt.parameters.options.versionOption
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.DoctorCommand
-import io.github.klaw.cli.command.EngineCommand
-import io.github.klaw.cli.command.GatewayCommand
-import io.github.klaw.cli.command.IdentityCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
 import io.github.klaw.cli.command.MemoryCommand
 import io.github.klaw.cli.command.PairCommand
 import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
-import io.github.klaw.cli.command.SessionsCommand
-import io.github.klaw.cli.command.SkillsCommand
+import io.github.klaw.cli.command.ServiceCommand
 import io.github.klaw.cli.command.StatusCommand
-import io.github.klaw.cli.command.StopCommand
 import io.github.klaw.cli.command.UnpairCommand
 import io.github.klaw.cli.command.UpdateCommand
 import io.github.klaw.cli.init.checkTcpPort
@@ -72,18 +67,21 @@ internal class KlawCli(
             InitCommand(requestFn),
             ChatCommand(configDir),
             StatusCommand(requestFn),
-            SessionsCommand(requestFn),
             ReindexCommand(requestFn),
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),
-            SkillsCommand(requestFn),
             MemoryCommand(requestFn),
-            DoctorCommand(configDir, engineChecker, modelsDir, workspaceDir, doctorCommandOutput, commandRunner),
+            DoctorCommand(
+                configDir,
+                engineChecker,
+                modelsDir,
+                workspaceDir,
+                doctorCommandOutput,
+                commandRunner,
+                requestFn,
+            ),
             ConfigCommand(configDir),
-            IdentityCommand(workspaceDir, commandRunner),
-            EngineCommand(commandRunner, configDir),
-            GatewayCommand(commandRunner, configDir),
-            StopCommand(commandRunner, configDir),
+            ServiceCommand(commandRunner, configDir),
             PairCommand(configDir, pairingRequestsPath),
             UnpairCommand(configDir),
             UpdateCommand(configDir, releaseClient, commandRunner, readLine),

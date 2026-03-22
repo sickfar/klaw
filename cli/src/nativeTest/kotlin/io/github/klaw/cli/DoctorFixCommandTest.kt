@@ -130,7 +130,7 @@ class DoctorFixCommandTest {
             cli(
                 engineRunning = false,
                 commandRunner = { cmd ->
-                    if ("engine start" in cmd) startCalled = true
+                    if ("service start engine" in cmd) startCalled = true
                     0
                 },
             ).test("doctor fix")

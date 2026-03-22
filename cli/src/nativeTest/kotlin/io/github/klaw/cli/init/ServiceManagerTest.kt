@@ -240,4 +240,163 @@ class ServiceManagerTest {
         assertFalse(result, "Native mode composeDown should return false")
         assertTrue(commands.isEmpty(), "No commands should run for native composeDown, got: $commands")
     }
+
+    @Test
+    fun `docker mode startAll starts both engine and gateway`() {
+        val commands = mutableListOf<String>()
+        val manager = buildDockerManager(commands)
+        manager.startAll()
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d") &&
+                    it.contains("engine") && it.contains("gateway")
+            },
+            "Expected docker compose up -d engine gateway, got: $commands",
+        )
+    }
+
+    @Test
+    fun `native linux startAll starts both services`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeLinuxManager(commands)
+        manager.startAll()
+        assertTrue(
+            commands.any {
+                it.contains("systemctl") && it.contains("--user") && it.contains("start") &&
+                    it.contains("klaw-engine") && it.contains("klaw-gateway")
+            },
+            "Expected systemctl --user start for both, got: $commands",
+        )
+    }
+
+    @Test
+    fun `docker mode restartAll restarts both engine and gateway`() {
+        val commands = mutableListOf<String>()
+        val manager = buildDockerManager(commands)
+        manager.restartAll()
+        assertTrue(
+            commands.any {
+                it.contains("docker compose") && it.contains("up -d --no-deps --force-recreate") &&
+                    it.contains("engine") && it.contains("gateway")
+            },
+            "Expected docker compose up force-recreate for both, got: $commands",
+        )
+    }
+
+    @Test
+    fun `native linux restartAll restarts both services`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeLinuxManager(commands)
+        manager.restartAll()
+        assertTrue(
+            commands.any {
+                it.contains("systemctl") && it.contains("--user") && it.contains("restart") &&
+                    it.contains("klaw-engine") && it.contains("klaw-gateway")
+            },
+            "Expected systemctl --user restart for both, got: $commands",
+        )
+    }
+
+    // --- macOS launchctl tests ---
+
+    private fun buildNativeMacosManager(commands: MutableList<String> = mutableListOf()): ServiceManager =
+        ServiceManager(
+            printer = {},
+            commandRunner = { cmd ->
+                commands += cmd
+                0
+            },
+            deployMode = DeployMode.NATIVE,
+            osFamily = OsFamily.MACOSX,
+        )
+
+    @Test
+    fun `macos start engine issues launchctl start with correct label`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.start(KlawService.ENGINE)
+        assertTrue(
+            commands.any { it == "launchctl start io.github.klaw.engine" },
+            "Expected launchctl start io.github.klaw.engine, got: $commands",
+        )
+    }
+
+    @Test
+    fun `macos stop gateway issues launchctl stop with correct label`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.stop(KlawService.GATEWAY)
+        assertTrue(
+            commands.any { it == "launchctl stop io.github.klaw.gateway" },
+            "Expected launchctl stop io.github.klaw.gateway, got: $commands",
+        )
+    }
+
+    @Test
+    fun `macos restart engine issues stop then start with correct labels`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.restart(KlawService.ENGINE)
+        assertTrue(
+            commands.contains("launchctl stop io.github.klaw.engine"),
+            "Expected launchctl stop, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl start io.github.klaw.engine"),
+            "Expected launchctl start, got: $commands",
+        )
+    }
+
+    @Test
+    fun `macos stopAll stops both services with correct labels`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.stopAll()
+        assertTrue(
+            commands.contains("launchctl stop io.github.klaw.gateway"),
+            "Expected launchctl stop gateway, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl stop io.github.klaw.engine"),
+            "Expected launchctl stop engine, got: $commands",
+        )
+    }
+
+    @Test
+    fun `macos startAll starts both services with correct labels`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.startAll()
+        assertTrue(
+            commands.contains("launchctl start io.github.klaw.engine"),
+            "Expected launchctl start engine, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl start io.github.klaw.gateway"),
+            "Expected launchctl start gateway, got: $commands",
+        )
+    }
+
+    @Test
+    fun `macos restartAll stops and starts both services`() {
+        val commands = mutableListOf<String>()
+        val manager = buildNativeMacosManager(commands)
+        manager.restartAll()
+        assertTrue(
+            commands.contains("launchctl stop io.github.klaw.engine"),
+            "Expected launchctl stop engine, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl stop io.github.klaw.gateway"),
+            "Expected launchctl stop gateway, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl start io.github.klaw.engine"),
+            "Expected launchctl start engine, got: $commands",
+        )
+        assertTrue(
+            commands.contains("launchctl start io.github.klaw.gateway"),
+            "Expected launchctl start gateway, got: $commands",
+        )
+    }
 }

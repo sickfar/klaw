@@ -754,8 +754,8 @@ class InitWizardTest {
         // Output should contain failure message, not success
         val joined = output.joinToString("\n")
         assertTrue(
-            joined.contains("identity edit") || joined.contains("failed"),
-            "Output should mention failure or suggest identity edit: $joined",
+            joined.contains("Stub files written") || joined.contains("failed"),
+            "Output should mention failure or suggest editing identity files: $joined",
         )
     }
 
