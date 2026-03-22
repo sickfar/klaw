@@ -3,6 +3,8 @@ package io.github.klaw.engine.socket
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
+import io.github.klaw.engine.llm.LlmUsageTracker
+import io.github.klaw.engine.llm.ModelUsageSnapshot
 import io.github.klaw.engine.maintenance.ReindexService
 import io.github.klaw.engine.memory.ConsolidationResult
 import io.github.klaw.engine.memory.DailyConsolidationService
@@ -10,11 +12,14 @@ import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.tools.EngineHealth
+import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.util.VT
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -28,6 +33,8 @@ class CliCommandDispatcher(
     private val reindexService: ReindexService,
     private val skillRegistry: SkillRegistry,
     private val consolidationService: DailyConsolidationService,
+    private val engineHealthProvider: EngineHealthProvider,
+    private val llmUsageTracker: LlmUsageTracker,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String =
         withContext(Dispatchers.VT) {
@@ -100,7 +107,7 @@ class CliCommandDispatcher(
                 }
 
                 "status" -> {
-                    handleStatus()
+                    handleStatus(request.params)
                 }
 
                 "sessions" -> {
@@ -147,9 +154,127 @@ class CliCommandDispatcher(
             else -> null
         }
 
-    private suspend fun handleStatus(): String {
+    private suspend fun handleStatus(params: Map<String, String>): String {
+        val deep = params["deep"]?.toBoolean() ?: false
+        val jsonOutput = params["json"]?.toBoolean() ?: false
+        val usage = params["usage"]?.toBoolean() ?: false
+        val all = params["all"]?.toBoolean() ?: false
+        val showDeep = deep || all
+        val showUsage = usage || all
+
+        if (!showDeep && !showUsage && !jsonOutput) {
+            return basicStatus()
+        }
+
+        return if (jsonOutput) {
+            buildStatusJson(showDeep, showUsage)
+        } else {
+            buildStatusText(showDeep, showUsage)
+        }
+    }
+
+    private suspend fun basicStatus(): String {
         val sessions = sessionManager.listSessions()
         return """{"status":"ok","engine":"klaw","sessions":${sessions.size}}"""
+    }
+
+    private suspend fun buildStatusJson(
+        showDeep: Boolean,
+        showUsage: Boolean,
+    ): String {
+        val sessions = sessionManager.listSessions()
+        val parts = mutableListOf(""""status":"ok","engine":"klaw","sessions":${sessions.size}""")
+
+        if (showDeep) {
+            val health = engineHealthProvider.getHealth()
+            val healthJson = statusJson.encodeToString(EngineHealth.serializer(), health)
+            parts += """"health":$healthJson"""
+        }
+
+        if (showUsage) {
+            val usageJson = formatUsageJson(llmUsageTracker.snapshot())
+            parts += """"usage":$usageJson"""
+        }
+
+        return parts.joinToString(",", "{", "}")
+    }
+
+    private fun formatUsageJson(snapshot: Map<String, ModelUsageSnapshot>): String {
+        if (snapshot.isEmpty()) return "{}"
+        val entries =
+            snapshot.entries.joinToString(",") { (model, usage) ->
+                val m = escapeJson(model)
+                """"$m":{"request_count":${usage.requestCount},""" +
+                    """"prompt_tokens":${usage.promptTokens},""" +
+                    """"completion_tokens":${usage.completionTokens},""" +
+                    """"total_tokens":${usage.totalTokens}}"""
+            }
+        return "{$entries}"
+    }
+
+    private suspend fun buildStatusText(
+        showDeep: Boolean,
+        showUsage: Boolean,
+    ): String {
+        val sessions = sessionManager.listSessions()
+        val text =
+            buildString {
+                appendLine("Klaw Engine Status")
+                appendLine("==================")
+                appendLine("Status: ok")
+                appendLine("Sessions: ${sessions.size}")
+
+                if (showDeep) {
+                    appendLine()
+                    appendDeepStatusText(engineHealthProvider.getHealth())
+                }
+
+                if (showUsage) {
+                    appendLine()
+                    appendUsageText(llmUsageTracker.snapshot())
+                }
+            }.trimEnd()
+        return escapeNewlines(text)
+    }
+
+    private fun StringBuilder.appendDeepStatusText(health: EngineHealth) {
+        appendLine("── Deep Health ──")
+        appendLine("Gateway: ${health.gatewayStatus}")
+        appendLine("Uptime: ${health.engineUptime}")
+        appendLine("Docker: ${if (health.docker) "yes" else "no"}")
+        appendLine("Database: ${if (health.databaseOk) "ok" else "error"}")
+        appendLine("Sessions: ${health.activeSessions}")
+        appendLine("Scheduled jobs: ${health.scheduledJobs}")
+        appendLine("Memory facts: ${health.memoryFacts}")
+        appendLine("Pending deliveries: ${health.pendingDeliveries}")
+        appendLine("Heartbeat: ${if (health.heartbeatRunning) "running" else "stopped"}")
+        appendLine("Embedding: ${health.embeddingService}")
+        appendLine("SQLite-vec: ${if (health.sqliteVec) "available" else "unavailable"}")
+        appendLine("Docs: ${if (health.docsEnabled) "enabled" else "disabled"}")
+        appendLine("Running subagents: ${health.runningSubagents}")
+        if (health.mcpServers.isNotEmpty()) {
+            appendLine("MCP servers: ${health.mcpServers.joinToString(", ")}")
+        }
+        appendLine(
+            "Sandbox: ${if (health.sandbox.enabled) "enabled" else "disabled"}" +
+                " (active=${health.sandbox.containerActive}, executions=${health.sandbox.executions})",
+        )
+    }
+
+    private fun StringBuilder.appendUsageText(snapshot: Map<String, ModelUsageSnapshot>) {
+        appendLine("── LLM Usage ──")
+        if (snapshot.isEmpty()) {
+            appendLine("No usage data yet.")
+        } else {
+            snapshot.forEach { (model, usage) ->
+                appendLine(
+                    "$model: ${usage.requestCount} requests, " +
+                        "${usage.promptTokens} prompt tokens, " +
+                        "${usage.completionTokens} completion tokens, " +
+                        "${usage.totalTokens} total tokens",
+                )
+            }
+        }
     }
 
     private suspend fun handleSessions(): String {
@@ -341,6 +466,8 @@ class CliCommandDispatcher(
         }
     }
 
+    private fun escapeNewlines(value: String): String = value.replace("\r", "\\r").replace("\n", "\\n")
+
     private fun escapeJson(value: String): String =
         value
             .replace("\\", "\\\\")
@@ -355,5 +482,6 @@ class CliCommandDispatcher(
         private const val DEFAULT_CLEANUP_MINUTES = 1440
         private const val DEFAULT_RUNS_LIMIT = 20
         private const val MAX_RUNS_LIMIT = 200
+        private val statusJson = Json { encodeDefaults = true }
     }
 }

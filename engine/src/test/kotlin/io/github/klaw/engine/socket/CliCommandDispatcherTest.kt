@@ -6,12 +6,14 @@ import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.init.InitCliHandler
+import io.github.klaw.engine.llm.LlmUsageTracker
 import io.github.klaw.engine.maintenance.ReindexService
 import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -36,6 +38,8 @@ class CliCommandDispatcherTest {
     private val reindexService = mockk<ReindexService>(relaxed = true)
     private val skillRegistry = mockk<SkillRegistry>(relaxed = true)
     private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
+    private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
+    private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -46,6 +50,8 @@ class CliCommandDispatcherTest {
             reindexService,
             skillRegistry,
             consolidationService,
+            engineHealthProvider,
+            llmUsageTracker,
         )
 
     @Test

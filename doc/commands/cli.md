@@ -180,6 +180,49 @@ Displays current Engine status and active session count.
 klaw status
 ```
 
+#### `--deep`
+
+Deep health probe — shows gateway status, uptime, database health, scheduler, memory, sandbox, MCP servers, and more.
+
+```
+klaw status --deep
+```
+
+#### `--json`
+
+Output as JSON format. Can be combined with `--deep` and/or `--usage`.
+
+```
+klaw status --json
+klaw status --deep --json
+```
+
+#### `--usage`
+
+Show LLM usage statistics per model (request counts, token usage). Stats are in-memory and reset on engine restart.
+
+```
+klaw status --usage
+klaw status --usage --json
+```
+
+#### `--all`
+
+Full diagnosis — combines `--deep` and `--usage`.
+
+```
+klaw status --all
+klaw status --all --json
+```
+
+#### `--timeout <ms>`
+
+Probe timeout in milliseconds (reserved for future deep probes).
+
+```
+klaw status --deep --timeout 5000
+```
+
 ---
 
 ## Sessions

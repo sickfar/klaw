@@ -100,7 +100,7 @@ class LlmRouterFactoryTest {
                     ),
             )
         val factory = LlmRouterFactory()
-        val router = factory.llmRouter(config)
+        val router = factory.llmRouter(config, LlmUsageTracker())
         val (provider, _) = router.resolve("test/model")
         assertEquals("literal-key", provider.apiKey)
     }
@@ -111,7 +111,7 @@ class LlmRouterFactoryTest {
         val factory = LlmRouterFactory()
         val ex =
             assertThrows(IllegalArgumentException::class.java) {
-                factory.llmRouter(config)
+                factory.llmRouter(config, LlmUsageTracker())
             }
         assertTrue(ex.message!!.contains("invalid-key"), "Error should mention the bad key")
         assertTrue(ex.message!!.contains("/"), "Error should mention the '/' separator")
@@ -121,7 +121,7 @@ class LlmRouterFactoryTest {
     fun `model key with slash is parsed correctly`() {
         val config = makeConfig()
         val factory = LlmRouterFactory()
-        val router = factory.llmRouter(config)
+        val router = factory.llmRouter(config, LlmUsageTracker())
         val (_, model) = router.resolve("test/model")
         assertEquals("test", model.provider)
         assertEquals("model", model.modelId)

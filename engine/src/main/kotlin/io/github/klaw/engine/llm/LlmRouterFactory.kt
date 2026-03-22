@@ -9,7 +9,10 @@ import jakarta.inject.Singleton
 @Factory
 class LlmRouterFactory {
     @Singleton
-    fun llmRouter(config: EngineConfig): LlmRouter {
+    fun llmRouter(
+        config: EngineConfig,
+        usageTracker: LlmUsageTracker,
+    ): LlmRouter {
         val resolvedProviders =
             config.providers.mapValues { (_, provider) ->
                 provider.copy(apiKey = EnvVarResolver.resolve(provider.apiKey))
@@ -30,6 +33,7 @@ class LlmRouterFactory {
             routing = config.routing,
             retryConfig = config.llm,
             clientFactory = null,
+            usageTracker = usageTracker,
         )
     }
 }

@@ -198,6 +198,61 @@ class LlmRouterTest {
         }
 
     @Test
+    fun `chat records usage to tracker after successful call`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery { client.chat(any(), any(), any()) } returns successResponse
+            val tracker = LlmUsageTracker()
+
+            val router =
+                LlmRouter(
+                    providers = providers,
+                    models = models,
+                    routing = routing,
+                    retryConfig = retryConfig,
+                    clientFactory = { _ -> client },
+                    usageTracker = tracker,
+                )
+            router.chat(request, "zai/glm-5")
+
+            val snapshot = tracker.snapshot()
+            assertEquals(1, snapshot.size)
+            val usage = snapshot["zai/glm-5"]!!
+            assertEquals(1L, usage.requestCount)
+            assertEquals(10L, usage.promptTokens)
+            assertEquals(5L, usage.completionTokens)
+        }
+
+    @Test
+    fun `chat records usage for fallback model when primary fails`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery {
+                client.chat(request, providers["zai"]!!, models["zai/glm-5"]!!)
+            } throws KlawError.ProviderError(503, "Down")
+            coEvery {
+                client.chat(request, providers["deepseek"]!!, models["deepseek/deepseek-chat"]!!)
+            } returns successResponse
+            val tracker = LlmUsageTracker()
+
+            val router =
+                LlmRouter(
+                    providers = providers,
+                    models = models,
+                    routing = routing,
+                    retryConfig = retryConfig,
+                    clientFactory = { _ -> client },
+                    usageTracker = tracker,
+                )
+            router.chat(request, "zai/glm-5")
+
+            val snapshot = tracker.snapshot()
+            assertEquals(1, snapshot.size)
+            assertEquals(1L, snapshot["deepseek/deepseek-chat"]!!.requestCount)
+            assertEquals(null, snapshot["zai/glm-5"], "Failed provider should not be tracked")
+        }
+
+    @Test
     fun `throws ProviderError for unknown provider type`() {
         val unknownProviders =
             mapOf(

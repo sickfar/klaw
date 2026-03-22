@@ -15,6 +15,7 @@ class LlmRouter(
     private val routing: RoutingConfig,
     private val retryConfig: LlmRetryConfig,
     private val clientFactory: ((ProviderConfig) -> LlmClient)?,
+    private val usageTracker: LlmUsageTracker? = null,
 ) {
     private val clientCache = ConcurrentHashMap<String, LlmClient>()
 
@@ -41,7 +42,9 @@ class LlmRouter(
             val provider = providers[model.provider] ?: continue
             val client = clientFor(provider)
             try {
-                return client.chat(request, provider, model)
+                val response = client.chat(request, provider, model)
+                usageTracker?.record(fullId, response.usage)
+                return response
             } catch (e: KlawError.ContextLengthExceededError) {
                 throw e
             } catch (e: Throwable) {

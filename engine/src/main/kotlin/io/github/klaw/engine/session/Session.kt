@@ -1,6 +1,5 @@
 package io.github.klaw.engine.session
 
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 data class Session(

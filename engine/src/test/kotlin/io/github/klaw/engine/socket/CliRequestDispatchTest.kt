@@ -38,6 +38,8 @@ class CliRequestDispatchTest {
             reindexService = reindexService,
             skillRegistry = mockk(relaxed = true),
             consolidationService = consolidationService,
+            engineHealthProvider = mockk(relaxed = true),
+            llmUsageTracker = mockk(relaxed = true),
         )
 
     @Test
