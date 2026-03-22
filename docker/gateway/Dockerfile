@@ -2,6 +2,13 @@
 
 # === Build stage ===
 FROM eclipse-temurin:21-jdk-jammy AS builder
+
+# Install Node.js for webui SPA build
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # 1. Copy Gradle infrastructure only (cached layer)
@@ -14,16 +21,23 @@ COPY engine/build.gradle.kts engine/build.gradle.kts
 COPY gateway/build.gradle.kts gateway/build.gradle.kts
 COPY cli/build.gradle.kts cli/build.gradle.kts
 COPY e2e/build.gradle.kts e2e/build.gradle.kts
+COPY webui/build.gradle.kts webui/build.gradle.kts
 
-# 2. Download dependencies (cache-mounted, survives source code changes)
+# 2. Copy webui package files for npm install caching
+COPY webui/package.json webui/package-lock.json webui/
+
+# 3. Download dependencies (cache-mounted, survives source code changes)
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew :gateway:dependencies :common:dependencies --no-daemon || true
 
-# 3. Copy source code
+# 4. Copy source code
 COPY common/src common/src
 COPY gateway/src gateway/src
+COPY webui/app webui/app
+COPY webui/nuxt.config.ts webui/nuxt.config.ts
+COPY webui/tsconfig.json webui/tsconfig.json
 
-# 4. Build fat JAR (no tests)
+# 5. Build fat JAR (no tests) — includes webui SPA
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew :gateway:shadowJar -x test --no-daemon
 

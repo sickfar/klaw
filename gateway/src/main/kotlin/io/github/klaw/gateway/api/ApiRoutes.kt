@@ -310,7 +310,7 @@ class ApiRoutes(
             result: String,
         ) {
             val status =
-                if (result.contains(""""error":""")) {
+                if (result.startsWith("""{"error":""")) {
                     HttpStatusCode.BadRequest
                 } else {
                     HttpStatusCode.OK

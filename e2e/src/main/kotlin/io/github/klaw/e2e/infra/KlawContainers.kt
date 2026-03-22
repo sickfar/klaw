@@ -248,6 +248,8 @@ class KlawContainers(
 
         File(configDir, "engine.json").writeText(engineJson)
         File(gatewayConfigDir, "gateway.json").writeText(gatewayJson)
+        // Copy engine.json to gateway config dir so Web UI API can serve it
+        File(gatewayConfigDir, "engine.json").writeText(engineJson)
     }
 
     private fun exposeAllHostPorts() {
