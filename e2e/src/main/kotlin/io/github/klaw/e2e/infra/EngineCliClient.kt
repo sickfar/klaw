@@ -43,7 +43,7 @@ class EngineCliClient(
             writer.println(message)
             val response = reader.readLine() ?: ""
             logger.debug { "CLI response length=${response.length}" }
-            return response.trim()
+            return response.replace("\\n", "\n").trim()
         }
     }
 

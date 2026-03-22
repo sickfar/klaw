@@ -359,7 +359,8 @@ class EngineSocketServer(
             val request = json.decodeFromString<CliRequestMessage>(firstLine)
             logger.debug { "CLI request handled: ${request.command}" }
             val response = messageHandler.handleCliRequest(request)
-            writer.println(response)
+            // CLI protocol is single-line JSONL — escape embedded newlines
+            writer.println(response.replace("\n", "\\n"))
         } catch (_: SerializationException) {
             writer.println("""{"error":"invalid request"}""")
         }

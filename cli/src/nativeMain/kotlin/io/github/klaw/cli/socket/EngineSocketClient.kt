@@ -97,6 +97,6 @@ class EngineSocketClient(
 
         close(fd)
         CliLogger.debug { "response received, length=${sb.length}" }
-        return sb.toString().trim()
+        return sb.toString().replace("\\n", "\n").trim()
     }
 }

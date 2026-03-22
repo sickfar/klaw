@@ -36,7 +36,8 @@ class EngineApiProxy(
                     val writer = PrintWriter(Channels.newOutputStream(channel), true)
                     val reader = BufferedReader(InputStreamReader(Channels.newInputStream(channel)))
                     writer.println(json.encodeToString(request))
-                    reader.readLine() ?: """{"error":"empty response from engine"}"""
+                    (reader.readLine() ?: """{"error":"empty response from engine"}""")
+                        .replace("\\n", "\n")
                 }
             } catch (e: java.io.IOException) {
                 logger.warn { "Engine proxy failed: ${e::class.simpleName}" }
