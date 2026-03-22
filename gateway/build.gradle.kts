@@ -13,6 +13,7 @@ val micronautVersion =
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":webui"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.datetime)

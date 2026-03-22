@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 
-include(":common", ":gateway", ":engine", ":cli", ":e2e")
+include(":common", ":gateway", ":engine", ":cli", ":e2e", ":webui")
