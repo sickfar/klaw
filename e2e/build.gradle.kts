@@ -52,6 +52,7 @@ dependencies {
     integrationTestImplementation(platform("org.junit:junit-bom:5.12.2"))
     integrationTestImplementation("org.junit.jupiter:junit-jupiter-api")
     integrationTestImplementation("org.awaitility:awaitility-kotlin:4.3.0")
+    integrationTestImplementation("com.microsoft.playwright:playwright:1.50.0")
     integrationTestRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
     integrationTestRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
