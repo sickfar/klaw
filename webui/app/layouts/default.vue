@@ -77,10 +77,7 @@ onUnmounted(() => {
           @click="sidebarOpen = !sidebarOpen"
         />
         <div class="flex-1" />
-        <div
-          class="size-2 rounded-full bg-green-500"
-          data-testid="connection-status"
-        />
+        <CommonConnectionStatus />
         <UColorModeButton data-testid="theme-toggle" />
       </header>
 
