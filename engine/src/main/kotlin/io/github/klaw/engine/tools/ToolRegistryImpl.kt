@@ -208,6 +208,23 @@ class ToolRegistryImpl(
                 scheduleTools.remove(args.str("name"))
             }
 
+            "schedule_edit" -> {
+                scheduleTools.edit(
+                    args.str("name"),
+                    args.strOrNull("cron"),
+                    args.strOrNull("message"),
+                    args.strOrNull("model"),
+                )
+            }
+
+            "schedule_enable" -> {
+                scheduleTools.enable(args.str("name"))
+            }
+
+            "schedule_disable" -> {
+                scheduleTools.disable(args.str("name"))
+            }
+
             "subagent_spawn" -> {
                 subagentTools.spawn(
                     args.str("name"),

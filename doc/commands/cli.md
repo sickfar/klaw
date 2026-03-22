@@ -267,6 +267,68 @@ Removes a scheduled job by name.
 klaw schedule remove daily
 ```
 
+### `klaw schedule edit NAME`
+
+Edits an existing scheduled job. Updates only the specified fields; unspecified fields remain unchanged.
+
+```
+klaw schedule edit daily --cron "0 18 * * *"
+klaw schedule edit daily --message "Good evening!"
+klaw schedule edit daily --model deepseek-chat
+klaw schedule edit daily --cron "0 18 * * *" --message "Good evening!" --model deepseek-chat
+```
+
+Options:
+- `--cron EXPR` — new cron expression
+- `--message TEXT` — new subagent instruction
+- `--model MODEL` — new LLM model
+
+At least one option must be provided.
+
+### `klaw schedule enable NAME`
+
+Resumes a paused (disabled) scheduled job.
+
+```
+klaw schedule enable daily
+```
+
+### `klaw schedule disable NAME`
+
+Pauses a scheduled job. The job remains in the scheduler but will not fire until re-enabled. Disabled jobs show `[PAUSED]` in `schedule list`.
+
+```
+klaw schedule disable daily
+```
+
+### `klaw schedule run NAME`
+
+Triggers a scheduled job to execute immediately, regardless of its schedule or pause state. Useful for debugging.
+
+```
+klaw schedule run daily
+```
+
+### `klaw schedule runs NAME`
+
+Shows execution history for a scheduled job (from `subagent_runs` table).
+
+```
+klaw schedule runs daily
+klaw schedule runs daily --limit 5
+```
+
+Options:
+- `--limit N` — maximum number of runs to show (default: 20)
+
+### `klaw schedule status`
+
+Shows scheduler health: whether it's running, job count, and currently executing jobs.
+
+```
+klaw schedule status
+```
+
 ---
 
 ## Memory

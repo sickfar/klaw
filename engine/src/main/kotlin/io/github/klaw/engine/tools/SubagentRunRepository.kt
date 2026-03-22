@@ -113,6 +113,15 @@ class SubagentRunRepository(
             .executeAsList()
             .map { it.toSubagentRun() }
 
+    fun listRecentByName(
+        name: String,
+        limit: Int = DEFAULT_LIST_LIMIT,
+    ): List<SubagentRun> =
+        database.subagentRunsQueries
+            .listRecentByName(name, limit.toLong())
+            .executeAsList()
+            .map { it.toSubagentRun() }
+
     fun countByStatus(status: String): Int =
         database.subagentRunsQueries
             .countByStatus(status)

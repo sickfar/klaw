@@ -4,6 +4,7 @@ import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.quartz.CronExpression
 import org.quartz.CronScheduleBuilder
 import org.quartz.CronTrigger
 import org.quartz.JobBuilder
@@ -11,6 +12,7 @@ import org.quartz.JobKey
 import org.quartz.SchedulerException
 import org.quartz.SimpleScheduleBuilder
 import org.quartz.SimpleTrigger
+import org.quartz.Trigger
 import org.quartz.TriggerBuilder
 import org.quartz.TriggerKey
 import org.quartz.impl.StdSchedulerFactory
@@ -59,7 +61,10 @@ class QuartzKlawScheduler(
                     val triggers = quartzScheduler.getTriggersOfJob(key)
                     val trigger = triggers.firstOrNull()
                     val data = detail.jobDataMap
-                    appendLine("- ${key.name}")
+                    val triggerKey = TriggerKey(key.name, TRIGGER_GROUP)
+                    val triggerState = quartzScheduler.getTriggerState(triggerKey)
+                    val pausedLabel = if (triggerState == Trigger.TriggerState.PAUSED) " [PAUSED]" else ""
+                    appendLine("- ${key.name}$pausedLabel")
                     when (trigger) {
                         is CronTrigger -> appendLine("  Cron: ${trigger.cronExpression}")
                         is SimpleTrigger -> appendLine("  At: ${trigger.startTime.toInstant()}")
@@ -174,6 +179,164 @@ class QuartzKlawScheduler(
             quartzScheduler.deleteJob(jobKey)
             logger.debug { "Schedule removed name=$name" }
             "OK: '$name' removed"
+        }
+
+    @Suppress("ReturnCount")
+    override suspend fun edit(
+        name: String,
+        cron: String?,
+        message: String?,
+        model: String?,
+    ): String =
+        withContext(Dispatchers.VT) {
+            if (cron == null && message == null && model == null) {
+                return@withContext "Error: at least one of --cron, --message, --model required"
+            }
+            val jobKey = JobKey(name, JOB_GROUP)
+            if (!quartzScheduler.checkExists(jobKey)) {
+                return@withContext "Error: schedule '$name' not found"
+            }
+            if (cron != null && !CronExpression.isValidExpression(cron)) {
+                return@withContext "Error: invalid cron expression '$cron'"
+            }
+            try {
+                val changes = mutableListOf<String>()
+                updateJobData(jobKey, message, model, changes)
+                if (cron != null) {
+                    val error = rescheduleCron(name, jobKey, cron)
+                    if (error != null) return@withContext error
+                    changes += "cron"
+                }
+                logger.debug { "Schedule edited name=$name fields=$changes" }
+                "OK: '$name' updated (${changes.joinToString(", ")})"
+            } catch (e: SchedulerException) {
+                logger.warn(e) { "Failed to edit schedule name=$name" }
+                "Error: ${e::class.simpleName}"
+            }
+        }
+
+    private fun updateJobData(
+        jobKey: JobKey,
+        message: String?,
+        model: String?,
+        changes: MutableList<String>,
+    ) {
+        if (message == null && model == null) return
+        val existing = quartzScheduler.getJobDetail(jobKey)
+        val jobData = existing.jobDataMap
+        message?.let {
+            jobData.put("message", it)
+            changes += "message"
+        }
+        model?.let {
+            jobData.put("model", it)
+            changes += "model"
+        }
+        val updatedJob =
+            JobBuilder
+                .newJob(existing.jobClass)
+                .withIdentity(jobKey)
+                .usingJobData(jobData)
+                .storeDurably(existing.isDurable)
+                .build()
+        quartzScheduler.addJob(updatedJob, true)
+    }
+
+    private fun rescheduleCron(
+        name: String,
+        jobKey: JobKey,
+        cron: String,
+    ): String? {
+        val triggerKey = TriggerKey(name, TRIGGER_GROUP)
+        val existingTrigger = quartzScheduler.getTrigger(triggerKey)
+        if (existingTrigger is SimpleTrigger) {
+            return "Error: cannot set cron on a one-time (at) schedule — remove and re-add instead"
+        }
+        val newTrigger =
+            TriggerBuilder
+                .newTrigger()
+                .withIdentity(triggerKey)
+                .forJob(jobKey)
+                .withSchedule(
+                    CronScheduleBuilder
+                        .cronSchedule(cron)
+                        .withMisfireHandlingInstructionFireAndProceed(),
+                ).build()
+        quartzScheduler.rescheduleJob(triggerKey, newTrigger)
+        return null
+    }
+
+    override suspend fun enable(name: String): String =
+        withContext(Dispatchers.VT) {
+            val jobKey = JobKey(name, JOB_GROUP)
+            if (!quartzScheduler.checkExists(jobKey)) {
+                return@withContext "Error: schedule '$name' not found"
+            }
+            val triggerKey = TriggerKey(name, TRIGGER_GROUP)
+            val state = quartzScheduler.getTriggerState(triggerKey)
+            if (state == Trigger.TriggerState.NONE) {
+                return@withContext "Error: schedule '$name' has no active trigger"
+            }
+            if (state != Trigger.TriggerState.PAUSED) {
+                return@withContext "'$name' is already enabled"
+            }
+            try {
+                quartzScheduler.resumeTrigger(triggerKey)
+                logger.debug { "Schedule enabled name=$name" }
+                "OK: '$name' enabled"
+            } catch (e: SchedulerException) {
+                logger.warn(e) { "Failed to enable schedule name=$name" }
+                "Error: ${e::class.simpleName}"
+            }
+        }
+
+    override suspend fun disable(name: String): String =
+        withContext(Dispatchers.VT) {
+            val jobKey = JobKey(name, JOB_GROUP)
+            if (!quartzScheduler.checkExists(jobKey)) {
+                return@withContext "Error: schedule '$name' not found"
+            }
+            val triggerKey = TriggerKey(name, TRIGGER_GROUP)
+            val state = quartzScheduler.getTriggerState(triggerKey)
+            if (state == Trigger.TriggerState.NONE) {
+                return@withContext "Error: schedule '$name' has no active trigger"
+            }
+            if (state == Trigger.TriggerState.PAUSED) {
+                return@withContext "'$name' is already disabled"
+            }
+            try {
+                quartzScheduler.pauseTrigger(triggerKey)
+                logger.debug { "Schedule disabled name=$name" }
+                "OK: '$name' disabled"
+            } catch (e: SchedulerException) {
+                logger.warn(e) { "Failed to disable schedule name=$name" }
+                "Error: ${e::class.simpleName}"
+            }
+        }
+
+    override suspend fun run(name: String): String =
+        withContext(Dispatchers.VT) {
+            val jobKey = JobKey(name, JOB_GROUP)
+            if (!quartzScheduler.checkExists(jobKey)) {
+                return@withContext "Error: schedule '$name' not found"
+            }
+            try {
+                quartzScheduler.triggerJob(jobKey)
+                logger.debug { "Schedule triggered immediately name=$name" }
+                "OK: '$name' triggered"
+            } catch (e: SchedulerException) {
+                logger.warn(e) { "Failed to trigger schedule name=$name" }
+                "Error: ${e::class.simpleName}"
+            }
+        }
+
+    override suspend fun status(): String =
+        withContext(Dispatchers.VT) {
+            val started = quartzScheduler.isStarted && !quartzScheduler.isInStandbyMode
+            val standby = quartzScheduler.isInStandbyMode
+            val jobCount = quartzScheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_GROUP)).size
+            val executingNow = quartzScheduler.currentlyExecutingJobs.size
+            """{"started":$started,"standby":$standby,"jobCount":$jobCount,"executingNow":$executingNow}"""
         }
 
     companion object {

@@ -16,6 +16,26 @@ interface KlawScheduler {
 
     suspend fun remove(name: String): String
 
+    suspend fun edit(
+        name: String,
+        cron: String?,
+        message: String?,
+        model: String?,
+    ): String = """{"error":"not implemented"}"""
+
+    suspend fun enable(name: String): String = """{"error":"not implemented"}"""
+
+    suspend fun disable(name: String): String = """{"error":"not implemented"}"""
+
+    suspend fun run(name: String): String = """{"error":"not implemented"}"""
+
+    suspend fun status(): String = """{"error":"not implemented"}"""
+
+    suspend fun runs(
+        name: String,
+        limit: Int = 20,
+    ): String = "[]"
+
     suspend fun jobCount(): Int = 0
 
     /** Start the scheduler. Called explicitly from EngineLifecycle. */

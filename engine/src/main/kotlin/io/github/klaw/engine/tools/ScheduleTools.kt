@@ -33,4 +33,24 @@ class ScheduleTools(
         logger.trace { "schedule_remove: name=$name" }
         return scheduler.remove(name)
     }
+
+    suspend fun edit(
+        name: String,
+        cron: String?,
+        message: String?,
+        model: String?,
+    ): String {
+        logger.trace { "schedule_edit: name=$name" }
+        return scheduler.edit(name, cron, message, model)
+    }
+
+    suspend fun enable(name: String): String {
+        logger.trace { "schedule_enable: name=$name" }
+        return scheduler.enable(name)
+    }
+
+    suspend fun disable(name: String): String {
+        logger.trace { "schedule_disable: name=$name" }
+        return scheduler.disable(name)
+    }
 }

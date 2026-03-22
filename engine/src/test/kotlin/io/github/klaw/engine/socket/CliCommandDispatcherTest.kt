@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 class CliCommandDispatcherTest {
     private val initCliHandler = mockk<InitCliHandler>(relaxed = true)
@@ -225,5 +224,154 @@ class CliCommandDispatcherTest {
             assertEquals("qwen", session["model"]?.jsonPrimitive?.content)
             // Old format should NOT have createdAt/updatedAt
             assertFalse("createdAt" in session, "Old format should not have createdAt")
+        }
+
+    // ── schedule_edit ──
+
+    @Test
+    fun `schedule_edit delegates to klawScheduler`() =
+        runTest {
+            coEvery { klawScheduler.edit("my-job", "0 0 9 * * ?", "new msg", "glm-5") } returns "OK: edited"
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage(
+                        "schedule_edit",
+                        mapOf("name" to "my-job", "cron" to "0 0 9 * * ?", "message" to "new msg", "model" to "glm-5"),
+                    ),
+                )
+
+            assertEquals("OK: edited", result)
+            coVerify { klawScheduler.edit("my-job", "0 0 9 * * ?", "new msg", "glm-5") }
+        }
+
+    @Test
+    fun `schedule_edit with missing name returns error`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_edit", mapOf("cron" to "0 0 9 * * ?")))
+            assertTrue(result.contains("error", ignoreCase = true), "Expected error, got: $result")
+        }
+
+    // ── schedule_enable ──
+
+    @Test
+    fun `schedule_enable delegates to klawScheduler`() =
+        runTest {
+            coEvery { klawScheduler.enable("my-job") } returns "OK: 'my-job' enabled"
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_enable", mapOf("name" to "my-job")))
+
+            assertEquals("OK: 'my-job' enabled", result)
+            coVerify { klawScheduler.enable("my-job") }
+        }
+
+    @Test
+    fun `schedule_enable with missing name returns error`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_enable"))
+            assertTrue(result.contains("error", ignoreCase = true), "Expected error, got: $result")
+        }
+
+    // ── schedule_disable ──
+
+    @Test
+    fun `schedule_disable delegates to klawScheduler`() =
+        runTest {
+            coEvery { klawScheduler.disable("my-job") } returns "OK: 'my-job' disabled"
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_disable", mapOf("name" to "my-job")))
+
+            assertEquals("OK: 'my-job' disabled", result)
+            coVerify { klawScheduler.disable("my-job") }
+        }
+
+    @Test
+    fun `schedule_disable with missing name returns error`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_disable"))
+            assertTrue(result.contains("error", ignoreCase = true), "Expected error, got: $result")
+        }
+
+    // ── schedule_run ──
+
+    @Test
+    fun `schedule_run delegates to klawScheduler`() =
+        runTest {
+            coEvery { klawScheduler.run("my-job") } returns "OK: 'my-job' triggered"
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_run", mapOf("name" to "my-job")))
+
+            assertEquals("OK: 'my-job' triggered", result)
+            coVerify { klawScheduler.run("my-job") }
+        }
+
+    @Test
+    fun `schedule_run with missing name returns error`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_run"))
+            assertTrue(result.contains("error", ignoreCase = true), "Expected error, got: $result")
+        }
+
+    // ── schedule_runs ──
+
+    @Test
+    fun `schedule_runs delegates to klawScheduler`() =
+        runTest {
+            val runsJson =
+                """[{"name":"my-job","status":"COMPLETED","startTime":"2026-03-22T10:00:00Z"}]"""
+            coEvery { klawScheduler.runs("my-job", 20) } returns runsJson
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_runs", mapOf("name" to "my-job")))
+
+            val arr = Json.parseToJsonElement(result).jsonArray
+            assertEquals(1, arr.size)
+            assertEquals("my-job", arr[0].jsonObject["name"]?.jsonPrimitive?.content)
+            assertEquals("COMPLETED", arr[0].jsonObject["status"]?.jsonPrimitive?.content)
+            coVerify { klawScheduler.runs("my-job", 20) }
+        }
+
+    @Test
+    fun `schedule_runs with missing name returns error`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_runs"))
+            assertTrue(result.contains("error", ignoreCase = true), "Expected error, got: $result")
+        }
+
+    @Test
+    fun `schedule_runs with custom limit`() =
+        runTest {
+            coEvery { klawScheduler.runs("my-job", 5) } returns "[]"
+
+            val dispatcher = createDispatcher()
+            dispatcher.dispatch(CliRequestMessage("schedule_runs", mapOf("name" to "my-job", "limit" to "5")))
+
+            coVerify { klawScheduler.runs("my-job", 5) }
+        }
+
+    // ── schedule_status ──
+
+    @Test
+    fun `schedule_status returns scheduler status`() =
+        runTest {
+            coEvery {
+                klawScheduler.status()
+            } returns """{"started":true,"standby":false,"jobCount":3,"executingNow":0}"""
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("schedule_status"))
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            assertTrue(json["started"]?.jsonPrimitive?.content == "true")
+            assertEquals(3, json["jobCount"]?.jsonPrimitive?.int)
         }
 }

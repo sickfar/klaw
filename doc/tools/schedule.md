@@ -73,6 +73,53 @@ Permanently removes a scheduled task.
 
 ---
 
+## `schedule_edit`
+
+Edits an existing scheduled task. Updates only the specified fields; unspecified fields remain unchanged.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Name of the task to edit. |
+| `cron` | string | no | New cron expression. |
+| `message` | string | no | New subagent instruction. |
+| `model` | string | no | New LLM model. |
+
+At least one of `cron`, `message`, or `model` must be provided.
+
+**Returns:** `"OK: 'name' updated (fields...)"` on success, or an error message.
+
+---
+
+## `schedule_enable`
+
+Resumes a paused (disabled) task.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Name of the task to enable. |
+
+**Returns:** `"OK: 'name' enabled"` on success, `"'name' is already enabled"` if not paused, or `"Error: schedule 'name' not found"`.
+
+---
+
+## `schedule_disable`
+
+Pauses a scheduled task. The task remains in the scheduler but will not fire until re-enabled.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | yes | Name of the task to disable. |
+
+**Returns:** `"OK: 'name' disabled"` on success, `"'name' is already disabled"` if already paused, or `"Error: schedule 'name' not found"`.
+
+---
+
 ## `schedule_deliver`
 
 Used by scheduled subagents to deliver a result to the user. This is the **only** way for a scheduled task to send output back. If the LLM does not call `schedule_deliver`, nothing is sent — silence is the default.

@@ -89,59 +89,62 @@ class CliCommandDispatcher(
     }
 
     private suspend fun dispatchCoreCommand(request: CliRequestMessage): String =
+        dispatchScheduleCommand(request)
+            ?: when (request.command) {
+                "klaw_init_status" -> {
+                    initCliHandler.handleStatus()
+                }
+
+                "klaw_init_generate_identity" -> {
+                    initCliHandler.handleGenerateIdentity(request.params)
+                }
+
+                "status" -> {
+                    handleStatus()
+                }
+
+                "sessions" -> {
+                    handleSessions()
+                }
+
+                "sessions_list" -> {
+                    handleSessionsList(request.params)
+                }
+
+                "sessions_cleanup" -> {
+                    handleSessionsCleanup(request.params)
+                }
+
+                "reindex" -> {
+                    handleReindex(request.params)
+                }
+
+                "skills_validate" -> {
+                    handleSkillsValidate()
+                }
+
+                "skills_list" -> {
+                    handleSkillsList()
+                }
+
+                else -> {
+                    val safe = request.command.replace("\\", "\\\\").replace("\"", "\\\"")
+                    """{"error":"unknown command: $safe"}"""
+                }
+            }
+
+    private suspend fun dispatchScheduleCommand(request: CliRequestMessage): String? =
         when (request.command) {
-            "klaw_init_status" -> {
-                initCliHandler.handleStatus()
-            }
-
-            "klaw_init_generate_identity" -> {
-                initCliHandler.handleGenerateIdentity(request.params)
-            }
-
-            "status" -> {
-                handleStatus()
-            }
-
-            "sessions" -> {
-                handleSessions()
-            }
-
-            "sessions_list" -> {
-                handleSessionsList(request.params)
-            }
-
-            "sessions_cleanup" -> {
-                handleSessionsCleanup(request.params)
-            }
-
-            "schedule_list" -> {
-                klawScheduler.list()
-            }
-
-            "schedule_add" -> {
-                handleScheduleAdd(request.params)
-            }
-
-            "schedule_remove" -> {
-                handleScheduleRemove(request.params)
-            }
-
-            "reindex" -> {
-                handleReindex(request.params)
-            }
-
-            "skills_validate" -> {
-                handleSkillsValidate()
-            }
-
-            "skills_list" -> {
-                handleSkillsList()
-            }
-
-            else -> {
-                val safe = request.command.replace("\\", "\\\\").replace("\"", "\\\"")
-                """{"error":"unknown command: $safe"}"""
-            }
+            "schedule_list" -> klawScheduler.list()
+            "schedule_add" -> handleScheduleAdd(request.params)
+            "schedule_remove" -> handleScheduleRemove(request.params)
+            "schedule_edit" -> handleScheduleEdit(request.params)
+            "schedule_enable" -> handleScheduleEnable(request.params)
+            "schedule_disable" -> handleScheduleDisable(request.params)
+            "schedule_run" -> handleScheduleRun(request.params)
+            "schedule_runs" -> handleScheduleRuns(request.params)
+            "schedule_status" -> klawScheduler.status()
+            else -> null
         }
 
     private suspend fun handleStatus(): String {
@@ -240,6 +243,33 @@ class CliCommandDispatcher(
         return klawScheduler.remove(name)
     }
 
+    private suspend fun handleScheduleEdit(params: Map<String, String>): String {
+        val name = params["name"] ?: return """{"error":"missing name"}"""
+        return klawScheduler.edit(name, params["cron"], params["message"], params["model"])
+    }
+
+    private suspend fun handleScheduleEnable(params: Map<String, String>): String {
+        val name = params["name"] ?: return """{"error":"missing name"}"""
+        return klawScheduler.enable(name)
+    }
+
+    private suspend fun handleScheduleDisable(params: Map<String, String>): String {
+        val name = params["name"] ?: return """{"error":"missing name"}"""
+        return klawScheduler.disable(name)
+    }
+
+    private suspend fun handleScheduleRun(params: Map<String, String>): String {
+        val name = params["name"] ?: return """{"error":"missing name"}"""
+        return klawScheduler.run(name)
+    }
+
+    private suspend fun handleScheduleRuns(params: Map<String, String>): String {
+        val name = params["name"] ?: return """{"error":"missing name"}"""
+        val rawLimit = params["limit"]?.toIntOrNull() ?: DEFAULT_RUNS_LIMIT
+        val limit = rawLimit.coerceIn(1, MAX_RUNS_LIMIT)
+        return klawScheduler.runs(name, limit)
+    }
+
     private suspend fun handleMemorySearch(params: Map<String, String>): String {
         val query = params["query"] ?: return """{"error":"missing query"}"""
         val topK = params["top_k"]?.toIntOrNull() ?: DEFAULT_TOP_K
@@ -295,7 +325,11 @@ class CliCommandDispatcher(
         val force = params["force"]?.toBoolean() ?: false
         val date =
             if (dateStr != null) {
-                LocalDate.parse(dateStr)
+                try {
+                    LocalDate.parse(dateStr)
+                } catch (_: IllegalArgumentException) {
+                    return """{"error":"invalid date '$dateStr', expected ISO-8601 (e.g. 2026-03-21)"}"""
+                }
             } else {
                 DailyConsolidationService.yesterday()
             }
@@ -307,11 +341,19 @@ class CliCommandDispatcher(
         }
     }
 
-    private fun escapeJson(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
+    private fun escapeJson(value: String): String =
+        value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
 
     private companion object {
         private const val DEFAULT_TOP_K = 10
         private const val MAX_CATEGORIES_DISPLAY = 50
         private const val DEFAULT_CLEANUP_MINUTES = 1440
+        private const val DEFAULT_RUNS_LIMIT = 20
+        private const val MAX_RUNS_LIMIT = 200
     }
 }

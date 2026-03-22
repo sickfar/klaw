@@ -1,6 +1,6 @@
 ---
 name: scheduling
-description: Manage scheduled and one-time tasks — create cron schedules, one-time triggers, list and remove tasks
+description: Manage scheduled and one-time tasks — create, edit, enable/disable, list and remove tasks
 ---
 
 # Scheduling
@@ -32,6 +32,29 @@ Remove a scheduled task.
 **Parameters:**
 - `name` (string, required): Task name to remove
 
+## schedule_edit
+Edit an existing scheduled task. Updates only the specified fields; unspecified fields remain unchanged.
+
+**Parameters:**
+- `name` (string, required): Task name to edit
+- `cron` (string, optional): New cron expression
+- `message` (string, optional): New subagent instruction
+- `model` (string, optional): New LLM model
+
+At least one of `cron`, `message`, or `model` must be provided.
+
+## schedule_enable
+Resume a paused (disabled) task.
+
+**Parameters:**
+- `name` (string, required): Task name to enable
+
+## schedule_disable
+Pause a scheduled task. The task remains in the scheduler but will not fire until re-enabled.
+
+**Parameters:**
+- `name` (string, required): Task name to disable
+
 ## Usage Guidelines
 - Use `schedule_add` with `cron` for recurring tasks (daily summaries, periodic checks)
 - Use `schedule_add` with `at` for one-time reminders or delayed actions
@@ -40,4 +63,5 @@ Remove a scheduled task.
 - Task names should be descriptive (e.g. `morning-weather-report`, `birthday-reminder-alice`)
 - The `message` is NOT delivered verbatim — it becomes the instruction for a subagent spawned when the task fires
 - The subagent has access to all tools, including `schedule_deliver` for delivering results to the user
-- If you need to modify a task, remove it first with `schedule_remove` then re-add
+- Use `schedule_edit` to modify an existing task (cron, message, or model) without removing it
+- Use `schedule_disable` / `schedule_enable` to temporarily pause and resume tasks
