@@ -420,19 +420,38 @@ Options:
 
 ### `klaw logs`
 
-Shows the most recent conversation messages from JSONL files.
+Shows the most recent conversation messages from JSONL files. Output is colorized by default (timestamps in cyan, chat IDs in green, roles in yellow/green).
 
 ```
 klaw logs
-klaw logs --lines 50
+klaw logs --limit 50
 klaw logs --chat telegram_123456
 klaw logs --follow
+klaw logs --json
+klaw logs --follow --interval 500
+klaw logs --max-bytes 1000000
+klaw logs --local-time
+klaw logs --no-color
+klaw logs --timeout 5000
 ```
 
 Options:
-- `--lines N` — number of recent messages to show (default: 20)
+- `--limit N` / `-n N` — number of recent messages to show (default: 50)
 - `--chat CHAT_ID` — filter by chat ID
-- `--follow` — stream new messages as they arrive
+- `--follow` / `-f` — stream new messages as they arrive
+- `--json` — output raw JSONL format (machine-readable, one JSON object per line)
+- `--interval MS` — polling interval in milliseconds for follow mode (default: 1000)
+- `--max-bytes N` — maximum bytes to read from log files
+- `--local-time` — display timestamps in local timezone instead of UTC
+- `--no-color` — disable ANSI color output
+- `--timeout MS` — timeout in milliseconds for initial read; exits if no data found within the timeout
+
+#### JSON output format
+
+```json
+{"id":"uuid","ts":"2026-03-22T12:00:00Z","role":"user","content":"Hello"}
+{"id":"uuid","ts":"2026-03-22T12:00:05Z","role":"assistant","content":"Hi!"}
+```
 
 ---
 

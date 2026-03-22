@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # === Build stage ===
-FROM eclipse-temurin:21-jdk-jammy AS builder
+# Kotlin/Native compiler is only available for linux/x64 hosts,
+# so the build stage must always run on amd64 regardless of the target platform.
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk-jammy AS builder
 WORKDIR /build
 
 ENV GRADLE_OPTS="-Xmx2g"
@@ -24,9 +26,16 @@ RUN --mount=type=cache,target=/root/.gradle \
 COPY common/src common/src
 COPY cli/src cli/src
 
-# 4. Build native Linux x64 binary (no tests)
+# 4. Build native Linux binaries (no tests)
+#    TARGETARCH is set by Docker buildx: "amd64" or "arm64"
+ARG TARGETARCH=amd64
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew :cli:linkReleaseExecutableLinuxX64 -x test --no-daemon
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        GRADLE_TARGET=":cli:linkReleaseExecutableLinuxArm64"; \
+    else \
+        GRADLE_TARGET=":cli:linkReleaseExecutableLinuxX64"; \
+    fi && \
+    ./gradlew $GRADLE_TARGET -x test --no-daemon
 
 # === Runtime stage ===
 FROM debian:bookworm-slim
@@ -42,7 +51,16 @@ RUN mkdir -p /home/klaw/.local/state/klaw/run \
     && chown -R klaw:klaw /home/klaw
 
 COPY docker/compose/docker-compose.prod.json /app/docker-compose.json
-COPY --from=builder /build/cli/build/bin/linuxX64/releaseExecutable/klaw.kexe /usr/local/bin/klaw
-RUN chmod +x /usr/local/bin/klaw
+
+# Copy the binary for the target architecture
+ARG TARGETARCH=amd64
+RUN --mount=from=builder,source=/build/cli/build/bin,target=/cli-bins \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        cp /cli-bins/linuxArm64/releaseExecutable/klaw.kexe /usr/local/bin/klaw; \
+    else \
+        cp /cli-bins/linuxX64/releaseExecutable/klaw.kexe /usr/local/bin/klaw; \
+    fi && \
+    chmod +x /usr/local/bin/klaw
+
 USER klaw
 ENTRYPOINT ["klaw"]

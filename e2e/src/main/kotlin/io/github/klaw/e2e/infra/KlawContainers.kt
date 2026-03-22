@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.BindMode
+import org.testcontainers.containers.Container
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
 import org.testcontainers.containers.output.Slf4jLogConsumer
@@ -25,6 +26,7 @@ class KlawContainers(
     private val network = Network.newNetwork()
     private lateinit var engineContainer: GenericContainer<*>
     private lateinit var gatewayContainer: GenericContainer<*>
+    private lateinit var cliContainer: GenericContainer<*>
 
     private lateinit var configDir: File
     private lateinit var engineDataDir: File
@@ -38,6 +40,7 @@ class KlawContainers(
     val engineHost: String get() = engineContainer.host
     val engineMappedPort: Int get() = engineContainer.getMappedPort(ENGINE_PORT)
     val engineDataPath: File get() = engineDataDir
+    val gatewayDataPath: File get() = gatewayDataDir
     val gatewayStatePath: File get() = gatewayStateDir
     val gatewayConfigPath: File get() = gatewayConfigDir
 
@@ -105,7 +108,26 @@ class KlawContainers(
         logger.info { "Gateway reconnected to network" }
     }
 
+    fun startCli() {
+        buildCliImage()
+        cliContainer = createCliContainer()
+        logger.info { "Starting CLI container..." }
+        cliContainer.start()
+        logger.info { "CLI container started" }
+    }
+
+    fun stopCli() {
+        if (::cliContainer.isInitialized) {
+            logger.info { "Stopping CLI container..." }
+            cliContainer.stop()
+            logger.info { "CLI container stopped" }
+        }
+    }
+
+    fun execCli(vararg args: String): Container.ExecResult = cliContainer.execInContainer("klaw", *args)
+
     fun stop() {
+        if (::cliContainer.isInitialized) cliContainer.stop()
         if (::gatewayContainer.isInitialized) gatewayContainer.stop()
         if (::engineContainer.isInitialized) engineContainer.stop()
         network.close()
@@ -147,20 +169,44 @@ class KlawContainers(
                     .withStartupTimeout(Duration.ofSeconds(GATEWAY_STARTUP_TIMEOUT_SECONDS)),
             ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("gateway"))
 
+    private fun createCliContainer(): GenericContainer<*> =
+        GenericContainer(DockerImageName.parse(CLI_IMAGE))
+            .withNetwork(network)
+            .withEnv("HOME", "/home/klaw")
+            .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_ONLY)
+            .withCreateContainerCmdModifier { cmd ->
+                cmd.withEntrypoint("tail", "-f", "/dev/null")
+            }
+
     private fun buildImages() {
         val projectRoot = findProjectRoot()
         buildImage(projectRoot, "docker/engine/Dockerfile", ENGINE_IMAGE)
         buildImage(projectRoot, "docker/gateway/Dockerfile", GATEWAY_IMAGE)
     }
 
+    private fun buildCliImage() {
+        val projectRoot = findProjectRoot()
+        val arch = detectHostArch()
+        buildImage(projectRoot, "docker/cli/Dockerfile", CLI_IMAGE, listOf("--build-arg", "TARGETARCH=$arch"))
+    }
+
+    private fun detectHostArch(): String {
+        val osArch = System.getProperty("os.arch") ?: "amd64"
+        return if (osArch == "aarch64" || osArch == "arm64") "arm64" else "amd64"
+    }
+
     private fun buildImage(
         projectRoot: File,
         dockerfile: String,
         tag: String,
+        extraArgs: List<String> = emptyList(),
     ) {
         logger.info { "Building Docker image $tag from $dockerfile..." }
+        val cmd = mutableListOf("docker", "build", "-t", tag, "-f", dockerfile)
+        cmd.addAll(extraArgs)
+        cmd.add(".")
         val process =
-            ProcessBuilder("docker", "build", "-t", tag, "-f", dockerfile, ".")
+            ProcessBuilder(cmd)
                 .directory(projectRoot)
                 .redirectErrorStream(true)
                 .start()
@@ -225,6 +271,7 @@ class KlawContainers(
     companion object {
         private const val ENGINE_IMAGE = "klaw-engine-e2e:latest"
         private const val GATEWAY_IMAGE = "klaw-gateway-e2e:latest"
+        private const val CLI_IMAGE = "klaw-cli-e2e:latest"
         private const val ENGINE_PORT = 7470
         private const val GATEWAY_LOCAL_WS_PORT = 37474
         private const val STARTUP_TIMEOUT_SECONDS = 180L
