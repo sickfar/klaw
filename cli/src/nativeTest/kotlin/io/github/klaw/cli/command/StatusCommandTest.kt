@@ -14,7 +14,6 @@ class StatusCommandTest {
         calledCommands += cmd
         when (cmd) {
             "status" -> """{"status": "running"}"""
-            "sessions" -> """[{"id": "test-session"}]"""
             else -> "{}"
         }
     }
@@ -34,28 +33,11 @@ class StatusCommandTest {
     }
 
     @Test
-    fun `status --sessions includes session list`() {
-        val result = cli().test("status --sessions")
-        assertEquals(0, result.statusCode)
-        assertContains(result.output, "running")
-        assertContains(result.output, "test-session")
-        assertTrue(calledCommands.contains("status"))
-        assertTrue(calledCommands.contains("sessions"))
-    }
-
-    @Test
-    fun `status without --sessions does not call sessions endpoint`() {
-        cli().test("status")
-        assertTrue(calledCommands.contains("status"))
-        assertTrue(!calledCommands.contains("sessions"))
-    }
-
-    @Test
-    fun `status --sessions shows error when engine not running`() {
+    fun `status shows error when engine not running`() {
         val fn: (String, Map<String, String>) -> String = { _, _ ->
             throw EngineNotRunningException()
         }
-        val result = cli(fn).test("status --sessions")
+        val result = cli(fn).test("status")
         assertEquals(0, result.statusCode)
         assertContains(result.output, "not running")
     }

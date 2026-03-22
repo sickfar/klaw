@@ -75,3 +75,9 @@ WHERE created_at >= :fromTime AND created_at < :toTime
   AND role IN ('user', 'assistant')
   AND type != 'tool_call'
 ORDER BY created_at ASC, rowid ASC;
+
+sumTokensByChatId:
+SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId;
+
+deleteMessagesByChatId:
+DELETE FROM messages WHERE chat_id = :chatId;

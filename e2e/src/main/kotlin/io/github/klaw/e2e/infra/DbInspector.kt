@@ -338,11 +338,55 @@ class DbInspector(
                 }
         }
 
+    fun getSessions(): List<SessionRow> =
+        withRetry("getSessions") {
+            val results = mutableListOf<SessionRow>()
+            connection
+                .prepareStatement(
+                    "SELECT chat_id, model, segment_start, created_at, updated_at FROM sessions ORDER BY chat_id",
+                ).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            results.add(
+                                SessionRow(
+                                    chatId = rs.getString("chat_id"),
+                                    model = rs.getString("model"),
+                                    segmentStart = rs.getString("segment_start"),
+                                    createdAt = rs.getString("created_at"),
+                                    updatedAt = rs.getString("updated_at"),
+                                ),
+                            )
+                        }
+                    }
+                }
+            results
+        }
+
+    fun getSessionCount(): Int =
+        withRetry("getSessionCount") {
+            connection
+                .prepareStatement("SELECT COUNT(*) FROM sessions")
+                .use { ps ->
+                    ps.executeQuery().use { rs ->
+                        rs.next()
+                        rs.getInt(1)
+                    }
+                }
+        }
+
     override fun close() {
         connection.close()
         logger.debug { "DB inspector closed" }
     }
 }
+
+data class SessionRow(
+    val chatId: String,
+    val model: String,
+    val segmentStart: String,
+    val createdAt: String,
+    val updatedAt: String,
+)
 
 data class MemoryCategoryRow(
     val id: Long,

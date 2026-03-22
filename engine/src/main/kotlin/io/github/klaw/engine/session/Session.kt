@@ -1,5 +1,6 @@
 package io.github.klaw.engine.session
 
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 data class Session(
@@ -7,4 +8,5 @@ data class Session(
     val model: String,
     val segmentStart: String,
     val createdAt: Instant,
+    val updatedAt: Instant = createdAt,
 )

@@ -8,12 +8,15 @@ import io.github.klaw.engine.memory.ConsolidationResult
 import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
+import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.util.VT
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 
 @Singleton
 @Suppress("LongParameterList")
@@ -103,6 +106,14 @@ class CliCommandDispatcher(
                 handleSessions()
             }
 
+            "sessions_list" -> {
+                handleSessionsList(request.params)
+            }
+
+            "sessions_cleanup" -> {
+                handleSessionsCleanup(request.params)
+            }
+
             "schedule_list" -> {
                 klawScheduler.list()
             }
@@ -141,8 +152,75 @@ class CliCommandDispatcher(
     private suspend fun handleSessions(): String {
         val sessions = sessionManager.listSessions()
         return sessions.joinToString(",", "[", "]") { s ->
-            """{"chatId":"${s.chatId}","model":"${s.model}"}"""
+            """{"chatId":"${escapeJson(s.chatId)}","model":"${escapeJson(s.model)}"}"""
         }
+    }
+
+    private suspend fun handleSessionsList(params: Map<String, String>): String {
+        val activeMinutes = params["active_minutes"]?.toIntOrNull()
+        val verbose = params["verbose"]?.toBoolean() ?: false
+        val json = params["json"]?.toBoolean() ?: false
+
+        val sessions =
+            if (activeMinutes != null) {
+                val threshold = Clock.System.now() - activeMinutes.minutes
+                sessionManager.listActiveSessions(threshold)
+            } else {
+                sessionManager.listSessions()
+            }
+
+        return if (json) {
+            formatSessionsJson(sessions, verbose)
+        } else {
+            formatSessionsText(sessions, verbose)
+        }
+    }
+
+    private suspend fun formatSessionsJson(
+        sessions: List<Session>,
+        verbose: Boolean,
+    ): String {
+        val parts =
+            sessions.map { s ->
+                val base =
+                    buildString {
+                        append("""{"chatId":"${escapeJson(s.chatId)}"""")
+                        append(""","model":"${escapeJson(s.model)}"""")
+                        append(""","createdAt":"${s.createdAt}"""")
+                        append(""","updatedAt":"${s.updatedAt}"""")
+                    }
+                if (verbose) {
+                    val tokens = sessionManager.getTokenCount(s.chatId)
+                    """$base,"totalTokens":$tokens}"""
+                } else {
+                    "$base}"
+                }
+            }
+        return parts.joinToString(",", "[", "]")
+    }
+
+    private suspend fun formatSessionsText(
+        sessions: List<Session>,
+        verbose: Boolean,
+    ): String {
+        if (sessions.isEmpty()) return "No active sessions."
+        val lines =
+            sessions.map { s ->
+                if (verbose) {
+                    val tokens = sessionManager.getTokenCount(s.chatId)
+                    "${s.chatId} (model: ${s.model}, updated: ${s.updatedAt}, tokens: $tokens)"
+                } else {
+                    "${s.chatId} (model: ${s.model}, updated: ${s.updatedAt})"
+                }
+            }
+        return lines.joinToString("\n")
+    }
+
+    private suspend fun handleSessionsCleanup(params: Map<String, String>): String {
+        val olderThanMinutes = params["older_than_minutes"]?.toIntOrNull() ?: DEFAULT_CLEANUP_MINUTES
+        val threshold = Clock.System.now() - olderThanMinutes.minutes
+        val deleted = sessionManager.cleanupSessions(threshold)
+        return """{"deleted":$deleted,"message":"Removed $deleted inactive sessions"}"""
     }
 
     @Suppress("ReturnCount")
@@ -234,5 +312,6 @@ class CliCommandDispatcher(
     private companion object {
         private const val DEFAULT_TOP_K = 10
         private const val MAX_CATEGORIES_DISPLAY = 50
+        private const val DEFAULT_CLEANUP_MINUTES = 1440
     }
 }

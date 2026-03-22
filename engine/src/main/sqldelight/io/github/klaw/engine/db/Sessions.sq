@@ -2,21 +2,37 @@ CREATE TABLE IF NOT EXISTS sessions (
     chat_id TEXT NOT NULL PRIMARY KEY,
     model TEXT NOT NULL,
     segment_start TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 getSession:
 SELECT * FROM sessions WHERE chat_id = ?;
 
 insertSession:
-INSERT OR REPLACE INTO sessions (chat_id, model, segment_start, created_at)
-VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO sessions (chat_id, model, segment_start, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?);
 
 updateModel:
-UPDATE sessions SET model = ? WHERE chat_id = ?;
+UPDATE sessions SET model = ?, updated_at = ? WHERE chat_id = ?;
 
 updateSegmentStart:
-UPDATE sessions SET segment_start = ? WHERE chat_id = ?;
+UPDATE sessions SET segment_start = ?, updated_at = ? WHERE chat_id = ?;
+
+updateUpdatedAt:
+UPDATE sessions SET updated_at = ? WHERE chat_id = ?;
 
 listSessions:
 SELECT * FROM sessions ORDER BY chat_id;
+
+listActiveSessions:
+SELECT * FROM sessions WHERE updated_at >= ? ORDER BY updated_at DESC;
+
+deleteSessionsOlderThan:
+DELETE FROM sessions WHERE updated_at < ?;
+
+listSessionChatIdsOlderThan:
+SELECT chat_id FROM sessions WHERE updated_at < ?;
+
+countSessions:
+SELECT COUNT(*) FROM sessions;

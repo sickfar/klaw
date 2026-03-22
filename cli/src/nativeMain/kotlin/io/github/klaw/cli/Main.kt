@@ -16,6 +16,7 @@ import io.github.klaw.cli.command.PairCommand
 import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.ServiceCommand
+import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
 import io.github.klaw.cli.command.UnpairCommand
 import io.github.klaw.cli.command.UpdateCommand
@@ -67,6 +68,7 @@ internal class KlawCli(
             InitCommand(requestFn),
             ChatCommand(configDir),
             StatusCommand(requestFn),
+            SessionsCommand(requestFn),
             ReindexCommand(requestFn),
             LogsCommand(conversationsDir),
             ScheduleCommand(requestFn),

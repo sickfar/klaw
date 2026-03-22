@@ -180,12 +180,56 @@ Displays current Engine status and active session count.
 klaw status
 ```
 
-#### `--sessions`
+---
 
-Include a list of all active chat sessions with chat ID and model.
+## Sessions
+
+### `klaw sessions list`
+
+Lists all active chat sessions.
 
 ```
-klaw status --sessions
+klaw sessions list
+```
+
+#### `--active <minutes>`
+
+Show only sessions active within the last N minutes.
+
+```
+klaw sessions list --active 60
+```
+
+#### `--json`
+
+Output as JSON format.
+
+```
+klaw sessions list --json
+```
+
+#### `--verbose`
+
+Show detailed info including token counts and timestamps.
+
+```
+klaw sessions list --verbose --json
+```
+
+### `klaw sessions cleanup`
+
+Remove old/expired sessions and their associated messages.
+
+```
+klaw sessions cleanup
+```
+
+#### `--older-than <minutes>`
+
+Remove sessions inactive for more than N minutes (default: 1440 = 24 hours).
+
+```
+klaw sessions cleanup --older-than 60
 ```
 
 ---

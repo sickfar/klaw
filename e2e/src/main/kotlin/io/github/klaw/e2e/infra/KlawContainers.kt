@@ -35,6 +35,8 @@ class KlawContainers(
 
     val gatewayHost: String get() = gatewayContainer.host
     val gatewayMappedPort: Int get() = gatewayContainer.getMappedPort(GATEWAY_LOCAL_WS_PORT)
+    val engineHost: String get() = engineContainer.host
+    val engineMappedPort: Int get() = engineContainer.getMappedPort(ENGINE_PORT)
     val engineDataPath: File get() = engineDataDir
     val gatewayStatePath: File get() = gatewayStateDir
     val gatewayConfigPath: File get() = gatewayConfigDir
@@ -121,6 +123,7 @@ class KlawContainers(
             .withFileSystemBind(engineDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(engineStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(workspaceDir.absolutePath, "/workspace", BindMode.READ_WRITE)
+            .withExposedPorts(ENGINE_PORT)
             .waitingFor(
                 Wait
                     .forLogMessage(".*EngineSocketServer started on.*", 1)

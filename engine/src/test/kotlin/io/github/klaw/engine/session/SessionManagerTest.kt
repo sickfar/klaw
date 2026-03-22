@@ -90,4 +90,128 @@ class SessionManagerTest {
             val segmentInstant = Instant.parse(row.segment_start)
             assertTrue(segmentInstant >= before, "segment_start should be after or equal to before")
         }
+
+    @Test
+    fun `getOrCreate updates updatedAt when session exists`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            val first = sessionManager.getOrCreate("chat-touch", "glm-5")
+            assertNotNull(first.updatedAt)
+            val firstUpdatedAt = first.updatedAt
+
+            // Re-access — updatedAt should be >= first
+            val second = sessionManager.getOrCreate("chat-touch", "glm-5")
+            assertTrue(
+                second.updatedAt >= firstUpdatedAt,
+                "updatedAt should be >= first access, was ${second.updatedAt} vs $firstUpdatedAt",
+            )
+        }
+
+    @Test
+    fun `listSessions returns sessions with updatedAt`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-list-1", "glm-5")
+            sessionManager.getOrCreate("chat-list-2", "deepseek")
+
+            val sessions = sessionManager.listSessions()
+            assertEquals(2, sessions.size)
+            sessions.forEach { session ->
+                assertNotNull(session.updatedAt, "Each session should have updatedAt")
+            }
+        }
+
+    @Test
+    fun `listActiveSessions filters by threshold`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-active", "glm-5")
+
+            // With threshold in the past — session should be found
+            val pastThreshold = Clock.System.now() - kotlin.time.Duration.parse("PT1H")
+            val active = sessionManager.listActiveSessions(pastThreshold)
+            assertTrue(active.isNotEmpty(), "Session should be found with past threshold")
+
+            // With threshold in the future — session should NOT be found
+            val futureThreshold = Clock.System.now() + kotlin.time.Duration.parse("PT1H")
+            val inactive = sessionManager.listActiveSessions(futureThreshold)
+            assertTrue(inactive.isEmpty(), "No sessions should be found with future threshold")
+        }
+
+    @Test
+    fun `cleanupSessions removes old sessions`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-cleanup", "glm-5")
+            assertEquals(1, sessionManager.listSessions().size)
+
+            // Cleanup with future threshold — removes everything
+            val futureThreshold = Clock.System.now() + kotlin.time.Duration.parse("PT1H")
+            val deleted = sessionManager.cleanupSessions(futureThreshold)
+            assertTrue(deleted > 0, "Should have deleted sessions")
+            assertEquals(0, sessionManager.listSessions().size, "No sessions should remain")
+        }
+
+    @Test
+    fun `cleanupSessions returns count of deleted`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-count-1", "glm-5")
+            sessionManager.getOrCreate("chat-count-2", "deepseek")
+            sessionManager.getOrCreate("chat-count-3", "qwen")
+
+            val futureThreshold = Clock.System.now() + kotlin.time.Duration.parse("PT1H")
+            val deleted = sessionManager.cleanupSessions(futureThreshold)
+            assertEquals(3, deleted, "Should report 3 deleted sessions")
+        }
+
+    @Test
+    fun `getTokenCount returns sum from messages table`() =
+        runTest {
+            val (sessionManager, db) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-tokens", "glm-5")
+
+            // Insert messages with known token counts directly
+            db.messagesQueries.insertMessage(
+                id = "msg-1",
+                channel = "console",
+                chat_id = "chat-tokens",
+                role = "user",
+                type = "chat",
+                content = "hello",
+                metadata = null,
+                created_at = Clock.System.now().toString(),
+                tokens = 10,
+            )
+            db.messagesQueries.insertMessage(
+                id = "msg-2",
+                channel = "console",
+                chat_id = "chat-tokens",
+                role = "assistant",
+                type = "chat",
+                content = "world",
+                metadata = null,
+                created_at = Clock.System.now().toString(),
+                tokens = 25,
+            )
+
+            val totalTokens = sessionManager.getTokenCount("chat-tokens")
+            assertEquals(35L, totalTokens, "Should sum tokens from both messages")
+        }
+
+    @Test
+    fun `getTokenCount returns zero for session with no messages`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-no-msgs", "glm-5")
+            val totalTokens = sessionManager.getTokenCount("chat-no-msgs")
+            assertEquals(0L, totalTokens, "Should return 0 when no messages exist")
+        }
 }
