@@ -4,6 +4,8 @@ import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
+import io.github.klaw.cli.update.GitHubReleaseClient
+import io.github.klaw.cli.update.GitHubReleaseClientImpl
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.deleteRecursively
 import io.github.klaw.cli.util.fileExists
@@ -31,11 +33,9 @@ import kotlin.native.Platform
 
 private const val TOTAL_PHASES = 10
 private const val DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250514"
-private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
-private const val SEARCH_VALIDATION_TIMEOUT = 10
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3
@@ -138,7 +138,26 @@ internal class InitWizard(
             )
         },
     private val force: Boolean = false,
+    private val releaseClient: GitHubReleaseClient = GitHubReleaseClientImpl(),
+    private val jarDir: String = "${KlawPaths.data}/bin",
+    private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
 ) {
+    private val apiKeyValidator by lazy {
+        ApiKeyValidator(commandOutput = commandOutput, printer = printer)
+    }
+
+    private val nativeInstaller by lazy {
+        NativeInstaller(
+            commandRunner = commandRunner,
+            commandOutput = commandOutput,
+            printer = printer,
+            successPrinter = ::success,
+            releaseClient = releaseClient,
+            jarDir = jarDir,
+            binDir = binDir,
+        )
+    }
+
     @Suppress("LongMethod", "CyclomaticComplexMethod", "ReturnCount")
     fun run() {
         // ── Collection phases (1–6): gather all user input before touching disk ──
@@ -180,6 +199,11 @@ internal class InitWizard(
             }
         }
 
+        // ── Native pre-flight: Java version check ──
+        if (resolvedMode == DeployMode.NATIVE) {
+            nativeInstaller.printJavaCheck()
+        }
+
         CliLogger.info { "phase 3: LLM provider setup" }
         CliLogger.debug { "resolved deploy mode=${resolvedMode.configName}" }
         phase(PHASE_LLM, "LLM provider setup")
@@ -205,7 +229,7 @@ internal class InitWizard(
                 printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
                 continue
             }
-            validationResponse = validateApiKey(providerUrl, llmApiKey, providerType)
+            validationResponse = apiKeyValidator.validateApiKey(providerUrl, llmApiKey, providerType)
             if (validationResponse != null) {
                 break
             }
@@ -301,7 +325,7 @@ internal class InitWizard(
                     printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
                     continue
                 }
-                if (validateSearchApiKey(webSearchProvider.name, webSearchApiKey)) {
+                if (apiKeyValidator.validateSearchApiKey(webSearchProvider.name, webSearchApiKey)) {
                     break
                 }
                 printer("Please enter a valid API key or press Ctrl+C to abort.")
@@ -311,7 +335,34 @@ internal class InitWizard(
             printer("Web search disabled (can be enabled later in engine.json)")
         }
 
-        // ── Action phases (7–9): create directories, write configs, start services ──
+        // ── Native: Docker check + host exec prompt ──
+        var dockerAvailable = true
+        var enableHostExec = false
+        if (resolvedMode == DeployMode.NATIVE) {
+            dockerAvailable = nativeInstaller.isDockerAvailable()
+            if (!dockerAvailable) {
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Docker not found. Sandbox code execution will be unavailable. " +
+                        "Install Docker to enable it.${AnsiColors.RESET}",
+                )
+            } else {
+                success("Docker detected")
+            }
+            printer("In native mode, the agent can execute commands on the host system.")
+            if (!dockerAvailable) {
+                printer("Docker sandbox is not available, so host execution is the only way to run code.")
+            }
+            printer("Enable host command execution? [Y/n]:")
+            val hostExecAnswer = readLineOrExit() ?: return
+            enableHostExec = hostExecAnswer.trim().lowercase() != "n"
+            if (enableHostExec) {
+                success("Host execution enabled")
+            } else {
+                printer("Host execution disabled (can be enabled later in engine.json)")
+            }
+        }
+
+        // ── Action phases (8–10): create directories, write configs, start services ──
 
         val composeFilePath =
             when (resolvedMode) {
@@ -333,6 +384,11 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
+        // ── Native: download JARs and create wrapper scripts ──
+        if (resolvedMode == DeployMode.NATIVE) {
+            nativeInstaller.ensureJars()
+            nativeInstaller.createWrapperScripts()
+        }
         // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
         // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
         if (resolvedMode == DeployMode.HYBRID || resolvedMode == DeployMode.DOCKER) {
@@ -359,6 +415,7 @@ internal class InitWizard(
                 webSearchEnabled = enableWebSearch,
                 webSearchProvider = webSearchProvider?.name,
                 webSearchApiKeyEnvVar = webSearchProvider?.envVar,
+                hostExecutionEnabled = enableHostExec,
             ),
         )
         writeFileText(
@@ -478,16 +535,28 @@ internal class InitWizard(
                 val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
                 val engineBin = "$home/.local/bin/klaw-engine"
                 val gatewayBin = "$home/.local/bin/klaw-gateway"
-                val serviceInstaller =
-                    ServiceInstaller(
-                        outputDir = serviceOutputDir,
-                        commandRunner = { cmd ->
-                            commandRunner(cmd)
-                            Unit
-                        },
+                val canInstallService =
+                    Platform.osFamily == OsFamily.MACOSX || nativeInstaller.isSystemdAvailable()
+                if (canInstallService) {
+                    val serviceInstaller =
+                        ServiceInstaller(
+                            outputDir = serviceOutputDir,
+                            commandRunner = { cmd ->
+                                commandRunner(cmd)
+                                Unit
+                            },
+                        )
+                    serviceInstaller.install(engineBin, gatewayBin, envFile)
+                    success("Service files written")
+                } else {
+                    printer(
+                        "${AnsiColors.YELLOW}⚠ systemd not found. " +
+                            "Service auto-start will not be configured.${AnsiColors.RESET}",
                     )
-                serviceInstaller.install(engineBin, gatewayBin, envFile)
-                success("Service files written")
+                    printer("  Start services manually:")
+                    printer("    $engineBin")
+                    printer("    $gatewayBin")
+                }
             }
         }
 
@@ -541,7 +610,7 @@ internal class InitWizard(
             if (errorMsg != null) {
                 identitySpinner.fail("Identity generation failed: $errorMsg")
                 printer("  Stub files written. Edit IDENTITY.md and USER.md in the workspace to update later.")
-                CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
+                CliLogger.warn { "identity generation failed, writing stubs" }
             } else {
                 identitySpinner.done("Identity generated")
             }
@@ -611,146 +680,6 @@ internal class InitWizard(
     }
 
     /**
-     * Validates the LLM API key via a curl request.
-     * For OpenAI-compatible: GET {providerUrl}/models with Bearer token.
-     * For Anthropic: POST {providerUrl}/v1/messages with x-api-key header and minimal request.
-     * Returns the raw JSON response if the key appears valid, else null.
-     * Skips validation if the URL or key contain single-quote characters (injection prevention).
-     */
-    private fun validateApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-        providerType: String = "openai-compatible",
-    ): String? {
-        if ("'" in providerUrl || "'" in llmApiKey) {
-            CliLogger.warn { "unsafe characters in URL or key, skipping validation" }
-            printer(
-                "${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}",
-            )
-            return null
-        }
-        return if (providerType == "anthropic") {
-            validateAnthropicApiKey(providerUrl, llmApiKey)
-        } else {
-            validateOpenAiApiKey(providerUrl, llmApiKey)
-        }
-    }
-
-    private fun validateOpenAiApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-    ): String? {
-        val url = "${providerUrl.trimEnd('/')}/models"
-        val cmd = "curl -s -m $MODELS_FETCH_TIMEOUT -H 'Authorization: Bearer $llmApiKey' '$url'"
-        val response = commandOutput(cmd) ?: return null
-        return if (response.contains("\"data\"")) {
-            CliLogger.debug { "API key validation passed" }
-            printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
-            response
-        } else {
-            CliLogger.warn { "API key validation failed" }
-            printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
-            null
-        }
-    }
-
-    private fun validateAnthropicApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-    ): String? {
-        val url = "${providerUrl.trimEnd('/')}/v1/messages"
-        val body = buildAnthropicValidationBody()
-        val cmd =
-            "curl -s -m $MODELS_FETCH_TIMEOUT " +
-                "-H 'x-api-key: $llmApiKey' " +
-                "-H 'anthropic-version: 2023-06-01' " +
-                "-H 'Content-Type: application/json' " +
-                "-d '$body' " +
-                "'$url'"
-        val response = commandOutput(cmd) ?: return null
-        val isAuthError =
-            response.contains("\"authentication_error\"") ||
-                response.contains("\"permission_error\"")
-        return when {
-            response.contains("\"content\"") && !response.contains("\"error\"") -> {
-                CliLogger.debug { "Anthropic API key validation passed" }
-                printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
-                response
-            }
-
-            isAuthError -> {
-                CliLogger.warn { "Anthropic API key validation failed: auth error" }
-                printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
-                null
-            }
-
-            else -> {
-                // Transient error (rate limit, overload) — accept key
-                CliLogger.warn { "Anthropic API validation inconclusive, proceeding" }
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Validation inconclusive (service may be busy), " +
-                        "proceeding.${AnsiColors.RESET}",
-                )
-                response
-            }
-        }
-    }
-
-    /**
-     * Validates a web search API key by making a test request.
-     * - Brave: checks HTTP status code via `-w "%{http_code}"`
-     * - Tavily: checks for "results" in response body
-     * Returns true if validation passed, false otherwise.
-     */
-    private fun validateSearchApiKey(
-        providerName: String,
-        apiKey: String,
-    ): Boolean {
-        if ("'" in apiKey) {
-            CliLogger.warn { "unsafe characters in search API key, validation failed" }
-            printer(
-                "${AnsiColors.YELLOW}⚠ API key contains unsafe characters.${AnsiColors.RESET}",
-            )
-            return false
-        }
-        val cmd =
-            when (providerName) {
-                "brave" -> {
-                    "curl -s -o /dev/null -w \"%{http_code}\" -m $SEARCH_VALIDATION_TIMEOUT " +
-                        "-H 'X-Subscription-Token: $apiKey' " +
-                        "'https://api.search.brave.com/res/v1/web/search?q=test'"
-                }
-
-                "tavily" -> {
-                    "curl -s -m $SEARCH_VALIDATION_TIMEOUT -X POST " +
-                        "'https://api.tavily.com/search' " +
-                        "-H 'Content-Type: application/json' " +
-                        "-d '{\"api_key\":\"$apiKey\",\"query\":\"test\",\"max_results\":1}'"
-                }
-
-                else -> {
-                    return false
-                }
-            }
-        val response = commandOutput(cmd) ?: return false
-        val valid =
-            when (providerName) {
-                "brave" -> response.trim() == "200"
-                "tavily" -> response.contains("\"results\"")
-                else -> false
-            }
-        return if (valid) {
-            CliLogger.debug { "search API key validation passed" }
-            printer("${AnsiColors.GREEN}✓ Search API key valid${AnsiColors.RESET}")
-            true
-        } else {
-            CliLogger.warn { "search API key validation failed" }
-            printer("${AnsiColors.YELLOW}⚠ Search API key validation failed.${AnsiColors.RESET}")
-            false
-        }
-    }
-
-    /**
      * Attempts to select a model via radio selector (if models were fetched) or text input fallback.
      * For Anthropic, uses a hardcoded model list (no /models endpoint).
      * Returns null only if the user interrupts (ESC or EOF) during text input.
@@ -782,11 +711,6 @@ internal class InitWizard(
     private fun promptModelText(): String? {
         printer("Model ID (provider/model) [$DEFAULT_MODEL]:")
         return (readLineOrExit() ?: return null).trim().ifBlank { DEFAULT_MODEL }
-    }
-
-    private fun buildAnthropicValidationBody(): String {
-        val model = "claude-sonnet-4-5-20250514"
-        return """{"model":"$model","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}"""
     }
 
     private fun phase(

@@ -13,6 +13,7 @@ import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.HeartbeatConfig
+import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -40,6 +41,7 @@ internal object ConfigTemplates {
         webSearchEnabled: Boolean = false,
         webSearchProvider: String? = null,
         webSearchApiKeyEnvVar: String? = null,
+        hostExecutionEnabled: Boolean = false,
     ): String =
         encodeEngineConfigMinimal(
             buildEngineConfig(
@@ -50,6 +52,7 @@ internal object ConfigTemplates {
                 webSearchEnabled,
                 webSearchProvider,
                 webSearchApiKeyEnvVar,
+                hostExecutionEnabled,
             ),
         )
 
@@ -62,6 +65,7 @@ internal object ConfigTemplates {
         webSearchEnabled: Boolean,
         webSearchProvider: String?,
         webSearchApiKeyEnvVar: String?,
+        hostExecutionEnabled: Boolean,
     ): EngineConfig {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
         val webSearch =
@@ -81,6 +85,7 @@ internal object ConfigTemplates {
             context = buildConfigContext(),
             processing = buildConfigProcessing(),
             memory = buildConfigMemory(),
+            hostExecution = if (hostExecutionEnabled) HostExecutionConfig(enabled = true) else HostExecutionConfig(),
             heartbeat =
                 HeartbeatConfig(
                     interval = if (heartbeatChannel != null) "PT1H" else "off",
