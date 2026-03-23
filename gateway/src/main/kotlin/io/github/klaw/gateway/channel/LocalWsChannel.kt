@@ -4,10 +4,7 @@ import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ChatFrame
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.server.websocket.DefaultWebSocketServerSession
-import io.ktor.websocket.CloseReason
-import io.ktor.websocket.Frame
-import io.ktor.websocket.close
+import io.micronaut.websocket.WebSocketSession
 import jakarta.inject.Singleton
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -24,7 +21,7 @@ class LocalWsChannel(
 ) : Channel {
     override val name = "local_ws"
 
-    @Volatile private var activeSession: DefaultWebSocketServerSession? = null
+    @Volatile private var activeSession: WebSocketSession? = null
     override var onBecameAlive: (suspend () -> Unit)? = null
     private val incomingQueue = KChannel<IncomingMessage>(KChannel.UNLIMITED)
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
@@ -38,7 +35,7 @@ class LocalWsChannel(
     override suspend fun stop() {
         incomingQueue.close()
         try {
-            activeSession?.close(CloseReason(CloseReason.Codes.NORMAL, "LocalWsChannel stopped"))
+            activeSession?.close()
         } catch (_: Exception) {
             // ignore close errors
         }
@@ -51,7 +48,7 @@ class LocalWsChannel(
         }
     }
 
-    suspend fun registerSession(session: DefaultWebSocketServerSession) {
+    suspend fun registerSession(session: WebSocketSession) {
         val wasAlive = activeSession != null
         activeSession = session
         if (!wasAlive) {
@@ -60,7 +57,7 @@ class LocalWsChannel(
         }
     }
 
-    fun clearSession(session: DefaultWebSocketServerSession) {
+    fun clearSession(session: WebSocketSession) {
         if (activeSession === session) {
             activeSession = null
             logger.debug { "Local WS session cleared" }
@@ -69,7 +66,7 @@ class LocalWsChannel(
 
     suspend fun handleIncoming(
         content: String,
-        session: DefaultWebSocketServerSession,
+        session: WebSocketSession,
         attachmentPaths: List<String> = emptyList(),
     ) {
         activeSession = session
@@ -109,8 +106,8 @@ class LocalWsChannel(
                 return
             }
         sendStatusFrame(session, "")
-        val frame = Json.encodeToString(ChatFrame(type = "assistant", content = response.content))
-        runCatching { session.send(Frame.Text(frame)) }
+        val message = Json.encodeToString(ChatFrame(type = "assistant", content = response.content))
+        runCatching { session.sendSync(message) }
             .onFailure { e -> logger.error(e) { "LocalWsChannel: send failed" } }
     }
 
@@ -125,7 +122,7 @@ class LocalWsChannel(
                 return
             }
         pendingApprovals[request.id] = onResult
-        val frame =
+        val message =
             Json.encodeToString(
                 ChatFrame(
                     type = "approval_request",
@@ -135,19 +132,19 @@ class LocalWsChannel(
                     timeout = request.timeout,
                 ),
             )
-        runCatching { session.send(Frame.Text(frame)) }
+        runCatching { session.sendSync(message) }
             .onFailure { e ->
                 pendingApprovals.remove(request.id)
                 logger.error(e) { "LocalWsChannel: sendApproval failed" }
             }
     }
 
-    private suspend fun sendStatusFrame(
-        session: DefaultWebSocketServerSession,
+    private fun sendStatusFrame(
+        session: WebSocketSession,
         status: String,
     ) {
-        val frame = Json.encodeToString(ChatFrame(type = "status", content = status))
-        runCatching { session.send(Frame.Text(frame)) }
+        val message = Json.encodeToString(ChatFrame(type = "status", content = status))
+        runCatching { session.sendSync(message) }
             .onFailure { e -> logger.trace { "LocalWsChannel: status frame send failed: ${e::class.simpleName}" } }
     }
 

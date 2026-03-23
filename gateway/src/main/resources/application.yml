@@ -1,0 +1,6 @@
+micronaut:
+  router:
+    static-resources:
+      webui:
+        paths: classpath:webui
+        mapping: /**

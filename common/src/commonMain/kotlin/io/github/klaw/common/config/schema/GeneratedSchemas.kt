@@ -778,6 +778,9 @@ object GeneratedSchemas {
                     "properties": {
                         "enabled": {
                             "type": "boolean"
+                        },
+                        "apiToken": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false

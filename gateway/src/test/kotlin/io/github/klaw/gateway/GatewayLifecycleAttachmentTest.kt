@@ -4,9 +4,7 @@ import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.gateway.channel.AttachmentInfo
 import io.github.klaw.gateway.channel.IncomingMessage
-import io.github.klaw.gateway.pairing.ConfigFileWatcher
 import io.github.klaw.gateway.pairing.InboundAllowlistService
-import io.github.klaw.gateway.pairing.PairingService
 import io.github.klaw.gateway.socket.EngineSocketClient
 import io.mockk.coVerify
 import io.mockk.every

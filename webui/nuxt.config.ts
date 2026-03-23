@@ -3,6 +3,7 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   ssr: false,
   modules: ['@nuxt/ui', '@pinia/nuxt'],
+  css: ['~/assets/css/main.css'],
   devtools: { enabled: true },
 
   app: {

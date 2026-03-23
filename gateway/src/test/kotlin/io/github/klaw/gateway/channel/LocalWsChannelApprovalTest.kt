@@ -3,12 +3,10 @@ package io.github.klaw.gateway.channel
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ChatFrame
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
-import io.ktor.server.websocket.DefaultWebSocketServerSession
-import io.ktor.websocket.Frame
-import io.ktor.websocket.readText
-import io.mockk.coEvery
-import io.mockk.coVerify
+import io.micronaut.websocket.WebSocketSession
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -25,10 +23,7 @@ class LocalWsChannelApprovalTest {
 
     private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
 
-    private fun mockSession(): DefaultWebSocketServerSession =
-        mockk(relaxed = true) {
-            coEvery { send(any<Frame>()) } returns Unit
-        }
+    private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 
     private fun approvalRequest(
         id: String = "apr-1",
@@ -54,11 +49,10 @@ class LocalWsChannelApprovalTest {
 
             channel.sendApproval("local_ws_default", approvalRequest()) { }
 
-            coVerify {
-                session.send(
-                    match<Frame.Text> {
-                        val text = it.readText()
-                        val frame = json.decodeFromString<ChatFrame>(text)
+            verify {
+                session.sendSync(
+                    match<String> {
+                        val frame = json.decodeFromString<ChatFrame>(it)
                         frame.type == "approval_request" &&
                             frame.content == "rm -rf /tmp/test" &&
                             frame.approvalId == "apr-1" &&
@@ -150,8 +144,8 @@ class LocalWsChannelApprovalTest {
         runBlocking {
             val channel = makeChannel()
             val failSession =
-                mockk<DefaultWebSocketServerSession>(relaxed = true) {
-                    coEvery { send(any<Frame>()) } throws RuntimeException("WS closed")
+                mockk<WebSocketSession>(relaxed = true) {
+                    every { sendSync(any<String>()) } throws RuntimeException("WS closed")
                 }
             channel.handleIncoming("trigger", failSession)
 

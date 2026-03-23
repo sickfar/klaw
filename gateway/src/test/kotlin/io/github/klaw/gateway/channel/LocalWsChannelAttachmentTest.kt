@@ -1,9 +1,7 @@
 package io.github.klaw.gateway.channel
 
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
-import io.ktor.server.websocket.DefaultWebSocketServerSession
-import io.ktor.websocket.Frame
-import io.mockk.coEvery
+import io.micronaut.websocket.WebSocketSession
 import io.mockk.mockk
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -19,10 +17,7 @@ class LocalWsChannelAttachmentTest {
 
     private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
 
-    private fun mockSession(): DefaultWebSocketServerSession =
-        mockk(relaxed = true) {
-            coEvery { send(any<Frame>()) } returns Unit
-        }
+    private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 
     @Test
     fun `handleIncoming with attachments populates IncomingMessage attachments`() =

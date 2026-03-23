@@ -99,6 +99,8 @@ data class AllowedGuild(
 data class WebuiConfig(
     @ConfigDoc("Enable the Web UI (REST API + SPA)")
     val enabled: Boolean = true,
+    @ConfigDoc("Bearer token for API authentication (supports \${ENV_VAR} substitution, empty = no auth)")
+    val apiToken: String = "",
 )
 
 @Serializable

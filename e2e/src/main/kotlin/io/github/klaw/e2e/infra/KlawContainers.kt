@@ -158,6 +158,7 @@ class KlawContainers(
             .withEnv("HOME", "/home/klaw")
             .withEnv("KLAW_ENGINE_HOST", "engine")
             .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
+            .withEnv("KLAW_GATEWAY_BIND", "0.0.0.0")
             .withFileSystemBind(gatewayConfigDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_WRITE)
             .withFileSystemBind(gatewayStateDir.absolutePath, "/home/klaw/.local/state/klaw", BindMode.READ_WRITE)
@@ -165,7 +166,7 @@ class KlawContainers(
             .withExposedPorts(GATEWAY_LOCAL_WS_PORT)
             .waitingFor(
                 Wait
-                    .forLogMessage(".*Ktor server started on port.*", 1)
+                    .forLogMessage(".*Micronaut HTTP server started on port.*", 1)
                     .withStartupTimeout(Duration.ofSeconds(GATEWAY_STARTUP_TIMEOUT_SECONDS)),
             ).withLogConsumer(Slf4jLogConsumer(LoggerFactory.getLogger("klaw-e2e")).withPrefix("gateway"))
 
