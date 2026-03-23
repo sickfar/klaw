@@ -35,6 +35,7 @@ internal object ConfigTemplates {
     fun engineJson(
         providerUrl: String,
         modelId: String,
+        providerType: String = "openai-compatible",
         heartbeatChannel: String? = null,
         webSearchEnabled: Boolean = false,
         webSearchProvider: String? = null,
@@ -44,6 +45,7 @@ internal object ConfigTemplates {
             buildEngineConfig(
                 providerUrl,
                 modelId,
+                providerType,
                 heartbeatChannel,
                 webSearchEnabled,
                 webSearchProvider,
@@ -55,6 +57,7 @@ internal object ConfigTemplates {
     private fun buildEngineConfig(
         providerUrl: String,
         modelId: String,
+        providerType: String,
         heartbeatChannel: String?,
         webSearchEnabled: Boolean,
         webSearchProvider: String?,
@@ -72,7 +75,7 @@ internal object ConfigTemplates {
                 WebSearchConfig()
             }
         return EngineConfig(
-            providers = buildConfigProviders(providerName, providerUrl),
+            providers = buildConfigProviders(providerName, providerUrl, providerType),
             models = buildConfigModels(modelId),
             routing = buildConfigRouting(modelId),
             context = buildConfigContext(),
@@ -274,11 +277,12 @@ internal object ConfigTemplates {
 private fun buildConfigProviders(
     providerName: String,
     providerUrl: String,
+    providerType: String = "openai-compatible",
 ): Map<String, ProviderConfig> =
     mapOf(
         providerName to
             ProviderConfig(
-                type = "openai-compatible",
+                type = providerType,
                 endpoint = providerUrl,
                 apiKey = "\${${ConfigTemplates.apiKeyEnvVar(providerName)}}",
             ),

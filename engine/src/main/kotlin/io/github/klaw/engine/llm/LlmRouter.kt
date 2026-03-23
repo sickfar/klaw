@@ -60,6 +60,7 @@ class LlmRouter(
         return clientCache.getOrPut(provider.type) {
             when (provider.type) {
                 "openai-compatible" -> OpenAiCompatibleClient(retryConfig)
+                "anthropic" -> AnthropicClient(retryConfig)
                 else -> throw KlawError.ProviderError(null, "Unsupported provider type: ${provider.type}")
             }
         }

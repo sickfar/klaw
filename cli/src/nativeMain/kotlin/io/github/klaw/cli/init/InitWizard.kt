@@ -30,7 +30,7 @@ import kotlin.native.OsFamily
 import kotlin.native.Platform
 
 private const val TOTAL_PHASES = 10
-private const val DEFAULT_MODEL = "zai/glm-5"
+private const val DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250514"
 private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
@@ -51,10 +51,20 @@ internal data class LlmProvider(
     val label: String,
     val baseUrl: String,
     val alias: String,
+    val type: String = "openai-compatible",
 )
+
+private val ANTHROPIC_MODELS =
+    listOf(
+        "claude-sonnet-4-5-20250514",
+        "claude-opus-4-6",
+        "claude-sonnet-4-6",
+        "claude-3-5-haiku-20241022",
+    )
 
 private val LLM_PROVIDERS =
     listOf(
+        LlmProvider("Anthropic Claude", "https://api.anthropic.com", "anthropic", "anthropic"),
         LlmProvider("z.ai GLM", "https://api.z.ai/api/coding/paas/v4", "zai"),
     )
 
@@ -184,6 +194,7 @@ internal class InitWizard(
             printer("Interrupted.")
             return
         }
+        val providerType = LLM_PROVIDERS[providerIdx].type
         var llmApiKey: String
         var validationResponse: String?
         while (true) {
@@ -194,7 +205,7 @@ internal class InitWizard(
                 printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
                 continue
             }
-            validationResponse = validateApiKey(providerUrl, llmApiKey)
+            validationResponse = validateApiKey(providerUrl, llmApiKey, providerType)
             if (validationResponse != null) {
                 break
             }
@@ -202,7 +213,7 @@ internal class InitWizard(
         }
 
         // Fetch models or fall back to text input
-        val modelId = selectModel(validationResponse, defaultAlias)
+        val modelId = selectModel(validationResponse, defaultAlias, providerType)
         if (modelId == null) {
             printer("Interrupted.")
             return
@@ -343,6 +354,7 @@ internal class InitWizard(
             ConfigTemplates.engineJson(
                 providerUrl = providerUrl,
                 modelId = modelId,
+                providerType = providerType,
                 heartbeatChannel = heartbeatChannel,
                 webSearchEnabled = enableWebSearch,
                 webSearchProvider = webSearchProvider?.name,
@@ -599,13 +611,16 @@ internal class InitWizard(
     }
 
     /**
-     * Validates the LLM API key via a curl request to {providerUrl}/models.
-     * Returns the raw JSON response if the key appears valid ("data" key present), else null.
+     * Validates the LLM API key via a curl request.
+     * For OpenAI-compatible: GET {providerUrl}/models with Bearer token.
+     * For Anthropic: POST {providerUrl}/v1/messages with x-api-key header and minimal request.
+     * Returns the raw JSON response if the key appears valid, else null.
      * Skips validation if the URL or key contain single-quote characters (injection prevention).
      */
     private fun validateApiKey(
         providerUrl: String,
         llmApiKey: String,
+        providerType: String = "openai-compatible",
     ): String? {
         if ("'" in providerUrl || "'" in llmApiKey) {
             CliLogger.warn { "unsafe characters in URL or key, skipping validation" }
@@ -614,6 +629,17 @@ internal class InitWizard(
             )
             return null
         }
+        return if (providerType == "anthropic") {
+            validateAnthropicApiKey(providerUrl, llmApiKey)
+        } else {
+            validateOpenAiApiKey(providerUrl, llmApiKey)
+        }
+    }
+
+    private fun validateOpenAiApiKey(
+        providerUrl: String,
+        llmApiKey: String,
+    ): String? {
         val url = "${providerUrl.trimEnd('/')}/models"
         val cmd = "curl -s -m $MODELS_FETCH_TIMEOUT -H 'Authorization: Bearer $llmApiKey' '$url'"
         val response = commandOutput(cmd) ?: return null
@@ -625,6 +651,48 @@ internal class InitWizard(
             CliLogger.warn { "API key validation failed" }
             printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
             null
+        }
+    }
+
+    private fun validateAnthropicApiKey(
+        providerUrl: String,
+        llmApiKey: String,
+    ): String? {
+        val url = "${providerUrl.trimEnd('/')}/v1/messages"
+        val body = buildAnthropicValidationBody()
+        val cmd =
+            "curl -s -m $MODELS_FETCH_TIMEOUT " +
+                "-H 'x-api-key: $llmApiKey' " +
+                "-H 'anthropic-version: 2023-06-01' " +
+                "-H 'Content-Type: application/json' " +
+                "-d '$body' " +
+                "'$url'"
+        val response = commandOutput(cmd) ?: return null
+        val isAuthError =
+            response.contains("\"authentication_error\"") ||
+                response.contains("\"permission_error\"")
+        return when {
+            response.contains("\"content\"") && !response.contains("\"error\"") -> {
+                CliLogger.debug { "Anthropic API key validation passed" }
+                printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
+                response
+            }
+
+            isAuthError -> {
+                CliLogger.warn { "Anthropic API key validation failed: auth error" }
+                printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
+                null
+            }
+
+            else -> {
+                // Transient error (rate limit, overload) — accept key
+                CliLogger.warn { "Anthropic API validation inconclusive, proceeding" }
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Validation inconclusive (service may be busy), " +
+                        "proceeding.${AnsiColors.RESET}",
+                )
+                response
+            }
         }
     }
 
@@ -684,13 +752,20 @@ internal class InitWizard(
 
     /**
      * Attempts to select a model via radio selector (if models were fetched) or text input fallback.
+     * For Anthropic, uses a hardcoded model list (no /models endpoint).
      * Returns null only if the user interrupts (ESC or EOF) during text input.
      */
     private fun selectModel(
         validationResponse: String?,
         providerAlias: String,
+        providerType: String = "openai-compatible",
     ): String? {
-        val models = parseModels(validationResponse)
+        val models =
+            if (providerType == "anthropic") {
+                ANTHROPIC_MODELS
+            } else {
+                parseModels(validationResponse)
+            }
         return if (models.isNotEmpty()) {
             val selectedIdx = radioSelector(models, "Select model:")
             if (selectedIdx != null) {
@@ -707,6 +782,11 @@ internal class InitWizard(
     private fun promptModelText(): String? {
         printer("Model ID (provider/model) [$DEFAULT_MODEL]:")
         return (readLineOrExit() ?: return null).trim().ifBlank { DEFAULT_MODEL }
+    }
+
+    private fun buildAnthropicValidationBody(): String {
+        val model = "claude-sonnet-4-5-20250514"
+        return """{"model":"$model","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}"""
     }
 
     private fun phase(

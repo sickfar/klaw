@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class WebUiBrowserSessionsTest : BrowserE2eBase() {
-
     private fun navigateToSessions() {
         page.navigate(baseUrl())
         waitForTestId("app-sidebar")

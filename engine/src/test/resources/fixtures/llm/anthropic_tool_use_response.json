@@ -1,0 +1,1 @@
+{"id":"msg_01A09q90qw90lq917835lq9","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_01A09q90qw90lq917835lq9","name":"get_weather","input":{"city":"Moscow","unit":"celsius"}}],"model":"claude-sonnet-4-5-20250514","stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":55,"output_tokens":18}}

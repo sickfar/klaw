@@ -36,18 +36,23 @@ The engine resolves placeholders via `EnvVarResolver` at startup.
 
 ## Provider Types
 
-Only `openai-compatible` is currently supported. `anthropic-compatible` is planned.
+| Type                | Providers                                  |
+|---------------------|--------------------------------------------|
+| `openai-compatible` | Z.ai (GLM-5), DeepSeek, Qwen, Ollama, OpenAI |
+| `anthropic`         | Anthropic Claude (api.anthropic.com)       |
 
-| Type                   | Providers                       |
-|------------------------|---------------------------------|
-| `openai-compatible`    | Z.ai (GLM-5), DeepSeek, Qwen, Ollama |
-| `anthropic-compatible` | Z.ai Anthropic endpoint (P1)    |
+The `anthropic` type uses the official Anthropic Java SDK. It handles the differences in auth headers (`x-api-key`), request format (top-level `system` param), and response format (content blocks) automatically.
 
 ## Example engine.json
 
 ```json
 {
   "providers": {
+    "anthropic": {
+      "type": "anthropic",
+      "endpoint": "https://api.anthropic.com",
+      "apiKey": "${ANTHROPIC_API_KEY}"
+    },
     "zai": {
       "type": "openai-compatible",
       "endpoint": "https://api.z.ai/api/paas/v4",

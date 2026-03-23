@@ -146,15 +146,42 @@ class CliCommandDispatcher(
                 val json = request.params["json"]?.toBoolean() ?: false
                 if (json) klawScheduler.listJson() else klawScheduler.list()
             }
-            "schedule_add" -> handleScheduleAdd(request.params)
-            "schedule_remove" -> handleScheduleRemove(request.params)
-            "schedule_edit" -> handleScheduleEdit(request.params)
-            "schedule_enable" -> handleScheduleEnable(request.params)
-            "schedule_disable" -> handleScheduleDisable(request.params)
-            "schedule_run" -> handleScheduleRun(request.params)
-            "schedule_runs" -> handleScheduleRuns(request.params)
-            "schedule_status" -> klawScheduler.status()
-            else -> null
+
+            "schedule_add" -> {
+                handleScheduleAdd(request.params)
+            }
+
+            "schedule_remove" -> {
+                handleScheduleRemove(request.params)
+            }
+
+            "schedule_edit" -> {
+                handleScheduleEdit(request.params)
+            }
+
+            "schedule_enable" -> {
+                handleScheduleEnable(request.params)
+            }
+
+            "schedule_disable" -> {
+                handleScheduleDisable(request.params)
+            }
+
+            "schedule_run" -> {
+                handleScheduleRun(request.params)
+            }
+
+            "schedule_runs" -> {
+                handleScheduleRuns(request.params)
+            }
+
+            "schedule_status" -> {
+                klawScheduler.status()
+            }
+
+            else -> {
+                null
+            }
         }
 
     private suspend fun handleStatus(params: Map<String, String>): String {

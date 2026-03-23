@@ -9,7 +9,6 @@ import org.junit.jupiter.api.TestMethodOrder
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class WebUiBrowserMemoryTest : BrowserE2eBase() {
-
     @Test
     @Order(1)
     fun `memory page loads`() {

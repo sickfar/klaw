@@ -63,7 +63,8 @@ class WebUiBrowserScheduleTest : BrowserE2eBase() {
 
         page.waitForSelector(
             "[data-testid='schedule-job-delete-me']",
-            Page.WaitForSelectorOptions()
+            Page
+                .WaitForSelectorOptions()
                 .setState(WaitForSelectorState.HIDDEN)
                 .setTimeout(10_000.0),
         )

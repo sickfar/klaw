@@ -28,7 +28,10 @@ abstract class BrowserE2eBase {
 
     protected fun baseUrl(): String = "http://${containers.gatewayHost}:${containers.gatewayMappedPort}"
 
-    protected fun waitForTestId(testId: String, timeoutMs: Double = 30_000.0) {
+    protected fun waitForTestId(
+        testId: String,
+        timeoutMs: Double = 30_000.0,
+    ) {
         page.waitForSelector("[data-testid='$testId']", Page.WaitForSelectorOptions().setTimeout(timeoutMs))
     }
 

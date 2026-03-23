@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.pdfbox)
     implementation(libs.kotlin.logging)
+    implementation(libs.anthropic.java)
 
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)

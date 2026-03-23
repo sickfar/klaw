@@ -26,7 +26,11 @@ import kotlin.time.Instant
 private val logger = KotlinLogging.logger {}
 
 private fun jsonEscape(s: String): String =
-    s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+    s
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
 
 /**
  * Core Quartz scheduling logic. Not a Micronaut bean — used directly in integration tests

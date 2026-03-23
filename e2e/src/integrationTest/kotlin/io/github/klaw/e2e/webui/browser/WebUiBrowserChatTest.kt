@@ -7,14 +7,15 @@ import org.junit.jupiter.api.Test
 
 @Suppress("TooManyFunctions")
 class WebUiBrowserChatTest : BrowserE2eBase() {
-
     private fun waitForWsConnected() {
         waitForTestId("connection-dot")
         page.waitForFunction(
             "document.querySelector('[data-testid=\"connection-dot\"]')" +
                 "?.classList?.contains('bg-green-500') === true",
             null,
-            com.microsoft.playwright.Page.WaitForFunctionOptions().setTimeout(30_000.0),
+            com.microsoft.playwright.Page
+                .WaitForFunctionOptions()
+                .setTimeout(30_000.0),
         )
     }
 

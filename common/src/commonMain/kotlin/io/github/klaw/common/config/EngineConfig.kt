@@ -57,7 +57,7 @@ data class EngineConfig(
 
 @Serializable
 data class ProviderConfig(
-    @ConfigDoc("Provider API type", possibleValues = ["openai-compatible"])
+    @ConfigDoc("Provider API type", possibleValues = ["openai-compatible", "anthropic"])
     val type: String,
     @ConfigDoc("API endpoint URL for this provider")
     val endpoint: String,

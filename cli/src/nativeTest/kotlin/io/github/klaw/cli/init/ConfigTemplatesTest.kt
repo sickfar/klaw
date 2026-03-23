@@ -495,6 +495,53 @@ class ConfigTemplatesTest {
         assertTrue(!json.contains("commands"), "Expected no 'commands' section (empty default) in:\n$json")
     }
 
+    // --- Anthropic provider ---
+
+    @Test
+    fun `engineJson with anthropic providerType sets type to anthropic`() {
+        val json =
+            ConfigTemplates.engineJson(
+                providerUrl = "https://api.anthropic.com",
+                modelId = "anthropic/claude-sonnet-4-5-20250514",
+                providerType = "anthropic",
+            )
+        val config = parseEngineConfig(json)
+        assertEquals("anthropic", config.providers["anthropic"]?.type)
+    }
+
+    @Test
+    fun `engineJson with anthropic providerType uses ANTHROPIC_API_KEY`() {
+        val json =
+            ConfigTemplates.engineJson(
+                providerUrl = "https://api.anthropic.com",
+                modelId = "anthropic/claude-sonnet-4-5-20250514",
+                providerType = "anthropic",
+            )
+        assertTrue(json.contains("ANTHROPIC_API_KEY"), "Expected ANTHROPIC_API_KEY in:\n$json")
+    }
+
+    @Test
+    fun `engineJson with anthropic round-trips through parser`() {
+        val json =
+            ConfigTemplates.engineJson(
+                providerUrl = "https://api.anthropic.com",
+                modelId = "anthropic/claude-sonnet-4-5-20250514",
+                providerType = "anthropic",
+            )
+        val config = parseEngineConfig(json)
+        assertTrue(config.providers.containsKey("anthropic"))
+        assertEquals("anthropic", config.providers["anthropic"]?.type)
+        assertEquals("https://api.anthropic.com", config.providers["anthropic"]?.endpoint)
+        assertEquals("anthropic/claude-sonnet-4-5-20250514", config.routing.default)
+    }
+
+    @Test
+    fun `engineJson default providerType is openai-compatible`() {
+        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val config = parseEngineConfig(json)
+        assertEquals("openai-compatible", config.providers["test"]?.type)
+    }
+
     @Test
     fun `deployConf for NATIVE latest round-trips`() {
         val result = ConfigTemplates.deployConf(DeployMode.NATIVE, "latest")

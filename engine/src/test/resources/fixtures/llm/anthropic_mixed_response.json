@@ -1,0 +1,1 @@
+{"id":"msg_01Mixed123","type":"message","role":"assistant","content":[{"type":"text","text":"Let me check the weather for you."},{"type":"tool_use","id":"toolu_01Mixed456","name":"get_weather","input":{"city":"Moscow","unit":"celsius"}}],"model":"claude-sonnet-4-5-20250514","stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":30,"output_tokens":25}}

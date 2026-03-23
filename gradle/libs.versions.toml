@@ -24,6 +24,7 @@ sqlite-jdbc = "3.49.1.0"
 jsoup = "1.18.3"
 kord = "0.17.0"
 pdfbox = "3.0.4"
+anthropic = "2.18.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -56,6 +57,7 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 kord-core = { module = "dev.kord:kord-core", version.ref = "kord" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

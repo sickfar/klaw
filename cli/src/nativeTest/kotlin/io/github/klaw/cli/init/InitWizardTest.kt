@@ -40,7 +40,7 @@ class InitWizardTest {
         output: MutableList<String> = mutableListOf(),
         engineResponses: Map<String, String> = emptyMap(),
         commandRunner: (String) -> Int = { 0 },
-        commandOutput: (String) -> String? = { """{"data":[]}""" },
+        commandOutput: (String) -> String? = { """{"content":[{"type":"text","text":"ok"}],"data":[]}""" },
         radioSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         modeSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         isDockerEnv: Boolean = false,
@@ -125,12 +125,12 @@ class InitWizardTest {
 
     @Test
     fun `null readline at telegram prompt exits wizard early and writes no config files`() {
-        // 2 inputs consumed by Phase 4 (key, model), then null at telegram prompt
-        val inputQueue = ArrayDeque(listOf("key", "test/model"))
+        // 1 input consumed by Phase 4 (key), then null at telegram prompt
+        val inputQueue = ArrayDeque(listOf("key"))
         platform.posix.mkdir(configDir, 0x1EDu)
         val wizard =
             buildWizard(readLineOverride = {
-                inputQueue.removeFirstOrNull() // returns null once all 2 consumed
+                inputQueue.removeFirstOrNull() // returns null once key consumed
             })
         wizard.run()
 
@@ -148,7 +148,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key", // API key
-                "test/model", // model text
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n", // Configure Telegram? → n = skip
                 // NO telegram token or chat IDs prompts
                 "n", // discord
@@ -182,7 +182,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n", // skip telegram
                 "n", // discord
                 "n", // localWs
@@ -285,7 +285,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "valid-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
                 "n", // skip web search
@@ -297,8 +297,8 @@ class InitWizardTest {
             buildWizard(
                 inputs = inputs,
                 output = output,
-                commandOutput = { """{"data":[{"id":"model-1"}]}""" },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                commandOutput = { """{"content":[{"type":"text","text":"ok"}]}""" },
+                radioSelector = { _, _ -> 0 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -316,7 +316,7 @@ class InitWizardTest {
             listOf(
                 "bad-key",
                 "good-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
                 "n", // skip web search
@@ -330,9 +330,15 @@ class InitWizardTest {
                 output = output,
                 commandOutput = { _ ->
                     curlCallIdx++
-                    if (curlCallIdx == 1) """{"error":"unauthorized"}""" else """{"data":[{"id":"m1"}]}"""
+                    if (curlCallIdx ==
+                        1
+                    ) {
+                        """{"type":"error","error":{"type":"authentication_error","message":"invalid"}}"""
+                    } else {
+                        """{"content":[{"type":"text","text":"ok"}]}"""
+                    }
                 },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                radioSelector = { _, _ -> 0 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -352,7 +358,7 @@ class InitWizardTest {
             listOf(
                 "key1",
                 "key2",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
                 "n", // skip web search
@@ -365,9 +371,9 @@ class InitWizardTest {
                 inputs = inputs,
                 commandOutput = { _ ->
                     curlCallIdx++
-                    if (curlCallIdx == 1) null else """{"data":[{"id":"m1"}]}"""
+                    if (curlCallIdx == 1) null else """{"content":[{"type":"text","text":"ok"}]}"""
                 },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                radioSelector = { _, _ -> 0 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -384,7 +390,7 @@ class InitWizardTest {
             listOf(
                 "key'with'quotes",
                 "good-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
                 "n", // skip web search
@@ -398,9 +404,9 @@ class InitWizardTest {
                 output = output,
                 commandOutput = { cmd ->
                     commandOutputCalled += cmd
-                    """{"data":[{"id":"m1"}]}"""
+                    """{"content":[{"type":"text","text":"ok"}]}"""
                 },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                radioSelector = { _, _ -> 0 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -420,7 +426,7 @@ class InitWizardTest {
                 "",
                 "  ",
                 "good-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
                 "n", // skip web search
@@ -432,8 +438,8 @@ class InitWizardTest {
             buildWizard(
                 inputs = inputs,
                 output = output,
-                commandOutput = { """{"data":[{"id":"m1"}]}""" },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                commandOutput = { """{"content":[{"type":"text","text":"ok"}]}""" },
+                radioSelector = { _, _ -> 0 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -491,7 +497,7 @@ class InitWizardTest {
                 commandOutput = { modelsJson },
                 radioSelector = { items, prompt ->
                     if (!prompt.contains("LLM")) capturedModels += items
-                    0 // select first item (provider or model)
+                    if (prompt.contains("LLM")) 1 else 0 // select z.ai (index 1) for LLM, first item for model
                 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
@@ -528,7 +534,7 @@ class InitWizardTest {
             buildWizard(
                 inputs = inputs,
                 commandOutput = { modelsJson },
-                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 0 else null },
+                radioSelector = { _, prompt -> if (prompt.contains("LLM")) 1 else null }, // select z.ai
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
         platform.posix.mkdir(configDir, 0x1EDu)
@@ -561,7 +567,7 @@ class InitWizardTest {
                 commandOutput = { """{"data":[]}""" },
                 radioSelector = { _, prompt ->
                     if (!prompt.contains("LLM")) modelRadioSelectorCalled += true
-                    0
+                    if (prompt.contains("LLM")) 1 else 0 // select z.ai to test OpenAI model fetch path
                 },
                 engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
             )
@@ -585,7 +591,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key", // API key
-                "test/model", // model ID
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "", // Configure Telegram? [Y/n]: blank = Y
                 "bot-token-123", // telegram token
                 "", // allowed chat IDs (empty = allow all)
@@ -613,8 +619,8 @@ class InitWizardTest {
 
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
-        assertTrue(engineJson.contains("api.z.ai"), "provider URL in engine.json")
-        assertTrue(engineJson.contains("test/model"), "model in engine.json")
+        assertTrue(engineJson.contains("api.anthropic.com"), "provider URL in engine.json")
+        assertTrue(engineJson.contains("anthropic/claude-sonnet-4-5-20250514"), "model in engine.json")
     }
 
     @Test
@@ -622,7 +628,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "secret-api-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "", // Configure Telegram? blank = Y
                 "telegram-bot-token",
                 "",
@@ -650,7 +656,7 @@ class InitWizardTest {
 
         val content = readFileText(envPath)
         assertNotNull(content)
-        assertTrue(content.contains("ZAI_API_KEY=secret-api-key"), "API key in .env: $content")
+        assertTrue(content.contains("ANTHROPIC_API_KEY=secret-api-key"), "API key in .env: $content")
         assertTrue(content.contains("KLAW_TELEGRAM_TOKEN=telegram-bot-token"), "Token in .env: $content")
     }
 
@@ -717,7 +723,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "", // telegram? Y
                 "my-token",
                 "",
@@ -1040,7 +1046,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
@@ -1108,7 +1114,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
@@ -2047,7 +2053,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -2066,13 +2072,16 @@ class InitWizardTest {
                 inputs = inputs,
                 engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
                 commandOutput = { cmd ->
-                    if (cmd.contains("brave")) "200" else """{"data":[]}"""
+                    if (cmd.contains("brave")) "200" else """{"content":[{"type":"text","text":"ok"}]}"""
                 },
                 radioSelector = { _, prompt ->
                     when {
                         prompt.contains("LLM") -> 0
+
                         prompt.contains("search", ignoreCase = true) -> 0
-                        else -> null
+
+                        // Brave
+                        else -> 0 // model selection (first Anthropic model)
                     }
                 },
             )
@@ -2101,7 +2110,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -2120,13 +2129,23 @@ class InitWizardTest {
                 inputs = inputs,
                 engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
                 commandOutput = { cmd ->
-                    if (cmd.contains("tavily")) """{"results":[]}""" else """{"data":[]}"""
+                    if (cmd.contains(
+                            "tavily",
+                        )
+                    ) {
+                        """{"results":[]}"""
+                    } else {
+                        """{"content":[{"type":"text","text":"ok"}]}"""
+                    }
                 },
                 radioSelector = { _, prompt ->
                     when {
                         prompt.contains("LLM") -> 0
+
                         prompt.contains("search", ignoreCase = true) -> 1
-                        else -> null
+
+                        // Tavily
+                        else -> 0 // model selection (first Anthropic model)
                     }
                 },
             )
@@ -2159,7 +2178,7 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
+                // model selected via radioSelector (index 0 = first Anthropic model)
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -2184,14 +2203,17 @@ class InitWizardTest {
                         searchValidationCallIdx++
                         if (searchValidationCallIdx == 1) "403" else "200"
                     } else {
-                        """{"data":[]}"""
+                        """{"content":[{"type":"text","text":"ok"}]}"""
                     }
                 },
                 radioSelector = { _, prompt ->
                     when {
                         prompt.contains("LLM") -> 0
+
                         prompt.contains("search", ignoreCase = true) -> 0
-                        else -> null
+
+                        // Brave
+                        else -> 0 // model selection (first Anthropic model)
                     }
                 },
             )

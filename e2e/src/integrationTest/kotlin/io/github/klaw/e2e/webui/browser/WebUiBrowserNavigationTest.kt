@@ -55,15 +55,16 @@ class WebUiBrowserNavigationTest : BrowserE2eBase() {
         page.navigate(baseUrl())
         waitForTestId("app-sidebar")
 
-        val pages = listOf(
-            "chat" to "chat-page",
-            "dashboard" to "dashboard-page",
-            "memory" to "memory-page",
-            "schedule" to "schedule-page",
-            "sessions" to "sessions-page",
-            "skills" to "skills-page",
-            "config" to "config-page",
-        )
+        val pages =
+            listOf(
+                "chat" to "chat-page",
+                "dashboard" to "dashboard-page",
+                "memory" to "memory-page",
+                "schedule" to "schedule-page",
+                "sessions" to "sessions-page",
+                "skills" to "skills-page",
+                "config" to "config-page",
+            )
 
         for ((navLabel, pageTestId) in pages) {
             page.click("[data-testid='nav-$navLabel']")

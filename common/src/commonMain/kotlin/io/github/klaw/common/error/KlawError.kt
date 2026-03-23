@@ -7,7 +7,8 @@ sealed class KlawError(
     data class ProviderError(
         val statusCode: Int?,
         override val message: String,
-    ) : KlawError(message)
+        override val cause: Throwable? = null,
+    ) : KlawError(message, cause)
 
     data object AllProvidersFailedError : KlawError("All LLM providers failed")
 
