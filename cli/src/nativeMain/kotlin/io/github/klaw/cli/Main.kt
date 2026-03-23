@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
+import io.github.klaw.cli.command.ChannelsCommand
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.DoctorCommand
@@ -66,6 +67,7 @@ internal class KlawCli(
         versionOption(BuildConfig.VERSION)
         subcommands(
             InitCommand(requestFn),
+            ChannelsCommand(requestFn),
             ChatCommand(configDir),
             StatusCommand(requestFn),
             SessionsCommand(requestFn),
