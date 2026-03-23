@@ -1,9 +1,15 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
+import io.github.klaw.cli.update.Downloader
+import io.github.klaw.cli.update.GitHubReleaseClient
+import io.github.klaw.cli.update.GitHubReleaseClientImpl
+import io.github.klaw.cli.update.isNewerVersion
+import io.github.klaw.cli.update.jarAssetPrefix
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.deleteRecursively
 import io.github.klaw.cli.util.fileExists
@@ -36,6 +42,7 @@ private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
 private const val SEARCH_VALIDATION_TIMEOUT = 10
+private const val MIN_JAVA_VERSION = 21
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3
@@ -138,6 +145,9 @@ internal class InitWizard(
             )
         },
     private val force: Boolean = false,
+    private val releaseClient: GitHubReleaseClient = GitHubReleaseClientImpl(),
+    private val jarDir: String = "${KlawPaths.data}/bin",
+    private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
 ) {
     @Suppress("LongMethod", "CyclomaticComplexMethod", "ReturnCount")
     fun run() {
@@ -177,6 +187,24 @@ internal class InitWizard(
                 dockerTag = (readLineOrExit() ?: return).trim().ifBlank { "latest" }
             } else {
                 dockerTag = "latest"
+            }
+        }
+
+        // ── Native pre-flight: Java version check ──
+        if (resolvedMode == DeployMode.NATIVE) {
+            val javaVersion = checkJavaVersion()
+            if (javaVersion == null) {
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Java not found. Engine and Gateway require Java $MIN_JAVA_VERSION+. " +
+                        "Install it before starting services.${AnsiColors.RESET}",
+                )
+            } else if (javaVersion < MIN_JAVA_VERSION) {
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Java $javaVersion found, but $MIN_JAVA_VERSION+ is required. " +
+                        "Upgrade before starting services.${AnsiColors.RESET}",
+                )
+            } else {
+                success("Java $javaVersion detected")
             }
         }
 
@@ -311,7 +339,34 @@ internal class InitWizard(
             printer("Web search disabled (can be enabled later in engine.json)")
         }
 
-        // ── Action phases (7–9): create directories, write configs, start services ──
+        // ── Native: Docker check + host exec prompt ──
+        var dockerAvailable = true
+        var enableHostExec = false
+        if (resolvedMode == DeployMode.NATIVE) {
+            dockerAvailable = isDockerAvailable()
+            if (!dockerAvailable) {
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Docker not found. Sandbox code execution will be unavailable. " +
+                        "Install Docker to enable it.${AnsiColors.RESET}",
+                )
+            } else {
+                success("Docker detected")
+            }
+            printer("In native mode, the agent can execute commands on the host system.")
+            if (!dockerAvailable) {
+                printer("Docker sandbox is not available, so host execution is the only way to run code.")
+            }
+            printer("Enable host command execution? [Y/n]:")
+            val hostExecAnswer = readLineOrExit() ?: return
+            enableHostExec = hostExecAnswer.trim().lowercase() != "n"
+            if (enableHostExec) {
+                success("Host execution enabled")
+            } else {
+                printer("Host execution disabled (can be enabled later in engine.json)")
+            }
+        }
+
+        // ── Action phases (8–10): create directories, write configs, start services ──
 
         val composeFilePath =
             when (resolvedMode) {
@@ -333,6 +388,11 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
+        // ── Native: download JARs and create wrapper scripts ──
+        if (resolvedMode == DeployMode.NATIVE) {
+            ensureJars()
+            createWrapperScripts()
+        }
         // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
         // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
         if (resolvedMode == DeployMode.HYBRID || resolvedMode == DeployMode.DOCKER) {
@@ -359,6 +419,7 @@ internal class InitWizard(
                 webSearchEnabled = enableWebSearch,
                 webSearchProvider = webSearchProvider?.name,
                 webSearchApiKeyEnvVar = webSearchProvider?.envVar,
+                hostExecutionEnabled = enableHostExec,
             ),
         )
         writeFileText(
@@ -478,16 +539,28 @@ internal class InitWizard(
                 val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
                 val engineBin = "$home/.local/bin/klaw-engine"
                 val gatewayBin = "$home/.local/bin/klaw-gateway"
-                val serviceInstaller =
-                    ServiceInstaller(
-                        outputDir = serviceOutputDir,
-                        commandRunner = { cmd ->
-                            commandRunner(cmd)
-                            Unit
-                        },
+                val canInstallService =
+                    Platform.osFamily == OsFamily.MACOSX || isSystemdAvailable()
+                if (canInstallService) {
+                    val serviceInstaller =
+                        ServiceInstaller(
+                            outputDir = serviceOutputDir,
+                            commandRunner = { cmd ->
+                                commandRunner(cmd)
+                                Unit
+                            },
+                        )
+                    serviceInstaller.install(engineBin, gatewayBin, envFile)
+                    success("Service files written")
+                } else {
+                    printer(
+                        "${AnsiColors.YELLOW}⚠ systemd not found. " +
+                            "Service auto-start will not be configured.${AnsiColors.RESET}",
                     )
-                serviceInstaller.install(engineBin, gatewayBin, envFile)
-                success("Service files written")
+                    printer("  Start services manually:")
+                    printer("    $engineBin")
+                    printer("    $gatewayBin")
+                }
             }
         }
 
@@ -608,6 +681,130 @@ internal class InitWizard(
         }
         success("Existing installation removed")
         return true
+    }
+
+    /**
+     * Parses the Java major version from `java -version` output.
+     * Returns the major version number (e.g. 21) or null if Java is not found or output is unparseable.
+     */
+    internal fun checkJavaVersion(): Int? {
+        val output = commandOutput("java -version 2>&1") ?: return null
+        // java -version outputs: openjdk version "21.0.1" or java version "1.8.0_301"
+        val versionRegex = Regex("""version\s+"(\d+)(?:\.(\d+))?""")
+        val match = versionRegex.find(output) ?: return null
+        val major = match.groupValues[1].toIntOrNull() ?: return null
+        // Java 8 and earlier: version "1.8.x" → major is second part
+        return if (major == 1) match.groupValues[2].toIntOrNull() else major
+    }
+
+    /**
+     * Checks if Docker is available on the system.
+     * Returns true if `docker info` succeeds.
+     */
+    internal fun isDockerAvailable(): Boolean = commandRunner("docker info > /dev/null 2>&1") == 0
+
+    /**
+     * Checks if systemd user services are available (Linux only).
+     */
+    internal fun isSystemdAvailable(): Boolean = commandRunner("systemctl --user --version > /dev/null 2>&1") == 0
+
+    /**
+     * Ensures engine and gateway JARs are present in [jarDir], downloading from GitHub if needed.
+     * If JARs exist and the local CLI version is up to date, skips download.
+     */
+    internal fun ensureJars() {
+        mkdirMode755(jarDir)
+        val files = listDirectory(jarDir)
+        val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
+        val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
+
+        if (hasEngine && hasGateway) {
+            CliLogger.debug { "JARs found in $jarDir, checking for updates" }
+            val release =
+                runBlocking {
+                    runCatching { releaseClient.fetchLatest() }
+                        .getOrElse { e ->
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            CliLogger.warn { "failed to check for updates: ${e::class.simpleName}" }
+                            null
+                        }
+                }
+            if (release == null || !isNewerVersion(BuildConfig.VERSION, release.tagName)) {
+                CliLogger.debug { "JARs are up to date" }
+                success("Engine and Gateway JARs are up to date")
+                return
+            }
+            printer("Newer version available (${release.tagName}), downloading JARs...")
+            downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
+        } else {
+            printer("Downloading Engine and Gateway JARs...")
+            val release =
+                runBlocking {
+                    runCatching { releaseClient.fetchLatest() }
+                        .getOrElse { e ->
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            CliLogger.warn { "failed to fetch release: ${e::class.simpleName}" }
+                            null
+                        }
+                }
+            if (release == null) {
+                printer(
+                    "${AnsiColors.YELLOW}⚠ Could not fetch release info. " +
+                        "Run 'klaw update' later to download JARs.${AnsiColors.RESET}",
+                )
+                return
+            }
+            downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
+        }
+    }
+
+    private fun downloadJars(assets: Map<String, String>) {
+        val downloader = Downloader(commandRunner)
+        for (component in listOf("engine", "gateway")) {
+            val prefix = jarAssetPrefix(component)
+            val entry = assets.entries.firstOrNull { it.key.startsWith(prefix) }
+            if (entry == null) {
+                printer("${AnsiColors.YELLOW}⚠ JAR asset for '$component' not found in release${AnsiColors.RESET}")
+                continue
+            }
+            val destPath = "$jarDir/klaw-$component.jar"
+            if (downloader.downloadAndReplace(entry.value, destPath)) {
+                CliLogger.debug { "$component JAR downloaded to $destPath" }
+            } else {
+                printer("${AnsiColors.YELLOW}⚠ Failed to download $component JAR${AnsiColors.RESET}")
+            }
+        }
+        success("Engine and Gateway JARs downloaded")
+    }
+
+    /**
+     * Creates wrapper scripts for engine and gateway in [binDir] if they don't exist.
+     */
+    internal fun createWrapperScripts() {
+        mkdirMode755(binDir)
+        val engineWrapper = "$binDir/klaw-engine"
+        if (!fileExists(engineWrapper)) {
+            writeFileText(
+                engineWrapper,
+                "#!/usr/bin/env bash\n" +
+                    "exec java -Xms64m -Xmx512m " +
+                    "-jar \"\${HOME}/.local/share/klaw/bin/klaw-engine.jar\" \"$@\"\n",
+            )
+            chmodExecutable(engineWrapper)
+            CliLogger.debug { "created engine wrapper at $engineWrapper" }
+        }
+        val gatewayWrapper = "$binDir/klaw-gateway"
+        if (!fileExists(gatewayWrapper)) {
+            writeFileText(
+                gatewayWrapper,
+                "#!/usr/bin/env bash\n" +
+                    "exec java -Xms32m -Xmx128m " +
+                    "-jar \"\${HOME}/.local/share/klaw/bin/klaw-gateway.jar\" \"$@\"\n",
+            )
+            chmodExecutable(gatewayWrapper)
+            CliLogger.debug { "created gateway wrapper at $gatewayWrapper" }
+        }
+        success("Wrapper scripts ready")
     }
 
     /**

@@ -474,6 +474,30 @@ class ConfigTemplatesTest {
     }
 
     @Test
+    fun `engineJson with hostExecutionEnabled=true includes hostExecution section`() {
+        val json =
+            ConfigTemplates.engineJson(
+                providerUrl = "https://api.example.com",
+                modelId = "test/model",
+                hostExecutionEnabled = true,
+            )
+        assertTrue(json.contains("hostExecution"), "Expected 'hostExecution' section in:\n$json")
+        val config = parseEngineConfig(json)
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true")
+    }
+
+    @Test
+    fun `engineJson with hostExecutionEnabled=false omits hostExecution section`() {
+        val json =
+            ConfigTemplates.engineJson(
+                providerUrl = "https://api.example.com",
+                modelId = "test/model",
+                hostExecutionEnabled = false,
+            )
+        assertTrue(!json.contains("hostExecution"), "Expected no 'hostExecution' section in:\n$json")
+    }
+
+    @Test
     fun `engineJson minimal config omits commands section`() {
         val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
         assertTrue(!json.contains("\"commands\""), "Expected no 'commands' section (empty default) in:\n$json")

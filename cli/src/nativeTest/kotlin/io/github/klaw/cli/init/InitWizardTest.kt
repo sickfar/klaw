@@ -1,9 +1,11 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.readFileText
+import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -34,6 +36,14 @@ class InitWizardTest {
         deleteDir(tmpDir)
     }
 
+    /** No-op release client that returns null (skips JAR download). */
+    private val noOpReleaseClient =
+        object : GitHubReleaseClient {
+            override suspend fun fetchLatest() = null
+
+            override suspend fun fetchByTag(tag: String) = null
+        }
+
     @Suppress("LongParameterList")
     private fun buildWizard(
         inputs: List<String> = emptyList(),
@@ -46,6 +56,7 @@ class InitWizardTest {
         isDockerEnv: Boolean = false,
         readLineOverride: (() -> String?)? = null,
         force: Boolean = false,
+        releaseClient: GitHubReleaseClient = noOpReleaseClient,
     ): InitWizard {
         val inputQueue = ArrayDeque(inputs)
         return InitWizard(
@@ -79,6 +90,9 @@ class InitWizardTest {
                 )
             },
             force = force,
+            releaseClient = releaseClient,
+            jarDir = "$tmpDir/jars",
+            binDir = "$tmpDir/bin",
         )
     }
 
@@ -154,6 +168,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -187,6 +202,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -225,6 +241,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -257,6 +274,7 @@ class InitWizardTest {
                 "",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -289,6 +307,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -320,6 +339,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -362,6 +382,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -394,6 +415,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -430,6 +452,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -486,6 +509,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -525,6 +549,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -556,6 +581,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -598,6 +624,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "TestAgent", // agent name
                 "personal assistant", // role
                 "developer", // user info
@@ -635,6 +662,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -672,6 +700,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "MyBot",
                 "coding helper",
                 "engineer",
@@ -730,6 +759,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "MyBot",
                 "coding helper",
                 "Roman",
@@ -777,6 +807,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -980,6 +1011,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -1014,6 +1046,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -1054,6 +1087,7 @@ class InitWizardTest {
                 "y", // Phase 5: enable localWs
                 "37474", // Phase 5: port
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1089,6 +1123,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // Phase 5: do not enable localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1122,6 +1157,7 @@ class InitWizardTest {
                 "y", // Phase 5: enable localWs
                 "9090", // Phase 5: custom port
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1406,6 +1442,7 @@ class InitWizardTest {
                 "n",
                 "n",
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1599,6 +1636,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw", // agent name
                 "assistant", // role
                 "user", // user info
@@ -1646,6 +1684,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1684,6 +1723,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1735,6 +1775,7 @@ class InitWizardTest {
                     "n", // discord
                     "n", // skip localWs
                     "n", // skip web search
+                    "", // host exec (default yes)
                 ),
             )
         val output = mutableListOf<String>()
@@ -1821,6 +1862,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1865,6 +1907,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -1907,6 +1950,7 @@ class InitWizardTest {
                     "n", // discord
                     "n", // skip localWs
                     "n", // skip web search
+                    "", // host exec (default yes)
                 ),
             )
         val output = mutableListOf<String>()
@@ -1974,6 +2018,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "NewBot", // agent name (hatching runs on fresh init)
                 "helper", // role
                 "dev", // user info
@@ -2013,6 +2058,7 @@ class InitWizardTest {
                 "n", // discord
                 "n", // skip localWs
                 "n", // skip web search
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2059,6 +2105,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "y", // enable web search
                 "brave-api-key-123", // search API key
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2116,6 +2163,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "y", // enable web search
                 "tavily-api-key-456", // search API key
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2185,6 +2233,7 @@ class InitWizardTest {
                 "y", // enable web search
                 "bad-search-key", // first attempt (will fail validation)
                 "good-search-key", // second attempt (will pass validation)
+                "", // host exec (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2236,6 +2285,302 @@ class InitWizardTest {
             envContent.contains("BRAVE_SEARCH_API_KEY=good-search-key"),
             "Expected good search key in .env:\n$envContent",
         )
+    }
+
+    // --- Java version check ---
+
+    @Test
+    fun `checkJavaVersion parses java 21 output`() {
+        val wizard =
+            buildWizard(
+                commandOutput = { "openjdk version \"21.0.1\" 2023-10-17" },
+            )
+        val version = wizard.checkJavaVersion()
+        assertTrue(version == 21, "Expected Java 21, got $version")
+    }
+
+    @Test
+    fun `checkJavaVersion parses java 8 output with 1-dot prefix`() {
+        val wizard =
+            buildWizard(
+                commandOutput = { "java version \"1.8.0_301\"" },
+            )
+        val version = wizard.checkJavaVersion()
+        assertTrue(version == 8, "Expected Java 8, got $version")
+    }
+
+    @Test
+    fun `checkJavaVersion returns null when java not found`() {
+        val wizard =
+            buildWizard(
+                commandOutput = { null },
+            )
+        val version = wizard.checkJavaVersion()
+        assertTrue(version == null, "Expected null when java not found, got $version")
+    }
+
+    @Test
+    fun `checkJavaVersion parses java 17 output`() {
+        val wizard =
+            buildWizard(
+                commandOutput = { "openjdk version \"17.0.5\" 2022-10-18" },
+            )
+        val version = wizard.checkJavaVersion()
+        assertTrue(version == 17, "Expected Java 17, got $version")
+    }
+
+    // --- Docker availability check ---
+
+    @Test
+    fun `isDockerAvailable returns true when docker info succeeds`() {
+        val wizard =
+            buildWizard(
+                commandRunner = { 0 },
+            )
+        assertTrue(wizard.isDockerAvailable(), "Expected Docker to be available")
+    }
+
+    @Test
+    fun `isDockerAvailable returns false when docker info fails`() {
+        val wizard =
+            buildWizard(
+                commandRunner = { if (it.contains("docker info")) 1 else 0 },
+            )
+        assertTrue(!wizard.isDockerAvailable(), "Expected Docker to be unavailable")
+    }
+
+    // --- systemd availability check ---
+
+    @Test
+    fun `isSystemdAvailable returns true when systemctl succeeds`() {
+        val wizard =
+            buildWizard(
+                commandRunner = { 0 },
+            )
+        assertTrue(wizard.isSystemdAvailable(), "Expected systemd to be available")
+    }
+
+    @Test
+    fun `isSystemdAvailable returns false when systemctl fails`() {
+        val wizard =
+            buildWizard(
+                commandRunner = { if (it.contains("systemctl")) 1 else 0 },
+            )
+        assertTrue(!wizard.isSystemdAvailable(), "Expected systemd to be unavailable")
+    }
+
+    // --- Host exec prompt ---
+
+    @Test
+    fun `native mode host exec prompt defaults to yes`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true for native mode default")
+    }
+
+    @Test
+    fun `native mode host exec prompt n disables host execution`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "n", // host exec = no
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(!engineJson.contains("hostExecution"), "Expected no hostExecution section when disabled")
+    }
+
+    @Test
+    fun `hybrid mode skips host exec prompt`() {
+        val inputs =
+            listOf(
+                "latest", // docker tag
+                "my-key",
+                "test/model",
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                // NO host exec input — hybrid should not ask
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                modeSelector = { _, _ -> 1 },
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(!outputText.contains("host command execution"), "Hybrid should not ask about host exec")
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+    }
+
+    // --- Native mode Docker warning ---
+
+    @Test
+    fun `native mode warns when docker is not available`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandRunner = { cmd -> if (cmd.contains("docker info")) 1 else 0 },
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("Docker not found"), "Expected Docker warning in output:\n$outputText")
+    }
+
+    // --- Java version warning in native mode ---
+
+    @Test
+    fun `native mode warns when java is not found`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                commandOutput = { cmd ->
+                    if (cmd.contains("java -version")) null
+                    else """{"content":[{"type":"text","text":"ok"}],"data":[]}"""
+                },
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("Java not found"), "Expected Java warning in output:\n$outputText")
+    }
+
+    // --- Wrapper script creation ---
+
+    @Test
+    fun `native mode creates wrapper scripts in bin dir`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$tmpDir/bin/klaw-engine"), "Expected engine wrapper script")
+        assertTrue(fileExists("$tmpDir/bin/klaw-gateway"), "Expected gateway wrapper script")
+        val engineContent = readFileText("$tmpDir/bin/klaw-engine")
+        assertNotNull(engineContent)
+        assertTrue(engineContent.contains("java"), "Expected java in engine wrapper")
+        assertTrue(engineContent.contains("klaw-engine.jar"), "Expected JAR reference in engine wrapper")
     }
 
     @OptIn(ExperimentalForeignApi::class)
