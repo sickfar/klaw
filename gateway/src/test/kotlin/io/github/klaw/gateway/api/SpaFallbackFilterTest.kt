@@ -13,8 +13,9 @@ class SpaFallbackFilterTest {
     }
 
     @Test
-    fun `shouldSkip returns true for chat path - WebSocket endpoint`() {
-        assertTrue(SpaFallbackFilter.shouldSkip("/chat"))
+    fun `shouldSkip returns true for WebSocket path`() {
+        assertTrue(SpaFallbackFilter.shouldSkip("/ws/chat"))
+        assertTrue(SpaFallbackFilter.shouldSkip("/ws/other"))
     }
 
     @Test
@@ -43,6 +44,7 @@ class SpaFallbackFilterTest {
     @Test
     fun `shouldSkip returns false for SPA client routes`() {
         assertFalse(SpaFallbackFilter.shouldSkip("/"))
+        assertFalse(SpaFallbackFilter.shouldSkip("/chat"))
         assertFalse(SpaFallbackFilter.shouldSkip("/dashboard"))
         assertFalse(SpaFallbackFilter.shouldSkip("/memory"))
         assertFalse(SpaFallbackFilter.shouldSkip("/schedule"))

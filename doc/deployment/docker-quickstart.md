@@ -79,6 +79,20 @@ Volumes persist across container restarts. Data is never lost when stopping or u
 
 ---
 
+## Web UI
+
+After setup, open the Web UI in a browser:
+
+```
+http://localhost:37474
+```
+
+The dashboard shows engine status, active sessions, and LLM usage. You can also chat with the agent, manage memory, scheduled tasks, skills, and configuration — all from the browser.
+
+> The Web UI is enabled by default. To disable it, set `"webui": {"enabled": false}` in `gateway.json`. See `doc/webui/overview.md` for authentication and configuration details.
+
+---
+
 ## Daily commands
 
 After setup, use the `klaw` wrapper (or the full `docker run` command):

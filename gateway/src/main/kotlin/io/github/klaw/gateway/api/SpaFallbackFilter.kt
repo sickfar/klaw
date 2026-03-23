@@ -46,7 +46,7 @@ class SpaFallbackFilter : HttpServerFilter {
     companion object {
         const val POSITION = 100
 
-        private val SKIP_PREFIXES = listOf("/api/", "/_nuxt/", "/upload", "/chat")
+        private val SKIP_PREFIXES = listOf("/api/", "/_nuxt/", "/upload", "/ws/")
         private val SKIP_EXACT = setOf("/api", "/health")
 
         fun shouldSkip(path: String): Boolean {

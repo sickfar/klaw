@@ -6,6 +6,7 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 import io.github.klaw.e2e.infra.ConfigGenerator
 import io.github.klaw.e2e.infra.KlawContainers
+import io.github.klaw.e2e.infra.RestApiClient
 import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
 import org.junit.jupiter.api.AfterAll
@@ -21,8 +22,15 @@ abstract class BrowserE2eBase {
     protected lateinit var playwright: Playwright
     protected lateinit var browser: Browser
     protected lateinit var page: Page
+    protected val restApi: RestApiClient by lazy {
+        RestApiClient(containers.gatewayHost, containers.gatewayMappedPort)
+    }
 
     protected fun baseUrl(): String = "http://${containers.gatewayHost}:${containers.gatewayMappedPort}"
+
+    protected fun waitForTestId(testId: String, timeoutMs: Double = 30_000.0) {
+        page.waitForSelector("[data-testid='$testId']", Page.WaitForSelectorOptions().setTimeout(timeoutMs))
+    }
 
     @BeforeAll
     fun startBrowserInfrastructure() {
@@ -39,6 +47,7 @@ abstract class BrowserE2eBase {
                 gatewayJson = ConfigGenerator.gatewayJson(webuiEnabled = true),
                 workspaceDir = workspaceDir,
             )
+        wireMock.stubChatResponse("default-test-response")
         containers.start()
         playwright = Playwright.create()
         browser = playwright.chromium().launch(BrowserType.LaunchOptions().setHeadless(true))
@@ -46,6 +55,7 @@ abstract class BrowserE2eBase {
 
     @AfterAll
     fun stopBrowserInfrastructure() {
+        restApi.close()
         browser.close()
         playwright.close()
         containers.stop()

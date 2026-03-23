@@ -63,7 +63,7 @@ async function deleteFact(factId: string) {
             variant="subtle"
             size="xs"
           >
-            {{ cat.factCount }}
+            {{ cat.entryCount }}
           </UBadge>
         </button>
         <p

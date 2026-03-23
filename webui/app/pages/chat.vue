@@ -9,8 +9,8 @@ onMounted(async () => {
   ws.connect()
 
   try {
-    const sessions = await api<string[]>('/sessions')
-    chatStore.setAvailableSessions(sessions)
+    const sessions = await api<Array<{ chatId: string }>>('/sessions')
+    chatStore.setAvailableSessions(sessions.map(s => s.chatId))
   }
   catch {
     // sessions endpoint may not exist yet

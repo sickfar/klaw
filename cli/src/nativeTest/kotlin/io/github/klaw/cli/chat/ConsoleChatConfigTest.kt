@@ -121,13 +121,13 @@ class ConsoleChatConfigTest {
     @Test
     fun `wsUrl builds correct url`() {
         val config = ConsoleChatConfig(enabled = true, port = 37474)
-        assertEquals("ws://localhost:37474/chat", config.wsUrl)
+        assertEquals("ws://localhost:37474/ws/chat", config.wsUrl)
     }
 
     @Test
     fun `wsUrl with custom port`() {
         val config = ConsoleChatConfig(enabled = true, port = 9090)
-        assertEquals("ws://localhost:9090/chat", config.wsUrl)
+        assertEquals("ws://localhost:9090/ws/chat", config.wsUrl)
     }
 
     @Test

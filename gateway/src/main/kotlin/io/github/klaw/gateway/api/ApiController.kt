@@ -143,7 +143,8 @@ class ApiController(
     // ── Schedule ──
 
     @Get("/schedule/jobs")
-    suspend fun scheduleJobs(): HttpResponse<String> = respondJson(engineProxy.send("schedule_list"))
+    suspend fun scheduleJobs(): HttpResponse<String> =
+        respondJson(engineProxy.send("schedule_list", mapOf("json" to "true")))
 
     @Post("/schedule/jobs")
     suspend fun scheduleAddJob(

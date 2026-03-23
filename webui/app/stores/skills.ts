@@ -11,7 +11,8 @@ export const useSkillsStore = defineStore('skills', () => {
     loading.value = true
     error.value = null
     try {
-      skills.value = await api<SkillInfo[]>('/skills')
+      const response = await api<{ skills: SkillInfo[] }>('/skills')
+      skills.value = response.skills
     }
     catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch skills'

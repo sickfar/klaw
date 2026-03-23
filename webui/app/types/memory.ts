@@ -1,6 +1,6 @@
 export interface MemoryCategory {
   name: string
-  factCount: number
+  entryCount: number
 }
 
 export interface MemoryFact {

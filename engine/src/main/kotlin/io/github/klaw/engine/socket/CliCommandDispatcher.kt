@@ -142,7 +142,10 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchScheduleCommand(request: CliRequestMessage): String? =
         when (request.command) {
-            "schedule_list" -> klawScheduler.list()
+            "schedule_list" -> {
+                val json = request.params["json"]?.toBoolean() ?: false
+                if (json) klawScheduler.listJson() else klawScheduler.list()
+            }
             "schedule_add" -> handleScheduleAdd(request.params)
             "schedule_remove" -> handleScheduleRemove(request.params)
             "schedule_edit" -> handleScheduleEdit(request.params)

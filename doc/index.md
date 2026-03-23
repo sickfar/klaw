@@ -24,6 +24,11 @@ Natural language queries work well. Example: `docs_search "how do I schedule a t
 8. Search past conversation history (`history_search`)
 9. Read and update engine/gateway configuration (`config_get`, `config_set`)
 
+## Web UI docs
+
+- `doc/webui/overview.md` — Web UI overview: pages, configuration, authentication
+- `doc/webui/rest-api.md` — REST API reference for all `/api/v1` endpoints
+
 ## Architecture docs
 
 - `doc/message-delivery.md` — how messages are buffered and recovered when components are temporarily unavailable

@@ -25,6 +25,9 @@ import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
 
+private fun jsonEscape(s: String): String =
+    s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+
 /**
  * Core Quartz scheduling logic. Not a Micronaut bean — used directly in integration tests
  * (no ApplicationContext required). Wrapped by [KlawSchedulerImpl] for production use.
@@ -78,6 +81,36 @@ class QuartzKlawScheduler(
                     trigger?.previousFireTime?.let { appendLine("  Prev: $it") }
                 }
             }.trimEnd()
+        }
+
+    override suspend fun listJson(): String =
+        withContext(Dispatchers.VT) {
+            val keys = quartzScheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_GROUP))
+            val items =
+                keys.mapNotNull { key ->
+                    val detail = quartzScheduler.getJobDetail(key) ?: return@mapNotNull null
+                    val triggers = quartzScheduler.getTriggersOfJob(key)
+                    val trigger = triggers.firstOrNull()
+                    val data = detail.jobDataMap
+                    val triggerKey = TriggerKey(key.name, TRIGGER_GROUP)
+                    val triggerState = quartzScheduler.getTriggerState(triggerKey)
+                    val enabled = triggerState != Trigger.TriggerState.PAUSED
+                    val cron = (trigger as? CronTrigger)?.cronExpression ?: ""
+                    val message = data.getString("message") ?: ""
+                    val nextFire = trigger?.nextFireTime?.toInstant()?.toString() ?: ""
+                    val lastFire = trigger?.previousFireTime?.toInstant()?.toString() ?: ""
+                    buildString {
+                        append("{")
+                        append(""""name":"${jsonEscape(key.name)}"""")
+                        append(""","cron":"${jsonEscape(cron)}"""")
+                        append(""","prompt":"${jsonEscape(message)}"""")
+                        append(""","enabled":$enabled""")
+                        if (nextFire.isNotEmpty()) append(""","nextFireTime":"$nextFire"""")
+                        if (lastFire.isNotEmpty()) append(""","lastFireTime":"$lastFire"""")
+                        append("}")
+                    }
+                }
+            items.joinToString(",", "[", "]")
         }
 
     @Suppress("LongParameterList", "LongMethod")

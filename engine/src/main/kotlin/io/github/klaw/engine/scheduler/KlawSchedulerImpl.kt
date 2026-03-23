@@ -36,6 +36,8 @@ class KlawSchedulerImpl(
 
     override suspend fun list() = inner.list()
 
+    override suspend fun listJson() = inner.listJson()
+
     override suspend fun add(
         name: String,
         cron: String?,

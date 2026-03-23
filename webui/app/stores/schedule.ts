@@ -55,7 +55,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     try {
       await api('/schedule/jobs', {
         method: 'POST',
-        body: job,
+        body: { name: job.name, cron: job.cron, message: job.prompt },
       })
       await fetchJobs()
     }

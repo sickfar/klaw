@@ -63,6 +63,10 @@ klaw doctor --dump-schema gateway > gateway.schema.json
     "drainBudgetSeconds": 30,
     "channelDrainBudgetSeconds": 30
   },
+  "webui": {
+    "enabled": true,
+    "apiToken": ""
+  },
   "commands": [
     {"name": "new", "description": "Start a new conversation"},
     {"name": "model", "description": "Show or change the active model"},
@@ -131,7 +135,7 @@ If a chat is not paired, the user will receive "Not paired. Send /start to get a
 | `enabled` | boolean | `false` | Enable the local WebSocket channel (`klaw chat`) |
 | `port` | integer | `37474` | Port the Gateway WebSocket server listens on |
 
-The local WebSocket channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's `/chat` WebSocket endpoint at `ws://localhost:<port>/chat`.
+The local WebSocket channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's WebSocket endpoint at `ws://localhost:<port>/ws/chat`.
 
 **Disabled by default.** The Gateway always registers the `/chat` endpoint, but rejects all connections unless `enabled` is `true`.
 
@@ -291,3 +295,29 @@ Delivery reliability settings controlling reconnection behavior, buffer drain bu
 **`channelDrainBudgetSeconds`** — Same as above but for per-channel outbound buffers (e.g., when a Telegram channel comes back online after being unreachable).
 
 **Permanent error detection** — The gateway automatically detects permanent delivery errors from Telegram (bot blocked, chat not found, insufficient permissions) and drops those messages instead of retrying indefinitely. This requires no configuration.
+
+---
+
+## webui
+
+Browser-based dashboard and REST API.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable the Web UI and REST API |
+| `apiToken` | string | `""` | Bearer token for API authentication. Empty = no auth |
+
+When enabled, the Gateway serves the Web UI at `http://localhost:<port>` (same port as `channels.localWs.port`). The REST API is available at `/api/v1`.
+
+When `apiToken` is set, all API requests must include `Authorization: Bearer <token>`. Environment variable substitution is supported: `"apiToken": "${KLAW_WEBUI_TOKEN}"`.
+
+See `doc/webui/overview.md` for page descriptions and `doc/webui/rest-api.md` for the full API reference.
+
+```json
+{
+  "webui": {
+    "enabled": true,
+    "apiToken": "${KLAW_WEBUI_TOKEN}"
+  }
+}
+```

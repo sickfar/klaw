@@ -3,6 +3,8 @@ package io.github.klaw.engine.scheduler
 interface KlawScheduler {
     suspend fun list(): String
 
+    suspend fun listJson(): String = "[]"
+
     @Suppress("LongParameterList")
     suspend fun add(
         name: String,

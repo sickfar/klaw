@@ -141,6 +141,20 @@ Data stays on the host filesystem (bind mounts to XDG paths), so you can access 
 
 ---
 
+## Web UI
+
+After setup, open the Web UI in a browser:
+
+```
+http://localhost:37474
+```
+
+The dashboard shows engine status, active sessions, and LLM usage. You can also chat with the agent, manage memory, scheduled tasks, skills, and configuration — all from the browser.
+
+> The Web UI is enabled by default. To disable it, set `"webui": {"enabled": false}` in `gateway.json`. See `doc/webui/overview.md` for authentication and configuration details.
+
+---
+
 ## Daily commands
 
 ```bash

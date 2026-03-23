@@ -14,7 +14,8 @@ export const useMemoryStore = defineStore('memory', () => {
     loading.value = true
     error.value = null
     try {
-      categories.value = await api<MemoryCategory[]>('/memory/categories')
+      const response = await api<{ categories: MemoryCategory[] }>('/memory/categories')
+      categories.value = response.categories
     }
     catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch categories'

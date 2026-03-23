@@ -14,9 +14,9 @@ export function useWebSocket() {
   function getWsUrl(): string {
     if (import.meta.client) {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      return `${proto}//${window.location.host}/chat`
+      return `${proto}//${window.location.host}/ws/chat`
     }
-    return 'ws://localhost/chat'
+    return 'ws://localhost/ws/chat'
   }
 
   function connect() {

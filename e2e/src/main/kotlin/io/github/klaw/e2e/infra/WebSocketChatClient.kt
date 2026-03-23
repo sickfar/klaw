@@ -45,7 +45,7 @@ class WebSocketChatClient {
         host: String,
         port: Int,
     ) = runBlocking {
-        httpClient.webSocket("ws://$host:$port/chat") {
+        httpClient.webSocket("ws://$host:$port/ws/chat") {
             session = this
             connected = true
             logger.debug { "WebSocket connected to $host:$port" }

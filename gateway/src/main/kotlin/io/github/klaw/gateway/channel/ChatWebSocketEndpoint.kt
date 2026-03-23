@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 
 private val logger = KotlinLogging.logger {}
 
-@ServerWebSocket("/chat")
+@ServerWebSocket("/ws/chat")
 @Requires(condition = WsEnabledCondition::class)
 class ChatWebSocketEndpoint(
     private val localWsChannel: LocalWsChannel,

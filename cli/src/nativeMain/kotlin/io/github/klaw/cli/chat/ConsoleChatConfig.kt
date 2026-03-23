@@ -7,7 +7,7 @@ internal data class ConsoleChatConfig(
     val enabled: Boolean,
     val port: Int = 37474,
 ) {
-    val wsUrl: String get() = "ws://localhost:$port/chat"
+    val wsUrl: String get() = "ws://localhost:$port/ws/chat"
 }
 
 /**
