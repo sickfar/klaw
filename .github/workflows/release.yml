@@ -124,6 +124,10 @@ jobs:
       - name: List release artifacts
         run: ls -lh release-dist/
 
+      - name: Generate checksums
+        working-directory: release-dist
+        run: sha256sum klaw-linux* klaw-macos* > checksums.sha256 && cat checksums.sha256
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

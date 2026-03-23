@@ -1,8 +1,30 @@
 # Native Quick Start
 
-Run Klaw without Docker — downloads JARs and CLI binary from GitHub Releases. Requires only Java 21+.
+Run Klaw without Docker — downloads native binaries from GitHub Releases.
 
-## Prerequisites
+## Quick Install (CLI only)
+
+Install just the `klaw` CLI binary — no Java required:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh)"
+```
+
+This installs `klaw` to `~/.local/bin/klaw`. Pin a specific version:
+
+```bash
+KLAW_VERSION=v0.5.0 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh)"
+```
+
+Supported platforms: Linux x86-64, Linux arm64, macOS Apple Silicon (arm64).
+
+---
+
+## Full Install (CLI + Engine + Gateway)
+
+Downloads CLI binary, Engine and Gateway JARs, and creates wrapper scripts. Requires Java 21+.
+
+### Prerequisites
 
 - Java 21 or later
 - `curl` and `bash`
@@ -16,16 +38,14 @@ java -version
 # Expected: openjdk version "21" or higher
 ```
 
----
-
-## Install
+### Install
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/install-klaw.sh)
 ```
 
 This script:
-1. Detects your platform (Linux x86-64/arm64, macOS Intel/Apple Silicon)
+1. Detects your platform (Linux x86-64/arm64, macOS Apple Silicon)
 2. Downloads the latest `klaw` CLI binary to `~/.local/bin/klaw`
 3. Downloads `klaw-engine.jar` and `klaw-gateway.jar` to `~/.local/share/klaw/bin/`
 4. Creates `klaw-engine` and `klaw-gateway` wrapper scripts in `~/.local/bin/`
@@ -173,7 +193,17 @@ klaw status --sessions   # include active sessions
 
 ## Updating
 
-Re-run the install script to download the latest release:
+### CLI only
+
+Re-run the quick install script:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh)"
+```
+
+### Full stack (CLI + Engine + Gateway)
+
+Re-run the full install script:
 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/install-klaw.sh)

@@ -41,6 +41,65 @@ jobs:
       - name: Code Quality
         run: ./gradlew ktlintCheck detekt
 
+      - name: Lint shell scripts
+        run: shellcheck scripts/get-klaw.sh scripts/install-klaw.sh
+
+  build-cli-linux:
+    name: CLI (Linux x64 + arm64)
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Link release executables
+        run: ./gradlew :cli:linkReleaseExecutableLinuxX64 :cli:linkReleaseExecutableLinuxArm64
+
+      - name: Upload CLI binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-linux
+          path: |
+            cli/build/bin/linuxX64/releaseExecutable/klaw.kexe
+            cli/build/bin/linuxArm64/releaseExecutable/klaw.kexe
+          retention-days: 7
+
+  build-cli-macos:
+    name: CLI (macOS arm64 + x64)
+    needs: [build]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Link release executables
+        run: ./gradlew :cli:linkReleaseExecutableMacosArm64 :cli:linkReleaseExecutableMacosX64
+
+      - name: Upload CLI binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-macos
+          path: |
+            cli/build/bin/macosArm64/releaseExecutable/klaw.kexe
+            cli/build/bin/macosX64/releaseExecutable/klaw.kexe
+          retention-days: 7
+
   publish-docker:
     name: Docker ${{ matrix.image }}
     needs: [build]
