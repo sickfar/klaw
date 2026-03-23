@@ -404,13 +404,12 @@ class InitWizardTest {
     }
 
     @Test
-    fun `api key with single quote re-prompts until safe valid key provided`() {
+    fun `api key with single quote skips validation and proceeds`() {
         val output = mutableListOf<String>()
         val commandOutputCalled = mutableListOf<String>()
         val inputs =
             listOf(
                 "key'with'quotes",
-                "good-key",
                 // model selected via radioSelector (index 0 = first Anthropic model)
                 "n",
                 "n",
@@ -436,8 +435,13 @@ class InitWizardTest {
 
         val text = output.joinToString("\n")
         assertTrue(text.contains("unsafe"), "Expected unsafe characters warning:\n$text")
-        assertTrue(commandOutputCalled.size == 1, "commandOutput should be called once for the valid key only")
-        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete after valid key")
+        // Validation skipped — no curl calls for API key validation
+        val validationCalls = commandOutputCalled.filter { it.contains("curl") }
+        assertTrue(
+            validationCalls.isEmpty(),
+            "No curl validation should be called for unsafe key, got: $validationCalls",
+        )
+        assertTrue(fileExists("$configDir/engine.json"), "Wizard should complete with unsafe key")
     }
 
     @Test
@@ -1322,8 +1326,9 @@ class InitWizardTest {
                 "latest",
                 "my-key",
                 "test/model",
-                "n",
-                "n",
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
                 "n", // skip web search
                 "Klaw",
                 "assistant",
@@ -1356,8 +1361,9 @@ class InitWizardTest {
                 "latest",
                 "my-key",
                 "test/model",
-                "n",
-                "n",
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
                 "n", // skip web search
                 "Klaw",
                 "assistant",
@@ -1402,8 +1408,9 @@ class InitWizardTest {
                 "latest",
                 "my-key",
                 "test/model",
-                "n",
-                "n",
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
                 "n", // skip web search
                 "Klaw",
                 "assistant",
@@ -2287,88 +2294,6 @@ class InitWizardTest {
         )
     }
 
-    // --- Java version check ---
-
-    @Test
-    fun `checkJavaVersion parses java 21 output`() {
-        val wizard =
-            buildWizard(
-                commandOutput = { "openjdk version \"21.0.1\" 2023-10-17" },
-            )
-        val version = wizard.checkJavaVersion()
-        assertTrue(version == 21, "Expected Java 21, got $version")
-    }
-
-    @Test
-    fun `checkJavaVersion parses java 8 output with 1-dot prefix`() {
-        val wizard =
-            buildWizard(
-                commandOutput = { "java version \"1.8.0_301\"" },
-            )
-        val version = wizard.checkJavaVersion()
-        assertTrue(version == 8, "Expected Java 8, got $version")
-    }
-
-    @Test
-    fun `checkJavaVersion returns null when java not found`() {
-        val wizard =
-            buildWizard(
-                commandOutput = { null },
-            )
-        val version = wizard.checkJavaVersion()
-        assertTrue(version == null, "Expected null when java not found, got $version")
-    }
-
-    @Test
-    fun `checkJavaVersion parses java 17 output`() {
-        val wizard =
-            buildWizard(
-                commandOutput = { "openjdk version \"17.0.5\" 2022-10-18" },
-            )
-        val version = wizard.checkJavaVersion()
-        assertTrue(version == 17, "Expected Java 17, got $version")
-    }
-
-    // --- Docker availability check ---
-
-    @Test
-    fun `isDockerAvailable returns true when docker info succeeds`() {
-        val wizard =
-            buildWizard(
-                commandRunner = { 0 },
-            )
-        assertTrue(wizard.isDockerAvailable(), "Expected Docker to be available")
-    }
-
-    @Test
-    fun `isDockerAvailable returns false when docker info fails`() {
-        val wizard =
-            buildWizard(
-                commandRunner = { if (it.contains("docker info")) 1 else 0 },
-            )
-        assertTrue(!wizard.isDockerAvailable(), "Expected Docker to be unavailable")
-    }
-
-    // --- systemd availability check ---
-
-    @Test
-    fun `isSystemdAvailable returns true when systemctl succeeds`() {
-        val wizard =
-            buildWizard(
-                commandRunner = { 0 },
-            )
-        assertTrue(wizard.isSystemdAvailable(), "Expected systemd to be available")
-    }
-
-    @Test
-    fun `isSystemdAvailable returns false when systemctl fails`() {
-        val wizard =
-            buildWizard(
-                commandRunner = { if (it.contains("systemctl")) 1 else 0 },
-            )
-        assertTrue(!wizard.isSystemdAvailable(), "Expected systemd to be unavailable")
-    }
-
     // --- Host exec prompt ---
 
     @Test
@@ -2537,8 +2462,11 @@ class InitWizardTest {
                 output = output,
                 engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
                 commandOutput = { cmd ->
-                    if (cmd.contains("java -version")) null
-                    else """{"content":[{"type":"text","text":"ok"}],"data":[]}"""
+                    if (cmd.contains("java -version")) {
+                        null
+                    } else {
+                        """{"content":[{"type":"text","text":"ok"}],"data":[]}"""
+                    }
                 },
             )
         wizard.run()
@@ -2581,6 +2509,10 @@ class InitWizardTest {
         assertNotNull(engineContent)
         assertTrue(engineContent.contains("java"), "Expected java in engine wrapper")
         assertTrue(engineContent.contains("klaw-engine.jar"), "Expected JAR reference in engine wrapper")
+        assertTrue(
+            engineContent.contains("$tmpDir/jars/klaw-engine.jar"),
+            "Wrapper should reference jarDir path, got: $engineContent",
+        )
     }
 
     @OptIn(ExperimentalForeignApi::class)

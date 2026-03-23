@@ -1,15 +1,11 @@
 package io.github.klaw.cli.init
 
-import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
-import io.github.klaw.cli.update.Downloader
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.update.GitHubReleaseClientImpl
-import io.github.klaw.cli.update.isNewerVersion
-import io.github.klaw.cli.update.jarAssetPrefix
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.deleteRecursively
 import io.github.klaw.cli.util.fileExists
@@ -37,12 +33,9 @@ import kotlin.native.Platform
 
 private const val TOTAL_PHASES = 10
 private const val DEFAULT_MODEL = "anthropic/claude-sonnet-4-5-20250514"
-private const val MODELS_FETCH_TIMEOUT = 10
 private const val COMMAND_OUTPUT_BUF_SIZE = 4096
 private const val LOCAL_WS_DEFAULT_PORT = 37474
 private const val SPINNER_TICK_MS = 100L
-private const val SEARCH_VALIDATION_TIMEOUT = 10
-private const val MIN_JAVA_VERSION = 21
 
 // Wizard phase numbers (phase 2 = deploy mode, uses literal 2 which is in detekt ignoredNumbers)
 private const val PHASE_LLM = 3
@@ -149,6 +142,22 @@ internal class InitWizard(
     private val jarDir: String = "${KlawPaths.data}/bin",
     private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
 ) {
+    private val apiKeyValidator by lazy {
+        ApiKeyValidator(commandOutput = commandOutput, printer = printer)
+    }
+
+    private val nativeInstaller by lazy {
+        NativeInstaller(
+            commandRunner = commandRunner,
+            commandOutput = commandOutput,
+            printer = printer,
+            successPrinter = ::success,
+            releaseClient = releaseClient,
+            jarDir = jarDir,
+            binDir = binDir,
+        )
+    }
+
     @Suppress("LongMethod", "CyclomaticComplexMethod", "ReturnCount")
     fun run() {
         // ── Collection phases (1–6): gather all user input before touching disk ──
@@ -192,20 +201,7 @@ internal class InitWizard(
 
         // ── Native pre-flight: Java version check ──
         if (resolvedMode == DeployMode.NATIVE) {
-            val javaVersion = checkJavaVersion()
-            if (javaVersion == null) {
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Java not found. Engine and Gateway require Java $MIN_JAVA_VERSION+. " +
-                        "Install it before starting services.${AnsiColors.RESET}",
-                )
-            } else if (javaVersion < MIN_JAVA_VERSION) {
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Java $javaVersion found, but $MIN_JAVA_VERSION+ is required. " +
-                        "Upgrade before starting services.${AnsiColors.RESET}",
-                )
-            } else {
-                success("Java $javaVersion detected")
-            }
+            nativeInstaller.printJavaCheck()
         }
 
         CliLogger.info { "phase 3: LLM provider setup" }
@@ -233,7 +229,7 @@ internal class InitWizard(
                 printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
                 continue
             }
-            validationResponse = validateApiKey(providerUrl, llmApiKey, providerType)
+            validationResponse = apiKeyValidator.validateApiKey(providerUrl, llmApiKey, providerType)
             if (validationResponse != null) {
                 break
             }
@@ -329,7 +325,7 @@ internal class InitWizard(
                     printer("${AnsiColors.YELLOW}⚠ API key cannot be empty.${AnsiColors.RESET}")
                     continue
                 }
-                if (validateSearchApiKey(webSearchProvider.name, webSearchApiKey)) {
+                if (apiKeyValidator.validateSearchApiKey(webSearchProvider.name, webSearchApiKey)) {
                     break
                 }
                 printer("Please enter a valid API key or press Ctrl+C to abort.")
@@ -343,7 +339,7 @@ internal class InitWizard(
         var dockerAvailable = true
         var enableHostExec = false
         if (resolvedMode == DeployMode.NATIVE) {
-            dockerAvailable = isDockerAvailable()
+            dockerAvailable = nativeInstaller.isDockerAvailable()
             if (!dockerAvailable) {
                 printer(
                     "${AnsiColors.YELLOW}⚠ Docker not found. Sandbox code execution will be unavailable. " +
@@ -390,8 +386,8 @@ internal class InitWizard(
         ).initialize()
         // ── Native: download JARs and create wrapper scripts ──
         if (resolvedMode == DeployMode.NATIVE) {
-            ensureJars()
-            createWrapperScripts()
+            nativeInstaller.ensureJars()
+            nativeInstaller.createWrapperScripts()
         }
         // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
         // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
@@ -540,7 +536,7 @@ internal class InitWizard(
                 val engineBin = "$home/.local/bin/klaw-engine"
                 val gatewayBin = "$home/.local/bin/klaw-gateway"
                 val canInstallService =
-                    Platform.osFamily == OsFamily.MACOSX || isSystemdAvailable()
+                    Platform.osFamily == OsFamily.MACOSX || nativeInstaller.isSystemdAvailable()
                 if (canInstallService) {
                     val serviceInstaller =
                         ServiceInstaller(
@@ -614,7 +610,7 @@ internal class InitWizard(
             if (errorMsg != null) {
                 identitySpinner.fail("Identity generation failed: $errorMsg")
                 printer("  Stub files written. Edit IDENTITY.md and USER.md in the workspace to update later.")
-                CliLogger.warn { "identity generation failed, writing stubs: $errorMsg" }
+                CliLogger.warn { "identity generation failed, writing stubs" }
             } else {
                 identitySpinner.done("Identity generated")
             }
@@ -684,270 +680,6 @@ internal class InitWizard(
     }
 
     /**
-     * Parses the Java major version from `java -version` output.
-     * Returns the major version number (e.g. 21) or null if Java is not found or output is unparseable.
-     */
-    internal fun checkJavaVersion(): Int? {
-        val output = commandOutput("java -version 2>&1") ?: return null
-        // java -version outputs: openjdk version "21.0.1" or java version "1.8.0_301"
-        val versionRegex = Regex("""version\s+"(\d+)(?:\.(\d+))?""")
-        val match = versionRegex.find(output) ?: return null
-        val major = match.groupValues[1].toIntOrNull() ?: return null
-        // Java 8 and earlier: version "1.8.x" → major is second part
-        return if (major == 1) match.groupValues[2].toIntOrNull() else major
-    }
-
-    /**
-     * Checks if Docker is available on the system.
-     * Returns true if `docker info` succeeds.
-     */
-    internal fun isDockerAvailable(): Boolean = commandRunner("docker info > /dev/null 2>&1") == 0
-
-    /**
-     * Checks if systemd user services are available (Linux only).
-     */
-    internal fun isSystemdAvailable(): Boolean = commandRunner("systemctl --user --version > /dev/null 2>&1") == 0
-
-    /**
-     * Ensures engine and gateway JARs are present in [jarDir], downloading from GitHub if needed.
-     * If JARs exist and the local CLI version is up to date, skips download.
-     */
-    internal fun ensureJars() {
-        mkdirMode755(jarDir)
-        val files = listDirectory(jarDir)
-        val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
-        val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
-
-        if (hasEngine && hasGateway) {
-            CliLogger.debug { "JARs found in $jarDir, checking for updates" }
-            val release =
-                runBlocking {
-                    runCatching { releaseClient.fetchLatest() }
-                        .getOrElse { e ->
-                            if (e is kotlinx.coroutines.CancellationException) throw e
-                            CliLogger.warn { "failed to check for updates: ${e::class.simpleName}" }
-                            null
-                        }
-                }
-            if (release == null || !isNewerVersion(BuildConfig.VERSION, release.tagName)) {
-                CliLogger.debug { "JARs are up to date" }
-                success("Engine and Gateway JARs are up to date")
-                return
-            }
-            printer("Newer version available (${release.tagName}), downloading JARs...")
-            downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
-        } else {
-            printer("Downloading Engine and Gateway JARs...")
-            val release =
-                runBlocking {
-                    runCatching { releaseClient.fetchLatest() }
-                        .getOrElse { e ->
-                            if (e is kotlinx.coroutines.CancellationException) throw e
-                            CliLogger.warn { "failed to fetch release: ${e::class.simpleName}" }
-                            null
-                        }
-                }
-            if (release == null) {
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Could not fetch release info. " +
-                        "Run 'klaw update' later to download JARs.${AnsiColors.RESET}",
-                )
-                return
-            }
-            downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
-        }
-    }
-
-    private fun downloadJars(assets: Map<String, String>) {
-        val downloader = Downloader(commandRunner)
-        for (component in listOf("engine", "gateway")) {
-            val prefix = jarAssetPrefix(component)
-            val entry = assets.entries.firstOrNull { it.key.startsWith(prefix) }
-            if (entry == null) {
-                printer("${AnsiColors.YELLOW}⚠ JAR asset for '$component' not found in release${AnsiColors.RESET}")
-                continue
-            }
-            val destPath = "$jarDir/klaw-$component.jar"
-            if (downloader.downloadAndReplace(entry.value, destPath)) {
-                CliLogger.debug { "$component JAR downloaded to $destPath" }
-            } else {
-                printer("${AnsiColors.YELLOW}⚠ Failed to download $component JAR${AnsiColors.RESET}")
-            }
-        }
-        success("Engine and Gateway JARs downloaded")
-    }
-
-    /**
-     * Creates wrapper scripts for engine and gateway in [binDir] if they don't exist.
-     */
-    internal fun createWrapperScripts() {
-        mkdirMode755(binDir)
-        val engineWrapper = "$binDir/klaw-engine"
-        if (!fileExists(engineWrapper)) {
-            writeFileText(
-                engineWrapper,
-                "#!/usr/bin/env bash\n" +
-                    "exec java -Xms64m -Xmx512m " +
-                    "-jar \"\${HOME}/.local/share/klaw/bin/klaw-engine.jar\" \"$@\"\n",
-            )
-            chmodExecutable(engineWrapper)
-            CliLogger.debug { "created engine wrapper at $engineWrapper" }
-        }
-        val gatewayWrapper = "$binDir/klaw-gateway"
-        if (!fileExists(gatewayWrapper)) {
-            writeFileText(
-                gatewayWrapper,
-                "#!/usr/bin/env bash\n" +
-                    "exec java -Xms32m -Xmx128m " +
-                    "-jar \"\${HOME}/.local/share/klaw/bin/klaw-gateway.jar\" \"$@\"\n",
-            )
-            chmodExecutable(gatewayWrapper)
-            CliLogger.debug { "created gateway wrapper at $gatewayWrapper" }
-        }
-        success("Wrapper scripts ready")
-    }
-
-    /**
-     * Validates the LLM API key via a curl request.
-     * For OpenAI-compatible: GET {providerUrl}/models with Bearer token.
-     * For Anthropic: POST {providerUrl}/v1/messages with x-api-key header and minimal request.
-     * Returns the raw JSON response if the key appears valid, else null.
-     * Skips validation if the URL or key contain single-quote characters (injection prevention).
-     */
-    private fun validateApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-        providerType: String = "openai-compatible",
-    ): String? {
-        if ("'" in providerUrl || "'" in llmApiKey) {
-            CliLogger.warn { "unsafe characters in URL or key, skipping validation" }
-            printer(
-                "${AnsiColors.YELLOW}⚠ URL or key contains unsafe characters, skipping validation.${AnsiColors.RESET}",
-            )
-            return null
-        }
-        return if (providerType == "anthropic") {
-            validateAnthropicApiKey(providerUrl, llmApiKey)
-        } else {
-            validateOpenAiApiKey(providerUrl, llmApiKey)
-        }
-    }
-
-    private fun validateOpenAiApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-    ): String? {
-        val url = "${providerUrl.trimEnd('/')}/models"
-        val cmd = "curl -s -m $MODELS_FETCH_TIMEOUT -H 'Authorization: Bearer $llmApiKey' '$url'"
-        val response = commandOutput(cmd) ?: return null
-        return if (response.contains("\"data\"")) {
-            CliLogger.debug { "API key validation passed" }
-            printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
-            response
-        } else {
-            CliLogger.warn { "API key validation failed" }
-            printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
-            null
-        }
-    }
-
-    private fun validateAnthropicApiKey(
-        providerUrl: String,
-        llmApiKey: String,
-    ): String? {
-        val url = "${providerUrl.trimEnd('/')}/v1/messages"
-        val body = buildAnthropicValidationBody()
-        val cmd =
-            "curl -s -m $MODELS_FETCH_TIMEOUT " +
-                "-H 'x-api-key: $llmApiKey' " +
-                "-H 'anthropic-version: 2023-06-01' " +
-                "-H 'Content-Type: application/json' " +
-                "-d '$body' " +
-                "'$url'"
-        val response = commandOutput(cmd) ?: return null
-        val isAuthError =
-            response.contains("\"authentication_error\"") ||
-                response.contains("\"permission_error\"")
-        return when {
-            response.contains("\"content\"") && !response.contains("\"error\"") -> {
-                CliLogger.debug { "Anthropic API key validation passed" }
-                printer("${AnsiColors.GREEN}✓ API key valid${AnsiColors.RESET}")
-                response
-            }
-
-            isAuthError -> {
-                CliLogger.warn { "Anthropic API key validation failed: auth error" }
-                printer("${AnsiColors.YELLOW}⚠ API key validation failed.${AnsiColors.RESET}")
-                null
-            }
-
-            else -> {
-                // Transient error (rate limit, overload) — accept key
-                CliLogger.warn { "Anthropic API validation inconclusive, proceeding" }
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Validation inconclusive (service may be busy), " +
-                        "proceeding.${AnsiColors.RESET}",
-                )
-                response
-            }
-        }
-    }
-
-    /**
-     * Validates a web search API key by making a test request.
-     * - Brave: checks HTTP status code via `-w "%{http_code}"`
-     * - Tavily: checks for "results" in response body
-     * Returns true if validation passed, false otherwise.
-     */
-    private fun validateSearchApiKey(
-        providerName: String,
-        apiKey: String,
-    ): Boolean {
-        if ("'" in apiKey) {
-            CliLogger.warn { "unsafe characters in search API key, validation failed" }
-            printer(
-                "${AnsiColors.YELLOW}⚠ API key contains unsafe characters.${AnsiColors.RESET}",
-            )
-            return false
-        }
-        val cmd =
-            when (providerName) {
-                "brave" -> {
-                    "curl -s -o /dev/null -w \"%{http_code}\" -m $SEARCH_VALIDATION_TIMEOUT " +
-                        "-H 'X-Subscription-Token: $apiKey' " +
-                        "'https://api.search.brave.com/res/v1/web/search?q=test'"
-                }
-
-                "tavily" -> {
-                    "curl -s -m $SEARCH_VALIDATION_TIMEOUT -X POST " +
-                        "'https://api.tavily.com/search' " +
-                        "-H 'Content-Type: application/json' " +
-                        "-d '{\"api_key\":\"$apiKey\",\"query\":\"test\",\"max_results\":1}'"
-                }
-
-                else -> {
-                    return false
-                }
-            }
-        val response = commandOutput(cmd) ?: return false
-        val valid =
-            when (providerName) {
-                "brave" -> response.trim() == "200"
-                "tavily" -> response.contains("\"results\"")
-                else -> false
-            }
-        return if (valid) {
-            CliLogger.debug { "search API key validation passed" }
-            printer("${AnsiColors.GREEN}✓ Search API key valid${AnsiColors.RESET}")
-            true
-        } else {
-            CliLogger.warn { "search API key validation failed" }
-            printer("${AnsiColors.YELLOW}⚠ Search API key validation failed.${AnsiColors.RESET}")
-            false
-        }
-    }
-
-    /**
      * Attempts to select a model via radio selector (if models were fetched) or text input fallback.
      * For Anthropic, uses a hardcoded model list (no /models endpoint).
      * Returns null only if the user interrupts (ESC or EOF) during text input.
@@ -979,11 +711,6 @@ internal class InitWizard(
     private fun promptModelText(): String? {
         printer("Model ID (provider/model) [$DEFAULT_MODEL]:")
         return (readLineOrExit() ?: return null).trim().ifBlank { DEFAULT_MODEL }
-    }
-
-    private fun buildAnthropicValidationBody(): String {
-        val model = "claude-sonnet-4-5-20250514"
-        return """{"model":"$model","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}"""
     }
 
     private fun phase(
