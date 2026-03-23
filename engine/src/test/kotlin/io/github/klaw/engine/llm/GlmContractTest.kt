@@ -9,7 +9,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
@@ -55,7 +55,7 @@ class GlmContractTest {
         )
 
     private fun buildProvider() =
-        ProviderConfig(
+        ResolvedProviderConfig(
             type = "openai-compatible",
             endpoint = "http://localhost:${wireMock.port()}",
             apiKey = "test-key",

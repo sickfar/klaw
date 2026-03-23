@@ -188,13 +188,13 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `map value validation reports errors`() {
-        // Provider missing required "endpoint"
+    fun `map value validation reports errors for wrong type`() {
+        // Provider with wrong type for apiKey (number instead of string)
         val json =
             parse(
                 """
             {
-              "providers": {"bad": {"type": "openai-compatible"}},
+              "providers": {"bad": {"apiKey": 12345}},
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
@@ -205,8 +205,8 @@ class ConfigValidatorTest {
             )
         val errors = validateConfig(schema, json)
         assertTrue(
-            errors.any { ".providers.bad.endpoint" in it.path },
-            "Should report missing map value field: $errors",
+            errors.any { ".providers.bad.apiKey" in it.path },
+            "Should report wrong type for map value field: $errors",
         )
     }
 

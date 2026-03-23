@@ -24,10 +24,6 @@ object GeneratedSchemas {
                                 "type": "string"
                             }
                         },
-                        "required": [
-                            "type",
-                            "endpoint"
-                        ],
                         "additionalProperties": false
                     }
                 },

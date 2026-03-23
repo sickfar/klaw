@@ -11,7 +11,7 @@ import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.PreValidationConfig
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
@@ -81,7 +81,7 @@ class HostExecRiskAssessmentWireMockTest {
         val providers =
             mapOf(
                 "test" to
-                    ProviderConfig(
+                    ResolvedProviderConfig(
                         type = "openai-compatible",
                         endpoint = "http://localhost:${wireMock.port()}",
                         apiKey = "test-key",

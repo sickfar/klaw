@@ -31,6 +31,34 @@ val generateModelRegistryNative by tasks.registering {
     }
 }
 
+val generateProviderRegistryNative by tasks.registering {
+    description = "Generate ProviderRegistryNative.kt from provider-registry.json for native targets"
+    group = "generation"
+    val jsonFile = file("src/commonMain/resources/provider-registry.json")
+    val outputDir = layout.buildDirectory.dir("generated/native-provider-registry")
+    inputs.file(jsonFile)
+    outputs.dir(outputDir)
+    doLast {
+        val json =
+            jsonFile
+                .readText()
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+        val dir = outputDir.get().asFile.resolve("io/github/klaw/common/registry")
+        dir.mkdirs()
+        dir.resolve("ProviderRegistryNative.kt").writeText(
+            """
+            |package io.github.klaw.common.registry
+            |
+            |internal actual fun loadProviderRegistryJson(): String =
+            |    "$json"
+            |
+            """.trimMargin(),
+        )
+    }
+}
+
 kotlin {
     jvm()
     linuxArm64()
@@ -54,6 +82,7 @@ kotlin {
         }
         nativeMain {
             kotlin.srcDir(generateModelRegistryNative.map { it.outputs.files.singleFile })
+            kotlin.srcDir(generateProviderRegistryNative.map { it.outputs.files.singleFile })
         }
     }
 }

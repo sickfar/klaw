@@ -2,7 +2,7 @@ package io.github.klaw.engine.llm
 
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmRequest
@@ -10,16 +10,16 @@ import io.github.klaw.common.llm.LlmResponse
 import java.util.concurrent.ConcurrentHashMap
 
 class LlmRouter(
-    private val providers: Map<String, ProviderConfig>,
+    private val providers: Map<String, ResolvedProviderConfig>,
     private val models: Map<String, ModelRef>,
     private val routing: RoutingConfig,
     private val retryConfig: LlmRetryConfig,
-    private val clientFactory: ((ProviderConfig) -> LlmClient)?,
+    private val clientFactory: ((ResolvedProviderConfig) -> LlmClient)?,
     private val usageTracker: LlmUsageTracker? = null,
 ) {
     private val clientCache = ConcurrentHashMap<String, LlmClient>()
 
-    fun resolve(fullModelId: String): Pair<ProviderConfig, ModelRef> {
+    fun resolve(fullModelId: String): Pair<ResolvedProviderConfig, ModelRef> {
         val model =
             models[fullModelId]
                 ?: throw KlawError.ProviderError(null, "Unknown model: $fullModelId")
@@ -55,7 +55,7 @@ class LlmRouter(
         throw KlawError.AllProvidersFailedError
     }
 
-    private fun clientFor(provider: ProviderConfig): LlmClient {
+    private fun clientFor(provider: ResolvedProviderConfig): LlmClient {
         if (clientFactory != null) return clientFactory.invoke(provider)
         return clientCache.getOrPut(provider.type) {
             when (provider.type) {

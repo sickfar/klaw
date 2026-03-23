@@ -3,7 +3,7 @@ package io.github.klaw.engine.message
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.FinishReason
@@ -37,9 +37,9 @@ class ToolCallLoopTest {
             createdAt = Instant.parse("2025-01-01T00:00:00Z"),
         )
 
-    private fun buildRouter(factory: (ProviderConfig) -> LlmClient): LlmRouter =
+    private fun buildRouter(factory: (ResolvedProviderConfig) -> LlmClient): LlmRouter =
         LlmRouter(
-            providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:9999", "key")),
+            providers = mapOf("test" to ResolvedProviderConfig("openai-compatible", "http://localhost:9999", "key")),
             models = mapOf("test/test-model" to ModelRef("test", "test-model")),
             routing =
                 RoutingConfig(

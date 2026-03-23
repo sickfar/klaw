@@ -20,6 +20,7 @@ import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
@@ -133,7 +134,8 @@ class MessageProcessorIntegrationTest {
         val port = wireMock.port()
         val modelRef = ModelRef("test", "model")
         return LlmRouter(
-            providers = mapOf("test" to ProviderConfig("openai-compatible", "http://localhost:$port", "test-key")),
+            providers =
+                mapOf("test" to ResolvedProviderConfig("openai-compatible", "http://localhost:$port", "test-key")),
             models = mapOf("test/model" to modelRef),
             routing = config.routing,
             retryConfig = config.llm,

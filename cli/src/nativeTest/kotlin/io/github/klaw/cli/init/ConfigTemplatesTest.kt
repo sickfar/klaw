@@ -12,14 +12,14 @@ import kotlin.test.assertTrue
 
 class ConfigTemplatesTest {
     @Test
-    fun `engine json template contains provider url`() {
-        val json = ConfigTemplates.engineJson("https://api.z.ai/api/coding/paas/v4", "zai/glm-5")
-        assertTrue(json.contains("https://api.z.ai/api/coding/paas/v4"), "Expected providerUrl in:\n$json")
+    fun `engine json for known provider omits endpoint`() {
+        val json = ConfigTemplates.engineJson("zai/glm-5")
+        assertTrue(!json.contains("endpoint"), "Known provider should not have explicit endpoint in:\n$json")
     }
 
     @Test
     fun `engine json api key uses per-provider env var`() {
-        val json = ConfigTemplates.engineJson("https://api.z.ai/api/coding/paas/v4", "zai/glm-5")
+        val json = ConfigTemplates.engineJson("zai/glm-5")
         assertTrue(json.contains("ZAI_API_KEY"), "Expected per-provider env var ZAI_API_KEY in:\n$json")
         assertTrue(!json.contains("KLAW_LLM_API_KEY"), "Should not contain generic KLAW_LLM_API_KEY in:\n$json")
     }
@@ -33,7 +33,7 @@ class ConfigTemplatesTest {
 
     @Test
     fun `engine json template contains model id`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "myProvider/my-model")
+        val json = ConfigTemplates.engineJson("myProvider/my-model")
         assertTrue(json.contains("myProvider/my-model"), "Expected full modelId in:\n$json")
     }
 
@@ -56,7 +56,7 @@ class ConfigTemplatesTest {
 
     @Test
     fun `engine json api key uses per-provider env var for custom provider`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(json.contains("TEST_API_KEY"), "Expected per-provider env var TEST_API_KEY in:\n$json")
     }
 
@@ -70,9 +70,9 @@ class ConfigTemplatesTest {
     fun `gatewayJson with enableLocalWs=true includes localWs section`() {
         val json = ConfigTemplates.gatewayJson(enableLocalWs = true)
         assertTrue(json.contains("localWs"), "Expected 'localWs' in:\n$json")
-        assertTrue(json.contains("true"), "Expected 'true' (enabled) in:\n$json")
-        // Default port (37474) is not encoded by minimal encoder; verify via round-trip parse
+        // Verify via round-trip parse instead of fragile string checks
         val config = parseGatewayConfig(json)
+        assertTrue(config.channels.localWs?.enabled == true, "Expected localWs.enabled=true in parsed config")
         assertTrue(config.channels.localWs?.port == 37474, "Expected default port 37474 in parsed config")
     }
 
@@ -133,10 +133,13 @@ class ConfigTemplatesTest {
 
     @Test
     fun `engineJson round-trips through parser`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("anthropic/claude-sonnet-4-5-20250514")
         val config = parseEngineConfig(json)
-        assertTrue(config.providers.containsKey("test"), "Expected provider 'test' in parsed config")
-        assertTrue(config.routing.default == "test/model", "Expected routing default 'test/model'")
+        assertTrue(config.providers.containsKey("anthropic"), "Expected provider 'anthropic' in parsed config")
+        assertTrue(
+            config.routing.default == "anthropic/claude-sonnet-4-5-20250514",
+            "Expected routing default 'anthropic/claude-sonnet-4-5-20250514'",
+        )
     }
 
     @Test
@@ -451,25 +454,25 @@ class ConfigTemplatesTest {
 
     @Test
     fun `engineJson minimal config omits llm section`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(!json.contains("\"llm\""), "Expected no 'llm' section (all defaults) in:\n$json")
     }
 
     @Test
     fun `engineJson minimal config omits codeExecution section`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(!json.contains("codeExecution"), "Expected no 'codeExecution' section (all defaults) in:\n$json")
     }
 
     @Test
     fun `engineJson minimal config omits autoRag section`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(!json.contains("autoRag"), "Expected no 'autoRag' section (all defaults) in:\n$json")
     }
 
     @Test
     fun `engineJson minimal config omits hostExecution section`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(!json.contains("hostExecution"), "Expected no 'hostExecution' section (all defaults) in:\n$json")
     }
 
@@ -477,7 +480,6 @@ class ConfigTemplatesTest {
     fun `engineJson with hostExecutionEnabled=true includes hostExecution section`() {
         val json =
             ConfigTemplates.engineJson(
-                providerUrl = "https://api.example.com",
                 modelId = "test/model",
                 hostExecutionEnabled = true,
             )
@@ -490,7 +492,6 @@ class ConfigTemplatesTest {
     fun `engineJson with hostExecutionEnabled=false omits hostExecution section`() {
         val json =
             ConfigTemplates.engineJson(
-                providerUrl = "https://api.example.com",
                 modelId = "test/model",
                 hostExecutionEnabled = false,
             )
@@ -499,13 +500,13 @@ class ConfigTemplatesTest {
 
     @Test
     fun `engineJson minimal config omits commands section`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         assertTrue(!json.contains("\"commands\""), "Expected no 'commands' section (empty default) in:\n$json")
     }
 
     @Test
     fun `engineJson maxToolCallRounds defaults to 50`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+        val json = ConfigTemplates.engineJson("test/model")
         val config = parseEngineConfig(json)
         assertTrue(
             config.processing.maxToolCallRounds == 50,
@@ -522,48 +523,34 @@ class ConfigTemplatesTest {
     // --- Anthropic provider ---
 
     @Test
-    fun `engineJson with anthropic providerType sets type to anthropic`() {
-        val json =
-            ConfigTemplates.engineJson(
-                providerUrl = "https://api.anthropic.com",
-                modelId = "anthropic/claude-sonnet-4-5-20250514",
-                providerType = "anthropic",
-            )
+    fun `engineJson with known provider omits type and endpoint`() {
+        val json = ConfigTemplates.engineJson("anthropic/claude-sonnet-4-5-20250514")
         val config = parseEngineConfig(json)
-        assertEquals("anthropic", config.providers["anthropic"]?.type)
+        assertNull(config.providers["anthropic"]?.type, "Known provider should not have explicit type")
+        assertNull(config.providers["anthropic"]?.endpoint, "Known provider should not have explicit endpoint")
     }
 
     @Test
-    fun `engineJson with anthropic providerType uses ANTHROPIC_API_KEY`() {
-        val json =
-            ConfigTemplates.engineJson(
-                providerUrl = "https://api.anthropic.com",
-                modelId = "anthropic/claude-sonnet-4-5-20250514",
-                providerType = "anthropic",
-            )
+    fun `engineJson with anthropic uses ANTHROPIC_API_KEY`() {
+        val json = ConfigTemplates.engineJson("anthropic/claude-sonnet-4-5-20250514")
         assertTrue(json.contains("ANTHROPIC_API_KEY"), "Expected ANTHROPIC_API_KEY in:\n$json")
     }
 
     @Test
     fun `engineJson with anthropic round-trips through parser`() {
-        val json =
-            ConfigTemplates.engineJson(
-                providerUrl = "https://api.anthropic.com",
-                modelId = "anthropic/claude-sonnet-4-5-20250514",
-                providerType = "anthropic",
-            )
+        val json = ConfigTemplates.engineJson("anthropic/claude-sonnet-4-5-20250514")
         val config = parseEngineConfig(json)
         assertTrue(config.providers.containsKey("anthropic"))
-        assertEquals("anthropic", config.providers["anthropic"]?.type)
-        assertEquals("https://api.anthropic.com", config.providers["anthropic"]?.endpoint)
         assertEquals("anthropic/claude-sonnet-4-5-20250514", config.routing.default)
     }
 
     @Test
-    fun `engineJson default providerType is openai-compatible`() {
-        val json = ConfigTemplates.engineJson("https://api.example.com", "test/model")
+    fun `engineJson provider config only contains apiKey for known provider`() {
+        val json = ConfigTemplates.engineJson("zai/glm-5")
         val config = parseEngineConfig(json)
-        assertEquals("openai-compatible", config.providers["test"]?.type)
+        assertNotNull(config.providers["zai"]?.apiKey, "Expected apiKey")
+        assertNull(config.providers["zai"]?.type, "Known provider should not have explicit type")
+        assertNull(config.providers["zai"]?.endpoint, "Known provider should not have explicit endpoint")
     }
 
     @Test

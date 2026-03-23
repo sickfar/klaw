@@ -3,6 +3,7 @@ package io.github.klaw.engine.llm
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.EnvVarResolver
 import io.github.klaw.common.config.ModelRef
+import io.github.klaw.common.config.resolveProviders
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Singleton
 
@@ -14,8 +15,8 @@ class LlmRouterFactory {
         usageTracker: LlmUsageTracker,
     ): LlmRouter {
         val resolvedProviders =
-            config.providers.mapValues { (_, provider) ->
-                provider.copy(apiKey = EnvVarResolver.resolve(provider.apiKey))
+            resolveProviders(config.providers).mapValues { (_, rpc) ->
+                rpc.copy(apiKey = EnvVarResolver.resolve(rpc.apiKey))
             }
         val models =
             config.models.mapValues { (key, cfg) ->

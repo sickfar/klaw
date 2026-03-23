@@ -650,7 +650,8 @@ class InitWizardTest {
 
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
-        assertTrue(engineJson.contains("api.anthropic.com"), "provider URL in engine.json")
+        assertTrue(engineJson.contains("ANTHROPIC_API_KEY"), "api key env var in engine.json")
+        assertTrue(!engineJson.contains("api.anthropic.com"), "known provider should not have explicit endpoint")
         assertTrue(engineJson.contains("anthropic/claude-sonnet-4-5-20250514"), "model in engine.json")
     }
 

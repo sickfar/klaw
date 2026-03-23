@@ -2,7 +2,7 @@ package io.github.klaw.engine.llm
 
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.ImageUrlContentPart
@@ -57,7 +57,7 @@ class OpenAiCompatibleClient(
 
     override suspend fun chat(
         request: LlmRequest,
-        provider: ProviderConfig,
+        provider: ResolvedProviderConfig,
         model: ModelRef,
     ): LlmResponse =
         withRetry(
@@ -70,7 +70,7 @@ class OpenAiCompatibleClient(
 
     private suspend fun doChat(
         request: LlmRequest,
-        provider: ProviderConfig,
+        provider: ResolvedProviderConfig,
         model: ModelRef,
     ): LlmResponse {
         val requestBody = json.encodeToString(request.toOpenAiRequest(model.modelId))

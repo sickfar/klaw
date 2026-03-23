@@ -34,6 +34,20 @@ The engine resolves placeholders via `EnvVarResolver` at startup.
   DEEPSEEK_API_KEY=sk-...
 ```
 
+## Built-in Provider Registry
+
+Known providers have their `type` and `endpoint` built into the engine. For these providers, you only need to specify `apiKey`:
+
+| Alias      | Type                | Default Endpoint                            |
+|------------|---------------------|---------------------------------------------|
+| `anthropic`| `anthropic`         | `https://api.anthropic.com`                 |
+| `zai`      | `openai-compatible` | `https://api.z.ai/api/coding/paas/v4`       |
+| `openai`   | `openai-compatible` | `https://api.openai.com/v1`                 |
+| `deepseek` | `openai-compatible` | `https://api.deepseek.com/v1`               |
+| `ollama`   | `openai-compatible` | `http://localhost:11434/v1`                  |
+
+You can override `type` or `endpoint` for any known provider. For providers not in the registry, both `type` and `endpoint` are required.
+
 ## Provider Types
 
 | Type                | Providers                                  |
@@ -45,27 +59,40 @@ The `anthropic` type uses the official Anthropic Java SDK. It handles the differ
 
 ## Example engine.json
 
+Minimal config for a known provider (recommended):
+
 ```json
 {
   "providers": {
     "anthropic": {
-      "type": "anthropic",
-      "endpoint": "https://api.anthropic.com",
+      "apiKey": "${ANTHROPIC_API_KEY}"
+    }
+  },
+  "routing": {
+    "default": "anthropic/claude-sonnet-4-6"
+  }
+}
+```
+
+Full config with multiple providers and overrides:
+
+```json
+{
+  "providers": {
+    "anthropic": {
       "apiKey": "${ANTHROPIC_API_KEY}"
     },
     "zai": {
-      "type": "openai-compatible",
-      "endpoint": "https://api.z.ai/api/paas/v4",
       "apiKey": "${ZAI_API_KEY}"
     },
     "deepseek": {
-      "type": "openai-compatible",
-      "endpoint": "https://api.deepseek.com/v1",
       "apiKey": "${DEEPSEEK_API_KEY}"
     },
-    "ollama": {
+    "ollama": {},
+    "my-proxy": {
       "type": "openai-compatible",
-      "endpoint": "http://localhost:11434/v1"
+      "endpoint": "https://my-proxy.example.com/v1",
+      "apiKey": "${PROXY_API_KEY}"
     }
   },
   "models": {

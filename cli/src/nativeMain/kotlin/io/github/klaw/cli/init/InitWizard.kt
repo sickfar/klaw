@@ -13,6 +13,7 @@ import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.common.registry.ProviderRegistry
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
@@ -49,9 +50,7 @@ private const val PHASE_SERVICE_INSTALL = 10
 
 internal data class LlmProvider(
     val label: String,
-    val baseUrl: String,
     val alias: String,
-    val type: String = "openai-compatible",
 )
 
 private val ANTHROPIC_MODELS =
@@ -64,8 +63,8 @@ private val ANTHROPIC_MODELS =
 
 private val LLM_PROVIDERS =
     listOf(
-        LlmProvider("Anthropic Claude", "https://api.anthropic.com", "anthropic", "anthropic"),
-        LlmProvider("z.ai GLM", "https://api.z.ai/api/coding/paas/v4", "zai"),
+        LlmProvider("Anthropic Claude", "anthropic"),
+        LlmProvider("z.ai GLM", "zai"),
     )
 
 internal data class WebSearchProvider(
@@ -208,17 +207,16 @@ internal class InitWizard(
         CliLogger.debug { "resolved deploy mode=${resolvedMode.configName}" }
         phase(PHASE_LLM, "LLM provider setup")
         val providerIdx = radioSelector(LLM_PROVIDERS.map { it.label }, "LLM provider:")
-        val providerUrl: String
         val defaultAlias: String
         if (providerIdx != null && providerIdx in LLM_PROVIDERS.indices) {
-            val selected = LLM_PROVIDERS[providerIdx]
-            providerUrl = selected.baseUrl
-            defaultAlias = selected.alias
+            defaultAlias = LLM_PROVIDERS[providerIdx].alias
         } else {
             printer("Interrupted.")
             return
         }
-        val providerType = LLM_PROVIDERS[providerIdx].type
+        val registryDefaults = ProviderRegistry.get(defaultAlias)
+        val providerUrl = registryDefaults?.endpoint ?: error("Unknown provider: $defaultAlias")
+        val providerType = registryDefaults.type
         var llmApiKey: String
         var validationResponse: String?
         while (true) {
@@ -408,9 +406,7 @@ internal class InitWizard(
         writeFileText(
             "$configDir/engine.json",
             ConfigTemplates.engineJson(
-                providerUrl = providerUrl,
                 modelId = modelId,
-                providerType = providerType,
                 heartbeatChannel = heartbeatChannel,
                 webSearchEnabled = enableWebSearch,
                 webSearchProvider = webSearchProvider?.name,

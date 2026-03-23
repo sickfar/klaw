@@ -57,15 +57,28 @@ data class EngineConfig(
 
 @Serializable
 data class ProviderConfig(
-    @ConfigDoc("Provider API type", possibleValues = ["openai-compatible", "anthropic"])
-    val type: String,
-    @ConfigDoc("API endpoint URL for this provider")
-    val endpoint: String,
+    @ConfigDoc(
+        "Provider API type (resolved from built-in registry if omitted)",
+        possibleValues = ["openai-compatible", "anthropic"],
+    )
+    val type: String? = null,
+    @ConfigDoc("API endpoint URL (resolved from built-in registry if omitted)")
+    val endpoint: String? = null,
     @ConfigDoc("API key for authentication", sensitive = true)
     val apiKey: String? = null,
 ) {
     override fun toString(): String =
-        "ProviderConfig(type=$type, endpoint=$endpoint, " +
+        "ProviderConfig(type=${type ?: "<default>"}, endpoint=${endpoint ?: "<default>"}, " +
+            "apiKey=${if (apiKey != null) "***" else "null"})"
+}
+
+data class ResolvedProviderConfig(
+    val type: String,
+    val endpoint: String,
+    val apiKey: String?,
+) {
+    override fun toString(): String =
+        "ResolvedProviderConfig(type=$type, endpoint=$endpoint, " +
             "apiKey=${if (apiKey != null) "***" else "null"})"
 }
 

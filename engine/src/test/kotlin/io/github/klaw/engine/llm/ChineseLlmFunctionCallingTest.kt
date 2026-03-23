@@ -7,7 +7,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
@@ -91,7 +91,7 @@ class ChineseLlmFunctionCallingTest {
                                 ToolDef("get_weather", "Weather tool", buildJsonObject { put("type", "object") }),
                             ),
                     ),
-                    ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
+                    ResolvedProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("zai", "glm-5"),
                 )
 
@@ -121,7 +121,7 @@ class ChineseLlmFunctionCallingTest {
             val response =
                 buildClient().chat(
                     LlmRequest(listOf(LlmMessage("user", "Hello"))),
-                    ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
+                    ResolvedProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("zai", "glm-5"),
                 )
 
@@ -152,7 +152,7 @@ class ChineseLlmFunctionCallingTest {
                         messages = listOf(LlmMessage("user", "Weather")),
                         tools = listOf(ToolDef("get_weather", "Weather", buildJsonObject { put("type", "object") })),
                     ),
-                    ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
+                    ResolvedProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("zai", "glm-5"),
                 )
 
@@ -186,7 +186,7 @@ class ChineseLlmFunctionCallingTest {
                                 ToolDef("memory_search", "Search tool", buildJsonObject { put("type", "object") }),
                             ),
                     ),
-                    ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
+                    ResolvedProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                     ModelRef("deepseek", "deepseek-chat"),
                 )
 
@@ -225,7 +225,7 @@ class ChineseLlmFunctionCallingTest {
                         ),
                     maxTokens = 256,
                 ),
-                ProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
+                ResolvedProviderConfig("openai-compatible", "http://localhost:${wireMock.port()}", "key"),
                 ModelRef("zai", "glm-5"),
             )
 

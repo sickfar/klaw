@@ -12,7 +12,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
@@ -60,7 +60,7 @@ class AnthropicContractTest {
         )
 
     private fun buildProvider(apiKey: String? = "test-key") =
-        ProviderConfig(
+        ResolvedProviderConfig(
             type = "anthropic",
             endpoint = "http://localhost:${wireMock.port()}",
             apiKey = apiKey,

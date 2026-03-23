@@ -27,6 +27,7 @@ import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.config.encodeComposeConfig
 import io.github.klaw.common.config.encodeEngineConfigMinimal
 import io.github.klaw.common.config.encodeGatewayConfigMinimal
+import io.github.klaw.common.registry.ProviderRegistry
 
 internal object ConfigTemplates {
     /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`. */
@@ -34,9 +35,7 @@ internal object ConfigTemplates {
 
     @Suppress("LongParameterList")
     fun engineJson(
-        providerUrl: String,
         modelId: String,
-        providerType: String = "openai-compatible",
         heartbeatChannel: String? = null,
         webSearchEnabled: Boolean = false,
         webSearchProvider: String? = null,
@@ -45,9 +44,7 @@ internal object ConfigTemplates {
     ): String =
         encodeEngineConfigMinimal(
             buildEngineConfig(
-                providerUrl,
                 modelId,
-                providerType,
                 heartbeatChannel,
                 webSearchEnabled,
                 webSearchProvider,
@@ -58,9 +55,7 @@ internal object ConfigTemplates {
 
     @Suppress("LongParameterList")
     private fun buildEngineConfig(
-        providerUrl: String,
         modelId: String,
-        providerType: String,
         heartbeatChannel: String?,
         webSearchEnabled: Boolean,
         webSearchProvider: String?,
@@ -79,7 +74,7 @@ internal object ConfigTemplates {
                 WebSearchConfig()
             }
         return EngineConfig(
-            providers = buildConfigProviders(providerName, providerUrl, providerType),
+            providers = buildConfigProviders(providerName),
             models = buildConfigModels(modelId),
             routing = buildConfigRouting(modelId),
             context = buildConfigContext(),
@@ -279,19 +274,21 @@ internal object ConfigTemplates {
     ): String = "mode=${mode.configName}\ndocker_tag=$dockerTag\n"
 }
 
-private fun buildConfigProviders(
-    providerName: String,
-    providerUrl: String,
-    providerType: String = "openai-compatible",
-): Map<String, ProviderConfig> =
-    mapOf(
+private fun buildConfigProviders(providerName: String): Map<String, ProviderConfig> {
+    val isKnown = ProviderRegistry.isKnown(providerName)
+    return mapOf(
         providerName to
-            ProviderConfig(
-                type = providerType,
-                endpoint = providerUrl,
-                apiKey = "\${${ConfigTemplates.apiKeyEnvVar(providerName)}}",
-            ),
+            if (isKnown) {
+                ProviderConfig(apiKey = "\${${ConfigTemplates.apiKeyEnvVar(providerName)}}")
+            } else {
+                ProviderConfig(
+                    type = "openai-compatible",
+                    endpoint = "http://localhost:8080/v1",
+                    apiKey = "\${${ConfigTemplates.apiKeyEnvVar(providerName)}}",
+                )
+            },
     )
+}
 
 private fun buildConfigModels(modelId: String): Map<String, ModelConfig> = mapOf(modelId to ModelConfig())
 

@@ -2,7 +2,7 @@ package io.github.klaw.engine.llm
 
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.error.KlawError
@@ -30,9 +30,9 @@ class LlmRouterTest {
 
     private val providers =
         mapOf(
-            "zai" to ProviderConfig("openai-compatible", "https://api.z.ai/api/coding/paas/v4", "key-zai"),
-            "deepseek" to ProviderConfig("openai-compatible", "https://api.deepseek.com/v1", "key-ds"),
-            "ollama" to ProviderConfig("openai-compatible", "http://localhost:11434/v1", null),
+            "zai" to ResolvedProviderConfig("openai-compatible", "https://api.z.ai/api/coding/paas/v4", "key-zai"),
+            "deepseek" to ResolvedProviderConfig("openai-compatible", "https://api.deepseek.com/v1", "key-ds"),
+            "ollama" to ResolvedProviderConfig("openai-compatible", "http://localhost:11434/v1", null),
         )
 
     private val models =
@@ -256,7 +256,7 @@ class LlmRouterTest {
     fun `throws ProviderError for unknown provider type`() {
         val unknownProviders =
             mapOf(
-                "unknown" to ProviderConfig("unsupported-provider", "https://api.example.com/v1", "key"),
+                "unknown" to ResolvedProviderConfig("unsupported-provider", "https://api.example.com/v1", "key"),
             )
         val unknownModels =
             mapOf(
@@ -285,7 +285,7 @@ class LlmRouterTest {
     fun `anthropic provider type creates AnthropicClient when no clientFactory`() {
         val anthropicProviders =
             mapOf(
-                "anthropic" to ProviderConfig("anthropic", "https://api.anthropic.com", "test-key"),
+                "anthropic" to ResolvedProviderConfig("anthropic", "https://api.anthropic.com", "test-key"),
             )
         val anthropicModels =
             mapOf(

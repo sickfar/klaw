@@ -18,7 +18,7 @@ import com.anthropic.models.messages.ToolUseBlockParam
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.klaw.common.config.LlmRetryConfig
 import io.github.klaw.common.config.ModelRef
-import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
@@ -47,7 +47,7 @@ class AnthropicClient(
 
     override suspend fun chat(
         request: LlmRequest,
-        provider: ProviderConfig,
+        provider: ResolvedProviderConfig,
         model: ModelRef,
     ): LlmResponse =
         withRetry(
@@ -61,7 +61,7 @@ class AnthropicClient(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun doChat(
         request: LlmRequest,
-        provider: ProviderConfig,
+        provider: ResolvedProviderConfig,
         model: ModelRef,
     ): LlmResponse {
         val client = getOrCreateClient(provider)
@@ -88,7 +88,7 @@ class AnthropicClient(
         return klawResponse
     }
 
-    private fun getOrCreateClient(provider: ProviderConfig): com.anthropic.client.AnthropicClient {
+    private fun getOrCreateClient(provider: ResolvedProviderConfig): com.anthropic.client.AnthropicClient {
         val cacheKey = "${provider.endpoint}|${provider.apiKey?.length ?: 0}"
         return clients.getOrPut(cacheKey) {
             AnthropicOkHttpClient
