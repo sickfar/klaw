@@ -25,8 +25,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Build Linux artifacts
-        run: ./gradlew assembleDist
+        run: ./gradlew assembleDist -PreleaseVersion="${{ steps.version.outputs.tag }}"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -50,8 +54,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Build macOS CLI binaries
-        run: ./gradlew assembleCliMacos
+        run: ./gradlew assembleCliMacos -PreleaseVersion="${{ steps.version.outputs.tag }}"
 
       - name: Upload macOS CLI artifacts
         uses: actions/upload-artifact@v4
@@ -92,15 +100,30 @@ jobs:
         id: version
         run: echo "tag=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Build and push
+      - name: Check if prerelease
+        id: prerelease
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push versioned tag
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.file }}
           push: true
-          tags: |
+          tags: ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:${{ steps.version.outputs.tag }}
+
+      - name: Tag as latest (stable releases only)
+        if: steps.prerelease.outputs.is_prerelease == 'false'
+        run: |
+          docker tag ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:${{ steps.version.outputs.tag }} \
             ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:latest
-            ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:${{ steps.version.outputs.tag }}
+          docker push ghcr.io/${{ github.repository_owner }}/klaw-${{ matrix.image }}:latest
 
   release:
     name: Publish GitHub Release
@@ -126,10 +149,21 @@ jobs:
 
       - name: Generate checksums
         working-directory: release-dist
-        run: sha256sum klaw-linux* klaw-macos* > checksums.sha256 && cat checksums.sha256
+        run: sha256sum klaw-* > checksums.sha256 && cat checksums.sha256
+
+      - name: Check if prerelease
+        id: prerelease
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-dist/*
           generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}

@@ -4,6 +4,7 @@ import io.github.klaw.cli.init.DeployMode
 import io.github.klaw.cli.init.KlawService
 import io.github.klaw.cli.init.ServiceManager
 import io.github.klaw.cli.init.chmodExecutable
+import io.github.klaw.cli.util.CliLogger
 import kotlin.experimental.ExperimentalNativeApi
 
 @Suppress("LongParameterList")
@@ -14,6 +15,7 @@ internal class UpdateExecutor(
     private val printer: (String) -> Unit,
     private val commandRunner: (String) -> Int,
     private val readLine: () -> String?,
+    private val commandOutput: (String) -> String? = { null },
     private val binaryPath: String = "/usr/local/bin/klaw",
     private val jarDir: String = "/usr/local/lib/klaw",
 ) {
@@ -71,11 +73,27 @@ internal class UpdateExecutor(
     }
 
     private fun downloadJars() {
-        downloadJar("engine")
-        downloadJar("gateway")
+        val checksumAsset = release.assets.firstOrNull { it.name == ChecksumVerifier.CHECKSUMS_FILENAME }
+        val checksums =
+            if (checksumAsset != null) {
+                ChecksumVerifier.downloadAndParse(
+                    checksumAsset.browserDownloadUrl,
+                    "$jarDir/${ChecksumVerifier.CHECKSUMS_FILENAME}",
+                    downloader,
+                )
+            } else {
+                emptyMap()
+            }
+        val verifier = ChecksumVerifier(commandOutput)
+        downloadJar("engine", checksums, verifier)
+        downloadJar("gateway", checksums, verifier)
     }
 
-    private fun downloadJar(component: String) {
+    private fun downloadJar(
+        component: String,
+        checksums: Map<String, String>,
+        verifier: ChecksumVerifier,
+    ) {
         val prefix = jarAssetPrefix(component)
         val asset = release.assets.firstOrNull { it.name.startsWith(prefix) }
         if (asset == null) {
@@ -85,6 +103,15 @@ internal class UpdateExecutor(
         printer("Downloading $component JAR...")
         val destPath = "$jarDir/${asset.name}"
         if (downloader.downloadAndReplace(asset.browserDownloadUrl, destPath)) {
+            val expectedHash = checksums[asset.name]
+            if (expectedHash != null && !verifier.verify(destPath, expectedHash)) {
+                printer("Checksum mismatch for ${asset.name}, removing corrupted file")
+                commandRunner("rm -f '$destPath'")
+                return
+            }
+            if (expectedHash == null) {
+                CliLogger.debug { "No checksum entry for ${asset.name}, skipping verification" }
+            }
             printer("$component JAR updated")
         } else {
             printer("Failed to download $component JAR")

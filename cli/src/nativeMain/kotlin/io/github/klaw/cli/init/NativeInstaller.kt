@@ -2,6 +2,7 @@ package io.github.klaw.cli.init
 
 import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.ui.AnsiColors
+import io.github.klaw.cli.update.ChecksumVerifier
 import io.github.klaw.cli.update.Downloader
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.update.isNewerVersion
@@ -117,6 +118,18 @@ internal class NativeInstaller(
 
     private fun downloadJars(assets: Map<String, String>) {
         val downloader = Downloader(commandRunner)
+        val checksumUrl = assets[ChecksumVerifier.CHECKSUMS_FILENAME]
+        val checksums =
+            if (checksumUrl != null) {
+                ChecksumVerifier.downloadAndParse(
+                    checksumUrl,
+                    "$jarDir/${ChecksumVerifier.CHECKSUMS_FILENAME}",
+                    downloader,
+                )
+            } else {
+                emptyMap()
+            }
+        val verifier = ChecksumVerifier(commandOutput)
         var allSucceeded = true
         for (component in listOf("engine", "gateway")) {
             val prefix = jarAssetPrefix(component)
@@ -129,6 +142,9 @@ internal class NativeInstaller(
             val destPath = "$jarDir/klaw-$component.jar"
             if (downloader.downloadAndReplace(entry.value, destPath)) {
                 CliLogger.debug { "$component JAR downloaded to $destPath" }
+                if (!verifyDownload(verifier, checksums, entry.key, destPath)) {
+                    allSucceeded = false
+                }
             } else {
                 printer("${AnsiColors.YELLOW}⚠ Failed to download $component JAR${AnsiColors.RESET}")
                 allSucceeded = false
@@ -142,6 +158,26 @@ internal class NativeInstaller(
                     "Run 'klaw update' to retry.${AnsiColors.RESET}",
             )
         }
+    }
+
+    private fun verifyDownload(
+        verifier: ChecksumVerifier,
+        checksums: Map<String, String>,
+        assetName: String,
+        filePath: String,
+    ): Boolean {
+        val expectedHash = checksums[assetName]
+        if (expectedHash == null) {
+            CliLogger.debug { "No checksum entry for $assetName, skipping verification" }
+            return true
+        }
+        if (verifier.verify(filePath, expectedHash)) {
+            CliLogger.debug { "Checksum verified for $assetName" }
+            return true
+        }
+        printer("${AnsiColors.YELLOW}⚠ Checksum mismatch for $assetName${AnsiColors.RESET}")
+        commandRunner("rm -f '$filePath'")
+        return false
     }
 
     /**

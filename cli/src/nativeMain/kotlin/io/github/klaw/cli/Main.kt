@@ -86,7 +86,7 @@ internal class KlawCli(
             ServiceCommand(commandRunner, configDir),
             PairCommand(configDir, pairingRequestsPath),
             UnpairCommand(configDir),
-            UpdateCommand(configDir, releaseClient, commandRunner, readLine),
+            UpdateCommand(configDir, releaseClient, commandRunner, readLine, doctorCommandOutput),
         )
     }
 

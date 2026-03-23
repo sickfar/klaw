@@ -16,6 +16,7 @@ internal class UpdateCommand(
     private val releaseClient: GitHubReleaseClient,
     private val commandRunner: (String) -> Int,
     private val readLine: () -> String?,
+    private val commandOutput: (String) -> String? = { null },
     private val binaryPath: String = "/usr/local/bin/klaw",
     private val jarDir: String = "/usr/local/lib/klaw",
 ) : CliktCommand(name = "update") {
@@ -61,6 +62,7 @@ internal class UpdateCommand(
                 printer = ::echo,
                 commandRunner = commandRunner,
                 readLine = readLine,
+                commandOutput = commandOutput,
                 binaryPath = binaryPath,
                 jarDir = jarDir,
             )
