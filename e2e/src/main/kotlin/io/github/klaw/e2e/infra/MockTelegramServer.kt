@@ -17,6 +17,7 @@ private const val HTTP_OK = 200
 private const val SCENARIO_NAME = "telegram-updates"
 private const val STATE_PHOTO_READY = "photo-ready"
 private const val STATE_TEXT_READY = "text-ready"
+private const val STATE_CALLBACK_READY = "callback-ready"
 private const val BOT_ID = 123456L
 private const val PHOTO_MESSAGE_ID = 100
 private const val TEXT_MESSAGE_ID = 101
@@ -29,12 +30,15 @@ private const val LARGE_PHOTO_WIDTH = 800
 private const val LARGE_PHOTO_HEIGHT = 600
 private const val LARGE_PHOTO_SIZE = 10240
 private const val FILE_SIZE = 1024
+private const val CALLBACK_QUERY_ID_BASE = 5000
+private const val SEND_MESSAGE_ID = 500
 
 class MockTelegramServer(
     private val token: String = "test-bot-token",
 ) {
     private val wireMock = WireMockServer(wireMockConfig().dynamicPort())
     private var updateCounter = 0
+    private var callbackQueryCounter = 0
 
     val port: Int get() = wireMock.port()
     val baseUrl: String get() = "http://host.testcontainers.internal:${wireMock.port()}"
@@ -60,6 +64,8 @@ class MockTelegramServer(
         stubSendChatAction()
         stubDeleteWebhook()
         stubSetMyCommands()
+        stubAnswerCallbackQuery()
+        stubEditMessageReplyMarkup()
     }
 
     private fun stubGetMe() {
@@ -133,11 +139,12 @@ class MockTelegramServer(
                 ),
         )
 
-        // After photo is consumed, revert to empty updates
+        // After photo is consumed, revert to STARTED state
         wireMock.stubFor(
             post(urlEqualTo("/bot$token/getUpdates"))
                 .inScenario(SCENARIO_NAME)
                 .whenScenarioStateIs(STATE_PHOTO_READY)
+                .willSetStateTo(Scenario.STARTED)
                 .willReturn(
                     aResponse()
                         .withStatus(HTTP_OK)
@@ -183,6 +190,7 @@ class MockTelegramServer(
             post(urlEqualTo("/bot$token/getUpdates"))
                 .inScenario(SCENARIO_NAME)
                 .whenScenarioStateIs(STATE_TEXT_READY)
+                .willSetStateTo(Scenario.STARTED)
                 .willReturn(
                     aResponse()
                         .withStatus(HTTP_OK)
@@ -242,10 +250,10 @@ class MockTelegramServer(
                         .withStatus(HTTP_OK)
                         .withHeader("Content-Type", "application/json")
                         .withBody(
-                            """{"ok":true,"result":{"message_id":1,""" +
-                                """"from":{"id":123456,"is_bot":true,"first_name":"TestBot"},""" +
-                                """"chat":{"id":12345,"type":"private"},""" +
-                                """"date":1700000000,"text":"ok"}}""",
+                            """{"ok":true,"result":{"message_id":$SEND_MESSAGE_ID,""" +
+                                """"from":{"id":$BOT_ID,"is_bot":true,"first_name":"TestBot"},""" +
+                                """"chat":{"id":$TEST_CHAT_ID,"type":"private"},""" +
+                                """"date":$MESSAGE_DATE,"text":"ok"}}""",
                         ),
                 ),
         )
@@ -275,10 +283,95 @@ class MockTelegramServer(
         )
     }
 
+    private fun stubAnswerCallbackQuery() {
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/answerCallbackQuery"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"ok":true,"result":true}"""),
+                ),
+        )
+    }
+
+    private fun stubEditMessageReplyMarkup() {
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/editMessageReplyMarkup"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """{"ok":true,"result":{"message_id":$SEND_MESSAGE_ID,""" +
+                                """"from":{"id":$BOT_ID,"is_bot":true,"first_name":"TestBot"},""" +
+                                """"chat":{"id":$TEST_CHAT_ID,"type":"private"},""" +
+                                """"date":$MESSAGE_DATE,"text":"ok"}}""",
+                        ),
+                ),
+        )
+    }
+
+    fun sendCallbackQueryUpdate(
+        chatId: Long,
+        data: String,
+        messageId: Long = SEND_MESSAGE_ID.toLong(),
+    ) {
+        updateCounter++
+        callbackQueryCounter++
+        val queryId = CALLBACK_QUERY_ID_BASE + callbackQueryCounter
+        val updateJson =
+            buildString {
+                append("""{"ok":true,"result":[{"update_id":$updateCounter,"callback_query":{""")
+                append(""""id":"$queryId",""")
+                append(""""from":{"id":$DEFAULT_SENDER_ID,"is_bot":false,"first_name":"TestUser"},""")
+                append(""""message":{"message_id":$messageId,""")
+                append(""""from":{"id":$BOT_ID,"is_bot":true,"first_name":"TestBot"},""")
+                append(""""chat":{"id":$chatId,"type":"private"},""")
+                append(""""date":$MESSAGE_DATE,"text":"approval"},""")
+                append(""""chat_instance":"${chatId}_instance",""")
+                append(""""data":"$data"}}]}""")
+            }
+
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/getUpdates"))
+                .inScenario(SCENARIO_NAME)
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willSetStateTo(STATE_CALLBACK_READY)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(updateJson),
+                ),
+        )
+
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/getUpdates"))
+                .inScenario(SCENARIO_NAME)
+                .whenScenarioStateIs(STATE_CALLBACK_READY)
+                .willSetStateTo(Scenario.STARTED)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"ok":true,"result":[]}"""),
+                ),
+        )
+
+        logger.debug { "Callback query update queued for chatId=$chatId" }
+    }
+
     fun getReceivedMessages(): List<LoggedRequest> =
         wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/sendMessage")))
 
     fun getReceivedMessageCount(): Int = getReceivedMessages().size
+
+    fun getAnswerCallbackQueryRequests(): List<LoggedRequest> =
+        wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/answerCallbackQuery")))
+
+    fun getEditMessageReplyMarkupRequests(): List<LoggedRequest> =
+        wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/editMessageReplyMarkup")))
 
     fun getRequestCount(path: String): Int =
         wireMock.findAll(postRequestedFor(urlEqualTo(path))).size +
@@ -290,6 +383,8 @@ class MockTelegramServer(
 
     fun reset() {
         wireMock.resetAll()
+        updateCounter = 0
+        callbackQueryCounter = 0
         setupStubs()
     }
 

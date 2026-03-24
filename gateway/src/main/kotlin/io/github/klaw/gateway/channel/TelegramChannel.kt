@@ -4,7 +4,9 @@ import dev.inmo.kslog.common.filter.filtered
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.bot.exceptions.CommonBotException
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
+import dev.inmo.tgbotapi.extensions.api.answers.answerCallbackQuery
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
+import dev.inmo.tgbotapi.extensions.api.edit.reply_markup.editMessageReplyMarkup
 import dev.inmo.tgbotapi.extensions.api.files.downloadFile
 import dev.inmo.tgbotapi.extensions.api.get.getFileAdditionalInfo
 import dev.inmo.tgbotapi.extensions.api.send.sendActionTyping
@@ -14,7 +16,9 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCa
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onPhoto
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onText
 import dev.inmo.tgbotapi.types.BotCommand
+import dev.inmo.tgbotapi.types.CallbackQueryId
 import dev.inmo.tgbotapi.types.ChatId
+import dev.inmo.tgbotapi.types.MessageId
 import dev.inmo.tgbotapi.types.RawChatId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
@@ -51,7 +55,8 @@ class TelegramChannel(
     private var bot: TelegramBot? = null
     private var pollingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
+    internal val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
+    internal val approvalMessageIds = ConcurrentHashMap<String, Pair<Long, Long>>()
     internal val typingJobs = ConcurrentHashMap<String, Job>()
     internal var typingAction: suspend (Long) -> Unit = { platformId ->
         bot?.sendActionTyping(ChatId(RawChatId(platformId)))
@@ -60,8 +65,9 @@ class TelegramChannel(
     internal var listenScope: CoroutineScope = scope
     internal var pollOnce: (suspend (suspend (IncomingMessage) -> Unit) -> Unit)? = null
     internal var sendAction: (suspend (Long, String) -> Unit)? = null
-    internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Unit)? = null
-    internal val pendingApprovalsForTest: Map<String, suspend (Boolean) -> Unit> get() = pendingApprovals
+    internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Long)? = null
+    internal var answerCallbackAction: (suspend (String, String?) -> Unit)? = null
+    internal var editMessageAction: (suspend (Long, Long) -> Unit)? = null
 
     override fun isAlive(): Boolean = alive
 
@@ -196,7 +202,7 @@ class TelegramChannel(
                 onDataCallbackQuery { query ->
                     val data = query.data
                     if (data.startsWith("approval:")) {
-                        handleApprovalCallback(data, query)
+                        handleApprovalCallback(data, query.id.string)
                     }
                 }
             }
@@ -267,20 +273,24 @@ class TelegramChannel(
                             ),
                         ),
                 )
-            withSendRetry {
-                val action = sendApprovalAction
-                if (action != null) {
-                    action(platformId, request.command, keyboard)
-                } else {
-                    bot!!.sendTextMessage(
-                        chatId = ChatId(RawChatId(platformId)),
-                        text =
-                            "Command approval requested:\n\n${request.command}" +
-                                "\n\nRisk score: ${request.riskScore}/10",
-                        replyMarkup = keyboard,
-                    )
+            val messageId =
+                withSendRetry {
+                    val action = sendApprovalAction
+                    if (action != null) {
+                        action(platformId, request.command, keyboard)
+                    } else {
+                        val sent =
+                            bot!!.sendTextMessage(
+                                chatId = ChatId(RawChatId(platformId)),
+                                text =
+                                    "Command approval requested:\n\n${request.command}" +
+                                        "\n\nRisk score: ${request.riskScore}/10",
+                                replyMarkup = keyboard,
+                            )
+                        sent.messageId.long
+                    }
                 }
-            }
+            approvalMessageIds[request.id] = Pair(platformId, messageId)
         }.onFailure { e ->
             pendingApprovals.remove(request.id)
             logger.error(e) { "Failed to send approval request to chatId=$chatId" }
@@ -379,9 +389,9 @@ class TelegramChannel(
         }
     }
 
-    private suspend fun handleApprovalCallback(
+    internal suspend fun handleApprovalCallback(
         data: String,
-        @Suppress("UNUSED_PARAMETER") query: dev.inmo.tgbotapi.types.queries.callback.DataCallbackQuery,
+        callbackQueryId: String,
     ) {
         // Format: approval:{id}:{yes|no}
         val parts = data.split(":")
@@ -393,8 +403,57 @@ class TelegramChannel(
             logger.debug { "No pending approval for id=$approvalId" }
             return
         }
+        val statusText = if (approved) "Approved" else "Rejected"
+        answerApprovalCallbackQuery(callbackQueryId, statusText)
+        editApprovalMessage(approvalId)
         callback(approved)
         logger.debug { "Approval callback processed: id=$approvalId approved=$approved" }
+    }
+
+    private suspend fun answerApprovalCallbackQuery(
+        callbackQueryId: String,
+        text: String,
+    ) {
+        try {
+            val action = answerCallbackAction
+            if (action != null) {
+                action(callbackQueryId, text)
+            } else {
+                bot?.answerCallbackQuery(
+                    callbackQueryId = CallbackQueryId(callbackQueryId),
+                    text = text,
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: CommonBotException) {
+            logger.warn(e) { "Failed to answer callback query" }
+        } catch (e: IOException) {
+            logger.warn(e) { "Failed to answer callback query" }
+        }
+    }
+
+    private suspend fun editApprovalMessage(approvalId: String) {
+        val messageInfo = approvalMessageIds.remove(approvalId) ?: return
+        val (platformChatId, messageId) = messageInfo
+        try {
+            val action = editMessageAction
+            if (action != null) {
+                action(platformChatId, messageId)
+            } else {
+                bot?.editMessageReplyMarkup(
+                    chatId = ChatId(RawChatId(platformChatId)),
+                    messageId = MessageId(messageId),
+                    replyMarkup = null,
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: CommonBotException) {
+            logger.warn(e) { "Failed to edit approval message" }
+        } catch (e: IOException) {
+            logger.warn(e) { "Failed to edit approval message" }
+        }
     }
 
     internal fun startTyping(
@@ -433,6 +492,8 @@ class TelegramChannel(
         pollingJob?.cancel()
         typingJobs.values.forEach { it.cancel() }
         typingJobs.clear()
+        pendingApprovals.clear()
+        approvalMessageIds.clear()
         logger.info { "TelegramChannel stopped" }
     }
 
