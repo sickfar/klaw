@@ -45,7 +45,7 @@ export const useMemoryStore = defineStore('memory', () => {
     loading.value = true
     error.value = null
     try {
-      facts.value = await api<MemoryFact[]>(`/memory/search?q=${encodeURIComponent(query)}`)
+      facts.value = await api<MemoryFact[]>(`/memory/search?query=${encodeURIComponent(query)}`)
     }
     catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to search facts'

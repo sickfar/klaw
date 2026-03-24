@@ -53,6 +53,22 @@ export const useChatStore = defineStore('chat', () => {
     availableModels.value = models
   }
 
+  async function loadSessionMessages(sessionId: string) {
+    const { api } = useApi()
+    try {
+      const response = await api<Array<{ role: string, content: string, timestamp: string }>>(`/sessions/${encodeURIComponent(sessionId)}/messages`)
+      messages.value = response.map(m => ({
+        id: crypto.randomUUID(),
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: new Date(m.timestamp),
+      }))
+    }
+    catch {
+      // session messages endpoint may not exist yet
+    }
+  }
+
   return {
     messages,
     currentSessionId,
@@ -70,5 +86,6 @@ export const useChatStore = defineStore('chat', () => {
     setCurrentModel,
     setAvailableSessions,
     setAvailableModels,
+    loadSessionMessages,
   }
 })

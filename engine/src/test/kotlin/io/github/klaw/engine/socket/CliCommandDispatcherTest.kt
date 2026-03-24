@@ -1,5 +1,10 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.ModelConfig
+import io.github.klaw.common.config.ProviderConfig
+import io.github.klaw.common.config.RoutingConfig
+import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
@@ -41,6 +46,7 @@ class CliCommandDispatcherTest {
     private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
     private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
     private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
+    private val engineConfig = mockk<EngineConfig>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -53,6 +59,7 @@ class CliCommandDispatcherTest {
             consolidationService,
             engineHealthProvider,
             llmUsageTracker,
+            engineConfig,
         )
 
     @Test
@@ -447,5 +454,125 @@ class CliCommandDispatcherTest {
             val json = Json.parseToJsonElement(result).jsonObject
             assertTrue(json["started"]?.jsonPrimitive?.content == "true")
             assertEquals(3, json["jobCount"]?.jsonPrimitive?.int)
+        }
+
+    // ── models_list ──
+
+    @Test
+    fun `models_list returns JSON with configured model names`() =
+        runTest {
+            coEvery { engineConfig.models } returns
+                mapOf(
+                    "test/model" to ModelConfig(),
+                    "deepseek/chat" to ModelConfig(),
+                )
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("models_list"))
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            val models = json["models"]?.jsonArray
+            assertEquals(2, models?.size)
+            val names = models?.map { it.jsonPrimitive.content }
+            assertTrue(names?.contains("test/model") == true)
+            assertTrue(names?.contains("deepseek/chat") == true)
+        }
+
+    @Test
+    fun `models_list returns empty array when no models configured`() =
+        runTest {
+            coEvery { engineConfig.models } returns emptyMap()
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("models_list"))
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            assertTrue(json["models"]?.jsonArray?.isEmpty() == true)
+        }
+
+    // ── memory_facts_list ──
+
+    @Test
+    fun `memory_facts_list returns facts for existing category`() =
+        runTest {
+            val factsJson =
+                """[{"id":1,"category":"test-cat","content":"fact one","createdAt":"2026-01-01","updatedAt":"2026-01-01"}]"""
+            coEvery { memoryService.listFactsByCategory("test-cat") } returns factsJson
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage("memory_facts_list", mapOf("category" to "test-cat")),
+                )
+
+            val arr = Json.parseToJsonElement(result).jsonArray
+            assertEquals(1, arr.size)
+            assertEquals("fact one", arr[0].jsonObject["content"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `memory_facts_list returns error for missing category param`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("memory_facts_list"))
+
+            assertTrue(result.contains("error", ignoreCase = true))
+        }
+
+    // ── session_messages ──
+
+    @Test
+    fun `session_messages returns messages JSON for existing chatId`() =
+        runTest {
+            val messages =
+                listOf(
+                    io.github.klaw.engine.db.Messages(
+                        id = "m1",
+                        channel = "console",
+                        chat_id = "chat-1",
+                        role = "user",
+                        type = "text",
+                        content = "hello",
+                        metadata = null,
+                        created_at = "2026-03-24T10:00:00Z",
+                        tokens = 5,
+                    ),
+                )
+            coEvery { sessionManager.getMessages("chat-1") } returns messages
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage("session_messages", mapOf("chat_id" to "chat-1")),
+                )
+
+            val arr = Json.parseToJsonElement(result).jsonArray
+            assertEquals(1, arr.size)
+            assertEquals("user", arr[0].jsonObject["role"]?.jsonPrimitive?.content)
+            assertEquals("hello", arr[0].jsonObject["content"]?.jsonPrimitive?.content)
+        }
+
+    @Test
+    fun `session_messages returns empty array for unknown chatId`() =
+        runTest {
+            coEvery { sessionManager.getMessages("unknown") } returns emptyList()
+
+            val dispatcher = createDispatcher()
+            val result =
+                dispatcher.dispatch(
+                    CliRequestMessage("session_messages", mapOf("chat_id" to "unknown")),
+                )
+
+            val arr = Json.parseToJsonElement(result).jsonArray
+            assertTrue(arr.isEmpty())
+        }
+
+    @Test
+    fun `session_messages returns error for missing chat_id param`() =
+        runTest {
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("session_messages"))
+
+            assertTrue(result.contains("error", ignoreCase = true))
         }
 }

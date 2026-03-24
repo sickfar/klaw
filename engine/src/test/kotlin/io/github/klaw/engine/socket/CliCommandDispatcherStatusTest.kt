@@ -1,5 +1,6 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
@@ -39,6 +40,7 @@ class CliCommandDispatcherStatusTest {
     private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
     private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
     private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
+    private val engineConfig = mockk<EngineConfig>(relaxed = true)
 
     private val testHealth =
         EngineHealth(
@@ -70,6 +72,7 @@ class CliCommandDispatcherStatusTest {
             consolidationService,
             engineHealthProvider,
             llmUsageTracker,
+            engineConfig,
         )
 
     private fun stubSessions(count: Int = 2) {

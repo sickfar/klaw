@@ -9,13 +9,21 @@ export function useChat() {
       type: 'user',
       content,
     }
-    ws.send(frame)
+    const sent = ws.send(frame)
     chatStore.addMessage({
       id: crypto.randomUUID(),
       role: 'user',
       content,
       timestamp: new Date(),
     })
+    if (!sent) {
+      chatStore.addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Error: Not connected to server. Please wait for reconnection.',
+        timestamp: new Date(),
+      })
+    }
   }
 
   function sendApproval(approvalId: string, approved: boolean) {

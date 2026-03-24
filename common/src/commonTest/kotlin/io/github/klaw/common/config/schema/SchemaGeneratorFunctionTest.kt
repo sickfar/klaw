@@ -327,4 +327,46 @@ class SchemaGeneratorFunctionTest {
         val props = serviceSchema["properties"]!!.jsonObject
         assertTrue("ports" in props, "ports field should be included (was missing from hand-maintained schema)")
     }
+
+    // ── Description injection tests ──
+
+    @Test
+    fun `descriptions are injected into property nodes`() {
+        val descriptions = mapOf(".name" to "The name of the thing")
+        val schema = generateJsonSchema(SimpleConfig.serializer().descriptor, descriptions = descriptions)
+        val nameSchema = schema["properties"]!!.jsonObject["name"]!!.jsonObject
+        assertEquals("The name of the thing", nameSchema["description"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `description not added when path not in descriptions map`() {
+        val descriptions = mapOf(".name" to "Some desc")
+        val schema = generateJsonSchema(SimpleConfig.serializer().descriptor, descriptions = descriptions)
+        val countSchema = schema["properties"]!!.jsonObject["count"]!!.jsonObject
+        assertTrue("description" !in countSchema, "count should not have description")
+    }
+
+    @Test
+    fun `nested property descriptions are injected`() {
+        val descriptions = mapOf(".inner.count" to "Nested count desc")
+        val schema = generateJsonSchema(NestedConfig.serializer().descriptor, descriptions = descriptions)
+        val countSchema =
+            schema["properties"]!!
+                .jsonObject["inner"]!!
+                .jsonObject["properties"]!!
+                .jsonObject["count"]!!
+                .jsonObject
+        assertEquals("Nested count desc", countSchema["description"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `empty descriptions map does not change schema`() {
+        val withoutDesc = generateJsonSchema(SimpleConfig.serializer().descriptor)
+        val withEmptyDesc = generateJsonSchema(SimpleConfig.serializer().descriptor, descriptions = emptyMap())
+        assertEquals(
+            withoutDesc.toString(),
+            withEmptyDesc.toString(),
+            "Empty descriptions map should produce identical schema",
+        )
+    }
 }

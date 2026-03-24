@@ -20,10 +20,11 @@ import kotlinx.serialization.json.put
 fun generateJsonSchema(
     descriptor: SerialDescriptor,
     overrides: Map<String, JsonObject> = emptyMap(),
+    descriptions: Map<String, String> = emptyMap(),
 ): JsonObject =
     buildJsonObject {
         put("\$schema", "http://json-schema.org/draft-07/schema#")
-        val inner = generateNode(descriptor, "", overrides)
+        val inner = generateNode(descriptor, "", overrides, descriptions)
         for ((key, value) in inner) {
             put(key, value)
         }
@@ -34,21 +35,22 @@ private fun generateNode(
     descriptor: SerialDescriptor,
     path: String,
     overrides: Map<String, JsonObject>,
+    descriptions: Map<String, String>,
 ): JsonObject {
     val override = overrides[path]
 
     val base =
         when (descriptor.kind) {
             StructureKind.CLASS -> {
-                generateClassNode(descriptor, path, overrides)
+                generateClassNode(descriptor, path, overrides, descriptions)
             }
 
             StructureKind.LIST -> {
-                generateListNode(descriptor, path, overrides)
+                generateListNode(descriptor, path, overrides, descriptions)
             }
 
             StructureKind.MAP -> {
-                generateMapNode(descriptor, path, overrides)
+                generateMapNode(descriptor, path, overrides, descriptions)
             }
 
             PrimitiveKind.STRING -> {
@@ -84,6 +86,7 @@ private fun generateClassNode(
     descriptor: SerialDescriptor,
     path: String,
     overrides: Map<String, JsonObject>,
+    descriptions: Map<String, String>,
 ): JsonObject =
     buildJsonObject {
         put("type", "object")
@@ -96,8 +99,13 @@ private fun generateClassNode(
                     val elementDescriptor = descriptor.getElementDescriptor(i)
                     val elementPath = "$path.$name"
 
-                    // Unwrap nullable descriptors
-                    put(name, generateNode(elementDescriptor, elementPath, overrides))
+                    val node = generateNode(elementDescriptor, elementPath, overrides, descriptions)
+                    val desc = descriptions[elementPath]
+                    if (desc != null) {
+                        put(name, mergeObjects(node, buildJsonObject { put("description", desc) }))
+                    } else {
+                        put(name, node)
+                    }
 
                     if (!descriptor.isElementOptional(i)) {
                         requiredFields.add(name)
@@ -126,11 +134,12 @@ private fun generateListNode(
     descriptor: SerialDescriptor,
     path: String,
     overrides: Map<String, JsonObject>,
+    descriptions: Map<String, String>,
 ): JsonObject =
     buildJsonObject {
         put("type", "array")
         val elementDescriptor = descriptor.getElementDescriptor(0)
-        put("items", generateNode(elementDescriptor, "$path[]", overrides))
+        put("items", generateNode(elementDescriptor, "$path[]", overrides, descriptions))
     }
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -138,11 +147,12 @@ private fun generateMapNode(
     descriptor: SerialDescriptor,
     path: String,
     overrides: Map<String, JsonObject>,
+    descriptions: Map<String, String>,
 ): JsonObject =
     buildJsonObject {
         put("type", "object")
         val valueDescriptor = descriptor.getElementDescriptor(1)
-        put("additionalProperties", generateNode(valueDescriptor, "$path.*", overrides) as JsonElement)
+        put("additionalProperties", generateNode(valueDescriptor, "$path.*", overrides, descriptions) as JsonElement)
     }
 
 private fun mergeObjects(

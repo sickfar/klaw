@@ -17,8 +17,8 @@ onMounted(async () => {
   }
 
   try {
-    const models = await api<string[]>('/models')
-    chatStore.setAvailableModels(models)
+    const response = await api<{ models: string[] }>('/models')
+    chatStore.setAvailableModels(response.models)
   }
   catch {
     // models endpoint may not exist yet
@@ -27,6 +27,12 @@ onMounted(async () => {
 
 onUnmounted(() => {
   ws.offFrame(handleFrame)
+})
+
+watch(() => chatStore.currentSessionId, async (sessionId) => {
+  if (sessionId) {
+    await chatStore.loadSessionMessages(sessionId)
+  }
 })
 
 function onSend(content: string) {

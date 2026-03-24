@@ -79,10 +79,12 @@ export function useWebSocket() {
     status.value = 'disconnected'
   }
 
-  function send(frame: ChatFrame) {
+  function send(frame: ChatFrame): boolean {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(frame))
+      return true
     }
+    return false
   }
 
   function onFrame(callback: FrameCallback) {

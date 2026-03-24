@@ -56,6 +56,11 @@ class ApiController(
         return respondJson(engineProxy.send("sessions_list", params))
     }
 
+    @Get("/sessions/{chatId}/messages")
+    suspend fun sessionMessages(
+        @PathVariable chatId: String,
+    ): HttpResponse<String> = respondJson(engineProxy.send("session_messages", mapOf("chat_id" to chatId)))
+
     @Delete("/sessions/cleanup")
     suspend fun sessionsCleanup(
         @QueryValue("older_than_minutes") olderThanMinutes: String?,
@@ -64,6 +69,11 @@ class ApiController(
         olderThanMinutes?.let { params["older_than_minutes"] = it }
         return respondJson(engineProxy.send("sessions_cleanup", params))
     }
+
+    // ── Models ──
+
+    @Get("/models")
+    suspend fun models(): HttpResponse<String> = respondJson(engineProxy.send("models_list"))
 
     // ── Memory ──
 
@@ -80,6 +90,14 @@ class ApiController(
         val params = mutableMapOf("query" to query)
         topK?.let { params["top_k"] = it }
         return respondJson(engineProxy.send("memory_search", params))
+    }
+
+    @Get("/memory/facts")
+    suspend fun memoryFactsList(
+        @QueryValue category: String?,
+    ): HttpResponse<String> {
+        if (category.isNullOrBlank()) return respondError(HttpStatus.BAD_REQUEST, "missing category parameter")
+        return respondJson(engineProxy.send("memory_facts_list", mapOf("category" to category)))
     }
 
     @Post("/memory/facts")

@@ -50,8 +50,25 @@ fun main(args: Array<String>) {
     val generatedDir = File(args.getOrNull(0) ?: error(usage))
     generatedDir.mkdirs()
 
-    val engineSchema = generateJsonSchema(EngineConfig.serializer().descriptor, ENGINE_OVERRIDES)
-    val gatewaySchema = generateJsonSchema(GatewayConfig.serializer().descriptor)
+    // Generate config property descriptors (needed for descriptions + markdown)
+    val engineDescriptors =
+        generateDescriptors(
+            EngineConfig.serializer().descriptor,
+            EngineConfig::class.java,
+        )
+    val gatewayDescriptors =
+        generateDescriptors(
+            GatewayConfig.serializer().descriptor,
+            GatewayConfig::class.java,
+        )
+
+    val engineDescriptions =
+        engineDescriptors.associate { ".${it.path}" to it.description }.filterValues { it.isNotEmpty() }
+    val gatewayDescriptions =
+        gatewayDescriptors.associate { ".${it.path}" to it.description }.filterValues { it.isNotEmpty() }
+
+    val engineSchema = generateJsonSchema(EngineConfig.serializer().descriptor, ENGINE_OVERRIDES, engineDescriptions)
+    val gatewaySchema = generateJsonSchema(GatewayConfig.serializer().descriptor, descriptions = gatewayDescriptions)
     val composeSchema = generateJsonSchema(ComposeConfig.serializer().descriptor)
 
     // Write schema JSON files
@@ -64,18 +81,6 @@ fun main(args: Array<String>) {
     File(generatedDir, "compose.schema.json").writeText(
         prettyJson.encodeToString(JsonObject.serializer(), composeSchema) + "\n",
     )
-
-    // Generate config property descriptors
-    val engineDescriptors =
-        generateDescriptors(
-            EngineConfig.serializer().descriptor,
-            EngineConfig::class.java,
-        )
-    val gatewayDescriptors =
-        generateDescriptors(
-            GatewayConfig.serializer().descriptor,
-            GatewayConfig::class.java,
-        )
 
     // Write markdown reference docs
     File(generatedDir, "engine-config-reference.md").writeText(

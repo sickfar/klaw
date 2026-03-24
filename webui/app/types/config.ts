@@ -25,7 +25,7 @@ export interface SkillInfo {
 export interface SessionInfo {
   chatId: string
   model: string
-  messageCount: number
+  messageCount?: number
   createdAt: string
   updatedAt: string
 }

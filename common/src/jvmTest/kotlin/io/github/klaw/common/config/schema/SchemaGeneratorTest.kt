@@ -11,9 +11,21 @@ import kotlin.test.assertEquals
 class SchemaGeneratorTest {
     private val prettyJson = Json { prettyPrint = true }
 
+    private val engineDescriptions by lazy {
+        generateDescriptors(EngineConfig.serializer().descriptor, EngineConfig::class.java)
+            .associate { ".${it.path}" to it.description }
+            .filterValues { it.isNotEmpty() }
+    }
+    private val gatewayDescriptions by lazy {
+        generateDescriptors(GatewayConfig.serializer().descriptor, GatewayConfig::class.java)
+            .associate { ".${it.path}" to it.description }
+            .filterValues { it.isNotEmpty() }
+    }
+
     @Test
     fun `GeneratedSchemas ENGINE matches generateJsonSchema output`() {
-        val fromGenerator = generateJsonSchema(EngineConfig.serializer().descriptor, engineOverrides())
+        val fromGenerator =
+            generateJsonSchema(EngineConfig.serializer().descriptor, engineOverrides(), engineDescriptions)
         val fromGenerated = engineJsonSchema()
         assertEquals(
             prettyJson.encodeToString(JsonObject.serializer(), fromGenerator),
@@ -24,7 +36,8 @@ class SchemaGeneratorTest {
 
     @Test
     fun `GeneratedSchemas GATEWAY matches generateJsonSchema output`() {
-        val fromGenerator = generateJsonSchema(GatewayConfig.serializer().descriptor)
+        val fromGenerator =
+            generateJsonSchema(GatewayConfig.serializer().descriptor, descriptions = gatewayDescriptions)
         val fromGenerated = gatewayJsonSchema()
         assertEquals(
             prettyJson.encodeToString(JsonObject.serializer(), fromGenerator),

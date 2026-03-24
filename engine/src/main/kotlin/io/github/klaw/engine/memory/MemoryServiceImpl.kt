@@ -209,6 +209,28 @@ class MemoryServiceImpl(
             }
         }
 
+    override suspend fun listFactsByCategory(categoryName: String): String =
+        withContext(Dispatchers.VT) {
+            val category =
+                database.memoryCategoriesQueries.getByName(categoryName).executeAsOneOrNull()
+                    ?: return@withContext """{"error":"category not found: ${categoryName.escapeJsonValue()}"}"""
+            val facts = database.memoryFactsQueries.getByCategoryId(category.id).executeAsList()
+            facts.joinToString(",", "[", "]") { fact ->
+                val escapedCat = categoryName.escapeJsonValue()
+                val escapedContent = fact.content.escapeJsonValue()
+                """{"id":"${fact.id}","category":"$escapedCat",""" +
+                    """"content":"$escapedContent",""" +
+                    """"createdAt":"${fact.created_at}","updatedAt":"${fact.updated_at}"}"""
+            }
+        }
+
+    private fun String.escapeJsonValue(): String =
+        replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+
     private fun cleanupVecMemoryForCategory(categoryId: Long) {
         driver.execute(
             null,

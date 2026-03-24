@@ -23,7 +23,7 @@ async function fetchSessions() {
 async function cleanupSessions() {
   error.value = null
   try {
-    await api('/sessions/cleanup', { method: 'POST' })
+    await api('/sessions/cleanup', { method: 'DELETE' })
     await fetchSessions()
   }
   catch (e) {

@@ -42,4 +42,6 @@ class StubMemoryService : MemoryService {
     override suspend fun hasFactsWithSourcePrefix(prefix: String): Boolean = false
 
     override suspend fun deleteBySourcePrefix(prefix: String): Int = 0
+
+    override suspend fun listFactsByCategory(categoryName: String): String = "[]"
 }

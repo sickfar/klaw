@@ -37,4 +37,6 @@ interface MemoryService {
     suspend fun hasFactsWithSourcePrefix(prefix: String): Boolean
 
     suspend fun deleteBySourcePrefix(prefix: String): Int
+
+    suspend fun listFactsByCategory(categoryName: String): String
 }

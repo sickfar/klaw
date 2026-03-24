@@ -1,5 +1,6 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
@@ -35,6 +36,7 @@ class CliCommandDispatcher(
     private val consolidationService: DailyConsolidationService,
     private val engineHealthProvider: EngineHealthProvider,
     private val llmUsageTracker: LlmUsageTracker,
+    private val config: EngineConfig,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String =
         withContext(Dispatchers.VT) {
@@ -73,6 +75,13 @@ class CliCommandDispatcher(
                 handleMemoryCategoryOp(request.params, "category", "content") { cat, content ->
                     memoryService.save(content, cat, source = "cli")
                 }
+            }
+
+            "memory_facts_list" -> {
+                val category =
+                    request.params["category"]
+                        ?: return """{"error":"missing category"}"""
+                memoryService.listFactsByCategory(category)
             }
 
             "memory_consolidate" -> {
@@ -132,6 +141,14 @@ class CliCommandDispatcher(
 
                 "skills_list" -> {
                     handleSkillsList()
+                }
+
+                "models_list" -> {
+                    handleModelsList()
+                }
+
+                "session_messages" -> {
+                    handleSessionMessages(request.params)
                 }
 
                 else -> {
@@ -340,10 +357,12 @@ class CliCommandDispatcher(
     ): String {
         val parts =
             sessions.map { s ->
+                val messageCount = sessionManager.getMessageCount(s.chatId)
                 val base =
                     buildString {
                         append("""{"chatId":"${escapeJson(s.chatId)}"""")
                         append(""","model":"${escapeJson(s.model)}"""")
+                        append(""","messageCount":$messageCount""")
                         append(""","createdAt":"${s.createdAt}"""")
                         append(""","updatedAt":"${s.updatedAt}"""")
                     }
@@ -484,6 +503,24 @@ class CliCommandDispatcher(
                 """{"name":"$n","description":"$d","source":"$s"}"""
             }
         return """{"skills":[$items],"total":${skills.size}}"""
+    }
+
+    private suspend fun handleSessionMessages(params: Map<String, String>): String {
+        val chatId = params["chat_id"] ?: return """{"error":"missing chat_id"}"""
+        val messages =
+            sessionManager
+                .getMessages(chatId)
+                .filter { it.role == "user" || (it.role == "assistant" && it.type == "text") }
+        return messages.joinToString(",", "[", "]") { msg ->
+            """{"role":"${escapeJson(
+                msg.role,
+            )}","content":"${escapeJson(msg.content)}","timestamp":"${msg.created_at}"}"""
+        }
+    }
+
+    private fun handleModelsList(): String {
+        val items = config.models.keys.joinToString(",") { "\"${escapeJson(it)}\"" }
+        return """{"models":[$items]}"""
     }
 
     private suspend fun handleMemoryConsolidate(params: Map<String, String>): String {

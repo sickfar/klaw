@@ -15,17 +15,21 @@ object GeneratedSchemas {
                         "type": "object",
                         "properties": {
                             "type": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Provider API type (resolved from built-in registry if omitted)"
                             },
                             "endpoint": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "API endpoint URL (resolved from built-in registry if omitted)"
                             },
                             "apiKey": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "API key for authentication"
                             }
                         },
                         "additionalProperties": false
-                    }
+                    },
+                    "description": "LLM provider definitions keyed by provider name"
                 },
                 "models": {
                     "type": "object",
@@ -33,35 +37,42 @@ object GeneratedSchemas {
                         "type": "object",
                         "properties": {
                             "temperature": {
-                                "type": "number"
+                                "type": "number",
+                                "description": "Sampling temperature for generation"
                             }
                         },
                         "additionalProperties": false
-                    }
+                    },
+                    "description": "Model override settings keyed by provider/modelId"
                 },
                 "routing": {
                     "type": "object",
                     "properties": {
                         "default": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Default model reference as provider/modelId"
                         },
                         "fallback": {
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
+                            },
+                            "description": "Fallback model references tried in order if default fails"
                         },
                         "tasks": {
                             "type": "object",
                             "properties": {
                                 "summarization": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Model reference for summarization tasks"
                                 },
                                 "subagent": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Model reference for subagent tasks"
                                 },
                                 "consolidation": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Model reference for consolidation tasks"
                                 }
                             },
                             "required": [
@@ -84,10 +95,12 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "type": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Embedding backend type"
                                 },
                                 "model": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Embedding model name or path"
                                 }
                             },
                             "required": [
@@ -101,11 +114,13 @@ object GeneratedSchemas {
                             "properties": {
                                 "size": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Maximum chunk size in approximate tokens"
                                 },
                                 "overlap": {
                                     "type": "integer",
-                                    "minimum": 0
+                                    "minimum": 0,
+                                    "description": "Overlap between consecutive chunks in approximate tokens"
                                 }
                             },
                             "required": [
@@ -119,16 +134,19 @@ object GeneratedSchemas {
                             "properties": {
                                 "topK": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Number of top results to return from hybrid search"
                                 },
                                 "mmr": {
                                     "type": "object",
                                     "properties": {
                                         "enabled": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "description": "Enable MMR diversity reranking for memory search results"
                                         },
                                         "lambda": {
-                                            "type": "number"
+                                            "type": "number",
+                                            "description": "Relevance vs diversity tradeoff (0.0=max diversity, 1.0=pure relevance)"
                                         }
                                     },
                                     "additionalProperties": false
@@ -137,10 +155,12 @@ object GeneratedSchemas {
                                     "type": "object",
                                     "properties": {
                                         "enabled": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "description": "Enable temporal decay — recent memories score higher than old ones"
                                         },
                                         "halfLifeDays": {
-                                            "type": "integer"
+                                            "type": "integer",
+                                            "description": "Half-life in days — after this many days, score is halved"
                                         }
                                     },
                                     "additionalProperties": false
@@ -152,32 +172,39 @@ object GeneratedSchemas {
                             "additionalProperties": false
                         },
                         "injectMemoryMap": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Inject a Memory Map of database categories into the system prompt"
                         },
                         "mapMaxCategories": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum number of categories displayed in the memory map"
                         },
                         "autoRag": {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable automatic RAG retrieval for conversation context"
                                 },
                                 "topK": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Number of top relevant messages to retrieve"
                                 },
                                 "maxTokens": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Maximum tokens of auto-RAG context to inject"
                                 },
                                 "relevanceThreshold": {
                                     "type": "number",
-                                    "exclusiveMinimum": 0.0
+                                    "exclusiveMinimum": 0.0,
+                                    "description": "Minimum relevance score threshold for including results"
                                 },
                                 "minMessageTokens": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Minimum token count in a message to trigger auto-RAG"
                                 }
                             },
                             "additionalProperties": false
@@ -186,13 +213,16 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable background summarization of old messages"
                                 },
                                 "compactionThresholdFraction": {
-                                    "type": "number"
+                                    "type": "number",
+                                    "description": "Fraction of context budget that defines the compaction zone (0.0 to 1.0, exclusive)"
                                 },
                                 "summaryBudgetFraction": {
-                                    "type": "number"
+                                    "type": "number",
+                                    "description": "Fraction of context budget allocated to summaries (0.0 to 1.0, exclusive)"
                                 }
                             },
                             "additionalProperties": false
@@ -201,25 +231,31 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable daily memory consolidation"
                                 },
                                 "cron": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Cron expression for consolidation schedule"
                                 },
                                 "model": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Model reference for consolidation LLM call (empty = use summarization model)"
                                 },
                                 "excludeChannels": {
                                     "type": "array",
                                     "items": {
                                         "type": "string"
-                                    }
+                                    },
+                                    "description": "Channels to exclude from consolidation"
                                 },
                                 "category": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Memory category hint for consolidation summaries"
                                 },
                                 "minMessages": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "Minimum number of messages required to trigger consolidation"
                                 }
                             },
                             "additionalProperties": false
@@ -237,11 +273,13 @@ object GeneratedSchemas {
                     "properties": {
                         "defaultBudgetTokens": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Default token budget for historical messages in the context window"
                         },
                         "subagentHistory": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum number of history runs to include for subagents"
                         }
                     },
                     "required": [
@@ -254,26 +292,32 @@ object GeneratedSchemas {
                     "properties": {
                         "debounceMs": {
                             "type": "integer",
-                            "minimum": 0
+                            "minimum": 0,
+                            "description": "Delay in milliseconds before processing buffered messages"
                         },
                         "maxConcurrentLlm": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum number of concurrent LLM API requests"
                         },
                         "maxToolCallRounds": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum number of tool-call rounds per conversation turn"
                         },
                         "maxToolOutputChars": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum characters in tool output before truncation"
                         },
                         "maxDebounceEntries": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum messages in the debounce buffer before force-flush"
                         },
                         "subagentTimeoutMs": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Subagent execution timeout in milliseconds (default 5 minutes)"
                         }
                     },
                     "required": [
@@ -288,7 +332,8 @@ object GeneratedSchemas {
                     "properties": {
                         "maxInlineSkills": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum number of skills included inline in the system prompt"
                         }
                     },
                     "additionalProperties": false
@@ -299,10 +344,12 @@ object GeneratedSchemas {
                         "type": "object",
                         "properties": {
                             "name": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Slash command name without the leading /"
                             },
                             "description": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Human-readable description shown in command help"
                             }
                         },
                         "required": [
@@ -316,16 +363,20 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "interval": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Heartbeat interval as ISO-8601 duration (e.g. PT1H, PT30M) or 'off' to disable"
                         },
                         "model": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Model reference used for heartbeat generation"
                         },
                         "injectInto": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Session name to inject heartbeat output into"
                         },
                         "channel": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Channel to deliver heartbeat messages to"
                         }
                     },
                     "additionalProperties": false
@@ -335,7 +386,8 @@ object GeneratedSchemas {
                     "properties": {
                         "maxFileSizeBytes": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Maximum file size in bytes that file tools can read"
                         }
                     },
                     "additionalProperties": false
@@ -344,40 +396,51 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "dockerImage": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Docker image used for code execution sandbox"
                         },
                         "timeout": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum execution timeout in seconds"
                         },
                         "allowNetwork": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Allow network access inside the sandbox container"
                         },
                         "maxMemory": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Maximum memory limit for the sandbox container"
                         },
                         "maxCpus": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Maximum CPU cores for the sandbox container"
                         },
                         "readOnlyRootfs": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Mount the container root filesystem as read-only"
                         },
                         "keepAlive": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Keep sandbox container alive between executions (reuses container for faster execution and state persistence)"
                         },
                         "keepAliveIdleTimeoutMin": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Idle timeout in minutes before stopping a kept-alive container"
                         },
                         "keepAliveMaxExecutions": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum executions before recycling a kept-alive container"
                         },
                         "volumeMounts": {
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
+                            },
+                            "description": "Additional Docker volume mounts for the sandbox"
                         },
                         "runAsUser": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "User:group ID for sandbox container process (default: 1000:1000)"
                         }
                     },
                     "additionalProperties": false
@@ -386,43 +449,51 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "enabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Enable host command execution outside Docker sandbox"
                         },
                         "allowList": {
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
+                            },
+                            "description": "Commands allowed to run without user confirmation"
                         },
                         "notifyList": {
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
+                            },
+                            "description": "Commands that trigger a notification to the user"
                         },
                         "preValidation": {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable LLM-based pre-validation of host commands"
                                 },
                                 "model": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Model reference used for pre-validation checks"
                                 },
                                 "riskThreshold": {
                                     "type": "integer",
-                                    "minimum": 0
+                                    "minimum": 0,
+                                    "description": "Risk score threshold above which commands are blocked"
                                 },
                                 "timeoutMs": {
                                     "type": "integer",
-                                    "exclusiveMinimum": 0
+                                    "exclusiveMinimum": 0,
+                                    "description": "Timeout in milliseconds for the pre-validation LLM call"
                                 }
                             },
                             "additionalProperties": false
                         },
                         "askTimeoutMin": {
                             "type": "integer",
-                            "minimum": 0
+                            "minimum": 0,
+                            "description": "Timeout in minutes for user confirmation prompts (0 = infinite, no timeout)"
                         }
                     },
                     "additionalProperties": false
@@ -434,16 +505,20 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable the web_fetch tool for fetching web page content"
                                 },
                                 "requestTimeoutMs": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "HTTP request timeout in milliseconds"
                                 },
                                 "maxResponseSizeBytes": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "Maximum response body size in bytes (default 1MB)"
                                 },
                                 "userAgent": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "User-Agent header sent with requests"
                                 }
                             },
                             "additionalProperties": false
@@ -452,25 +527,32 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable the web_search tool for searching the internet"
                                 },
                                 "provider": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Search provider type"
                                 },
                                 "apiKey": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "API key for the search provider"
                                 },
                                 "maxResults": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "Maximum number of search results to return"
                                 },
                                 "requestTimeoutMs": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "HTTP request timeout in milliseconds"
                                 },
                                 "braveEndpoint": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Brave Search API endpoint URL (override for testing)"
                                 },
                                 "tavilyEndpoint": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Tavily Search API endpoint URL (override for testing)"
                                 }
                             },
                             "additionalProperties": false
@@ -482,16 +564,20 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "maxPdfSizeBytes": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum PDF file size in bytes for pdf_read (default 50MB)"
                         },
                         "maxPages": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum number of pages to extract in pdf_read (0 = unlimited)"
                         },
                         "maxOutputChars": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum output text length in characters before truncation"
                         },
                         "pdfFontSize": {
-                            "type": "number"
+                            "type": "number",
+                            "description": "Default font size for md_to_pdf output"
                         }
                     },
                     "additionalProperties": false
@@ -500,28 +586,35 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "enabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Enable vision/image analysis capabilities"
                         },
                         "model": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Model reference for vision analysis (e.g. 'glm/glm-4.6v')"
                         },
                         "maxTokens": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum output tokens for vision model responses (null = use model registry default)"
                         },
                         "maxImageSizeBytes": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum image file size in bytes (default 10MB)"
                         },
                         "maxImagesPerMessage": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum images per message for inline vision"
                         },
                         "supportedFormats": {
                             "type": "array",
                             "items": {
                                 "type": "string"
-                            }
+                            },
+                            "description": "Supported image MIME types"
                         },
                         "attachmentsDirectory": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Directory where gateway stores image attachments (must match gateway attachments.directory)"
                         }
                     },
                     "additionalProperties": false
@@ -531,19 +624,23 @@ object GeneratedSchemas {
                     "properties": {
                         "maxRetries": {
                             "type": "integer",
-                            "minimum": 0
+                            "minimum": 0,
+                            "description": "Maximum number of retry attempts on transient API errors"
                         },
                         "requestTimeoutMs": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "HTTP request timeout in milliseconds"
                         },
                         "initialBackoffMs": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "exclusiveMinimum": 0,
+                            "description": "Initial backoff delay in milliseconds before first retry"
                         },
                         "backoffMultiplier": {
                             "type": "number",
-                            "minimum": 1.0
+                            "minimum": 1.0,
+                            "description": "Multiplier applied to backoff delay after each retry"
                         }
                     },
                     "additionalProperties": false
@@ -552,19 +649,24 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "busyTimeoutMs": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "SQLite busy timeout in milliseconds"
                         },
                         "integrityCheckOnStartup": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Run PRAGMA integrity_check on startup"
                         },
                         "backupEnabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Enable automatic database backups"
                         },
                         "backupInterval": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Backup interval as ISO-8601 duration"
                         },
                         "backupMaxCount": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Maximum number of backup files to keep"
                         }
                     },
                     "additionalProperties": false
@@ -573,7 +675,8 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "subagentConversations": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Log subagent conversation JSONL files for debugging"
                         }
                     },
                     "additionalProperties": false
@@ -582,7 +685,8 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "enabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Enable the documentation tool for workspace docs"
                         }
                     },
                     "additionalProperties": false
@@ -594,19 +698,23 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable OpenClaw compatibility mode"
                                 },
                                 "sync": {
                                     "type": "object",
                                     "properties": {
                                         "memoryMd": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "description": "Sync MEMORY.md file with OpenClaw"
                                         },
                                         "dailyLogs": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "description": "Sync daily log files with OpenClaw"
                                         },
                                         "userMd": {
-                                            "type": "boolean"
+                                            "type": "boolean",
+                                            "description": "Sync USER.md file with OpenClaw"
                                         }
                                     },
                                     "additionalProperties": false
@@ -643,7 +751,8 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "token": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Telegram Bot API token"
                                 },
                                 "allowedChats": {
                                     "type": "array",
@@ -651,13 +760,15 @@ object GeneratedSchemas {
                                         "type": "object",
                                         "properties": {
                                             "chatId": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Platform-specific chat identifier"
                                             },
                                             "allowedUserIds": {
                                                 "type": "array",
                                                 "items": {
                                                     "type": "string"
-                                                }
+                                                },
+                                                "description": "List of user IDs allowed to interact in this chat"
                                             }
                                         },
                                         "required": [
@@ -667,7 +778,8 @@ object GeneratedSchemas {
                                     }
                                 },
                                 "apiBaseUrl": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Custom API base URL (testing only)"
                                 }
                             },
                             "required": [
@@ -679,10 +791,12 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable the Discord bot channel"
                                 },
                                 "token": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Discord bot token"
                                 },
                                 "allowedGuilds": {
                                     "type": "array",
@@ -690,19 +804,22 @@ object GeneratedSchemas {
                                         "type": "object",
                                         "properties": {
                                             "guildId": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Discord guild (server) ID"
                                             },
                                             "allowedChannelIds": {
                                                 "type": "array",
                                                 "items": {
                                                     "type": "string"
-                                                }
+                                                },
+                                                "description": "Allowed channel IDs within guild (empty = all channels)"
                                             },
                                             "allowedUserIds": {
                                                 "type": "array",
                                                 "items": {
                                                     "type": "string"
-                                                }
+                                                },
+                                                "description": "Allowed user IDs (empty = deny all)"
                                             }
                                         },
                                         "required": [
@@ -712,7 +829,8 @@ object GeneratedSchemas {
                                     }
                                 },
                                 "apiBaseUrl": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Custom API base URL (testing only)"
                                 }
                             },
                             "additionalProperties": false
@@ -721,10 +839,12 @@ object GeneratedSchemas {
                             "type": "object",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Enable the local WebSocket channel"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "description": "TCP port for the local WebSocket channel"
                                 }
                             },
                             "additionalProperties": false
@@ -738,10 +858,12 @@ object GeneratedSchemas {
                         "type": "object",
                         "properties": {
                             "name": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Slash command name without the leading /"
                             },
                             "description": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Human-readable description shown in command help"
                             }
                         },
                         "required": [
@@ -755,13 +877,16 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "maxReconnectAttempts": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Max consecutive reconnect failures before giving up (0 = unlimited)"
                         },
                         "drainBudgetSeconds": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Max seconds for draining inbound buffer on reconnect (0 = unlimited)"
                         },
                         "channelDrainBudgetSeconds": {
-                            "type": "integer"
+                            "type": "integer",
+                            "description": "Max seconds for draining per-channel buffer (0 = unlimited)"
                         }
                     },
                     "additionalProperties": false
@@ -770,7 +895,8 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "directory": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Directory for storing received image attachments (empty = disabled)"
                         }
                     },
                     "additionalProperties": false
@@ -779,10 +905,12 @@ object GeneratedSchemas {
                     "type": "object",
                     "properties": {
                         "enabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Enable the Web UI (REST API + SPA)"
                         },
                         "apiToken": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Bearer token for API authentication (supports ${'$'}{ENV_VAR} substitution, empty = no auth)"
                         }
                     },
                     "additionalProperties": false

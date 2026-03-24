@@ -118,4 +118,14 @@ class SessionManager(
         withContext(Dispatchers.VT) {
             db.messagesQueries.sumTokensByChatId(chatId).executeAsOneOrNull() ?: 0L
         }
+
+    suspend fun getMessageCount(chatId: String): Long =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.countByChatId(chatId).executeAsOne()
+        }
+
+    suspend fun getMessages(chatId: String) =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.getMessagesByChatId(chatId).executeAsList()
+        }
 }
