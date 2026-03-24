@@ -81,22 +81,25 @@ internal class NativeInstaller(
         val files = listDirectory(jarDir)
         val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
         val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
-
-        val release = fetchOwnRelease()
+        CliLogger.debug { "ensureJars: jarDir=$jarDir hasEngine=$hasEngine hasGateway=$hasGateway" }
 
         if (hasEngine && hasGateway) {
             CliLogger.debug { "JARs found in $jarDir, version pinned to ${BuildConfig.VERSION}" }
             successPrinter("Engine and Gateway JARs are up to date")
             return
-        } else {
-            printer("Downloading Engine and Gateway JARs...")
-            if (release == null) {
-                printer(
-                    "${AnsiColors.YELLOW}⚠ Could not fetch release info. " +
-                        "Run 'klaw update' later to download JARs.${AnsiColors.RESET}",
-                )
-                return
-            }
+        }
+
+        CliLogger.debug { "fetching release for tag v${BuildConfig.VERSION}" }
+        val release = fetchOwnRelease()
+        CliLogger.debug { "fetchOwnRelease result: ${if (release != null) "found (${release.tagName})" else "null"}" }
+
+        printer("Downloading Engine and Gateway JARs...")
+        if (release == null) {
+            printer(
+                "${AnsiColors.YELLOW}⚠ Could not fetch release info. " +
+                    "Run 'klaw update' later to download JARs.${AnsiColors.RESET}",
+            )
+            return
         }
         downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
     }
