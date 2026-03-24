@@ -37,8 +37,8 @@ class ConfigGeneratorTest {
         val context = root["context"]!!.jsonObject
         assertEquals(500, context["defaultBudgetTokens"]!!.jsonPrimitive.int)
 
-        val summarization = root["summarization"]!!.jsonObject
-        assertFalse(summarization["enabled"]!!.jsonPrimitive.boolean)
+        val compaction = root["memory"]!!.jsonObject["compaction"]!!.jsonObject
+        assertFalse(compaction["enabled"]!!.jsonPrimitive.boolean)
     }
 
     @Test
@@ -64,7 +64,7 @@ class ConfigGeneratorTest {
             )
 
         val root = json.parseToJsonElement(engineJson).jsonObject
-        val autoRag = root["autoRag"]!!.jsonObject
+        val autoRag = root["memory"]!!.jsonObject["autoRag"]!!.jsonObject
         assertTrue(autoRag["enabled"]!!.jsonPrimitive.boolean)
         assertEquals(5, autoRag["topK"]!!.jsonPrimitive.int)
         assertEquals(250, autoRag["maxTokens"]!!.jsonPrimitive.int)
@@ -81,7 +81,7 @@ class ConfigGeneratorTest {
             )
 
         val root = json.parseToJsonElement(engineJson).jsonObject
-        val autoRag = root["autoRag"]!!.jsonObject
+        val autoRag = root["memory"]!!.jsonObject["autoRag"]!!.jsonObject
         assertTrue(autoRag["enabled"]!!.jsonPrimitive.boolean)
         assertEquals(3, autoRag["topK"]!!.jsonPrimitive.int)
         assertEquals(400, autoRag["maxTokens"]!!.jsonPrimitive.int)
@@ -136,10 +136,10 @@ class ConfigGeneratorTest {
             )
 
         val root = json.parseToJsonElement(engineJson).jsonObject
-        val summarization = root["summarization"]!!.jsonObject
-        assertTrue(summarization["enabled"]!!.jsonPrimitive.boolean)
-        assertEquals(0.5, summarization["compactionThresholdFraction"]!!.jsonPrimitive.double)
-        assertEquals(0.25, summarization["summaryBudgetFraction"]!!.jsonPrimitive.double)
+        val compaction = root["memory"]!!.jsonObject["compaction"]!!.jsonObject
+        assertTrue(compaction["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals(0.5, compaction["compactionThresholdFraction"]!!.jsonPrimitive.double)
+        assertEquals(0.25, compaction["summaryBudgetFraction"]!!.jsonPrimitive.double)
     }
 
     @Test

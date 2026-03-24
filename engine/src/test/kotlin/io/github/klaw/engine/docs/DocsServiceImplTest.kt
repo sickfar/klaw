@@ -10,7 +10,7 @@ import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ProcessingConfig
@@ -64,16 +64,16 @@ class DocsServiceImplTest {
                     embedding = EmbeddingConfig("onnx", "model"),
                     chunking = ChunkingConfig(512, 64),
                     search = SearchConfig(10),
+                    autoRag = AutoRagConfig(),
                 ),
             context = ContextConfig(8000, 5),
             processing = ProcessingConfig(100, 2, 5),
-            llm = LlmRetryConfig(1, 5000, 100, 2.0),
+            httpRetry = HttpRetryConfig(1, 5000, 100, 2.0),
             logging = LoggingConfig(false),
             codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
             files = FilesConfig(1048576),
             commands = emptyList(),
             compatibility = CompatibilityConfig(),
-            autoRag = AutoRagConfig(),
             docs = DocsConfig(enabled = docsEnabled),
         )
 

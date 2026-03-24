@@ -16,7 +16,7 @@ import com.anthropic.models.messages.ToolResultBlockParam
 import com.anthropic.models.messages.ToolUnion
 import com.anthropic.models.messages.ToolUseBlockParam
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.error.KlawError
@@ -41,7 +41,7 @@ private const val DEFAULT_MAX_TOKENS = 4096L
 private val jacksonMapper = ObjectMapper()
 
 class AnthropicClient(
-    private val retryConfig: LlmRetryConfig,
+    private val retryConfig: HttpRetryConfig,
 ) : LlmClient {
     private val clients = ConcurrentHashMap<String, com.anthropic.client.AnthropicClient>()
 

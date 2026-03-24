@@ -1,6 +1,6 @@
 package io.github.klaw.engine.llm
 
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
@@ -13,7 +13,7 @@ class LlmRouter(
     private val providers: Map<String, ResolvedProviderConfig>,
     private val models: Map<String, ModelRef>,
     private val routing: RoutingConfig,
-    private val retryConfig: LlmRetryConfig,
+    private val retryConfig: HttpRetryConfig,
     private val clientFactory: ((ResolvedProviderConfig) -> LlmClient)?,
     private val usageTracker: LlmUsageTracker? = null,
 ) {

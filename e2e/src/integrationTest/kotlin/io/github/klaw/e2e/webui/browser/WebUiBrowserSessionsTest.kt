@@ -1,7 +1,6 @@
 package io.github.klaw.e2e.webui.browser
 
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class WebUiBrowserSessionsTest : BrowserE2eBase() {

@@ -10,7 +10,7 @@ import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
 import io.github.klaw.common.config.HostExecutionConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ProcessingConfig
@@ -18,6 +18,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.VisionConfig
+import io.github.klaw.common.config.WebConfig
 import io.github.klaw.common.config.WebFetchConfig
 import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.llm.ToolCall
@@ -76,20 +77,23 @@ class ToolRegistryImplTest {
                 embedding = EmbeddingConfig("onnx", "model"),
                 chunking = ChunkingConfig(512, 64),
                 search = SearchConfig(10),
+                autoRag = AutoRagConfig(),
             ),
         context = ContextConfig(8000, 5),
         processing = ProcessingConfig(100, 2, 5),
-        llm = LlmRetryConfig(1, 5000, 100, 2.0),
+        httpRetry = HttpRetryConfig(1, 5000, 100, 2.0),
         logging = LoggingConfig(false),
         codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
         files = FilesConfig(1048576),
         commands = emptyList(),
         compatibility = CompatibilityConfig(),
-        autoRag = AutoRagConfig(),
         docs = DocsConfig(enabled = docsEnabled),
         hostExecution = HostExecutionConfig(enabled = hostExecEnabled),
-        webFetch = WebFetchConfig(enabled = true),
-        webSearch = WebSearchConfig(enabled = true, apiKey = "test-key"),
+        web =
+            WebConfig(
+                fetch = WebFetchConfig(enabled = true),
+                search = WebSearchConfig(enabled = true, apiKey = "test-key"),
+            ),
         vision = VisionConfig(enabled = visionEnabled, model = "test/vision"),
     )
 
@@ -642,7 +646,7 @@ class ToolRegistryImplTest {
             val config = testEngineConfig(docsEnabled = true, hostExecEnabled = true)
             val disabledConfig =
                 config.copy(
-                    webFetch = config.webFetch.copy(enabled = false),
+                    web = config.web.copy(fetch = config.web.fetch.copy(enabled = false)),
                 )
             val reg =
                 ToolRegistryImpl(
@@ -679,7 +683,7 @@ class ToolRegistryImplTest {
             val config = testEngineConfig(docsEnabled = true, hostExecEnabled = true)
             val disabledConfig =
                 config.copy(
-                    webSearch = config.webSearch.copy(enabled = false),
+                    web = config.web.copy(search = config.web.search.copy(enabled = false)),
                 )
             val reg =
                 ToolRegistryImpl(

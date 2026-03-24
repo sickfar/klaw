@@ -24,7 +24,8 @@ class DailyConsolidationSchedulerTest {
 
     @Test
     fun `start does not schedule when consolidation disabled`() {
-        val config = baseConfig().copy(consolidation = DailyConsolidationConfig(enabled = false))
+        val base = baseConfig()
+        val config = base.copy(memory = base.memory.copy(consolidation = DailyConsolidationConfig(enabled = false)))
         val scheduler = DailyConsolidationScheduler(config, service, taskScheduler)
 
         scheduler.start()
@@ -35,7 +36,11 @@ class DailyConsolidationSchedulerTest {
     @Test
     fun `start schedules cron when consolidation enabled`() {
         val cron = "0 30 3 * * ?"
-        val config = baseConfig().copy(consolidation = DailyConsolidationConfig(enabled = true, cron = cron))
+        val base = baseConfig()
+        val config =
+            base.copy(
+                memory = base.memory.copy(consolidation = DailyConsolidationConfig(enabled = true, cron = cron)),
+            )
         every { taskScheduler.schedule(any<String>(), any<Runnable>()) } returns mockk<ScheduledFuture<*>>()
 
         val scheduler = DailyConsolidationScheduler(config, service, taskScheduler)

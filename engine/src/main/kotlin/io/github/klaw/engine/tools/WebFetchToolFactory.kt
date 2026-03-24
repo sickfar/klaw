@@ -7,5 +7,5 @@ import jakarta.inject.Singleton
 @Factory
 class WebFetchToolFactory {
     @Singleton
-    fun webFetchTool(config: EngineConfig): WebFetchTool = WebFetchTool(config.webFetch)
+    fun webFetchTool(config: EngineConfig): WebFetchTool = WebFetchTool(config.web.fetch)
 }

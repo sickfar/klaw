@@ -71,7 +71,25 @@ object ConfigGenerator {
                 buildProviders(wiremockBaseUrl)
                 buildModels(visionModel, defaultModelId)
                 buildRouting(defaultModelId)
-                buildMemory(memoryInjectSummary, mmrEnabled, mmrLambda, temporalDecayEnabled, temporalDecayHalfLifeDays)
+                buildMemory(
+                    memoryInjectSummary,
+                    mmrEnabled,
+                    mmrLambda,
+                    temporalDecayEnabled,
+                    temporalDecayHalfLifeDays,
+                    autoRagEnabled,
+                    autoRagTopK,
+                    autoRagMaxTokens,
+                    autoRagRelevanceThreshold,
+                    autoRagMinMessageTokens,
+                    summarizationEnabled,
+                    compactionThresholdFraction,
+                    summaryBudgetFraction,
+                    consolidationEnabled,
+                    consolidationCron,
+                    consolidationMinMessages,
+                    consolidationCategory,
+                )
                 buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
                 if (maxInlineSkills != null) {
                     putJsonObject("skills") {
@@ -79,11 +97,6 @@ object ConfigGenerator {
                     }
                 }
                 buildFeatureFlags(
-                    autoRagEnabled,
-                    autoRagTopK,
-                    autoRagMaxTokens,
-                    autoRagRelevanceThreshold,
-                    autoRagMinMessageTokens,
                     hostExecutionEnabled,
                     hostExecutionAllowList,
                     hostExecutionNotifyList,
@@ -92,13 +105,6 @@ object ConfigGenerator {
                     preValidationModel,
                     preValidationRiskThreshold,
                     preValidationTimeoutMs,
-                )
-                buildSummarization(summarizationEnabled, compactionThresholdFraction, summaryBudgetFraction)
-                buildConsolidation(
-                    consolidationEnabled,
-                    consolidationCron,
-                    consolidationMinMessages,
-                    consolidationCategory,
                 )
                 buildWebTools(
                     webFetchEnabled,
@@ -250,11 +256,23 @@ object ConfigGenerator {
 
     @Suppress("LongParameterList")
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildMemory(
-        injectSummary: Boolean,
+        injectMemoryMap: Boolean,
         mmrEnabled: Boolean,
         mmrLambda: Double,
         temporalDecayEnabled: Boolean,
         temporalDecayHalfLifeDays: Int,
+        autoRagEnabled: Boolean,
+        autoRagTopK: Int,
+        autoRagMaxTokens: Int,
+        autoRagRelevanceThreshold: Double,
+        autoRagMinMessageTokens: Int,
+        compactionEnabled: Boolean,
+        compactionThresholdFraction: Double,
+        summaryBudgetFraction: Double,
+        consolidationEnabled: Boolean,
+        consolidationCron: String,
+        consolidationMinMessages: Int,
+        consolidationCategory: String,
     ) {
         putJsonObject("memory") {
             putJsonObject("embedding") {
@@ -276,7 +294,25 @@ object ConfigGenerator {
                     put("halfLifeDays", temporalDecayHalfLifeDays)
                 }
             }
-            put("injectSummary", injectSummary)
+            put("injectMemoryMap", injectMemoryMap)
+            putJsonObject("autoRag") {
+                put("enabled", autoRagEnabled)
+                put("topK", autoRagTopK)
+                put("maxTokens", autoRagMaxTokens)
+                put("relevanceThreshold", autoRagRelevanceThreshold)
+                put("minMessageTokens", autoRagMinMessageTokens)
+            }
+            putJsonObject("compaction") {
+                put("enabled", compactionEnabled)
+                put("compactionThresholdFraction", compactionThresholdFraction)
+                put("summaryBudgetFraction", summaryBudgetFraction)
+            }
+            putJsonObject("consolidation") {
+                put("enabled", consolidationEnabled)
+                put("cron", consolidationCron)
+                put("minMessages", consolidationMinMessages)
+                put("category", consolidationCategory)
+            }
         }
     }
 
@@ -298,11 +334,6 @@ object ConfigGenerator {
 
     @Suppress("LongParameterList")
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildFeatureFlags(
-        autoRagEnabled: Boolean,
-        autoRagTopK: Int,
-        autoRagMaxTokens: Int,
-        autoRagRelevanceThreshold: Double,
-        autoRagMinMessageTokens: Int,
         hostExecutionEnabled: Boolean,
         hostExecutionAllowList: List<String>,
         hostExecutionNotifyList: List<String>,
@@ -312,13 +343,6 @@ object ConfigGenerator {
         preValidationRiskThreshold: Int,
         preValidationTimeoutMs: Long,
     ) {
-        putJsonObject("autoRag") {
-            put("enabled", autoRagEnabled)
-            put("topK", autoRagTopK)
-            put("maxTokens", autoRagMaxTokens)
-            put("relevanceThreshold", autoRagRelevanceThreshold)
-            put("minMessageTokens", autoRagMinMessageTokens)
-        }
         putJsonObject("docs") {
             put("enabled", false)
         }
@@ -338,32 +362,6 @@ object ConfigGenerator {
             put("interval", "off")
         }
         putJsonObject("database") {
-        }
-    }
-
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildConsolidation(
-        enabled: Boolean,
-        cron: String,
-        minMessages: Int,
-        category: String,
-    ) {
-        putJsonObject("consolidation") {
-            put("enabled", enabled)
-            put("cron", cron)
-            put("minMessages", minMessages)
-            put("category", category)
-        }
-    }
-
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildSummarization(
-        enabled: Boolean,
-        compactionThresholdFraction: Double,
-        summaryBudgetFraction: Double,
-    ) {
-        putJsonObject("summarization") {
-            put("enabled", enabled)
-            put("compactionThresholdFraction", compactionThresholdFraction)
-            put("summaryBudgetFraction", summaryBudgetFraction)
         }
     }
 
@@ -401,19 +399,21 @@ object ConfigGenerator {
         webSearchApiKey: String?,
         webSearchEndpoint: String?,
     ) {
-        putJsonObject("webFetch") {
-            put("enabled", webFetchEnabled)
-        }
-        putJsonObject("webSearch") {
-            put("enabled", webSearchEnabled)
-            put("provider", webSearchProvider)
-            if (webSearchApiKey != null) {
-                put("apiKey", webSearchApiKey)
+        putJsonObject("web") {
+            putJsonObject("fetch") {
+                put("enabled", webFetchEnabled)
             }
-            if (webSearchEndpoint != null) {
-                when (webSearchProvider) {
-                    "brave" -> put("braveEndpoint", webSearchEndpoint)
-                    "tavily" -> put("tavilyEndpoint", webSearchEndpoint)
+            putJsonObject("search") {
+                put("enabled", webSearchEnabled)
+                put("provider", webSearchProvider)
+                if (webSearchApiKey != null) {
+                    put("apiKey", webSearchApiKey)
+                }
+                if (webSearchEndpoint != null) {
+                    when (webSearchProvider) {
+                        "brave" -> put("braveEndpoint", webSearchEndpoint)
+                        "tavily" -> put("tavilyEndpoint", webSearchEndpoint)
+                    }
                 }
             }
         }

@@ -165,7 +165,7 @@ class KlawWorkspaceLoader(
     }
 
     private suspend fun buildMemorySummaryFromDb(): String? {
-        if (!config.memory.injectSummary) return null
+        if (!config.memory.injectMemoryMap) return null
 
         val limit = config.memory.mapMaxCategories
         val categories = memoryService.getTopCategories(limit)

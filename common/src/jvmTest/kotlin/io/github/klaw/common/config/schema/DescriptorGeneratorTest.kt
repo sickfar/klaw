@@ -61,9 +61,9 @@ class DescriptorGeneratorTest {
     }
 
     @Test
-    fun generatesLlmBackoffMultiplier() {
-        val desc = findDescriptor(engineDescriptors, "llm.backoffMultiplier")
-        assertNotNull(desc, "llm.backoffMultiplier not found")
+    fun generatesHttpRetryBackoffMultiplier() {
+        val desc = findDescriptor(engineDescriptors, "httpRetry.backoffMultiplier")
+        assertNotNull(desc, "httpRetry.backoffMultiplier not found")
         assertEquals(ConfigValueType.DOUBLE, desc.type)
     }
 
@@ -143,9 +143,9 @@ class DescriptorGeneratorTest {
 
     @Test
     fun detectsOptionalProperty() {
-        val desc = findDescriptor(engineDescriptors, "llm.maxRetries")
+        val desc = findDescriptor(engineDescriptors, "httpRetry.maxRetries")
         assertNotNull(desc)
-        assertFalse(desc.required, "llm.maxRetries should be optional")
+        assertFalse(desc.required, "httpRetry.maxRetries should be optional")
     }
 
     // --- Skips @Transient ---

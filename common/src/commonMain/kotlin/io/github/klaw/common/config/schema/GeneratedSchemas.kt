@@ -151,11 +151,78 @@ object GeneratedSchemas {
                             ],
                             "additionalProperties": false
                         },
-                        "injectSummary": {
+                        "injectMemoryMap": {
                             "type": "boolean"
                         },
                         "mapMaxCategories": {
                             "type": "integer"
+                        },
+                        "autoRag": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "topK": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0
+                                },
+                                "maxTokens": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0
+                                },
+                                "relevanceThreshold": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0.0
+                                },
+                                "minMessageTokens": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "compaction": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "compactionThresholdFraction": {
+                                    "type": "number"
+                                },
+                                "summaryBudgetFraction": {
+                                    "type": "number"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "consolidation": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "cron": {
+                                    "type": "string"
+                                },
+                                "model": {
+                                    "type": "string"
+                                },
+                                "excludeChannels": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "category": {
+                                    "type": "string"
+                                },
+                                "minMessages": {
+                                    "type": "integer"
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "required": [
@@ -216,33 +283,59 @@ object GeneratedSchemas {
                     ],
                     "additionalProperties": false
                 },
-                "llm": {
+                "skills": {
                     "type": "object",
                     "properties": {
-                        "maxRetries": {
-                            "type": "integer",
-                            "minimum": 0
-                        },
-                        "requestTimeoutMs": {
+                        "maxInlineSkills": {
                             "type": "integer",
                             "exclusiveMinimum": 0
-                        },
-                        "initialBackoffMs": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        },
-                        "backoffMultiplier": {
-                            "type": "number",
-                            "minimum": 1.0
                         }
                     },
                     "additionalProperties": false
                 },
-                "logging": {
+                "commands": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "description"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "heartbeat": {
                     "type": "object",
                     "properties": {
-                        "subagentConversations": {
-                            "type": "boolean"
+                        "interval": {
+                            "type": "string"
+                        },
+                        "model": {
+                            "type": "string"
+                        },
+                        "injectInto": {
+                            "type": "string"
+                        },
+                        "channel": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "files": {
+                    "type": "object",
+                    "properties": {
+                        "maxFileSizeBytes": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
                         }
                     },
                     "additionalProperties": false
@@ -289,109 +382,6 @@ object GeneratedSchemas {
                     },
                     "additionalProperties": false
                 },
-                "files": {
-                    "type": "object",
-                    "properties": {
-                        "maxFileSizeBytes": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "commands": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        },
-                        "required": [
-                            "name",
-                            "description"
-                        ],
-                        "additionalProperties": false
-                    }
-                },
-                "compatibility": {
-                    "type": "object",
-                    "properties": {
-                        "openclaw": {
-                            "type": "object",
-                            "properties": {
-                                "enabled": {
-                                    "type": "boolean"
-                                },
-                                "sync": {
-                                    "type": "object",
-                                    "properties": {
-                                        "memoryMd": {
-                                            "type": "boolean"
-                                        },
-                                        "dailyLogs": {
-                                            "type": "boolean"
-                                        },
-                                        "userMd": {
-                                            "type": "boolean"
-                                        }
-                                    },
-                                    "additionalProperties": false
-                                }
-                            },
-                            "additionalProperties": false
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "autoRag": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "topK": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        },
-                        "maxTokens": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        },
-                        "relevanceThreshold": {
-                            "type": "number",
-                            "exclusiveMinimum": 0.0
-                        },
-                        "minMessageTokens": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "docs": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "skills": {
-                    "type": "object",
-                    "properties": {
-                        "maxInlineSkills": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "hostExecution": {
                     "type": "object",
                     "properties": {
@@ -432,133 +422,58 @@ object GeneratedSchemas {
                         },
                         "askTimeoutMin": {
                             "type": "integer",
-                            "exclusiveMinimum": 0
+                            "minimum": 0
                         }
                     },
                     "additionalProperties": false
                 },
-                "heartbeat": {
+                "web": {
                     "type": "object",
                     "properties": {
-                        "interval": {
-                            "type": "string"
+                        "fetch": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "requestTimeoutMs": {
+                                    "type": "integer"
+                                },
+                                "maxResponseSizeBytes": {
+                                    "type": "integer"
+                                },
+                                "userAgent": {
+                                    "type": "string"
+                                }
+                            },
+                            "additionalProperties": false
                         },
-                        "model": {
-                            "type": "string"
-                        },
-                        "injectInto": {
-                            "type": "string"
-                        },
-                        "channel": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "summarization": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "compactionThresholdFraction": {
-                            "type": "number"
-                        },
-                        "summaryBudgetFraction": {
-                            "type": "number"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "database": {
-                    "type": "object",
-                    "properties": {
-                        "busyTimeoutMs": {
-                            "type": "integer"
-                        },
-                        "integrityCheckOnStartup": {
-                            "type": "boolean"
-                        },
-                        "backupEnabled": {
-                            "type": "boolean"
-                        },
-                        "backupInterval": {
-                            "type": "string"
-                        },
-                        "backupMaxCount": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "consolidation": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "cron": {
-                            "type": "string"
-                        },
-                        "model": {
-                            "type": "string"
-                        },
-                        "excludeChannels": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "category": {
-                            "type": "string"
-                        },
-                        "minMessages": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "webFetch": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "requestTimeoutMs": {
-                            "type": "integer"
-                        },
-                        "maxResponseSizeBytes": {
-                            "type": "integer"
-                        },
-                        "userAgent": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "webSearch": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        },
-                        "provider": {
-                            "type": "string"
-                        },
-                        "apiKey": {
-                            "type": "string"
-                        },
-                        "maxResults": {
-                            "type": "integer"
-                        },
-                        "requestTimeoutMs": {
-                            "type": "integer"
-                        },
-                        "braveEndpoint": {
-                            "type": "string"
-                        },
-                        "tavilyEndpoint": {
-                            "type": "string"
+                        "search": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "provider": {
+                                    "type": "string"
+                                },
+                                "apiKey": {
+                                    "type": "string"
+                                },
+                                "maxResults": {
+                                    "type": "integer"
+                                },
+                                "requestTimeoutMs": {
+                                    "type": "integer"
+                                },
+                                "braveEndpoint": {
+                                    "type": "string"
+                                },
+                                "tavilyEndpoint": {
+                                    "type": "string"
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false
@@ -607,6 +522,97 @@ object GeneratedSchemas {
                         },
                         "attachmentsDirectory": {
                             "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "httpRetry": {
+                    "type": "object",
+                    "properties": {
+                        "maxRetries": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "requestTimeoutMs": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                        },
+                        "initialBackoffMs": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0
+                        },
+                        "backoffMultiplier": {
+                            "type": "number",
+                            "minimum": 1.0
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "database": {
+                    "type": "object",
+                    "properties": {
+                        "busyTimeoutMs": {
+                            "type": "integer"
+                        },
+                        "integrityCheckOnStartup": {
+                            "type": "boolean"
+                        },
+                        "backupEnabled": {
+                            "type": "boolean"
+                        },
+                        "backupInterval": {
+                            "type": "string"
+                        },
+                        "backupMaxCount": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "logging": {
+                    "type": "object",
+                    "properties": {
+                        "subagentConversations": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "docs": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "compatibility": {
+                    "type": "object",
+                    "properties": {
+                        "openclaw": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "sync": {
+                                    "type": "object",
+                                    "properties": {
+                                        "memoryMd": {
+                                            "type": "boolean"
+                                        },
+                                        "dailyLogs": {
+                                            "type": "boolean"
+                                        },
+                                        "userMd": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false

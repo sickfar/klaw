@@ -39,7 +39,7 @@ class EngineConfigSchemaTest {
     fun `required does not contain optional fields`() {
         val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
         val optional =
-            listOf("llm", "logging", "codeExecution", "files", "commands", "compatibility", "autoRag", "docs")
+            listOf("httpRetry", "logging", "codeExecution", "files", "commands", "compatibility", "docs", "web")
         optional.forEach { field ->
             assertTrue(field !in required, "required should NOT contain optional field '$field'")
         }
@@ -111,9 +111,9 @@ class EngineConfigSchemaTest {
     }
 
     @Test
-    fun `llm backoffMultiplier has minimum 1_0`() {
-        val llm = schema["properties"]!!.jsonObject["llm"]!!.jsonObject
-        val backoff = llm["properties"]!!.jsonObject["backoffMultiplier"]!!.jsonObject
+    fun `httpRetry backoffMultiplier has minimum 1_0`() {
+        val httpRetry = schema["properties"]!!.jsonObject["httpRetry"]!!.jsonObject
+        val backoff = httpRetry["properties"]!!.jsonObject["backoffMultiplier"]!!.jsonObject
         assertEquals("number", backoff["type"]?.jsonPrimitive?.content)
         assertEquals("1.0", (backoff["minimum"] as? JsonPrimitive)?.content)
     }
@@ -134,8 +134,9 @@ class EngineConfigSchemaTest {
     }
 
     @Test
-    fun `autoRag has correct property types`() {
-        val autoRag = schema["properties"]!!.jsonObject["autoRag"]!!.jsonObject
+    fun `autoRag has correct property types under memory`() {
+        val memory = schema["properties"]!!.jsonObject["memory"]!!.jsonObject
+        val autoRag = memory["properties"]!!.jsonObject["autoRag"]!!.jsonObject
         val props = autoRag["properties"]!!.jsonObject
         assertEquals("boolean", props["enabled"]!!.jsonObject["type"]?.jsonPrimitive?.content)
         assertEquals("integer", props["topK"]!!.jsonObject["type"]?.jsonPrimitive?.content)

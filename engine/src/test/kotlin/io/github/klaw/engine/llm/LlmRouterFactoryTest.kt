@@ -6,7 +6,7 @@ import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -63,8 +63,8 @@ class LlmRouterFactoryTest {
                     maxConcurrentLlm = 2,
                     maxToolCallRounds = 5,
                 ),
-            llm =
-                LlmRetryConfig(
+            httpRetry =
+                HttpRetryConfig(
                     maxRetries = 1,
                     requestTimeoutMs = 5000,
                     initialBackoffMs = 100,

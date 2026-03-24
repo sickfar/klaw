@@ -11,7 +11,7 @@ import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
 import io.github.klaw.common.config.HostExecutionConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -49,7 +49,7 @@ class ContextBuilderMemorySummaryTest {
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
     private val healthProvider = mockk<EngineHealthProvider>()
 
-    private fun buildConfig(injectSummary: Boolean = false): EngineConfig =
+    private fun buildConfig(injectMemoryMap: Boolean = false): EngineConfig =
         EngineConfig(
             providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
             models = mapOf("test/model" to ModelConfig()),
@@ -64,12 +64,13 @@ class ContextBuilderMemorySummaryTest {
                     embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
-                    injectSummary = injectSummary,
+                    injectMemoryMap = injectMemoryMap,
+                    autoRag = AutoRagConfig(enabled = false),
                 ),
             context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-            llm =
-                LlmRetryConfig(
+            httpRetry =
+                HttpRetryConfig(
                     maxRetries = 1,
                     requestTimeoutMs = 5000,
                     initialBackoffMs = 100,
@@ -80,7 +81,6 @@ class ContextBuilderMemorySummaryTest {
             files = FilesConfig(),
             commands = emptyList(),
             compatibility = CompatibilityConfig(),
-            autoRag = AutoRagConfig(enabled = false),
             skills = SkillsConfig(),
             docs = DocsConfig(),
             hostExecution = HostExecutionConfig(),
@@ -149,13 +149,13 @@ class ContextBuilderMemorySummaryTest {
 
             coEvery { workspaceLoader.loadMemorySummary() } returns memorySummary
 
-            val contextBuilder = buildContextBuilder(buildConfig(injectSummary = true))
+            val contextBuilder = buildContextBuilder(buildConfig(injectMemoryMap = true))
             val result = contextBuilder.buildContext(buildSession(), listOf("Hello"), isSubagent = false)
 
             val systemContent = result.messages[0].content!!
             assertTrue(
                 systemContent.contains("## Memory Map"),
-                "System prompt should contain Memory Map when injectSummary=true and summary exists",
+                "System prompt should contain Memory Map when injectMemoryMap=true and summary exists",
             )
             assertTrue(
                 systemContent.contains("Projects"),
@@ -168,13 +168,13 @@ class ContextBuilderMemorySummaryTest {
         runTest {
             coEvery { workspaceLoader.loadMemorySummary() } returns "## Memory Map\n- **Projects**: Klaw."
 
-            val contextBuilder = buildContextBuilder(buildConfig(injectSummary = false))
+            val contextBuilder = buildContextBuilder(buildConfig(injectMemoryMap = false))
             val result = contextBuilder.buildContext(buildSession(), listOf("Hello"), isSubagent = false)
 
             val systemContent = result.messages[0].content!!
             assertFalse(
                 systemContent.contains("## Memory Map"),
-                "System prompt should NOT contain Memory Map when injectSummary=false",
+                "System prompt should NOT contain Memory Map when injectMemoryMap=false",
             )
         }
 
@@ -183,7 +183,7 @@ class ContextBuilderMemorySummaryTest {
         runTest {
             coEvery { workspaceLoader.loadMemorySummary() } returns null
 
-            val contextBuilder = buildContextBuilder(buildConfig(injectSummary = true))
+            val contextBuilder = buildContextBuilder(buildConfig(injectMemoryMap = true))
             val result = contextBuilder.buildContext(buildSession(), listOf("Hello"), isSubagent = false)
 
             val systemContent = result.messages[0].content!!

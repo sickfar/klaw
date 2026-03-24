@@ -1,6 +1,6 @@
 package io.github.klaw.engine.llm
 
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 
 class LlmRouterTest {
     private val retryConfig =
-        LlmRetryConfig(
+        HttpRetryConfig(
             maxRetries = 0,
             requestTimeoutMs = 5000L,
             initialBackoffMs = 100L,

@@ -32,7 +32,7 @@ class LlmRouterFactory {
             providers = resolvedProviders,
             models = models,
             routing = config.routing,
-            retryConfig = config.llm,
+            retryConfig = config.httpRetry,
             clientFactory = null,
             usageTracker = usageTracker,
         )

@@ -11,7 +11,7 @@ import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
 import io.github.klaw.common.config.HostExecutionConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -77,6 +77,7 @@ class ContextBuilderTest {
                     embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
+                    autoRag = AutoRagConfig(enabled = false),
                 ),
             context =
                 ContextConfig(
@@ -84,8 +85,8 @@ class ContextBuilderTest {
                     subagentHistory = subagentHistory,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-            llm =
-                LlmRetryConfig(
+            httpRetry =
+                HttpRetryConfig(
                     maxRetries = 1,
                     requestTimeoutMs = 5000,
                     initialBackoffMs = 100,
@@ -106,7 +107,6 @@ class ContextBuilderTest {
             files = FilesConfig(maxFileSizeBytes = 10485760),
             commands = emptyList(),
             compatibility = CompatibilityConfig(),
-            autoRag = AutoRagConfig(enabled = false),
             skills = skills,
             docs = docs,
             hostExecution = hostExecution,
@@ -411,9 +411,12 @@ class ContextBuilderTest {
             val config = buildConfig(contextBudget = 400)
             val configWithSum =
                 config.copy(
-                    summarization =
-                        io.github.klaw.common.config
-                            .SummarizationConfig(enabled = true),
+                    memory =
+                        config.memory.copy(
+                            compaction =
+                                io.github.klaw.common.config
+                                    .CompactionConfig(enabled = true),
+                        ),
                 )
             val contextBuilder = buildContextBuilder(configWithSum)
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
@@ -539,9 +542,12 @@ class ContextBuilderTest {
             // Enable summarization in config to trigger the new path
             val configWithSummarization =
                 config.copy(
-                    summarization =
-                        io.github.klaw.common.config
-                            .SummarizationConfig(enabled = true),
+                    memory =
+                        config.memory.copy(
+                            compaction =
+                                io.github.klaw.common.config
+                                    .CompactionConfig(enabled = true),
+                        ),
                 )
             val contextBuilder = buildContextBuilder(configWithSummarization)
 
@@ -911,10 +917,13 @@ class ContextBuilderTest {
             val config = buildConfig(contextBudget = 4000)
             val configWithSum =
                 config.copy(
-                    summarization =
-                        io.github.klaw.common.config.SummarizationConfig(
-                            enabled = true,
-                            summaryBudgetFraction = 0.25,
+                    memory =
+                        config.memory.copy(
+                            compaction =
+                                io.github.klaw.common.config.CompactionConfig(
+                                    enabled = true,
+                                    summaryBudgetFraction = 0.25,
+                                ),
                         ),
                 )
 

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.TestMethodOrder
 import java.io.File
 
 /**
- * E2E test verifying that when memory.injectSummary is enabled,
+ * E2E test verifying that when memory.injectMemoryMap is enabled,
  * the system prompt includes a "Memory Map" section with categories
  * built from the database (initially populated from MEMORY.md).
  */
@@ -96,7 +96,7 @@ class MemorySummaryE2eTest {
 
         assertTrue(
             systemContent.contains("## Memory Map"),
-            "System prompt should contain '## Memory Map' when injectSummary=true",
+            "System prompt should contain '## Memory Map' when injectMemoryMap=true",
         )
         assertTrue(
             systemContent.contains("Projects"),

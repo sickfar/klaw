@@ -68,7 +68,7 @@ class DailyConsolidationService(
         date: LocalDate,
         force: Boolean,
     ): ConsolidationResult {
-        if (!config.consolidation.enabled) return ConsolidationResult.Disabled
+        if (!config.memory.consolidation.enabled) return ConsolidationResult.Disabled
 
         val sourceKey = "daily-consolidation:$date"
 
@@ -88,7 +88,9 @@ class DailyConsolidationService(
         val toTime = toInstant.toString()
 
         val allMessages = messageRepository.getMessagesByTimeRange(fromTime, toTime)
-        val excludeChannels = config.consolidation.excludeChannels.toSet()
+        val excludeChannels =
+            config.memory.consolidation.excludeChannels
+                .toSet()
         val messages =
             if (excludeChannels.isEmpty()) {
                 allMessages
@@ -96,9 +98,9 @@ class DailyConsolidationService(
                 allMessages.filter { it.channel !in excludeChannels }
             }
 
-        if (messages.size < config.consolidation.minMessages) {
+        if (messages.size < config.memory.consolidation.minMessages) {
             logger.debug {
-                "Too few messages for consolidation: ${messages.size} < ${config.consolidation.minMessages}"
+                "Too few messages for consolidation: ${messages.size} < ${config.memory.consolidation.minMessages}"
             }
             return ConsolidationResult.TooFewMessages
         }
@@ -136,7 +138,7 @@ class DailyConsolidationService(
     }
 
     private fun resolveModelId(): String {
-        val explicit = config.consolidation.model
+        val explicit = config.memory.consolidation.model
         if (explicit.isNotEmpty()) return explicit
         val consolidationTask = config.routing.tasks.consolidation
         if (consolidationTask.isNotEmpty()) return consolidationTask
@@ -230,7 +232,7 @@ class DailyConsolidationService(
         return try {
             val args = json.parseToJsonElement(call.arguments).jsonObject
             val content = args["content"]?.jsonPrimitive?.content
-            val category = args["category"]?.jsonPrimitive?.content ?: config.consolidation.category
+            val category = args["category"]?.jsonPrimitive?.content ?: config.memory.consolidation.category
             if (content.isNullOrBlank()) {
                 logger.debug { "memory_save called with empty content, skipping" }
                 return null

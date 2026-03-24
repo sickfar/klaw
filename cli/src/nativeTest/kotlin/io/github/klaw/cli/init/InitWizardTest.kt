@@ -1,6 +1,5 @@
 package io.github.klaw.cli.init
 
-import io.github.klaw.cli.update.GitHubAsset
 import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.util.fileExists
@@ -2097,8 +2096,8 @@ class InitWizardTest {
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
         assertTrue(
-            !engineJson.contains("webSearch"),
-            "Expected no webSearch section when skipped:\n$engineJson",
+            !engineJson.contains("\"web\""),
+            "Expected no web section when search skipped:\n$engineJson",
         )
         val envContent = readFileText("$configDir/.env")
         assertNotNull(envContent)
@@ -2154,8 +2153,9 @@ class InitWizardTest {
 
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
-        assertTrue(engineJson.contains("webSearch"), "Expected webSearch section in engine.json:\n$engineJson")
-        assertTrue(engineJson.contains("\"enabled\": true"), "Expected enabled: true in webSearch:\n$engineJson")
+        assertTrue(engineJson.contains("\"web\""), "Expected web section in engine.json:\n$engineJson")
+        assertTrue(engineJson.contains("\"search\""), "Expected web.search section in engine.json:\n$engineJson")
+        assertTrue(engineJson.contains("\"enabled\": true"), "Expected enabled: true in web.search:\n$engineJson")
         // "brave" is the default provider — encodeDefaults=false omits it; verify via apiKey ref
         assertTrue(
             engineJson.contains("BRAVE_SEARCH_API_KEY"),
@@ -2219,10 +2219,11 @@ class InitWizardTest {
 
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
-        assertTrue(engineJson.contains("webSearch"), "Expected webSearch section in engine.json:\n$engineJson")
+        assertTrue(engineJson.contains("\"web\""), "Expected web section in engine.json:\n$engineJson")
+        assertTrue(engineJson.contains("\"search\""), "Expected web.search section in engine.json:\n$engineJson")
         assertTrue(
             engineJson.contains("\"provider\": \"tavily\""),
-            "Expected provider: tavily in webSearch:\n$engineJson",
+            "Expected provider: tavily in web.search:\n$engineJson",
         )
         assertTrue(
             engineJson.contains("TAVILY_API_KEY"),

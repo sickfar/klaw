@@ -23,6 +23,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.WebConfig
 import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.config.encodeComposeConfig
 import io.github.klaw.common.config.encodeEngineConfigMinimal
@@ -86,7 +87,7 @@ internal object ConfigTemplates {
                     interval = if (heartbeatChannel != null) "PT1H" else "off",
                     channel = heartbeatChannel,
                 ),
-            webSearch = webSearch,
+            web = WebConfig(search = webSearch),
         )
     }
 

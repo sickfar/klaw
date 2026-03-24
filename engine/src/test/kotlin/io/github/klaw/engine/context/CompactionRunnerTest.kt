@@ -3,10 +3,11 @@ package io.github.klaw.engine.context
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
+import io.github.klaw.common.config.CompactionConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -14,7 +15,6 @@ import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
-import io.github.klaw.common.config.SummarizationConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmResponse
@@ -62,24 +62,24 @@ class CompactionRunnerTest {
                     embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
+                    autoRag = AutoRagConfig(enabled = false),
+                    compaction =
+                        CompactionConfig(
+                            enabled = enabled,
+                            compactionThresholdFraction = compactionThresholdFraction,
+                            summaryBudgetFraction = summaryBudgetFraction,
+                        ),
                 ),
             context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-            llm =
-                LlmRetryConfig(
+            httpRetry =
+                HttpRetryConfig(
                     maxRetries = 1,
                     requestTimeoutMs = 5000,
                     initialBackoffMs = 100,
                     backoffMultiplier = 2.0,
                 ),
             logging = LoggingConfig(subagentConversations = false),
-            autoRag = AutoRagConfig(enabled = false),
-            summarization =
-                SummarizationConfig(
-                    enabled = enabled,
-                    compactionThresholdFraction = compactionThresholdFraction,
-                    summaryBudgetFraction = summaryBudgetFraction,
-                ),
         )
 
     @BeforeEach

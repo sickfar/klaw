@@ -144,7 +144,7 @@ class ReindexService(
             // Eligibility check: user or assistant, not tool_call, sufficient tokens
             if (role != "user" && role != "assistant") continue
             if (role == "assistant" && type == "tool_call") continue
-            if (approximateTokenCount(content) < config.autoRag.minMessageTokens) continue
+            if (approximateTokenCount(content) < config.memory.autoRag.minMessageTokens) continue
 
             try {
                 val embedding = embeddingService.embed(content)

@@ -1,6 +1,6 @@
 package io.github.klaw.engine.llm
 
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.error.KlawError
@@ -47,7 +47,7 @@ private val json =
 private val HTTP_SUCCESS_RANGE = 200..299
 
 class OpenAiCompatibleClient(
-    private val retryConfig: LlmRetryConfig,
+    private val retryConfig: HttpRetryConfig,
 ) : LlmClient {
     private val httpClient: HttpClient =
         HttpClient

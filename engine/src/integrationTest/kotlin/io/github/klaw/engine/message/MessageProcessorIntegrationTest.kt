@@ -13,7 +13,7 @@ import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -107,8 +107,8 @@ class MessageProcessorIntegrationTest {
                     maxConcurrentLlm = 2,
                     maxToolCallRounds = 5,
                 ),
-            llm =
-                LlmRetryConfig(
+            httpRetry =
+                HttpRetryConfig(
                     maxRetries = 0,
                     requestTimeoutMs = 5000,
                     initialBackoffMs = 100,
@@ -138,7 +138,7 @@ class MessageProcessorIntegrationTest {
                 mapOf("test" to ResolvedProviderConfig("openai-compatible", "http://localhost:$port", "test-key")),
             models = mapOf("test/model" to modelRef),
             routing = config.routing,
-            retryConfig = config.llm,
+            retryConfig = config.httpRetry,
             clientFactory = null,
         )
     }
@@ -223,7 +223,9 @@ class MessageProcessorIntegrationTest {
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
-            summarizationRunner = mockk(relaxed = true),
+            compactionRunner = mockk(relaxed = true),
+            subagentRunRepository = mockk(relaxed = true),
+            activeSubagentJobs = mockk(relaxed = true),
         )
     }
 

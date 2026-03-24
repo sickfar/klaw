@@ -50,12 +50,14 @@ In `engine.json`:
 
 ```json
 {
-  "webSearch": {
-    "enabled": true,
-    "provider": "brave",
-    "apiKey": "${BRAVE_SEARCH_API_KEY}",
-    "maxResults": 5,
-    "requestTimeoutMs": 10000
+  "web": {
+    "search": {
+      "enabled": true,
+      "provider": "brave",
+      "apiKey": "${BRAVE_SEARCH_API_KEY}",
+      "maxResults": 5,
+      "requestTimeoutMs": 10000
+    }
   }
 }
 ```

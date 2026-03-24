@@ -1,7 +1,7 @@
 package io.github.klaw.engine.message
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.config.RoutingConfig
@@ -48,7 +48,7 @@ class ToolCallLoopTest {
                     tasks = TaskRoutingConfig(summarization = "test/test-model", subagent = "test/test-model"),
                 ),
             retryConfig =
-                LlmRetryConfig(
+                HttpRetryConfig(
                     maxRetries = 0,
                     requestTimeoutMs = 1000,
                     initialBackoffMs = 100,

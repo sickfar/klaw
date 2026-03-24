@@ -4,9 +4,6 @@ import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.update.GitHubReleaseClientImpl
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Ignore
 import kotlin.test.Test

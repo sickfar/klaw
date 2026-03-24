@@ -20,12 +20,12 @@ class DailyConsolidationScheduler(
 ) {
     @PostConstruct
     fun start() {
-        if (!config.consolidation.enabled) {
+        if (!config.memory.consolidation.enabled) {
             logger.debug { "Daily consolidation disabled" }
             return
         }
         taskScheduler.schedule(
-            config.consolidation.cron,
+            config.memory.consolidation.cron,
             Runnable {
                 runBlocking {
                     service.consolidate()
@@ -36,6 +36,6 @@ class DailyConsolidationScheduler(
                 }
             },
         )
-        logger.info { "Daily consolidation scheduled: cron=${config.consolidation.cron}" }
+        logger.info { "Daily consolidation scheduled: cron=${config.memory.consolidation.cron}" }
     }
 }

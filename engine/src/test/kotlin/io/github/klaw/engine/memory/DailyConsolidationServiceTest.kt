@@ -76,6 +76,14 @@ class DailyConsolidationServiceTest {
                     embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
+                    consolidation =
+                        DailyConsolidationConfig(
+                            enabled = enabled,
+                            model = model,
+                            excludeChannels = excludeChannels,
+                            category = category,
+                            minMessages = minMessages,
+                        ),
                 ),
             context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
             processing =
@@ -83,14 +91,6 @@ class DailyConsolidationServiceTest {
                     debounceMs = 100,
                     maxConcurrentLlm = 2,
                     maxToolCallRounds = 5,
-                ),
-            consolidation =
-                DailyConsolidationConfig(
-                    enabled = enabled,
-                    model = model,
-                    excludeChannels = excludeChannels,
-                    category = category,
-                    minMessages = minMessages,
                 ),
         )
 

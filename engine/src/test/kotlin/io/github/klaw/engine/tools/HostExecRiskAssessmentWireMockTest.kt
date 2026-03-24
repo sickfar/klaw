@@ -8,7 +8,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import io.github.klaw.common.config.HostExecutionConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.PreValidationConfig
 import io.github.klaw.common.config.ResolvedProviderConfig
@@ -95,7 +95,7 @@ class HostExecRiskAssessmentWireMockTest {
                 tasks = TaskRoutingConfig("test/haiku", "test/haiku"),
             )
         val retryConfig =
-            LlmRetryConfig(
+            HttpRetryConfig(
                 maxRetries = 0,
                 requestTimeoutMs = 5000L,
                 initialBackoffMs = 100L,

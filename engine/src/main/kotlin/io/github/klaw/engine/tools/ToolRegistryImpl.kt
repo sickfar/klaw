@@ -60,8 +60,8 @@ class ToolRegistryImpl(
     ): List<ToolDef> {
         var result = if (config.docs.enabled) toolDefs else toolDefs.filter { it.name !in DOCS_TOOL_NAMES }
         if (!config.hostExecution.enabled) result = result.filter { it.name != HOST_EXEC_TOOL_NAME }
-        if (!config.webFetch.enabled) result = result.filter { it.name != WEB_FETCH_TOOL_NAME }
-        if (!config.webSearch.enabled) result = result.filter { it.name != WEB_SEARCH_TOOL_NAME }
+        if (!config.web.fetch.enabled) result = result.filter { it.name != WEB_FETCH_TOOL_NAME }
+        if (!config.web.search.enabled) result = result.filter { it.name != WEB_SEARCH_TOOL_NAME }
         if (!config.vision.enabled) result = result.filter { it.name != IMAGE_ANALYZE_TOOL_NAME }
         if (!includeSkillList) result = result.filter { it.name != SKILL_LIST_TOOL_NAME }
         if (!includeSkillLoad) result = result.filter { it.name != SKILL_LOAD_TOOL_NAME }

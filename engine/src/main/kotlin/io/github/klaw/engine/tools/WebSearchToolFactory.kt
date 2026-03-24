@@ -8,7 +8,7 @@ import jakarta.inject.Singleton
 class WebSearchToolFactory {
     @Singleton
     fun webSearchTool(config: EngineConfig): WebSearchTool {
-        val searchConfig = config.webSearch
+        val searchConfig = config.web.search
         val provider =
             when (searchConfig.provider) {
                 "brave" -> BraveSearchProvider(searchConfig)

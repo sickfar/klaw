@@ -16,7 +16,7 @@
       "subagent": "test/test-model"
     }
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 1,
     "requestTimeoutMs": 5000,
     "initialBackoffMs": 100,
@@ -69,6 +69,5 @@
   },
   "heartbeat": {
     "interval": "off"
-  },
-  "consolidation": {}
+  }
 }

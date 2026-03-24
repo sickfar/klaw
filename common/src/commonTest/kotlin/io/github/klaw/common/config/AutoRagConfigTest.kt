@@ -10,8 +10,8 @@ class AutoRagConfigTest {
     fun `default AutoRagConfig has valid values`() {
         val config = AutoRagConfig()
         assertTrue(config.enabled)
-        assertEquals(3, config.topK)
-        assertEquals(400, config.maxTokens)
+        assertEquals(5, config.topK)
+        assertEquals(1500, config.maxTokens)
         assertEquals(0.5, config.relevanceThreshold)
         assertEquals(10, config.minMessageTokens)
     }
@@ -67,6 +67,13 @@ class AutoRagConfigTest {
     },
     "search": {
       "topK": 10
+    },
+    "autoRag": {
+      "enabled": false,
+      "topK": 5,
+      "maxTokens": 200,
+      "relevanceThreshold": 0.3,
+      "minMessageTokens": 20
     }
   },
   "context": {
@@ -78,7 +85,7 @@ class AutoRagConfigTest {
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 10
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 2,
     "requestTimeoutMs": 60000,
     "initialBackoffMs": 1000,
@@ -99,18 +106,11 @@ class AutoRagConfigTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
-  },
-  "autoRag": {
-    "enabled": false,
-    "topK": 5,
-    "maxTokens": 200,
-    "relevanceThreshold": 0.3,
-    "minMessageTokens": 20
   }
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
-        val ar = config.autoRag
+        val ar = config.memory.autoRag
         assertEquals(false, ar.enabled)
         assertEquals(5, ar.topK)
         assertEquals(200, ar.maxTokens)
@@ -160,7 +160,7 @@ class AutoRagConfigTest {
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 10
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 2,
     "requestTimeoutMs": 60000,
     "initialBackoffMs": 1000,
@@ -185,10 +185,10 @@ class AutoRagConfigTest {
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
-        val ar = config.autoRag
+        val ar = config.memory.autoRag
         assertTrue(ar.enabled)
-        assertEquals(3, ar.topK)
-        assertEquals(400, ar.maxTokens)
+        assertEquals(5, ar.topK)
+        assertEquals(1500, ar.maxTokens)
         assertEquals(0.5, ar.relevanceThreshold)
         assertEquals(10, ar.minMessageTokens)
     }
@@ -235,7 +235,7 @@ class AutoRagConfigTest {
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 10
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 2,
     "requestTimeoutMs": 60000,
     "initialBackoffMs": 1000,

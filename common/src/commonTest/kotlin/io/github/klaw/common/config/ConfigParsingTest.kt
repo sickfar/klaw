@@ -87,7 +87,7 @@ class ConfigParsingTest {
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 10
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 2,
     "requestTimeoutMs": 60000,
     "initialBackoffMs": 1000,
@@ -192,9 +192,9 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `parse engine json - LlmRetryConfig backoffMultiplier 2 0`() {
+    fun `parse engine json - HttpRetryConfig backoffMultiplier 2 0`() {
         val config = parseEngineConfig(engineJson)
-        assertEquals(2.0, config.llm.backoffMultiplier)
+        assertEquals(2.0, config.httpRetry.backoffMultiplier)
     }
 
     @Test
@@ -353,7 +353,7 @@ class ConfigParsingTest {
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 10
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 2,
     "requestTimeoutMs": 60000,
     "initialBackoffMs": 1000,

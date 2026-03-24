@@ -109,8 +109,8 @@ class ConfigModelsTest {
                         maxConcurrentLlm = 2,
                         maxToolCallRounds = 10,
                     ),
-                llm =
-                    LlmRetryConfig(
+                httpRetry =
+                    HttpRetryConfig(
                         maxRetries = 2,
                         requestTimeoutMs = 60000,
                         initialBackoffMs = 1000,
@@ -214,16 +214,16 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `LlmRetryConfig rejects negative maxRetries`() {
+    fun `HttpRetryConfig rejects negative maxRetries`() {
         assertFailsWith<IllegalArgumentException> {
-            LlmRetryConfig(maxRetries = -1, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 2.0)
+            HttpRetryConfig(maxRetries = -1, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 2.0)
         }
     }
 
     @Test
-    fun `LlmRetryConfig rejects backoffMultiplier less than 1`() {
+    fun `HttpRetryConfig rejects backoffMultiplier less than 1`() {
         assertFailsWith<IllegalArgumentException> {
-            LlmRetryConfig(maxRetries = 2, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 0.5)
+            HttpRetryConfig(maxRetries = 2, requestTimeoutMs = 5000, initialBackoffMs = 1000, backoffMultiplier = 0.5)
         }
     }
 
@@ -242,10 +242,10 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `SummarizationConfig defaults round-trip`() {
-        val config = SummarizationConfig()
+    fun `CompactionConfig defaults round-trip`() {
+        val config = CompactionConfig()
         val encoded = json.encodeToString(config)
-        val decoded = json.decodeFromString<SummarizationConfig>(encoded)
+        val decoded = json.decodeFromString<CompactionConfig>(encoded)
         assertEquals(config, decoded)
         assertEquals(false, decoded.enabled)
         assertEquals(0.5, decoded.compactionThresholdFraction)
@@ -253,64 +253,64 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `SummarizationConfig custom values round-trip`() {
-        val config = SummarizationConfig(enabled = true, compactionThresholdFraction = 0.4, summaryBudgetFraction = 0.3)
+    fun `CompactionConfig custom values round-trip`() {
+        val config = CompactionConfig(enabled = true, compactionThresholdFraction = 0.4, summaryBudgetFraction = 0.3)
         val encoded = json.encodeToString(config)
-        val decoded = json.decodeFromString<SummarizationConfig>(encoded)
+        val decoded = json.decodeFromString<CompactionConfig>(encoded)
         assertEquals(config, decoded)
     }
 
     @Test
-    fun `SummarizationConfig rejects compactionThresholdFraction out of range`() {
+    fun `CompactionConfig rejects compactionThresholdFraction out of range`() {
         assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(compactionThresholdFraction = 0.0)
+            CompactionConfig(compactionThresholdFraction = 0.0)
         }
         assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(compactionThresholdFraction = 1.0)
+            CompactionConfig(compactionThresholdFraction = 1.0)
         }
         assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(compactionThresholdFraction = -0.1)
-        }
-    }
-
-    @Test
-    fun `SummarizationConfig rejects summaryBudgetFraction out of range`() {
-        assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(summaryBudgetFraction = 0.0)
-        }
-        assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(summaryBudgetFraction = 1.0)
-        }
-        assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(summaryBudgetFraction = -0.1)
-        }
-        assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(summaryBudgetFraction = 1.5)
+            CompactionConfig(compactionThresholdFraction = -0.1)
         }
     }
 
     @Test
-    fun `SummarizationConfig rejects fraction sum that equals or exceeds 1`() {
+    fun `CompactionConfig rejects summaryBudgetFraction out of range`() {
         assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(compactionThresholdFraction = 0.5, summaryBudgetFraction = 0.5)
+            CompactionConfig(summaryBudgetFraction = 0.0)
         }
         assertFailsWith<IllegalArgumentException> {
-            SummarizationConfig(compactionThresholdFraction = 0.6, summaryBudgetFraction = 0.5)
+            CompactionConfig(summaryBudgetFraction = 1.0)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CompactionConfig(summaryBudgetFraction = -0.1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CompactionConfig(summaryBudgetFraction = 1.5)
         }
     }
 
     @Test
-    fun `SummarizationConfig ignores unknown tokenThreshold from old configs`() {
+    fun `CompactionConfig rejects fraction sum that equals or exceeds 1`() {
+        assertFailsWith<IllegalArgumentException> {
+            CompactionConfig(compactionThresholdFraction = 0.5, summaryBudgetFraction = 0.5)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CompactionConfig(compactionThresholdFraction = 0.6, summaryBudgetFraction = 0.5)
+        }
+    }
+
+    @Test
+    fun `CompactionConfig ignores unknown tokenThreshold from old configs`() {
         val oldConfig =
             """{"enabled":true,"tokenThreshold":5000,"summaryBudgetFraction":0.3,"compactionThresholdFraction":0.4}"""
-        val decoded = json.decodeFromString<SummarizationConfig>(oldConfig)
+        val decoded = json.decodeFromString<CompactionConfig>(oldConfig)
         assertEquals(true, decoded.enabled)
         assertEquals(0.3, decoded.summaryBudgetFraction)
         assertEquals(0.4, decoded.compactionThresholdFraction)
     }
 
     @Test
-    fun `EngineConfig with summarization round-trip`() {
+    fun `EngineConfig with compaction round-trip`() {
         val config =
             EngineConfig(
                 providers =
@@ -328,22 +328,199 @@ class ConfigModelsTest {
                         embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                         chunking = ChunkingConfig(size = 400, overlap = 80),
                         search = SearchConfig(topK = 10),
+                        compaction =
+                            CompactionConfig(
+                                enabled = true,
+                                compactionThresholdFraction = 0.4,
+                                summaryBudgetFraction = 0.3,
+                            ),
                     ),
                 context = ContextConfig(defaultBudgetTokens = 8000, subagentHistory = 5),
                 processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-                summarization =
-                    SummarizationConfig(
-                        enabled = true,
-                        compactionThresholdFraction = 0.4,
-                        summaryBudgetFraction = 0.3,
-                    ),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<EngineConfig>(encoded)
         assertEquals(config, decoded)
-        assertEquals(true, decoded.summarization.enabled)
-        assertEquals(0.4, decoded.summarization.compactionThresholdFraction)
-        assertEquals(0.3, decoded.summarization.summaryBudgetFraction)
+        assertEquals(true, decoded.memory.compaction.enabled)
+        assertEquals(0.4, decoded.memory.compaction.compactionThresholdFraction)
+        assertEquals(0.3, decoded.memory.compaction.summaryBudgetFraction)
+    }
+
+    // --- CodeExecutionConfig validation tests ---
+
+    @Test
+    fun `CodeExecutionConfig rejects zero timeout`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(timeout = 0)
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects negative timeout`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(timeout = -1)
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects invalid maxMemory format`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxMemory = "abc")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxMemory = "256")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxMemory = "m256")
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig accepts valid maxMemory formats`() {
+        CodeExecutionConfig(maxMemory = "256m")
+        CodeExecutionConfig(maxMemory = "1g")
+        CodeExecutionConfig(maxMemory = "512M")
+        CodeExecutionConfig(maxMemory = "2G")
+        CodeExecutionConfig(maxMemory = "1024k")
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects invalid maxCpus`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxCpus = "abc")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxCpus = "0")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(maxCpus = "-1.0")
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig accepts valid maxCpus`() {
+        CodeExecutionConfig(maxCpus = "0.5")
+        CodeExecutionConfig(maxCpus = "1.0")
+        CodeExecutionConfig(maxCpus = "2")
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects zero keepAliveIdleTimeoutMin`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(keepAliveIdleTimeoutMin = 0)
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects zero keepAliveMaxExecutions`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(keepAliveMaxExecutions = 0)
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig rejects invalid runAsUser format`() {
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(runAsUser = "1000")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(runAsUser = "abc:def")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CodeExecutionConfig(runAsUser = "")
+        }
+    }
+
+    @Test
+    fun `CodeExecutionConfig accepts valid runAsUser`() {
+        CodeExecutionConfig(runAsUser = "1000:1000")
+        CodeExecutionConfig(runAsUser = "0:0")
+        CodeExecutionConfig(runAsUser = "10001:10001")
+    }
+
+    // --- HeartbeatConfig validation tests ---
+
+    @Test
+    fun `HeartbeatConfig accepts off interval`() {
+        HeartbeatConfig(interval = "off")
+    }
+
+    @Test
+    fun `HeartbeatConfig accepts valid ISO-8601 duration`() {
+        HeartbeatConfig(interval = "PT1H")
+        HeartbeatConfig(interval = "PT30M")
+        HeartbeatConfig(interval = "PT1H30M")
+    }
+
+    @Test
+    fun `HeartbeatConfig accepts Kotlin duration format`() {
+        HeartbeatConfig(interval = "1h")
+        HeartbeatConfig(interval = "30m")
+    }
+
+    @Test
+    fun `HeartbeatConfig rejects invalid interval`() {
+        assertFailsWith<IllegalArgumentException> {
+            HeartbeatConfig(interval = "every hour")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            HeartbeatConfig(interval = "")
+        }
+    }
+
+    // --- PreValidationConfig validation tests ---
+
+    @Test
+    fun `PreValidationConfig rejects zero riskThreshold`() {
+        assertFailsWith<IllegalArgumentException> {
+            PreValidationConfig(riskThreshold = 0)
+        }
+    }
+
+    @Test
+    fun `PreValidationConfig rejects zero timeoutMs`() {
+        assertFailsWith<IllegalArgumentException> {
+            PreValidationConfig(timeoutMs = 0)
+        }
+    }
+
+    // --- HostExecutionConfig validation tests ---
+
+    @Test
+    fun `HostExecutionConfig rejects negative askTimeoutMin`() {
+        assertFailsWith<IllegalArgumentException> {
+            HostExecutionConfig(askTimeoutMin = -1)
+        }
+    }
+
+    @Test
+    fun `HostExecutionConfig accepts zero askTimeoutMin`() {
+        HostExecutionConfig(askTimeoutMin = 0)
+    }
+
+    // --- EmbeddingConfig validation tests ---
+
+    @Test
+    fun `EmbeddingConfig rejects invalid type`() {
+        assertFailsWith<IllegalArgumentException> {
+            EmbeddingConfig(type = "invalid", model = "test")
+        }
+    }
+
+    @Test
+    fun `EmbeddingConfig rejects blank model`() {
+        assertFailsWith<IllegalArgumentException> {
+            EmbeddingConfig(type = "onnx", model = "")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            EmbeddingConfig(type = "onnx", model = "   ")
+        }
+    }
+
+    @Test
+    fun `EmbeddingConfig accepts valid configurations`() {
+        EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2")
+        EmbeddingConfig(type = "ollama", model = "nomic-embed-text")
     }
 
     @Test

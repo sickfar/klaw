@@ -5,54 +5,53 @@ import kotlinx.serialization.Transient
 
 @Serializable
 data class EngineConfig(
+    // --- LLM providers & routing ---
     @ConfigDoc("LLM provider definitions keyed by provider name")
     val providers: Map<String, ProviderConfig>,
     @ConfigDoc("Model override settings keyed by provider/modelId")
     val models: Map<String, ModelConfig>,
     @ConfigDoc("Model routing configuration for default, fallback, and task-specific models")
     val routing: RoutingConfig,
-    @ConfigDoc("Memory system configuration: embeddings, chunking, and search")
+    // --- Memory pipeline (embedding, chunking, search, auto-RAG, compaction, consolidation) ---
+    @ConfigDoc("Memory system configuration")
     val memory: MemoryConfig,
+    // --- Agent behavior ---
     @ConfigDoc("Context window budget settings")
     val context: ContextConfig,
     @ConfigDoc("Message processing pipeline settings")
     val processing: ProcessingConfig,
-    @ConfigDoc("LLM API retry and timeout settings")
-    val llm: LlmRetryConfig = LlmRetryConfig(),
-    @ConfigDoc("Engine logging behavior settings")
-    val logging: LoggingConfig = LoggingConfig(),
-    @ConfigDoc("Docker sandbox code execution settings")
-    val codeExecution: CodeExecutionConfig = CodeExecutionConfig(),
-    @ConfigDoc("File operation limits")
-    val files: FilesConfig = FilesConfig(),
-    @ConfigDoc("Custom slash commands available to the agent")
-    val commands: List<CommandConfig> = emptyList(),
-    @ConfigDoc("Third-party compatibility settings")
-    val compatibility: CompatibilityConfig? = null,
-    @ConfigDoc("Automatic RAG retrieval settings for conversation context")
-    val autoRag: AutoRagConfig = AutoRagConfig(),
-    @ConfigDoc("Documentation tool settings")
-    val docs: DocsConfig = DocsConfig(),
     @ConfigDoc("Skill system settings")
     val skills: SkillsConfig = SkillsConfig(),
-    @ConfigDoc("Host command execution settings for running commands outside Docker")
-    val hostExecution: HostExecutionConfig = HostExecutionConfig(),
+    @ConfigDoc("Custom slash commands available to the agent")
+    val commands: List<CommandConfig> = emptyList(),
     @ConfigDoc("Periodic heartbeat task settings")
     val heartbeat: HeartbeatConfig = HeartbeatConfig(),
-    @ConfigDoc("Background summarization of old conversation messages")
-    val summarization: SummarizationConfig = SummarizationConfig(),
-    @ConfigDoc("SQLite database settings: busy timeout, backups, integrity checks")
-    val database: DatabaseConfig = DatabaseConfig(),
-    @ConfigDoc("Daily memory consolidation settings")
-    val consolidation: DailyConsolidationConfig = DailyConsolidationConfig(),
-    @ConfigDoc("Web fetch tool settings for retrieving web page content")
-    val webFetch: WebFetchConfig = WebFetchConfig(),
-    @ConfigDoc("Web search tool settings for searching the internet")
-    val webSearch: WebSearchConfig = WebSearchConfig(),
+    // --- Tool limits ---
+    @ConfigDoc("File operation limits")
+    val files: FilesConfig = FilesConfig(),
+    @ConfigDoc("Docker sandbox code execution settings")
+    val codeExecution: CodeExecutionConfig = CodeExecutionConfig(),
+    @ConfigDoc("Host command execution settings for running commands outside Docker")
+    val hostExecution: HostExecutionConfig = HostExecutionConfig(),
+    // --- Web ---
+    @ConfigDoc("Web tools settings (fetch + search)")
+    val web: WebConfig = WebConfig(),
+    // --- Content processing ---
     @ConfigDoc("Document tools settings (pdf_read, md_to_pdf) — available via 'documents' skill")
     val documents: DocumentsConfig = DocumentsConfig(),
     @ConfigDoc("Vision/image analysis settings")
     val vision: VisionConfig = VisionConfig(),
+    // --- Infrastructure ---
+    @ConfigDoc("HTTP retry and timeout settings for LLM API calls")
+    val httpRetry: HttpRetryConfig = HttpRetryConfig(),
+    @ConfigDoc("SQLite database settings: busy timeout, backups, integrity checks")
+    val database: DatabaseConfig = DatabaseConfig(),
+    @ConfigDoc("Engine logging behavior settings")
+    val logging: LoggingConfig = LoggingConfig(),
+    @ConfigDoc("Documentation tool settings")
+    val docs: DocsConfig = DocsConfig(),
+    @ConfigDoc("Third-party compatibility settings")
+    val compatibility: CompatibilityConfig? = null,
 )
 
 @Serializable
@@ -129,9 +128,15 @@ data class MemoryConfig(
     @ConfigDoc("Hybrid search settings for memory retrieval")
     val search: SearchConfig,
     @ConfigDoc("Inject a Memory Map of database categories into the system prompt")
-    val injectSummary: Boolean = false,
+    val injectMemoryMap: Boolean = false,
     @ConfigDoc("Maximum number of categories displayed in the memory map")
     val mapMaxCategories: Int = 10,
+    @ConfigDoc("Automatic RAG retrieval settings for conversation context")
+    val autoRag: AutoRagConfig = AutoRagConfig(),
+    @ConfigDoc("Background compaction of old conversation messages")
+    val compaction: CompactionConfig = CompactionConfig(),
+    @ConfigDoc("Daily memory consolidation settings")
+    val consolidation: DailyConsolidationConfig = DailyConsolidationConfig(),
 )
 
 @Serializable
@@ -140,7 +145,16 @@ data class EmbeddingConfig(
     val type: String,
     @ConfigDoc("Embedding model name or path")
     val model: String,
-)
+) {
+    init {
+        require(type in VALID_TYPES) { "embedding type must be one of $VALID_TYPES, got $type" }
+        require(model.isNotBlank()) { "embedding model must not be blank" }
+    }
+
+    companion object {
+        private val VALID_TYPES = setOf("onnx", "ollama")
+    }
+}
 
 @Serializable
 data class ChunkingConfig(
@@ -173,7 +187,7 @@ data class SearchConfig(
 @Serializable
 data class MmrConfig(
     @ConfigDoc("Enable MMR diversity reranking for memory search results")
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     @ConfigDoc("Relevance vs diversity tradeoff (0.0=max diversity, 1.0=pure relevance)")
     val lambda: Double = 0.7,
 ) {
@@ -185,7 +199,7 @@ data class MmrConfig(
 @Serializable
 data class TemporalDecayConfig(
     @ConfigDoc("Enable temporal decay — recent memories score higher than old ones")
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     @ConfigDoc("Half-life in days — after this many days, score is halved")
     val halfLifeDays: Int = 30,
 ) {
@@ -233,7 +247,7 @@ data class ProcessingConfig(
 }
 
 @Serializable
-data class LlmRetryConfig(
+data class HttpRetryConfig(
     @ConfigDoc("Maximum number of retry attempts on transient API errors")
     val maxRetries: Int = 3,
     @ConfigDoc("HTTP request timeout in milliseconds")
@@ -274,7 +288,7 @@ data class CodeExecutionConfig(
     @ConfigDoc(
         "Keep sandbox container alive between executions (reuses container for faster execution and state persistence)",
     )
-    val keepAlive: Boolean = false,
+    val keepAlive: Boolean = true,
     @ConfigDoc("Idle timeout in minutes before stopping a kept-alive container")
     val keepAliveIdleTimeoutMin: Int = 5,
     @ConfigDoc("Maximum executions before recycling a kept-alive container")
@@ -287,6 +301,25 @@ data class CodeExecutionConfig(
     // --privileged is hardcoded forbidden, never configurable
     @Transient
     val noPrivileged: Boolean = true
+
+    init {
+        require(timeout > 0) { "timeout must be > 0, got $timeout" }
+        require(MAX_MEMORY_PATTERN.matches(maxMemory)) {
+            "maxMemory must match format like '256m', '1g', '512k', got $maxMemory"
+        }
+        val cpuValue = maxCpus.toDoubleOrNull()
+        require(cpuValue != null && cpuValue > 0) { "maxCpus must be a positive number, got $maxCpus" }
+        require(keepAliveIdleTimeoutMin > 0) { "keepAliveIdleTimeoutMin must be > 0, got $keepAliveIdleTimeoutMin" }
+        require(keepAliveMaxExecutions > 0) { "keepAliveMaxExecutions must be > 0, got $keepAliveMaxExecutions" }
+        require(RUN_AS_USER_PATTERN.matches(runAsUser)) {
+            "runAsUser must match format 'uid:gid' (e.g. '1000:1000'), got $runAsUser"
+        }
+    }
+
+    companion object {
+        private val MAX_MEMORY_PATTERN = Regex("""^\d+[mgkMGK]$""")
+        private val RUN_AS_USER_PATTERN = Regex("""^\d+:\d+$""")
+    }
 }
 
 @Serializable
@@ -352,9 +385,9 @@ data class AutoRagConfig(
     @ConfigDoc("Enable automatic RAG retrieval for conversation context")
     val enabled: Boolean = true,
     @ConfigDoc("Number of top relevant messages to retrieve")
-    val topK: Int = 3,
+    val topK: Int = 5,
     @ConfigDoc("Maximum tokens of auto-RAG context to inject")
-    val maxTokens: Int = 400,
+    val maxTokens: Int = 1500,
     @ConfigDoc("Minimum relevance score threshold for including results")
     val relevanceThreshold: Double = 0.5,
     @ConfigDoc("Minimum token count in a message to trigger auto-RAG")
@@ -380,7 +413,11 @@ data class HostExecutionConfig(
     val preValidation: PreValidationConfig = PreValidationConfig(),
     @ConfigDoc("Timeout in minutes for user confirmation prompts (0 = infinite, no timeout)")
     val askTimeoutMin: Int = 0,
-)
+) {
+    init {
+        require(askTimeoutMin >= 0) { "askTimeoutMin must be >= 0, got $askTimeoutMin" }
+    }
+}
 
 @Serializable
 data class PreValidationConfig(
@@ -392,7 +429,12 @@ data class PreValidationConfig(
     val riskThreshold: Int = 5,
     @ConfigDoc("Timeout in milliseconds for the pre-validation LLM call")
     val timeoutMs: Long = 5000,
-)
+) {
+    init {
+        require(riskThreshold > 0) { "riskThreshold must be > 0, got $riskThreshold" }
+        require(timeoutMs > 0) { "timeoutMs must be > 0, got $timeoutMs" }
+    }
+}
 
 @Serializable
 data class HeartbeatConfig(
@@ -404,10 +446,16 @@ data class HeartbeatConfig(
     val injectInto: String? = null,
     @ConfigDoc("Channel to deliver heartbeat messages to")
     val channel: String? = null,
-)
+) {
+    init {
+        require(interval == "off" || runCatching { kotlin.time.Duration.parse(interval) }.isSuccess) {
+            "interval must be 'off' or a valid ISO-8601 duration, got $interval"
+        }
+    }
+}
 
 @Serializable
-data class SummarizationConfig(
+data class CompactionConfig(
     @ConfigDoc("Enable background summarization of old messages")
     val enabled: Boolean = false,
     @ConfigDoc("Fraction of context budget that defines the compaction zone (0.0 to 1.0, exclusive)")
@@ -471,6 +519,14 @@ data class DailyConsolidationConfig(
         require(category.isNotBlank()) { "category must not be blank" }
     }
 }
+
+@Serializable
+data class WebConfig(
+    @ConfigDoc("Web fetch tool settings for retrieving web page content")
+    val fetch: WebFetchConfig = WebFetchConfig(),
+    @ConfigDoc("Web search tool settings for searching the internet")
+    val search: WebSearchConfig = WebSearchConfig(),
+)
 
 @Serializable
 data class WebFetchConfig(

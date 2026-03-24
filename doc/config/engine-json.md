@@ -57,6 +57,24 @@ You can override `type` or `endpoint` for any known provider. For providers not 
 
 The `anthropic` type uses the official Anthropic Java SDK. It handles the differences in auth headers (`x-api-key`), request format (top-level `system` param), and response format (content blocks) automatically.
 
+## Top-Level Structure
+
+The config has 19 top-level fields organized into logical groups:
+
+**LLM providers & routing:** `providers`, `models`, `routing`
+
+**Memory system:** `memory` (embedding, chunking, search, autoRag, compaction, consolidation)
+
+**Agent behavior:** `context`, `processing`, `skills`, `commands`, `heartbeat`
+
+**Tool limits:** `files`, `codeExecution`, `hostExecution`
+
+**Web tools:** `web` (fetch, search)
+
+**Content processing:** `documents`, `vision`
+
+**Infrastructure:** `httpRetry`, `database`, `logging`, `docs`, `compatibility`
+
 ## Example engine.json
 
 Minimal config for a known provider (recommended):
@@ -109,7 +127,7 @@ Full config with multiple providers and overrides:
       "consolidation": "zai/glm-5"
     }
   },
-  "llm": {
+  "httpRetry": {
     "maxRetries": 3,
     "requestTimeoutMs": 90000,
     "initialBackoffMs": 500,
@@ -127,16 +145,35 @@ Full config with multiple providers and overrides:
     "search": {
       "topK": 10,
       "mmr": {
-        "enabled": false,
+        "enabled": true,
         "lambda": 0.7
       },
       "temporalDecay": {
-        "enabled": false,
+        "enabled": true,
         "halfLifeDays": 30
       }
     },
-    "injectSummary": false,
-    "mapMaxCategories": 10
+    "injectMemoryMap": false,
+    "mapMaxCategories": 10,
+    "autoRag": {
+      "enabled": true,
+      "topK": 5,
+      "maxTokens": 1500,
+      "relevanceThreshold": 0.5,
+      "minMessageTokens": 10
+    },
+    "compaction": {
+      "enabled": false,
+      "summaryBudgetFraction": 0.25,
+      "compactionThresholdFraction": 0.5
+    },
+    "consolidation": {
+      "enabled": true,
+      "cron": "0 0 0 * * ?",
+      "model": "zai/glm-5",
+      "minMessages": 5,
+      "category": "daily-summary"
+    }
   },
   "context": {
     "defaultBudgetTokens": 100000,
@@ -159,7 +196,7 @@ Full config with multiple providers and overrides:
     "maxMemory": "256m",
     "maxCpus": "1.0",
     "readOnlyRootfs": true,
-    "keepAlive": false,
+    "keepAlive": true,
     "keepAliveIdleTimeoutMin": 5,
     "keepAliveMaxExecutions": 100,
     "runAsUser": "1000:1000"
@@ -176,12 +213,22 @@ Full config with multiple providers and overrides:
     "injectInto": "telegram_123456",
     "channel": "telegram"
   },
-  "consolidation": {
-    "enabled": true,
-    "cron": "0 0 0 * * ?",
-    "model": "zai/glm-5",
-    "minMessages": 5,
-    "category": "daily-summary"
+  "web": {
+    "fetch": {
+      "enabled": true,
+      "requestTimeoutMs": 30000,
+      "maxResponseSizeBytes": 1048576,
+      "userAgent": "Klaw/1.0 (AI Agent)"
+    },
+    "search": {
+      "enabled": false,
+      "provider": "brave",
+      "apiKey": "${BRAVE_SEARCH_API_KEY}",
+      "maxResults": 5,
+      "requestTimeoutMs": 10000,
+      "braveEndpoint": "https://api.search.brave.com",
+      "tavilyEndpoint": "https://api.tavily.com"
+    }
   },
   "vision": {
     "enabled": false,
@@ -196,7 +243,7 @@ Full config with multiple providers and overrides:
 
 ## memory
 
-Configures the memory system: embedding backend, chunking, search, categories, and memory map injection.
+Configures the memory system: embedding backend, chunking, search, categories, memory map injection, auto-RAG, compaction, and consolidation.
 
 Memory facts are stored in the database with categories. On first start, MEMORY.md and daily memory logs are parsed (markdown headers become categories, lines become facts), then archived. The database is the sole source of truth for memory after initial indexation.
 
@@ -207,12 +254,32 @@ Memory facts are stored in the database with categories. On first start, MEMORY.
 | `chunking.size` | int | — | Maximum chunk size in approximate tokens (used by docs indexing). |
 | `chunking.overlap` | int | — | Overlap between consecutive chunks in approximate tokens. |
 | `search.topK` | int | — | Number of top results from hybrid search. |
-| `search.mmr.enabled` | bool | `false` | Enable MMR (Maximal Marginal Relevance) diversity reranking. Reduces redundant results by penalizing candidates too similar to already-selected ones. |
+| `search.mmr.enabled` | bool | `true` | Enable MMR (Maximal Marginal Relevance) diversity reranking. Reduces redundant results by penalizing candidates too similar to already-selected ones. |
 | `search.mmr.lambda` | double | `0.7` | Relevance vs diversity tradeoff. `1.0` = pure relevance (no diversity), `0.0` = max diversity. |
-| `search.temporalDecay.enabled` | bool | `false` | Enable temporal decay — recent memories score higher than old ones. |
+| `search.temporalDecay.enabled` | bool | `true` | Enable temporal decay — recent memories score higher than old ones. |
 | `search.temporalDecay.halfLifeDays` | int | `30` | Half-life in days. After this many days, a memory's score is halved. |
-| `injectSummary` | bool | `false` | Inject a Memory Map into the system prompt showing top categories by popularity. |
+| `injectMemoryMap` | bool | `false` | Inject a Memory Map into the system prompt showing top categories by popularity. |
 | `mapMaxCategories` | int | `10` | Maximum number of categories displayed in the Memory Map. Remaining categories shown as "...and N more". |
+| `autoRag.enabled` | bool | `true` | Enable automatic RAG retrieval. |
+| `autoRag.topK` | int | `5` | Number of top relevant messages to retrieve. |
+| `autoRag.maxTokens` | int | `1500` | Maximum tokens of auto-RAG context to inject. |
+| `autoRag.relevanceThreshold` | double | `0.5` | Minimum relevance score threshold for including results. |
+| `autoRag.minMessageTokens` | int | `10` | Minimum token count in a message to trigger auto-RAG. |
+| `compaction.enabled` | bool | `false` | Enable background compaction. |
+| `compaction.summaryBudgetFraction` | double | `0.25` | Fraction of context budget allocated to summaries (exclusive range `(0.0, 1.0)`). |
+| `compaction.compactionThresholdFraction` | double | `0.5` | Fraction of context budget that defines the compaction zone (exclusive range `(0.0, 1.0)`). Compaction triggers when `messageTokens > budget * (summaryBudgetFraction + compactionThresholdFraction)`. |
+| `consolidation.enabled` | bool | `false` | Enable daily consolidation. |
+| `consolidation.cron` | string | `"0 0 0 * * ?"` | Cron expression for the consolidation schedule. |
+| `consolidation.model` | string | `""` | Model for consolidation. Empty falls back to `routing.tasks.consolidation`, then `routing.tasks.summarization`. |
+| `consolidation.excludeChannels` | string[] | `[]` | Channels to exclude from consolidation (e.g. `["internal"]`). |
+| `consolidation.category` | string | `"daily-summary"` | Default memory category hint for extracted facts. |
+| `consolidation.minMessages` | int | `5` | Minimum messages required to trigger consolidation. |
+
+**Compaction validation**: `compaction.summaryBudgetFraction + compaction.compactionThresholdFraction` must be less than `1.0`.
+
+**Consolidation** — daily memory consolidation automatically reviews conversation history and extracts important facts into long-term memory. The engine collects all messages from the past 24 hours, splits them into chunks that fit the model's context budget, and for each chunk runs an LLM session with the `memory_save` tool. The LLM decides which facts are worth saving and calls `memory_save` with appropriate categories. Consolidation is idempotent per day — if it has already run for a given date, subsequent cron triggers are skipped unless forced via CLI.
+
+Manual trigger: `klaw memory consolidate [--date YYYY-MM-DD] [--force]`
 
 ## heartbeat
 
@@ -239,17 +306,16 @@ Controls the built-in documentation service. Documentation is embedded in the en
 |-----|------|---------|-------------|
 | `enabled` | bool | `true` | Enable or disable the docs service. When `false`, `docs_search`, `docs_read`, and `docs_list` tools return a disabled message. |
 
-## autoRag
+## httpRetry
 
-Automatic RAG retrieval injects relevant earlier messages into the context window when the conversation is long enough.
+Configures HTTP retry behavior for LLM API calls and other outbound HTTP requests. Previously named `llm` (class renamed from `LlmRetryConfig` to `HttpRetryConfig`).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enabled` | bool | `true` | Enable automatic RAG retrieval. |
-| `topK` | int | `3` | Number of top relevant messages to retrieve. |
-| `maxTokens` | int | `400` | Maximum tokens of auto-RAG context to inject. |
-| `relevanceThreshold` | double | `0.5` | Minimum relevance score threshold for including results. |
-| `minMessageTokens` | int | `10` | Minimum token count in a message to trigger auto-RAG. |
+| `maxRetries` | int | `3` | Maximum number of retry attempts. |
+| `requestTimeoutMs` | long | `90000` | HTTP request timeout in milliseconds. |
+| `initialBackoffMs` | long | `500` | Initial backoff delay in milliseconds before first retry. |
+| `backoffMultiplier` | double | `2.0` | Multiplier applied to backoff delay after each retry. |
 
 ## hostExecution
 
@@ -283,35 +349,6 @@ Third-party compatibility settings.
 | `openclaw.sync.dailyLogs` | bool | `false` | Sync daily log files with OpenClaw. |
 | `openclaw.sync.userMd` | bool | `false` | Sync USER.md file with OpenClaw. |
 
-## consolidation
-
-Daily memory consolidation — automatically reviews conversation history and extracts important facts into long-term memory. The engine collects all messages from the past 24 hours, splits them into chunks that fit the model's context budget, and for each chunk runs an LLM session with the `memory_save` tool. The LLM decides which facts are worth saving and calls `memory_save` with appropriate categories.
-
-Consolidation is idempotent per day — if it has already run for a given date, subsequent cron triggers are skipped unless forced via CLI.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `enabled` | bool | `false` | Enable daily consolidation. |
-| `cron` | string | `"0 0 0 * * ?"` | Cron expression for the consolidation schedule. |
-| `model` | string | `""` | Model for consolidation. Empty falls back to `routing.tasks.consolidation`, then `routing.tasks.summarization`. |
-| `excludeChannels` | string[] | `[]` | Channels to exclude from consolidation (e.g. `["internal"]`). |
-| `category` | string | `"daily-summary"` | Default memory category hint for extracted facts. |
-| `minMessages` | int | `5` | Minimum messages required to trigger consolidation. |
-
-Manual trigger: `klaw memory consolidate [--date YYYY-MM-DD] [--force]`
-
-## summarization
-
-Background compaction of old conversation messages. Uses a fraction-based trigger instead of a fixed token threshold. Compaction creates summaries of older messages; originals are never deleted from the conversation log.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `enabled` | bool | `false` | Enable background compaction. |
-| `summaryBudgetFraction` | double | `0.25` | Fraction of context budget allocated to summaries (exclusive range `(0.0, 1.0)`). |
-| `compactionThresholdFraction` | double | `0.5` | Fraction of context budget that defines the compaction zone (exclusive range `(0.0, 1.0)`). Compaction triggers when `messageTokens > budget * (summaryBudgetFraction + compactionThresholdFraction)`. |
-
-**Validation**: `summaryBudgetFraction + compactionThresholdFraction` must be less than `1.0`.
-
 ## codeExecution
 
 Configures the Docker-based sandbox for code execution by agents.
@@ -324,7 +361,7 @@ Configures the Docker-based sandbox for code execution by agents.
 | `maxMemory` | string | `"256m"` | Maximum memory limit for the container. |
 | `maxCpus` | string | `"1.0"` | Maximum CPU cores for the container. |
 | `readOnlyRootfs` | bool | `true` | Mount the container root filesystem as read-only. |
-| `keepAlive` | bool | `false` | Reuse the container between executions for faster startup. |
+| `keepAlive` | bool | `true` | Reuse the container between executions for faster startup. |
 | `keepAliveIdleTimeoutMin` | int | `5` | Idle timeout in minutes before stopping a kept-alive container. |
 | `keepAliveMaxExecutions` | int | `100` | Maximum executions before recycling a kept-alive container. |
 | `volumeMounts` | string[] | `[]` | Additional Docker volume mounts. Dangerous paths are blocked (see below). |
@@ -368,7 +405,11 @@ Then configure it in `engine.json`:
 }
 ```
 
-## webFetch
+## web
+
+Groups web-related tool configurations under a single section.
+
+### web.fetch
 
 Web page fetching tool. Converts HTML to readable markdown for LLM consumption.
 
@@ -379,7 +420,7 @@ Web page fetching tool. Converts HTML to readable markdown for LLM consumption.
 | `maxResponseSizeBytes` | long | `1048576` | Maximum response body size (default 1MB). |
 | `userAgent` | string | `"Klaw/1.0 (AI Agent)"` | User-Agent header sent with requests. |
 
-## webSearch
+### web.search
 
 Internet search tool with configurable provider. Disabled by default — requires an API key.
 

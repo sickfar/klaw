@@ -7,7 +7,7 @@ import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.FilesConfig
-import io.github.klaw.common.config.LlmRetryConfig
+import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.LoggingConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
@@ -92,11 +92,12 @@ class InitCliHandlerTest {
                         embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
                         chunking = ChunkingConfig(size = 512, overlap = 64),
                         search = SearchConfig(topK = 10),
+                        autoRag = AutoRagConfig(enabled = false),
                     ),
                 context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 10),
                 processing = ProcessingConfig(debounceMs = 10L, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-                llm =
-                    LlmRetryConfig(
+                httpRetry =
+                    HttpRetryConfig(
                         maxRetries = 0,
                         requestTimeoutMs = 5000,
                         initialBackoffMs = 100,
@@ -115,7 +116,6 @@ class InitCliHandlerTest {
                         keepAliveMaxExecutions = 10,
                     ),
                 files = FilesConfig(maxFileSizeBytes = 1_000_000),
-                autoRag = AutoRagConfig(enabled = false),
             )
     }
 }

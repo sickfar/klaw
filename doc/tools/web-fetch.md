@@ -72,11 +72,13 @@ In `engine.json`:
 
 ```json
 {
-  "webFetch": {
-    "enabled": true,
-    "requestTimeoutMs": 30000,
-    "maxResponseSizeBytes": 1048576,
-    "userAgent": "Klaw/1.0 (AI Agent)"
+  "web": {
+    "fetch": {
+      "enabled": true,
+      "requestTimeoutMs": 30000,
+      "maxResponseSizeBytes": 1048576,
+      "userAgent": "Klaw/1.0 (AI Agent)"
+    }
   }
 }
 ```

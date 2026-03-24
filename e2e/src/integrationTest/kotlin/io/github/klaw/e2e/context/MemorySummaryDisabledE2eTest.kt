@@ -18,7 +18,7 @@ import org.junit.jupiter.api.TestInstance
 import java.io.File
 
 /**
- * E2E test verifying that when memory.injectSummary is false (default),
+ * E2E test verifying that when memory.injectMemoryMap is false (default),
  * the system prompt does NOT contain a Memory Map section,
  * even though categories are still created in the database.
  */
@@ -92,7 +92,7 @@ class MemorySummaryDisabledE2eTest {
 
         assertFalse(
             systemContent.contains("## Memory Map"),
-            "System prompt should NOT contain '## Memory Map' when injectSummary=false",
+            "System prompt should NOT contain '## Memory Map' when injectMemoryMap=false",
         )
     }
 
@@ -102,7 +102,7 @@ class MemorySummaryDisabledE2eTest {
             val categoryCount = db.getMemoryCategoryCount()
             assertTrue(
                 categoryCount >= 2,
-                "Categories should be created in DB regardless of injectSummary setting, got $categoryCount",
+                "Categories should be created in DB regardless of injectMemoryMap setting, got $categoryCount",
             )
         }
     }

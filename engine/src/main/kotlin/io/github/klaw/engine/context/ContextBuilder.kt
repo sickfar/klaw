@@ -153,8 +153,8 @@ class ContextBuilder(
                 ?: config.context.defaultBudgetTokens
         // Summarization: compute summary budget, fetch summaries with coverage info
         val summaryResult: SummaryContextResult
-        if (config.summarization.enabled) {
-            val summaryBudget = (budgetTokens * config.summarization.summaryBudgetFraction).toInt()
+        if (config.memory.compaction.enabled) {
+            val summaryBudget = (budgetTokens * config.memory.compaction.summaryBudgetFraction).toInt()
             summaryResult = summaryService.getSummariesForContext(session.chatId, summaryBudget, session.segmentStart)
         } else {
             summaryResult = SummaryContextResult(emptyList(), null, false)
@@ -174,7 +174,7 @@ class ContextBuilder(
         val autoRagResults: List<AutoRagResult> =
             if (
                 !isSubagent &&
-                config.autoRag.enabled &&
+                config.memory.autoRag.enabled &&
                 summaryResult.hasEvictedSummaries
             ) {
                 val windowRowIds = dbMessages.map { it.rowId }.toSet()
@@ -184,7 +184,7 @@ class ContextBuilder(
                     session.chatId,
                     session.segmentStart,
                     windowRowIds,
-                    config.autoRag,
+                    config.memory.autoRag,
                 )
             } else {
                 emptyList()
@@ -479,7 +479,7 @@ class ContextBuilder(
                 parts.add(senderSection)
             }
         }
-        if (config.summarization.enabled) {
+        if (config.memory.compaction.enabled) {
             parts.add(
                 "## Conversation History\n" +
                     "You see a sliding window of the most recent messages, not the full conversation. " +
@@ -488,7 +488,7 @@ class ContextBuilder(
                     "`history_search` to find specific past messages by topic.",
             )
         }
-        if (config.memory.injectSummary) {
+        if (config.memory.injectMemoryMap) {
             val memorySummary = workspaceLoader.loadMemorySummary()
             if (memorySummary != null) {
                 parts.add(memorySummary)

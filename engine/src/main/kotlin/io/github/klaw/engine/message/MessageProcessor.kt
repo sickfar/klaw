@@ -182,7 +182,7 @@ class MessageProcessor(
                                 "user",
                                 "text",
                                 message.message,
-                                config.autoRag,
+                                config.memory.autoRag,
                                 processingScope,
                             )
                         }
@@ -225,7 +225,7 @@ class MessageProcessor(
                                 "assistant",
                                 "text",
                                 content,
-                                config.autoRag,
+                                config.memory.autoRag,
                                 processingScope,
                             )
                         }
@@ -340,7 +340,7 @@ class MessageProcessor(
             "assistant",
             "text",
             deliveryMessage,
-            config.autoRag,
+            config.memory.autoRag,
             processingScope,
         )
     }
@@ -475,7 +475,7 @@ class MessageProcessor(
             "assistant",
             "text",
             content,
-            config.autoRag,
+            config.memory.autoRag,
             processingScope,
         )
         return content
@@ -514,7 +514,7 @@ class MessageProcessor(
                 "user",
                 type,
                 msg.content,
-                config.autoRag,
+                config.memory.autoRag,
                 processingScope,
             )
         }

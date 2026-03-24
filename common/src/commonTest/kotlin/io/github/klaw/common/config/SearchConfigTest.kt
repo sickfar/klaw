@@ -3,15 +3,15 @@ package io.github.klaw.common.config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class SearchConfigTest {
     @Test
     fun `SearchConfig with default MMR and TemporalDecay`() {
         val config = SearchConfig(topK = 10)
-        assertFalse(config.mmr.enabled)
+        assertTrue(config.mmr.enabled)
         assertEquals(0.7, config.mmr.lambda)
-        assertFalse(config.temporalDecay.enabled)
+        assertTrue(config.temporalDecay.enabled)
         assertEquals(30, config.temporalDecay.halfLifeDays)
     }
 

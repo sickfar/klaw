@@ -38,11 +38,11 @@ class CompactionRunner(
         uncoveredMessageTokens: Long,
         budget: Int,
     ) {
-        if (!config.summarization.enabled) return
+        if (!config.memory.compaction.enabled) return
 
         val fractionSum =
-            config.summarization.summaryBudgetFraction +
-                config.summarization.compactionThresholdFraction
+            config.memory.compaction.summaryBudgetFraction +
+                config.memory.compaction.compactionThresholdFraction
         val triggerThreshold = budget * fractionSum
         if (uncoveredMessageTokens <= triggerThreshold) return
 
@@ -87,7 +87,7 @@ class CompactionRunner(
 
         if (messages.isEmpty()) return
 
-        val compactionZoneTokens = (budget * config.summarization.compactionThresholdFraction).toLong()
+        val compactionZoneTokens = (budget * config.memory.compaction.compactionThresholdFraction).toLong()
         val compactionMessages = snapToCompleteRound(messages, compactionZoneTokens)
         if (compactionMessages.isEmpty()) return
 

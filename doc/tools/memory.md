@@ -69,7 +69,7 @@ Delete a category and optionally its facts.
 
 ## Memory Map
 
-When `memory.injectSummary` is enabled in `engine.json`, the engine builds a Memory Map from the database and injects it into the system prompt. The map shows the top N categories (by access count) with entry counts, helping the agent know what topics are in memory and use `memory_search` to retrieve details.
+When `memory.injectMemoryMap` is enabled in `engine.json`, the engine builds a Memory Map from the database and injects it into the system prompt. The map shows the top N categories (by access count) with entry counts, helping the agent know what topics are in memory and use `memory_search` to retrieve details.
 
 The map is cached and refreshed when `memory_save` is called. Access counts are incremented by both `memory_save` and `memory_search` (but not by auto-RAG).
 
