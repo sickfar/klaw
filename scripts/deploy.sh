@@ -30,10 +30,10 @@ ssh "$PI_USER@$PI_HOST" "systemctl --user stop klaw-gateway klaw-engine 2>/dev/n
 rsync -av --progress "$GATEWAY_JAR" "$PI_USER@$PI_HOST:~/$REMOTE_BIN/klaw-gateway.jar"
 rsync -av --progress "$ENGINE_JAR"  "$PI_USER@$PI_HOST:~/$REMOTE_BIN/klaw-engine.jar"
 
-# Upload CLI binary for Pi (linuxArm64) to user-writable location
+# Upload CLI binary for Pi (linuxArm64) to canonical install dir
 if [[ -f build/dist/klaw-linuxArm64 ]]; then
-  rsync -av --progress build/dist/klaw-linuxArm64 "$PI_USER@$PI_HOST:~/.local/bin/klaw"
-  ssh "$PI_USER@$PI_HOST" "chmod +x ~/.local/bin/klaw"
+  rsync -av --progress build/dist/klaw-linuxArm64 "$PI_USER@$PI_HOST:~/$REMOTE_BIN/klaw"
+  ssh "$PI_USER@$PI_HOST" "chmod +x ~/$REMOTE_BIN/klaw && mkdir -p ~/.local/bin && ln -sf ~/$REMOTE_BIN/klaw ~/.local/bin/klaw && ln -sf ~/$REMOTE_BIN/klaw-engine ~/.local/bin/klaw-engine && ln -sf ~/$REMOTE_BIN/klaw-gateway ~/.local/bin/klaw-gateway"
 fi
 
 # Restart services

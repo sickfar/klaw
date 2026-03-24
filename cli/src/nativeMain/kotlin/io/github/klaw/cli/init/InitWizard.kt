@@ -2,6 +2,7 @@ package io.github.klaw.cli.init
 
 import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.EngineRequest
+import io.github.klaw.cli.InstallPaths
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
 import io.github.klaw.cli.ui.Spinner
@@ -139,8 +140,8 @@ internal class InitWizard(
         },
     private val force: Boolean = false,
     private val releaseClient: GitHubReleaseClient = GitHubReleaseClientImpl(),
-    private val jarDir: String = "${KlawPaths.data}/bin",
-    private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
+    private val jarDir: String = InstallPaths.installDir,
+    private val binDir: String = InstallPaths.installDir,
 ) {
     private val apiKeyValidator by lazy {
         ApiKeyValidator(commandOutput = commandOutput, printer = printer)
@@ -407,9 +408,8 @@ internal class InitWizard(
         if (resolvedMode == DeployMode.NATIVE) {
             nativeInstaller.ensureJars()
             nativeInstaller.createWrapperScripts()
-            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-            val engineBin = "$home/.local/bin/klaw-engine"
-            val gatewayBin = "$home/.local/bin/klaw-gateway"
+            val engineBin = "$binDir/klaw-engine"
+            val gatewayBin = "$binDir/klaw-gateway"
             val envFile = "$configDir/.env"
             if (canUseNativeService) {
                 val serviceInstaller =
@@ -528,8 +528,7 @@ internal class InitWizard(
 
             DeployMode.NATIVE -> {
                 phase(PHASE_SERVICE_INSTALL, "Gateway startup")
-                val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-                val gatewayBin = "$home/.local/bin/klaw-gateway"
+                val gatewayBin = "$binDir/klaw-gateway"
                 if (canUseNativeService) {
                     val startGatewayCmd =
                         when (Platform.osFamily) {
@@ -556,7 +555,7 @@ internal class InitWizard(
                             "Service auto-start will not be configured.${AnsiColors.RESET}",
                     )
                     printer("  Start services manually:")
-                    printer("    $home/.local/bin/klaw-engine")
+                    printer("    $binDir/klaw-engine")
                     printer("    $gatewayBin")
                 }
             }
@@ -649,8 +648,7 @@ internal class InitWizard(
                 "${AnsiColors.YELLOW}⚠ No service manager available. " +
                     "Engine auto-start skipped.${AnsiColors.RESET}",
             )
-            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-            printer("  Start engine manually: $home/.local/bin/klaw-engine")
+            printer("  Start engine manually: $binDir/klaw-engine")
             return
         }
         val spinner = Spinner("Starting Engine...")

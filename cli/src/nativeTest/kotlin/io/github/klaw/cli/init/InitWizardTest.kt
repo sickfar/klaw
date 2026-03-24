@@ -1079,13 +1079,16 @@ class InitWizardTest {
         wizard.run()
 
         val serviceFiles = listDirectory("$tmpDir/service")
-        val anyFileContainsLocalBin =
+        val anyFileContainsBinDir =
             serviceFiles.any { file ->
                 val content = readFileText("$tmpDir/service/$file")
-                content?.contains(".local/bin/klaw-engine") == true ||
-                    content?.contains(".local/bin/klaw-gateway") == true
+                content?.contains("$tmpDir/bin/klaw-engine") == true ||
+                    content?.contains("$tmpDir/bin/klaw-gateway") == true
             }
-        assertTrue(anyFileContainsLocalBin, "Expected .local/bin paths in service files, got files: $serviceFiles")
+        assertTrue(
+            anyFileContainsBinDir,
+            "Expected binDir paths in service files, got files: $serviceFiles",
+        )
     }
 
     @Test

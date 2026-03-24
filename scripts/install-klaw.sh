@@ -3,8 +3,8 @@ set -euo pipefail
 
 OWNER="sickfar"
 REPO="klaw"
-INSTALL_DIR="${HOME}/.local/bin"
-JAR_DIR="${HOME}/.local/share/klaw/bin"
+INSTALL_DIR="${HOME}/.local/share/klaw/bin"
+SYMLINK_DIR="${HOME}/.local/bin"
 API_URL="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
 
 # Detect platform
@@ -34,7 +34,7 @@ RELEASE=$(curl -sSL "${API_URL}")
 VERSION=$(echo "$RELEASE" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
 BASE="https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}"
 
-mkdir -p "${INSTALL_DIR}" "${JAR_DIR}"
+mkdir -p "${INSTALL_DIR}" "${SYMLINK_DIR}"
 
 echo "Downloading klaw ${VERSION} for ${OS}/${ARCH}..."
 curl -sSL -o "${INSTALL_DIR}/klaw" "${BASE}/${BINARY}"
@@ -42,25 +42,30 @@ chmod +x "${INSTALL_DIR}/klaw"
 
 ENGINE_NAME=$(echo "$RELEASE" | grep -o 'klaw-engine-[^"]*\.jar' | head -1)
 GATEWAY_NAME=$(echo "$RELEASE" | grep -o 'klaw-gateway-[^"]*\.jar' | head -1)
-curl -sSL -o "${JAR_DIR}/klaw-engine.jar" "${BASE}/${ENGINE_NAME}"
-curl -sSL -o "${JAR_DIR}/klaw-gateway.jar" "${BASE}/${GATEWAY_NAME}"
+curl -sSL -o "${INSTALL_DIR}/klaw-engine.jar" "${BASE}/${ENGINE_NAME}"
+curl -sSL -o "${INSTALL_DIR}/klaw-gateway.jar" "${BASE}/${GATEWAY_NAME}"
 
-# Create wrapper scripts so klaw init can reference them in service units
-cat > "${INSTALL_DIR}/klaw-engine" <<'WRAPPER'
+# Create wrapper scripts
+cat > "${INSTALL_DIR}/klaw-engine" <<WRAPPER
 #!/usr/bin/env bash
-exec java -Xms64m -Xmx512m -jar "${HOME}/.local/share/klaw/bin/klaw-engine.jar" "$@"
+exec java -Xms64m -Xmx512m -jar "${INSTALL_DIR}/klaw-engine.jar" "\$@"
 WRAPPER
 chmod +x "${INSTALL_DIR}/klaw-engine"
 
-cat > "${INSTALL_DIR}/klaw-gateway" <<'WRAPPER'
+cat > "${INSTALL_DIR}/klaw-gateway" <<WRAPPER
 #!/usr/bin/env bash
-exec java -jar "${HOME}/.local/share/klaw/bin/klaw-gateway.jar" "$@"
+exec java -jar "${INSTALL_DIR}/klaw-gateway.jar" "\$@"
 WRAPPER
 chmod +x "${INSTALL_DIR}/klaw-gateway"
 
+# Create symlinks in ~/.local/bin so binaries are on PATH
+ln -sf "${INSTALL_DIR}/klaw" "${SYMLINK_DIR}/klaw"
+ln -sf "${INSTALL_DIR}/klaw-engine" "${SYMLINK_DIR}/klaw-engine"
+ln -sf "${INSTALL_DIR}/klaw-gateway" "${SYMLINK_DIR}/klaw-gateway"
+
 echo ""
 echo "klaw ${VERSION} installed."
-echo "Make sure ${INSTALL_DIR} is in your PATH."
+echo "Make sure ${SYMLINK_DIR} is in your PATH."
 echo ""
 echo "Starting setup wizard..."
 exec "${INSTALL_DIR}/klaw" init

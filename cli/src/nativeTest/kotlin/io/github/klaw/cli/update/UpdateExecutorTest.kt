@@ -1,5 +1,6 @@
 package io.github.klaw.cli.update
 
+import io.github.klaw.cli.InstallPaths
 import io.github.klaw.cli.init.DeployMode
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -34,8 +35,8 @@ class UpdateExecutorTest {
         runner: (String) -> Int = commandRunner,
         readLineFn: () -> String? = { "y" },
         configDir: String = "/tmp/klaw-test",
-        binaryPath: String = "/usr/local/bin/klaw",
-        jarDir: String = "/usr/local/lib/klaw",
+        binaryPath: String = "${InstallPaths.installDir}/klaw",
+        jarDir: String = InstallPaths.installDir,
     ): UpdateExecutor =
         UpdateExecutor(
             configDir = configDir,
@@ -117,6 +118,15 @@ class UpdateExecutorTest {
         assertTrue(
             commands.any { it.contains("curl") && it.contains("gateway") },
             "Expected curl for gateway JAR, got: $commands",
+        )
+    }
+
+    @Test
+    fun `native mode downloads CLI binary to installDir`() {
+        executor(mode = DeployMode.NATIVE).execute()
+        assertTrue(
+            commands.any { it.contains("curl") && it.contains(InstallPaths.installDir) },
+            "Expected curl to target ${InstallPaths.installDir}, got: $commands",
         )
     }
 

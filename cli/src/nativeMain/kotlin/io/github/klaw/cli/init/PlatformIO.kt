@@ -11,3 +11,9 @@ internal expect fun chmodWorldRwx(path: String)
 
 /** Sets executable permissions (0755) on the file at [path]. */
 internal expect fun chmodExecutable(path: String)
+
+/** Creates a symbolic link [link] pointing to [target]. Replaces existing link if present. */
+internal expect fun createSymlink(
+    target: String,
+    link: String,
+)

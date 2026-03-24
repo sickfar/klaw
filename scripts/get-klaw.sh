@@ -5,12 +5,13 @@
 #
 # Environment variables:
 #   KLAW_VERSION      - pin to a specific release tag (e.g. v0.5.0); default: latest
-#   KLAW_INSTALL_DIR  - installation directory; default: ~/.local/bin
+#   KLAW_INSTALL_DIR  - installation directory; default: ~/.local/share/klaw/bin
 set -eu
 
 OWNER="sickfar"
 REPO="klaw"
-INSTALL_DIR="${KLAW_INSTALL_DIR:-${HOME}/.local/bin}"
+INSTALL_DIR="${KLAW_INSTALL_DIR:-${HOME}/.local/share/klaw/bin}"
+SYMLINK_DIR="${HOME}/.local/bin"
 VERSION="${KLAW_VERSION:-}"
 
 # --- helpers ----------------------------------------------------------------
@@ -158,6 +159,10 @@ install_binary() {
     case "$(uname -s)" in
         Darwin) xattr -d com.apple.quarantine "${INSTALL_DIR}/klaw" 2>/dev/null || true ;;
     esac
+
+    # Create symlink in ~/.local/bin so the binary is on PATH
+    mkdir -p "${SYMLINK_DIR}"
+    ln -sf "${INSTALL_DIR}/klaw" "${SYMLINK_DIR}/klaw"
 }
 
 # --- post-install -----------------------------------------------------------
@@ -172,19 +177,19 @@ print_success() {
     fi
 
     case ":${PATH}:" in
-        *":${INSTALL_DIR}:"*) ;;
+        *":${SYMLINK_DIR}:"*) ;;
         *)
             echo ""
-            warn "${INSTALL_DIR} is not in your PATH."
+            warn "${SYMLINK_DIR} is not in your PATH."
 
             SHELL_NAME="$(basename "${SHELL:-/bin/sh}")"
             case "${SHELL_NAME}" in
                 zsh)  SHELL_RC="${HOME}/.zshrc"
-                      PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""  ;;
+                      PATH_LINE="export PATH=\"${SYMLINK_DIR}:\$PATH\""  ;;
                 bash) SHELL_RC="${HOME}/.bashrc"
-                      PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""  ;;
+                      PATH_LINE="export PATH=\"${SYMLINK_DIR}:\$PATH\""  ;;
                 fish) SHELL_RC="${HOME}/.config/fish/config.fish"
-                      PATH_LINE="set -gx PATH \"${INSTALL_DIR}\" \$PATH" ;;
+                      PATH_LINE="set -gx PATH \"${SYMLINK_DIR}\" \$PATH" ;;
                 *)    SHELL_RC=""  ;;
             esac
 
@@ -197,7 +202,7 @@ print_success() {
             else
                 echo "  Add this to your shell config:"
                 echo ""
-                echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+                echo "    export PATH=\"${SYMLINK_DIR}:\$PATH\""
             fi
             echo ""
             ;;

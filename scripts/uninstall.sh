@@ -30,7 +30,8 @@ DATA_DIR="${XDG_DATA_HOME:-${HOME_DIR}/.local/share}/klaw"
 STATE_DIR="${XDG_STATE_HOME:-${HOME_DIR}/.local/state}/klaw"
 CACHE_DIR="${XDG_CACHE_HOME:-${HOME_DIR}/.cache}/klaw"
 WORKSPACE_DIR="${KLAW_WORKSPACE:-${HOME_DIR}/klaw-workspace}"
-INSTALL_DIR="${KLAW_INSTALL_DIR:-${HOME_DIR}/.local/bin}"
+INSTALL_DIR="${KLAW_INSTALL_DIR:-${HOME_DIR}/.local/share/klaw/bin}"
+SYMLINK_DIR="${HOME_DIR}/.local/bin"
 
 # --- detect deployment mode -------------------------------------------------
 
@@ -112,9 +113,16 @@ remove_binaries() {
     echo ""
     info "Binaries" "Checking ${INSTALL_DIR}..."
     for bin in klaw klaw-engine klaw-gateway; do
-        if [ -f "${INSTALL_DIR}/${bin}" ]; then
+        if [ -f "${INSTALL_DIR}/${bin}" ] || [ -L "${INSTALL_DIR}/${bin}" ]; then
             rm -f "${INSTALL_DIR}/${bin}"
             removed "${INSTALL_DIR}/${bin}"
+        fi
+    done
+    # Remove symlinks from ~/.local/bin
+    for bin in klaw klaw-engine klaw-gateway; do
+        if [ -L "${SYMLINK_DIR}/${bin}" ]; then
+            rm -f "${SYMLINK_DIR}/${bin}"
+            removed "${SYMLINK_DIR}/${bin} (symlink)"
         fi
     done
 }

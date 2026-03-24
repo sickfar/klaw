@@ -1,9 +1,12 @@
 package io.github.klaw.cli.update
 
+import io.github.klaw.cli.InstallPaths
 import io.github.klaw.cli.init.DeployMode
 import io.github.klaw.cli.init.KlawService
 import io.github.klaw.cli.init.ServiceManager
 import io.github.klaw.cli.init.chmodExecutable
+import io.github.klaw.cli.init.createSymlink
+import io.github.klaw.cli.init.mkdirMode755
 import io.github.klaw.cli.util.CliLogger
 import kotlin.experimental.ExperimentalNativeApi
 
@@ -16,8 +19,8 @@ internal class UpdateExecutor(
     private val commandRunner: (String) -> Int,
     private val readLine: () -> String?,
     private val commandOutput: (String) -> String? = { null },
-    private val binaryPath: String = "/usr/local/bin/klaw",
-    private val jarDir: String = "/usr/local/lib/klaw",
+    private val binaryPath: String = "${InstallPaths.installDir}/klaw",
+    private val jarDir: String = InstallPaths.installDir,
 ) {
     private val downloader = Downloader(commandRunner)
 
@@ -66,6 +69,8 @@ internal class UpdateExecutor(
         printer("Downloading CLI binary...")
         if (downloader.downloadAndReplace(asset.browserDownloadUrl, binaryPath)) {
             chmodExecutable(binaryPath)
+            mkdirMode755(InstallPaths.symlinkDir)
+            createSymlink(binaryPath, "${InstallPaths.symlinkDir}/klaw")
             printer("CLI binary updated")
         } else {
             printer("Failed to download CLI binary")

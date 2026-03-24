@@ -1,6 +1,7 @@
 package io.github.klaw.cli.init
 
 import io.github.klaw.cli.BuildConfig
+import io.github.klaw.cli.InstallPaths
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.update.ChecksumVerifier
 import io.github.klaw.cli.update.Downloader
@@ -11,7 +12,6 @@ import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.writeFileText
-import io.github.klaw.common.paths.KlawPaths
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlinx.coroutines.runBlocking
@@ -29,8 +29,8 @@ internal class NativeInstaller(
     private val printer: (String) -> Unit,
     private val successPrinter: (String) -> Unit,
     private val releaseClient: GitHubReleaseClient,
-    private val jarDir: String = "${KlawPaths.data}/bin",
-    private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
+    private val jarDir: String = InstallPaths.installDir,
+    private val binDir: String = InstallPaths.installDir,
 ) {
     private var cachedRelease: GitHubRelease? = null
 
@@ -228,6 +228,9 @@ internal class NativeInstaller(
             chmodExecutable(gatewayWrapper)
             CliLogger.debug { "created gateway wrapper at $gatewayWrapper" }
         }
+        mkdirMode755(InstallPaths.symlinkDir)
+        createSymlink(engineWrapper, "${InstallPaths.symlinkDir}/klaw-engine")
+        createSymlink(gatewayWrapper, "${InstallPaths.symlinkDir}/klaw-gateway")
         successPrinter("Wrapper scripts ready")
     }
 

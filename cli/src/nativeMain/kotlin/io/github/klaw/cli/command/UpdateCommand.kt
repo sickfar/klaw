@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.BuildConfig
+import io.github.klaw.cli.InstallPaths
 import io.github.klaw.cli.init.readDeployConf
 import io.github.klaw.cli.init.writeDeployConf
 import io.github.klaw.cli.update.GitHubReleaseClient
@@ -17,8 +18,8 @@ internal class UpdateCommand(
     private val commandRunner: (String) -> Int,
     private val readLine: () -> String?,
     private val commandOutput: (String) -> String? = { null },
-    private val binaryPath: String = "/usr/local/bin/klaw",
-    private val jarDir: String = "/usr/local/lib/klaw",
+    private val binaryPath: String = "${InstallPaths.installDir}/klaw",
+    private val jarDir: String = InstallPaths.installDir,
 ) : CliktCommand(name = "update") {
     private val check by option("--check", help = "Check for updates without installing").flag()
     private val force by option("--force", help = "Force update even if already up to date").flag()
