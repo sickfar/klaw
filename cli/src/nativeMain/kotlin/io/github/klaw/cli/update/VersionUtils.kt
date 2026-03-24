@@ -7,12 +7,13 @@ private const val ORDER_BETA = 2
 private const val ORDER_RC = 3
 
 /** Pre-release type ordering: SNAPSHOT < alpha < beta < rc < (release). */
-private val PRE_RELEASE_ORDER = mapOf(
-    "SNAPSHOT" to ORDER_SNAPSHOT,
-    "alpha" to ORDER_ALPHA,
-    "beta" to ORDER_BETA,
-    "rc" to ORDER_RC,
-)
+private val PRE_RELEASE_ORDER =
+    mapOf(
+        "SNAPSHOT" to ORDER_SNAPSHOT,
+        "alpha" to ORDER_ALPHA,
+        "beta" to ORDER_BETA,
+        "rc" to ORDER_RC,
+    )
 
 /**
  * Parses a semver tag like "v0.1.0", "0.2.3", "v1.0.0-rc3", or "v1.0.0-SNAPSHOT".
@@ -67,10 +68,11 @@ internal fun isNewerVersion(
     // SNAPSHOT is always outdated — may have been rebuilt (like Maven SNAPSHOT policy)
     if (local.preRelease == "SNAPSHOT") return true
 
-    val tupleCompare = compareTuples(
-        Triple(local.major, local.minor, local.patch),
-        Triple(remote.major, remote.minor, remote.patch),
-    )
+    val tupleCompare =
+        compareTuples(
+            Triple(local.major, local.minor, local.patch),
+            Triple(remote.major, remote.minor, remote.patch),
+        )
     if (tupleCompare != 0) return tupleCompare < 0
 
     // Same version tuple — compare pre-release
@@ -81,9 +83,12 @@ internal fun isNewerVersion(
  * Compares pre-release strings. null means stable release (highest).
  * Returns negative if a < b, 0 if equal, positive if a > b.
  */
-private fun comparePreRelease(a: String?, b: String?): Int {
+private fun comparePreRelease(
+    a: String?,
+    b: String?,
+): Int {
     if (a == b) return 0
-    if (a == null) return 1  // stable > any pre-release
+    if (a == null) return 1 // stable > any pre-release
     if (b == null) return -1 // any pre-release < stable
 
     val (aType, aNum) = splitPreRelease(a)
