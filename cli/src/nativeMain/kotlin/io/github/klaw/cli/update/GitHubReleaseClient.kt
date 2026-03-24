@@ -1,6 +1,7 @@
 package io.github.klaw.cli.update
 
 import io.github.klaw.cli.BuildConfig
+import io.github.klaw.cli.util.CliLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
@@ -27,6 +28,7 @@ internal class GitHubReleaseClientImpl(
     override suspend fun fetchByTag(tag: String): GitHubRelease? = fetchRelease("$baseUrl/tags/$tag")
 
     private suspend fun fetchRelease(url: String): GitHubRelease? {
+        CliLogger.debug { "fetchRelease: GET $url" }
         val client = HttpClient(CIO)
         return try {
             val result =
@@ -39,13 +41,16 @@ internal class GitHubReleaseClientImpl(
                             }
                         }
                     if (response.status.isSuccess()) {
+                        CliLogger.debug { "fetchRelease: ${response.status}" }
                         json.decodeFromString(GitHubRelease.serializer(), response.bodyAsText())
                     } else {
+                        CliLogger.warn { "fetchRelease: HTTP ${response.status}" }
                         null
                     }
                 }
             result.getOrElse { e ->
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                CliLogger.warn { "fetchRelease failed: ${e::class.simpleName}" }
                 null
             }
         } finally {
