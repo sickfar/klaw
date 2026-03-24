@@ -21,6 +21,7 @@ internal class UpdateCommand(
     private val jarDir: String = "/usr/local/lib/klaw",
 ) : CliktCommand(name = "update") {
     private val check by option("--check", help = "Check for updates without installing").flag()
+    private val force by option("--force", help = "Force update even if already up to date").flag()
     private val version by option("--version", help = "Target version tag (e.g. v0.2.0)")
 
     override fun run() {
@@ -45,12 +46,14 @@ internal class UpdateCommand(
         }
 
         val currentVersion = BuildConfig.VERSION
-        if (!isNewerVersion(currentVersion, release.tagName)) {
+        if (force) {
+            echo("Forcing update: $currentVersion -> ${release.tagName}")
+        } else if (!isNewerVersion(currentVersion, release.tagName)) {
             echo("Already up to date ($currentVersion)")
             return
+        } else {
+            echo("Update available: $currentVersion -> ${release.tagName}")
         }
-
-        echo("Update available: $currentVersion -> ${release.tagName}")
 
         if (check) return
 

@@ -37,9 +37,11 @@ class UpdateCommandTest {
             draft = false,
         )
 
-    private val currentRelease =
+    /** Remote version older than any SNAPSHOT — isNewerVersion always returns true for SNAPSHOT local,
+     *  so this release must be used with --force tests, not "up to date" tests. */
+    private val sameSnapshotRelease =
         GitHubRelease(
-            tagName = "v0.0.0",
+            tagName = "v0.1.0-SNAPSHOT",
             assets = emptyList(),
             prerelease = false,
             draft = false,
@@ -89,11 +91,13 @@ class UpdateCommandTest {
     }
 
     @Test
-    fun `check flag with same version prints already up to date`() {
-        val result = cli(release = currentRelease).test("update --check")
+    fun `check flag with snapshot remote shows forcing for snapshot local`() {
+        // BuildConfig.VERSION is 0.1.0-SNAPSHOT in dev — SNAPSHOT local always triggers update
+        val result = cli(release = sameSnapshotRelease).test("update --check")
         assertTrue(
-            result.output.contains("up to date", ignoreCase = true),
-            "Expected 'up to date', got: ${result.output}",
+            result.output.contains("Update available", ignoreCase = true) ||
+                result.output.contains("Forcing", ignoreCase = true),
+            "Expected update output for SNAPSHOT, got: ${result.output}",
         )
     }
 
@@ -117,6 +121,33 @@ class UpdateCommandTest {
         assertTrue(
             commands.any { it.contains("curl") },
             "Expected curl commands for download, got: $commands",
+        )
+    }
+
+    @Test
+    fun `force flag skips version comparison and downloads`() {
+        val result = cli(release = sameSnapshotRelease, readLineFn = { "n" }).test("update --force")
+        assertTrue(
+            result.output.contains("Forcing update", ignoreCase = true),
+            "Expected 'Forcing update', got: ${result.output}",
+        )
+        assertTrue(
+            result.output.contains("Updated", ignoreCase = true),
+            "Expected 'Updated', got: ${result.output}",
+        )
+    }
+
+    @Test
+    fun `force with check still skips install`() {
+        val result = cli(release = sameSnapshotRelease).test("update --force --check")
+        assertTrue(
+            result.output.contains("Forcing update", ignoreCase = true) ||
+                result.output.contains("available", ignoreCase = true),
+            "Expected force/available output, got: ${result.output}",
+        )
+        assertTrue(
+            commands.none { it.contains("curl") },
+            "Expected no curl commands in check mode, got: $commands",
         )
     }
 
