@@ -106,7 +106,7 @@ internal class UpdateExecutor(
             return
         }
         printer("Downloading $component JAR...")
-        val destPath = "$jarDir/${asset.name}"
+        val destPath = "$jarDir/klaw-$component.jar"
         if (downloader.downloadAndReplace(asset.browserDownloadUrl, destPath)) {
             val expectedHash = checksums[asset.name]
             if (expectedHash != null && !verifier.verify(destPath, expectedHash)) {
