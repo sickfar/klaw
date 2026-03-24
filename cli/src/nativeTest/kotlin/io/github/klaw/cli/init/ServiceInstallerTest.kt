@@ -3,6 +3,9 @@ package io.github.klaw.cli.init
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import platform.posix.getpid
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.native.OsFamily
+import kotlin.native.Platform
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -64,6 +67,7 @@ class ServiceInstallerTest {
         assertTrue(engineContent.contains("EnvironmentFile"), "EnvironmentFile expected in engine unit")
     }
 
+    @OptIn(ExperimentalNativeApi::class)
     @Test
     fun `installWithoutStart writes files and enables but does not start`() {
         val commandsRun = mutableListOf<String>()
@@ -78,12 +82,14 @@ class ServiceInstallerTest {
             "/tmp/.env",
         )
 
-        // Files must be written (macOS: plists, Linux: systemd units)
-        assertTrue(
-            fileExists("$tmpDir/io.github.klaw.engine.plist") &&
-                fileExists("$tmpDir/io.github.klaw.gateway.plist"),
-            "Expected both engine and gateway plist files to be written",
-        )
+        // Files must be written — platform-specific
+        if (Platform.osFamily == OsFamily.MACOSX) {
+            assertTrue(fileExists("$tmpDir/io.github.klaw.engine.plist"), "engine plist missing")
+            assertTrue(fileExists("$tmpDir/io.github.klaw.gateway.plist"), "gateway plist missing")
+        } else {
+            assertTrue(fileExists("$tmpDir/klaw-engine.service"), "engine service missing")
+            assertTrue(fileExists("$tmpDir/klaw-gateway.service"), "gateway service missing")
+        }
 
         // Must NOT contain any start command
         assertTrue(
