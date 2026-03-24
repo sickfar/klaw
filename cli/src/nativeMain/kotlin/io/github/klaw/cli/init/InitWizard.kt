@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.ui.RadioSelector
@@ -198,9 +199,26 @@ internal class InitWizard(
             }
         }
 
-        // ── Native pre-flight: Java version check ──
+        // ── Pre-flight checks right after mode selection ──
         if (resolvedMode == DeployMode.NATIVE) {
             nativeInstaller.printJavaCheck()
+            if (!nativeInstaller.prefetchRelease()) {
+                printer(
+                    "${AnsiColors.RED}✗ Cannot fetch release v${BuildConfig.VERSION} from GitHub.${AnsiColors.RESET}",
+                )
+                printer("  Check your network connection and try again.")
+                printer("  Or download JARs manually and run 'klaw init' again.")
+                return
+            }
+        }
+        if (resolvedMode == DeployMode.HYBRID || resolvedMode == DeployMode.DOCKER) {
+            if (!nativeInstaller.isDockerAvailable()) {
+                printer(
+                    "${AnsiColors.RED}✗ Docker is not available.${AnsiColors.RESET}",
+                )
+                printer("  Install Docker and try again.")
+                return
+            }
         }
 
         CliLogger.info { "phase 3: LLM provider setup" }

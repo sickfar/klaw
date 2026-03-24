@@ -4,6 +4,7 @@ import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.update.ChecksumVerifier
 import io.github.klaw.cli.update.Downloader
+import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.update.jarAssetPrefix
 import io.github.klaw.cli.util.CliLogger
@@ -31,6 +32,8 @@ internal class NativeInstaller(
     private val jarDir: String = "${KlawPaths.data}/bin",
     private val binDir: String = "${platform.posix.getenv("HOME")?.toKString() ?: "~"}/.local/bin",
 ) {
+    private var cachedRelease: GitHubRelease? = null
+
     /**
      * Parses the Java major version from `java -version` output.
      * Returns the major version number (e.g. 21) or null if Java is not found or output is unparseable.
@@ -73,26 +76,44 @@ internal class NativeInstaller(
     }
 
     /**
-     * Ensures engine and gateway JARs are present in [jarDir], downloading from GitHub if needed.
-     * If JARs exist and the local CLI version is up to date, skips download.
+     * Checks if JARs need downloading and pre-fetches release metadata.
+     * Returns true if JARs are present or release metadata was fetched successfully.
+     * Returns false if JARs are missing and release fetch failed — caller should abort.
+     */
+    fun prefetchRelease(): Boolean {
+        mkdirMode755(jarDir)
+        val files = listDirectory(jarDir)
+        val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
+        val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
+        CliLogger.debug { "prefetchRelease: jarDir=$jarDir hasEngine=$hasEngine hasGateway=$hasGateway" }
+
+        if (hasEngine && hasGateway) {
+            CliLogger.debug { "JARs found in $jarDir, version pinned to ${BuildConfig.VERSION}" }
+            return true
+        }
+
+        CliLogger.debug { "fetching release for tag v${BuildConfig.VERSION}" }
+        cachedRelease = fetchOwnRelease()
+        val tag = cachedRelease?.tagName
+        CliLogger.debug { "prefetchRelease result: ${if (tag != null) "found ($tag)" else "null"}" }
+        return cachedRelease != null
+    }
+
+    /**
+     * Downloads engine and gateway JARs. Call [prefetchRelease] first.
      */
     fun ensureJars() {
         mkdirMode755(jarDir)
         val files = listDirectory(jarDir)
         val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
         val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
-        CliLogger.debug { "ensureJars: jarDir=$jarDir hasEngine=$hasEngine hasGateway=$hasGateway" }
 
         if (hasEngine && hasGateway) {
-            CliLogger.debug { "JARs found in $jarDir, version pinned to ${BuildConfig.VERSION}" }
             successPrinter("Engine and Gateway JARs are up to date")
             return
         }
 
-        CliLogger.debug { "fetching release for tag v${BuildConfig.VERSION}" }
-        val release = fetchOwnRelease()
-        CliLogger.debug { "fetchOwnRelease result: ${if (release != null) "found (${release.tagName})" else "null"}" }
-
+        val release = cachedRelease ?: fetchOwnRelease()
         printer("Downloading Engine and Gateway JARs...")
         if (release == null) {
             printer(

@@ -1,5 +1,7 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.update.GitHubAsset
+import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
 import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.isDirectory
@@ -36,12 +38,14 @@ class InitWizardTest {
         deleteDir(tmpDir)
     }
 
-    /** No-op release client that returns null (skips JAR download). */
-    private val noOpReleaseClient =
+    /** Stub release client that returns a dummy release (passes prefetch check). */
+    private val stubReleaseClient =
         object : GitHubReleaseClient {
-            override suspend fun fetchLatest() = null
+            override suspend fun fetchLatest() =
+                GitHubRelease(tagName = "v0.0.0", assets = emptyList(), prerelease = false, draft = false)
 
-            override suspend fun fetchByTag(tag: String) = null
+            override suspend fun fetchByTag(tag: String) =
+                GitHubRelease(tagName = tag, assets = emptyList(), prerelease = false, draft = false)
         }
 
     @Suppress("LongParameterList")
@@ -56,7 +60,7 @@ class InitWizardTest {
         isDockerEnv: Boolean = false,
         readLineOverride: (() -> String?)? = null,
         force: Boolean = false,
-        releaseClient: GitHubReleaseClient = noOpReleaseClient,
+        releaseClient: GitHubReleaseClient = stubReleaseClient,
     ): InitWizard {
         val inputQueue = ArrayDeque(inputs)
         return InitWizard(

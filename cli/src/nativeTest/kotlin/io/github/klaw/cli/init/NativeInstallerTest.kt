@@ -3,8 +3,15 @@ package io.github.klaw.cli.init
 import io.github.klaw.cli.BuildConfig
 import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
+import io.github.klaw.cli.update.GitHubReleaseClientImpl
+import io.ktor.client.request.get
+import io.ktor.client.request.headers
+import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.runBlocking
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class NativeInstallerTest {
@@ -138,4 +145,32 @@ class NativeInstallerTest {
             "Expected fetchByTag(\"v${BuildConfig.VERSION}\"), got fetchByTag(\"$fetchByTagArg\")",
         )
     }
+
+    // --- Integration: real HTTP fetch (run manually, not in CI) ---
+
+    @Ignore
+    @Test
+    fun `integration - fetchByTag returns release for v0_1_0-rc2 from GitHub`() {
+        val client = GitHubReleaseClientImpl()
+        val result =
+            runBlocking {
+                runCatching { client.fetchByTag("v0.1.0-rc2") }
+            }
+        val exception = result.exceptionOrNull()
+        assertTrue(
+            exception == null,
+            "fetchByTag threw: ${exception?.let { "${it::class.simpleName}: $it" }}",
+        )
+        val release = result.getOrNull()
+        assertNotNull(release, "Expected GitHub release for v0.1.0-rc2, got null — HTTP error?")
+        assertTrue(release.tagName == "v0.1.0-rc2", "Expected tag v0.1.0-rc2, got ${release.tagName}")
+        assertTrue(
+            release.assets.any { it.name.startsWith("klaw-engine") && it.name.endsWith(".jar") },
+            "Expected engine JAR asset in release, got: ${release.assets.map { it.name }}",
+        )
+    }
+
+    // Diagnostic: Ktor CIO on Kotlin/Native does NOT support TLS.
+    // Error: "TLS sessions are not supported on Native platform."
+    // Fix: switch to Darwin engine (macOS) / Curl engine (Linux).
 }

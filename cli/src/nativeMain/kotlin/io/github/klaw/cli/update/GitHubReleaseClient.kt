@@ -1,9 +1,8 @@
 package io.github.klaw.cli.update
 
 import io.github.klaw.cli.BuildConfig
+import io.github.klaw.cli.http.createHttpClient
 import io.github.klaw.cli.util.CliLogger
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
@@ -29,7 +28,7 @@ internal class GitHubReleaseClientImpl(
 
     private suspend fun fetchRelease(url: String): GitHubRelease? {
         CliLogger.debug { "fetchRelease: GET $url" }
-        val client = HttpClient(CIO)
+        val client = createHttpClient()
         return try {
             val result =
                 runCatching {
