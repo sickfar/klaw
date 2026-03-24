@@ -54,7 +54,13 @@ class InitWizardTest {
         output: MutableList<String> = mutableListOf(),
         engineResponses: Map<String, String> = emptyMap(),
         commandRunner: (String) -> Int = { 0 },
-        commandOutput: (String) -> String? = { """{"content":[{"type":"text","text":"ok"}],"data":[]}""" },
+        commandOutput: (String) -> String? = { cmd ->
+            when {
+                cmd.startsWith("command -v java") -> "/usr/bin/java"
+                cmd.startsWith("java -version") -> """openjdk version "21.0.1" 2023-10-17"""
+                else -> """{"content":[{"type":"text","text":"ok"}],"data":[]}"""
+            }
+        },
         radioSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         modeSelector: (List<String>, String) -> Int? = { _, _ -> 0 },
         isDockerEnv: Boolean = false,

@@ -204,12 +204,14 @@ internal class NativeInstaller(
      */
     fun createWrapperScripts() {
         mkdirMode755(binDir)
+        val javaPath = resolveJavaPath()
+        CliLogger.debug { "resolved java path: $javaPath" }
         val engineWrapper = "$binDir/klaw-engine"
         if (!fileExists(engineWrapper)) {
             writeFileText(
                 engineWrapper,
                 "#!/usr/bin/env bash\n" +
-                    "exec java -Xms64m -Xmx512m " +
+                    "exec $javaPath -Xms64m -Xmx512m " +
                     "-jar \"$jarDir/klaw-engine.jar\" \"\$@\"\n",
             )
             chmodExecutable(engineWrapper)
@@ -220,12 +222,21 @@ internal class NativeInstaller(
             writeFileText(
                 gatewayWrapper,
                 "#!/usr/bin/env bash\n" +
-                    "exec java -Xms32m -Xmx128m " +
+                    "exec $javaPath -Xms32m -Xmx128m " +
                     "-jar \"$jarDir/klaw-gateway.jar\" \"\$@\"\n",
             )
             chmodExecutable(gatewayWrapper)
             CliLogger.debug { "created gateway wrapper at $gatewayWrapper" }
         }
         successPrinter("Wrapper scripts ready")
+    }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun resolveJavaPath(): String {
+        val resolved = commandOutput("command -v java 2>/dev/null")?.trim()
+        if (!resolved.isNullOrBlank()) return resolved
+        val javaHome = platform.posix.getenv("JAVA_HOME")?.toKString()
+        if (!javaHome.isNullOrBlank()) return "$javaHome/bin/java"
+        return "java"
     }
 }
