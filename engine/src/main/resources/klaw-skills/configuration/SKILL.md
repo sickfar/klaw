@@ -5,7 +5,7 @@ description: Read and modify engine or gateway configuration at runtime — view
 
 # Configuration
 
-You have access to the following tools for runtime configuration management:
+The configuration tools listed below are available directly. This skill provides detailed parameter documentation and usage guidelines.
 
 ## config_get
 Read current engine or gateway configuration. Sensitive values (API keys) are masked.

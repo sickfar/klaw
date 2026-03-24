@@ -23,8 +23,8 @@ import org.junit.jupiter.api.TestMethodOrder
 /**
  * E2E tests for the pdf_read and md_to_pdf document tools.
  *
- * These tools are behind the bundled "documents" skill and are NOT in the
- * default tools list. They become available after skill_load("documents").
+ * These tools are directly available in the tools list. The bundled "documents"
+ * skill provides detailed usage guidelines.
  *
  * Config: contextBudgetTokens=5000, maxToolCallRounds=5.
  */
@@ -403,7 +403,7 @@ class DocumentToolsE2eTest {
 
     @Test
     @Order(7)
-    fun `pdf_read and md_to_pdf tools NOT in default tools list`() {
+    fun `pdf_read and md_to_pdf tools ARE in default tools list`() {
         wireMock.stubChatResponse("TOOLS-CHECK-OK")
 
         client.sendAndReceive("Hello tools check", timeoutMs = RESPONSE_TIMEOUT_MS)
@@ -422,13 +422,13 @@ class DocumentToolsE2eTest {
                     ?.content
             }
 
-        assertFalse(
+        assertTrue(
             toolNames.contains("pdf_read"),
-            "pdf_read should NOT be in default tools list (requires skill_load first)",
+            "pdf_read should be in default tools list",
         )
-        assertFalse(
+        assertTrue(
             toolNames.contains("md_to_pdf"),
-            "md_to_pdf should NOT be in default tools list (requires skill_load first)",
+            "md_to_pdf should be in default tools list",
         )
     }
 

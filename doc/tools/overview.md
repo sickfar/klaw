@@ -1,14 +1,17 @@
 # Built-in Tools Overview
 
-Klaw Engine provides standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. Additional tools (scheduling, configuration, memory management) are available through bundled skills — load them via `skill_load` to access their tool definitions. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
+Klaw Engine provides standard tools plus 2 contextual delivery tools that are injected only in specific execution contexts. All tools are directly available. Bundled skills provide detailed usage guidelines — load with `skill_load`. Tools are registered via `ToolRegistryImpl` and executed concurrently through `DispatchingToolExecutor`.
 
 ## Tool Categories
 
-### Memory Tools (2)
+### Memory Tools (5)
 | Tool | Description |
 |------|-------------|
 | `memory_search` | Hybrid search over long-term memory (vector + FTS5) |
 | `memory_save` | Save information to long-term memory |
+| `memory_rename_category` | Rename a memory category |
+| `memory_merge_categories` | Merge memory categories into one |
+| `memory_delete_category` | Delete a memory category |
 
 See [memory.md](memory.md) for details.
 
@@ -46,20 +49,26 @@ See [docs.md](docs.md).
 
 See [skills.md](skills.md).
 
-### Schedule Tools (via `scheduling` skill + 1 contextual)
+### Schedule Tools (6 + 1 contextual)
 | Tool | Description |
 |------|-------------|
 | `schedule_list` | List scheduled tasks |
 | `schedule_add` | Add a scheduled or one-time task |
 | `schedule_remove` | Remove a scheduled task |
+| `schedule_edit` | Edit a scheduled task |
+| `schedule_enable` | Resume a paused task |
+| `schedule_disable` | Pause a scheduled task |
 | `schedule_deliver` | **Contextual** — deliver a result to the user; only available inside scheduled tasks and spawned subagents when `injectInto` is set |
 
-Schedule tools (`schedule_list`, `schedule_add`, `schedule_remove`) are available via the `scheduling` bundled skill. Load it with `skill_load("scheduling")` to see full tool definitions and usage guidelines. See [schedule.md](schedule.md).
+See [schedule.md](schedule.md). The `scheduling` bundled skill provides detailed usage guidelines.
 
-### Subagent Tools (1)
+### Subagent Tools (4)
 | Tool | Description |
 |------|-------------|
 | `subagent_spawn` | Spawn a fire-and-forget subagent |
+| `subagent_status` | Get status of a subagent run by ID |
+| `subagent_list` | List recent subagent runs |
+| `subagent_cancel` | Cancel a running subagent |
 
 See [subagent.md](subagent.md).
 
@@ -86,21 +95,21 @@ See [sandbox-exec.md](sandbox-exec.md) and [host-exec.md](host-exec.md).
 
 See [history-search.md](history-search.md).
 
-### Document Tools (via `documents` skill)
+### Document Tools (2)
 | Tool | Description |
 |------|-------------|
 | `pdf_read` | Read a PDF file and extract text content with page markers |
 | `md_to_pdf` | Convert a Markdown file to PDF format |
 
-Document tools are available via the `documents` bundled skill. Load it with `skill_load("documents")` to see full tool definitions and usage guidelines. See [documents.md](documents.md).
+See [documents.md](documents.md). The `documents` bundled skill provides detailed usage guidelines.
 
-### Configuration Tools (via `configuration` skill)
+### Configuration Tools (2)
 | Tool | Description |
 |------|-------------|
 | `config_get` | Read current engine or gateway configuration |
 | `config_set` | Update a configuration field |
 
-Configuration tools are available via the `configuration` bundled skill. Load it with `skill_load("configuration")` to see full tool definitions and usage guidelines. See [config.md](config.md).
+See [config.md](config.md). The `configuration` bundled skill provides detailed usage guidelines.
 
 ### Utility Tools (1)
 | Tool | Description |
@@ -123,6 +132,6 @@ Engine enforces a `maxToolCallRounds` limit (configured in `engine.json` under `
 ## Architecture
 
 - `ToolRegistry` interface (in `engine/context/`) lists available tool definitions.
-- `ToolRegistryImpl` is the `@Singleton` implementation that holds tool definitions and dispatches execution to the appropriate tool class. Some tools are hidden from the default context and exposed via bundled skills.
+- `ToolRegistryImpl` is the `@Singleton` implementation that holds tool definitions and dispatches execution to the appropriate tool class.
 - `DispatchingToolExecutor` executes tool calls concurrently via `coroutineScope { async {} }`.
 - Dependency services (memory, docs, scheduler) are injected as interfaces with stub implementations replaced by real ones in later phases.

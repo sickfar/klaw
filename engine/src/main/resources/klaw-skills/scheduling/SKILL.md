@@ -5,7 +5,7 @@ description: Manage scheduled and one-time tasks — create, edit, enable/disabl
 
 # Scheduling
 
-You have access to the following tools for managing scheduled tasks:
+The scheduling tools listed below are available directly. This skill provides detailed parameter documentation and usage guidelines.
 
 ## schedule_list
 List scheduled tasks.
@@ -13,8 +13,8 @@ List scheduled tasks.
 **Parameters:** none
 
 ## schedule_add
-Add a scheduled or one-time task. The `message` field must be an explicit instruction
-for the subagent, not just content to deliver.
+Add a scheduled or one-time task. Exactly one of `cron` or `at` must be provided.
+The `message` field must be an explicit instruction for the subagent, not just content to deliver.
 
 **Parameters:**
 - `name` (string, required): Unique task name
@@ -33,7 +33,7 @@ Remove a scheduled task.
 - `name` (string, required): Task name to remove
 
 ## schedule_edit
-Edit an existing scheduled task. Updates only the specified fields; unspecified fields remain unchanged.
+Edit an existing scheduled task. Only cron-based recurring tasks can have their schedule changed; one-time (`at`) tasks require `schedule_remove` + `schedule_add`. Updates only the specified fields; unspecified fields remain unchanged.
 
 **Parameters:**
 - `name` (string, required): Task name to edit

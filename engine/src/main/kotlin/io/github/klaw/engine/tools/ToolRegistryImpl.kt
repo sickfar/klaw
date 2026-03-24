@@ -497,6 +497,39 @@ class ToolRegistryImpl(
                     ),
                 ),
                 ToolDef(
+                    "memory_rename_category",
+                    "Rename a memory category",
+                    toolParams(
+                        listOf("oldName", "newName"),
+                        mapOf(
+                            "oldName" to stringProp("Current category name"),
+                            "newName" to stringProp("New category name"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "memory_merge_categories",
+                    "Merge memory categories into one",
+                    toolParams(
+                        listOf("sourceNames", "targetName"),
+                        mapOf(
+                            "sourceNames" to stringArrayProp("Category names to merge"),
+                            "targetName" to stringProp("Target category name"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "memory_delete_category",
+                    "Delete a memory category",
+                    toolParams(
+                        listOf("name"),
+                        mapOf(
+                            "name" to stringProp("Category name"),
+                            "deleteFacts" to boolProp("Delete facts too (default true)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
                     "history_search",
                     "Search past conversation messages semantically. " +
                         "Returns matching messages from this chat's history with timestamps. " +
@@ -538,6 +571,30 @@ class ToolRegistryImpl(
                     toolParams(emptyList(), emptyMap()),
                 ),
                 ToolDef(
+                    "pdf_read",
+                    "Read a PDF and extract text",
+                    toolParams(
+                        listOf("path"),
+                        mapOf(
+                            "path" to stringProp("PDF file path"),
+                            "start_page" to intProp("First page (1-based)"),
+                            "end_page" to intProp("Last page (1-based)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "md_to_pdf",
+                    "Convert Markdown to PDF",
+                    toolParams(
+                        listOf("input_path", "output_path"),
+                        mapOf(
+                            "input_path" to stringProp("Markdown file path"),
+                            "output_path" to stringProp("Output PDF path"),
+                            "title" to stringProp("Document title"),
+                        ),
+                    ),
+                ),
+                ToolDef(
                     "skill_list",
                     "List available skills",
                     toolParams(emptyList(), emptyMap()),
@@ -550,8 +607,62 @@ class ToolRegistryImpl(
                         mapOf("name" to stringProp("Skill name")),
                     ),
                 ),
-                // scheduling tools (schedule_list, schedule_add, schedule_remove) are hidden
-                // behind the "scheduling" bundled skill — dispatch() still handles them
+                ToolDef(
+                    "schedule_list",
+                    "List scheduled tasks",
+                    toolParams(emptyList(), emptyMap()),
+                ),
+                ToolDef(
+                    "schedule_add",
+                    "Add a scheduled or one-time task",
+                    toolParams(
+                        listOf("name", "message"),
+                        mapOf(
+                            "name" to stringProp("Unique task name"),
+                            "message" to stringProp("Instruction for the subagent"),
+                            "cron" to stringProp("Cron expression (mutually exclusive with at)"),
+                            "at" to stringProp("ISO-8601 datetime (mutually exclusive with cron)"),
+                            "model" to stringProp("LLM model override"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "schedule_remove",
+                    "Remove a scheduled task",
+                    toolParams(
+                        listOf("name"),
+                        mapOf("name" to stringProp("Task name")),
+                    ),
+                ),
+                ToolDef(
+                    "schedule_edit",
+                    "Edit a scheduled task",
+                    toolParams(
+                        listOf("name"),
+                        mapOf(
+                            "name" to stringProp("Task name"),
+                            "cron" to stringProp("New cron expression"),
+                            "message" to stringProp("New instruction"),
+                            "model" to stringProp("New LLM model"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "schedule_enable",
+                    "Resume a paused task",
+                    toolParams(
+                        listOf("name"),
+                        mapOf("name" to stringProp("Task name")),
+                    ),
+                ),
+                ToolDef(
+                    "schedule_disable",
+                    "Pause a scheduled task",
+                    toolParams(
+                        listOf("name"),
+                        mapOf("name" to stringProp("Task name")),
+                    ),
+                ),
                 ToolDef(
                     "subagent_spawn",
                     "Spawn an independent subagent to perform a task in parallel. " +
@@ -614,8 +725,29 @@ class ToolRegistryImpl(
                         ),
                     ),
                 ),
-                // config tools (config_get, config_set) are hidden behind the
-                // "configuration" bundled skill — dispatch() still handles them
+                ToolDef(
+                    "config_get",
+                    "Read engine or gateway configuration",
+                    toolParams(
+                        listOf("target"),
+                        mapOf(
+                            "target" to stringProp("Config target: engine or gateway"),
+                            "path" to stringProp("Dot-notation path (omit for full config)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "config_set",
+                    "Update a configuration field",
+                    toolParams(
+                        listOf("target", "path", "value"),
+                        mapOf(
+                            "target" to stringProp("Config target: engine or gateway"),
+                            "path" to stringProp("Dot-notation path"),
+                            "value" to stringProp("New value as string"),
+                        ),
+                    ),
+                ),
                 ToolDef(
                     "send_message",
                     "Send a message to a specific channel and chat",

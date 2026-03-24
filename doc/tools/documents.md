@@ -1,6 +1,6 @@
 # Document Tools
 
-Read PDF files, extract text, and convert Markdown to PDF. These tools are available via the bundled `documents` skill — load with `skill_load("documents")`.
+Read PDF files, extract text, and convert Markdown to PDF. The bundled `documents` skill provides detailed usage guidelines.
 
 ## pdf_read
 

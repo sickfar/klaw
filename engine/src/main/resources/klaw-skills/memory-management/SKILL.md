@@ -5,7 +5,7 @@ description: Advanced memory category management — rename, merge, and delete c
 
 # Memory Management
 
-You have access to the following tools for managing memory categories:
+The memory management tools listed below are available directly. This skill provides detailed parameter documentation and usage guidelines.
 
 ## memory_rename_category
 Rename an existing memory category. Use when the user wants to restructure their memory organization.

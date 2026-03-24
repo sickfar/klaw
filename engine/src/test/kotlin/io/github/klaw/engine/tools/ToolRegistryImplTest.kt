@@ -122,10 +122,10 @@ class ToolRegistryImplTest {
         )
 
     @Test
-    fun `listTools returns all 23 tool definitions`() =
+    fun `listTools returns all 36 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(23, tools.size)
+            assertEquals(36, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -133,26 +133,37 @@ class ToolRegistryImplTest {
             assertTrue(names.contains("file_patch"))
             assertTrue(names.contains("memory_search"))
             assertTrue(names.contains("memory_save"))
-            assertFalse(names.contains("memory_rename_category"))
-            assertFalse(names.contains("memory_merge_categories"))
-            assertFalse(names.contains("memory_delete_category"))
+            assertTrue(names.contains("memory_rename_category"))
+            assertTrue(names.contains("memory_merge_categories"))
+            assertTrue(names.contains("memory_delete_category"))
             assertTrue(names.contains("docs_search"))
             assertTrue(names.contains("docs_read"))
             assertTrue(names.contains("docs_list"))
             assertTrue(names.contains("skill_list"))
             assertTrue(names.contains("skill_load"))
-            assertFalse(names.contains("schedule_list"))
-            assertFalse(names.contains("schedule_add"))
-            assertFalse(names.contains("schedule_remove"))
+            assertTrue(names.contains("schedule_list"))
+            assertTrue(names.contains("schedule_add"))
+            assertTrue(names.contains("schedule_remove"))
+            assertTrue(names.contains("schedule_edit"))
+            assertTrue(names.contains("schedule_enable"))
+            assertTrue(names.contains("schedule_disable"))
             assertTrue(names.contains("subagent_spawn"))
             assertFalse(names.contains("current_time"))
             assertTrue(names.contains("send_message"))
-            assertFalse(names.contains("config_get"))
-            assertFalse(names.contains("config_set"))
+            assertTrue(names.contains("config_get"))
+            assertTrue(names.contains("config_set"))
             assertTrue(names.contains("engine_health"))
             assertTrue(names.contains("web_fetch"))
             assertTrue(names.contains("web_search"))
             assertTrue(names.contains("image_analyze"))
+            assertTrue(names.contains("pdf_read"))
+            assertTrue(names.contains("md_to_pdf"))
+            assertTrue(names.contains("history_search"))
+            assertTrue(names.contains("subagent_status"))
+            assertTrue(names.contains("subagent_list"))
+            assertTrue(names.contains("subagent_cancel"))
+            assertTrue(names.contains("sandbox_exec"))
+            assertTrue(names.contains("host_exec"))
         }
 
     @Test
@@ -268,7 +279,7 @@ class ToolRegistryImplTest {
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(20, tools.size)
+            assertEquals(33, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -326,7 +337,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(21, tools.size, "Should have 23 - 2 = 21 tools")
+            assertEquals(34, tools.size, "Should have 36 - 2 = 34 tools")
         }
 
     @Test
@@ -358,7 +369,7 @@ class ToolRegistryImplTest {
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(22, tools.size, "Should have 23 - 1 = 22 tools")
+            assertEquals(35, tools.size, "Should have 36 - 1 = 35 tools")
         }
 
     @Test
@@ -406,17 +417,17 @@ class ToolRegistryImplTest {
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(23, tools.size)
+            assertEquals(36, tools.size)
         }
 
     @Test
-    fun `scheduling tools hidden from listTools but dispatch still works`() =
+    fun `scheduling tools visible in listTools and dispatch works`() =
         runTest {
             val tools = registry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertFalse("schedule_list" in names, "schedule_list should be hidden")
-            assertFalse("schedule_add" in names, "schedule_add should be hidden")
-            assertFalse("schedule_remove" in names, "schedule_remove should be hidden")
+            assertTrue("schedule_list" in names, "schedule_list should be visible")
+            assertTrue("schedule_add" in names, "schedule_add should be visible")
+            assertTrue("schedule_remove" in names, "schedule_remove should be visible")
 
             coEvery { scheduleTools.list() } returns "[]"
             val listResult = registry.execute(ToolCall(id = "1", name = "schedule_list", arguments = "{}"))
@@ -431,12 +442,12 @@ class ToolRegistryImplTest {
         }
 
     @Test
-    fun `config tools hidden from listTools but dispatch still works`() =
+    fun `config tools visible in listTools and dispatch works`() =
         runTest {
             val tools = registry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertFalse("config_get" in names, "config_get should be hidden")
-            assertFalse("config_set" in names, "config_set should be hidden")
+            assertTrue("config_get" in names, "config_get should be visible")
+            assertTrue("config_set" in names, "config_set should be visible")
 
             coEvery { configTools.configGet("engine", null) } returns """{"routing":"default"}"""
             val getResult =
@@ -538,7 +549,7 @@ class ToolRegistryImplTest {
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(24, tools.size)
+            assertEquals(37, tools.size)
         }
 
     @Test
