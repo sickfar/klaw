@@ -1,13 +1,15 @@
 package io.github.klaw.cli.update
 
 import io.github.klaw.cli.BuildConfig
-import io.github.klaw.cli.http.createHttpClient
 import io.github.klaw.cli.util.CliLogger
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.isSuccess
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.convert
+import kotlinx.cinterop.usePinned
 import kotlinx.serialization.json.Json
+import platform.posix.fread
+import platform.posix.pclose
+import platform.posix.popen
 
 internal interface GitHubReleaseClient {
     suspend fun fetchLatest(): GitHubRelease?
@@ -15,6 +17,7 @@ internal interface GitHubReleaseClient {
     suspend fun fetchByTag(tag: String): GitHubRelease?
 }
 
+@OptIn(ExperimentalForeignApi::class)
 internal class GitHubReleaseClientImpl(
     private val owner: String = BuildConfig.GITHUB_OWNER,
     private val repo: String = BuildConfig.GITHUB_REPO,
@@ -26,34 +29,47 @@ internal class GitHubReleaseClientImpl(
 
     override suspend fun fetchByTag(tag: String): GitHubRelease? = fetchRelease("$baseUrl/tags/$tag")
 
-    private suspend fun fetchRelease(url: String): GitHubRelease? {
+    private fun fetchRelease(url: String): GitHubRelease? {
         CliLogger.debug { "fetchRelease: GET $url" }
-        val client = createHttpClient()
-        return try {
-            val result =
-                runCatching {
-                    val response =
-                        client.get(url) {
-                            headers {
-                                append("Accept", "application/vnd.github+json")
-                                append("User-Agent", "klaw-cli/${BuildConfig.VERSION}")
-                            }
-                        }
-                    if (response.status.isSuccess()) {
-                        CliLogger.debug { "fetchRelease: ${response.status}" }
-                        json.decodeFromString(GitHubRelease.serializer(), response.bodyAsText())
-                    } else {
-                        CliLogger.warn { "fetchRelease: HTTP ${response.status}" }
-                        null
-                    }
-                }
-            result.getOrElse { e ->
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                CliLogger.warn { "fetchRelease failed: ${e::class.simpleName}" }
-                null
-            }
-        } finally {
-            client.close()
+        val cmd =
+            "curl -fsSL " +
+                "-H 'Accept: application/vnd.github+json' " +
+                "-H 'User-Agent: klaw-cli/${BuildConfig.VERSION}' " +
+                "'$url' 2>/dev/null"
+        val body = runCommand(cmd)
+        if (body.isNullOrBlank()) {
+            CliLogger.warn { "fetchRelease: curl returned empty response for $url" }
+            return null
         }
+        return try {
+            val release = json.decodeFromString(GitHubRelease.serializer(), body)
+            CliLogger.debug { "fetchRelease: parsed release ${release.tagName}" }
+            release
+        } catch (e: kotlinx.serialization.SerializationException) {
+            CliLogger.warn { "fetchRelease: failed to parse response: ${e::class.simpleName}" }
+            null
+        } catch (e: IllegalArgumentException) {
+            CliLogger.warn { "fetchRelease: failed to parse response: ${e::class.simpleName}" }
+            null
+        }
+    }
+
+    private fun runCommand(cmd: String): String? {
+        val pipe = popen(cmd, "r") ?: return null
+        val sb = StringBuilder()
+        val buf = ByteArray(BUF_SIZE)
+        buf.usePinned { pinned ->
+            var n: Int
+            do {
+                n = fread(pinned.addressOf(0), 1.convert(), buf.size.convert(), pipe).toInt()
+                if (n > 0) sb.append(buf.decodeToString(0, n))
+            } while (n > 0)
+        }
+        pclose(pipe)
+        return sb.toString()
+    }
+
+    private companion object {
+        const val BUF_SIZE = 8192
     }
 }

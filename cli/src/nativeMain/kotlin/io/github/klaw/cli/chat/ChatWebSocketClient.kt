@@ -1,7 +1,8 @@
 package io.github.klaw.cli.chat
 
-import io.github.klaw.cli.http.createHttpClient
 import io.github.klaw.common.protocol.ChatFrame
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
@@ -25,7 +26,7 @@ internal class ChatWebSocketClient(
     private val url: String,
 ) : ChatSession {
     private val client =
-        createHttpClient().config {
+        HttpClient(CIO) {
             install(WebSockets) {
                 pingIntervalMillis = PING_INTERVAL_MS
             }

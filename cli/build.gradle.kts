@@ -80,12 +80,6 @@ kotlin {
             implementation(libs.ktor.client.cio)
             implementation(libs.ktor.client.websockets)
         }
-        macosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
-        }
-        linuxMain.dependencies {
-            implementation(libs.ktor.client.curl)
-        }
         nativeTest.dependencies {
             implementation(kotlin("test"))
         }
