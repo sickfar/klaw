@@ -1,13 +1,17 @@
 package io.github.klaw.cli.update
 
 private const val SEMVER_PARTS = 3
+private const val ORDER_SNAPSHOT = 0
+private const val ORDER_ALPHA = 1
+private const val ORDER_BETA = 2
+private const val ORDER_RC = 3
 
 /** Pre-release type ordering: SNAPSHOT < alpha < beta < rc < (release). */
 private val PRE_RELEASE_ORDER = mapOf(
-    "SNAPSHOT" to 0,
-    "alpha" to 1,
-    "beta" to 2,
-    "rc" to 3,
+    "SNAPSHOT" to ORDER_SNAPSHOT,
+    "alpha" to ORDER_ALPHA,
+    "beta" to ORDER_BETA,
+    "rc" to ORDER_RC,
 )
 
 /**
