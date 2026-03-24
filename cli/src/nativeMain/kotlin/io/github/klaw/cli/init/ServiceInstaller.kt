@@ -69,7 +69,7 @@ internal class ServiceInstaller(
         gatewayBin: String,
         envFile: String,
     ) {
-        mkdirMode755(outputDir)
+        commandRunner("mkdir -p '$outputDir'")
         writeFileText("$outputDir/klaw-engine.service", engineSystemdUnit(engineBin, envFile))
         writeFileText("$outputDir/klaw-gateway.service", gatewaySystemdUnit(gatewayBin, envFile))
     }
@@ -78,7 +78,7 @@ internal class ServiceInstaller(
         engineBin: String,
         gatewayBin: String,
     ) {
-        mkdirMode755(outputDir)
+        commandRunner("mkdir -p '$outputDir'")
         writeFileText("$outputDir/io.github.klaw.engine.plist", engineLaunchdPlist(engineBin))
         writeFileText("$outputDir/io.github.klaw.gateway.plist", gatewayLaunchdPlist(gatewayBin))
     }
