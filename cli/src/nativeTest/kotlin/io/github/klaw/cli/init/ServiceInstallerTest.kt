@@ -6,6 +6,7 @@ import platform.posix.getpid
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -61,5 +62,33 @@ class ServiceInstallerTest {
         val engineContent = readFileText("$tmpDir/klaw-engine.service")
         assertNotNull(engineContent)
         assertTrue(engineContent.contains("EnvironmentFile"), "EnvironmentFile expected in engine unit")
+    }
+
+    @Test
+    fun `installWithoutStart writes files and enables but does not start`() {
+        val commandsRun = mutableListOf<String>()
+        val installer =
+            ServiceInstaller(
+                outputDir = tmpDir,
+                commandRunner = { cmd -> commandsRun += cmd },
+            )
+        installer.installWithoutStart(
+            "/usr/local/bin/klaw-engine",
+            "/usr/local/bin/klaw-gateway",
+            "/tmp/.env",
+        )
+
+        // Files must be written (macOS: plists, Linux: systemd units)
+        assertTrue(
+            fileExists("$tmpDir/io.github.klaw.engine.plist") &&
+                fileExists("$tmpDir/io.github.klaw.gateway.plist"),
+            "Expected both engine and gateway plist files to be written",
+        )
+
+        // Must NOT contain any start command
+        assertTrue(
+            commandsRun.none { it.contains("start ") || it.contains("load -w") },
+            "installWithoutStart must not start services, commands run: $commandsRun",
+        )
     }
 }

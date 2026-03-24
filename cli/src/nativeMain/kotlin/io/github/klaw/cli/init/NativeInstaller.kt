@@ -5,7 +5,6 @@ import io.github.klaw.cli.ui.AnsiColors
 import io.github.klaw.cli.update.ChecksumVerifier
 import io.github.klaw.cli.update.Downloader
 import io.github.klaw.cli.update.GitHubReleaseClient
-import io.github.klaw.cli.update.isNewerVersion
 import io.github.klaw.cli.update.jarAssetPrefix
 import io.github.klaw.cli.util.CliLogger
 import io.github.klaw.cli.util.fileExists
@@ -83,16 +82,12 @@ internal class NativeInstaller(
         val hasEngine = files.any { it.startsWith("klaw-engine") && it.endsWith(".jar") }
         val hasGateway = files.any { it.startsWith("klaw-gateway") && it.endsWith(".jar") }
 
-        val release = fetchLatestRelease()
+        val release = fetchOwnRelease()
 
         if (hasEngine && hasGateway) {
-            CliLogger.debug { "JARs found in $jarDir, checking for updates" }
-            if (release == null || !isNewerVersion(BuildConfig.VERSION, release.tagName)) {
-                CliLogger.debug { "JARs are up to date" }
-                successPrinter("Engine and Gateway JARs are up to date")
-                return
-            }
-            printer("Newer version available (${release.tagName}), downloading JARs...")
+            CliLogger.debug { "JARs found in $jarDir, version pinned to ${BuildConfig.VERSION}" }
+            successPrinter("Engine and Gateway JARs are up to date")
+            return
         } else {
             printer("Downloading Engine and Gateway JARs...")
             if (release == null) {
@@ -106,9 +101,9 @@ internal class NativeInstaller(
         downloadJars(release.assets.associate { it.name to it.browserDownloadUrl })
     }
 
-    private fun fetchLatestRelease() =
+    private fun fetchOwnRelease() =
         runBlocking {
-            runCatching { releaseClient.fetchLatest() }
+            runCatching { releaseClient.fetchByTag("v${BuildConfig.VERSION}") }
                 .getOrElse { e ->
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     CliLogger.warn { "failed to fetch release: ${e::class.simpleName}" }

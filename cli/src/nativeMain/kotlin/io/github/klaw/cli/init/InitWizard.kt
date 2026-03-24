@@ -382,10 +382,31 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
-        // ── Native: download JARs and create wrapper scripts ──
+        // ── Native: download JARs, create wrapper scripts, write service files ──
+        val canUseNativeService =
+            resolvedMode == DeployMode.NATIVE &&
+                (Platform.osFamily == OsFamily.MACOSX || nativeInstaller.isSystemdAvailable())
         if (resolvedMode == DeployMode.NATIVE) {
             nativeInstaller.ensureJars()
             nativeInstaller.createWrapperScripts()
+            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+            val engineBin = "$home/.local/bin/klaw-engine"
+            val gatewayBin = "$home/.local/bin/klaw-gateway"
+            val envFile = "$configDir/.env"
+            if (canUseNativeService) {
+                val serviceInstaller =
+                    ServiceInstaller(
+                        outputDir = serviceOutputDir,
+                        commandRunner = { cmd ->
+                            val rc = commandRunner(cmd)
+                            if (rc != 0) {
+                                CliLogger.warn { "service command failed (rc=$rc): $cmd" }
+                            }
+                        },
+                    )
+                serviceInstaller.installWithoutStart(engineBin, gatewayBin, envFile)
+                success("Service files written")
+            }
         }
         // Broaden permissions so the container's klaw user (UID 10001) can write to host-owned dirs.
         // 0777 is acceptable: Raspberry Pi is single-user; multi-user hosts should use group-based ACLs.
@@ -461,45 +482,7 @@ internal class InitWizard(
 
         CliLogger.info { "phase 9: engine auto-start" }
         phase(PHASE_ENGINE_START, "Engine auto-start")
-        val spinner = Spinner("Starting Engine...")
-        val startCommand =
-            when (resolvedMode) {
-                DeployMode.HYBRID, DeployMode.DOCKER -> {
-                    require("'" !in composeFilePath) {
-                        "composeFilePath must not contain single-quote characters"
-                    }
-                    "docker compose -f '$composeFilePath' up -d engine"
-                }
-
-                DeployMode.NATIVE -> {
-                    null
-                }
-            }
-        val engineStarter = engineStarterFactory({ spinner.tick() }, startCommand)
-        val engineStarted = engineStarter.startAndWait()
-        if (!engineStarted) {
-            CliLogger.warn { "engine did not start within timeout" }
-            printer("${AnsiColors.YELLOW}⚠ Engine did not start automatically.${AnsiColors.RESET}")
-            val manualStartCmd =
-                when (resolvedMode) {
-                    DeployMode.DOCKER, DeployMode.HYBRID -> {
-                        "docker compose up -d engine"
-                    }
-
-                    DeployMode.NATIVE -> {
-                        if (Platform.osFamily == OsFamily.MACOSX) {
-                            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-                            "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
-                        } else {
-                            "systemctl --user start klaw-engine"
-                        }
-                    }
-                }
-            printer("  Start it manually: $manualStartCmd")
-            printer("  Identity generation will proceed and may fail if engine is not running.")
-        } else {
-            spinner.done("Engine started")
-        }
+        startEngine(resolvedMode, canUseNativeService, composeFilePath)
 
         CliLogger.info { "phase 10: service/container startup" }
         when (resolvedMode) {
@@ -526,31 +509,36 @@ internal class InitWizard(
             }
 
             DeployMode.NATIVE -> {
-                phase(PHASE_SERVICE_INSTALL, "Service setup")
-                val envFile = "$configDir/.env"
+                phase(PHASE_SERVICE_INSTALL, "Gateway startup")
                 val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
-                val engineBin = "$home/.local/bin/klaw-engine"
                 val gatewayBin = "$home/.local/bin/klaw-gateway"
-                val canInstallService =
-                    Platform.osFamily == OsFamily.MACOSX || nativeInstaller.isSystemdAvailable()
-                if (canInstallService) {
-                    val serviceInstaller =
-                        ServiceInstaller(
-                            outputDir = serviceOutputDir,
-                            commandRunner = { cmd ->
-                                commandRunner(cmd)
-                                Unit
-                            },
+                if (canUseNativeService) {
+                    val startGatewayCmd =
+                        when (Platform.osFamily) {
+                            OsFamily.MACOSX -> {
+                                "launchctl load -w $serviceOutputDir/io.github.klaw.gateway.plist"
+                            }
+
+                            else -> {
+                                "systemctl --user start klaw-gateway"
+                            }
+                        }
+                    val rc = commandRunner(startGatewayCmd)
+                    if (rc == 0) {
+                        success("Gateway started")
+                    } else {
+                        printer(
+                            "${AnsiColors.YELLOW}⚠ Gateway start failed. " +
+                                "Start manually: $startGatewayCmd${AnsiColors.RESET}",
                         )
-                    serviceInstaller.install(engineBin, gatewayBin, envFile)
-                    success("Service files written")
+                    }
                 } else {
                     printer(
                         "${AnsiColors.YELLOW}⚠ systemd not found. " +
                             "Service auto-start will not be configured.${AnsiColors.RESET}",
                     )
                     printer("  Start services manually:")
-                    printer("    $engineBin")
+                    printer("    $home/.local/bin/klaw-engine")
                     printer("    $gatewayBin")
                 }
             }
@@ -630,6 +618,62 @@ internal class InitWizard(
             return null
         }
         return line
+    }
+
+    private fun startEngine(
+        resolvedMode: DeployMode,
+        canUseNativeService: Boolean,
+        composeFilePath: String,
+    ) {
+        // Skip engine start for NATIVE when no service manager is available (no systemd/launchd)
+        if (resolvedMode == DeployMode.NATIVE && !canUseNativeService) {
+            printer(
+                "${AnsiColors.YELLOW}⚠ No service manager available. " +
+                    "Engine auto-start skipped.${AnsiColors.RESET}",
+            )
+            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+            printer("  Start engine manually: $home/.local/bin/klaw-engine")
+            return
+        }
+        val spinner = Spinner("Starting Engine...")
+        val startCommand =
+            when (resolvedMode) {
+                DeployMode.HYBRID, DeployMode.DOCKER -> {
+                    require("'" !in composeFilePath) {
+                        "composeFilePath must not contain single-quote characters"
+                    }
+                    "docker compose -f '$composeFilePath' up -d engine"
+                }
+
+                DeployMode.NATIVE -> {
+                    null
+                }
+            }
+        val engineStarter = engineStarterFactory({ spinner.tick() }, startCommand)
+        val engineStarted = engineStarter.startAndWait()
+        if (!engineStarted) {
+            CliLogger.warn { "engine did not start within timeout" }
+            printer("${AnsiColors.YELLOW}⚠ Engine did not start automatically.${AnsiColors.RESET}")
+            val manualStartCmd =
+                when (resolvedMode) {
+                    DeployMode.DOCKER, DeployMode.HYBRID -> {
+                        "docker compose up -d engine"
+                    }
+
+                    DeployMode.NATIVE -> {
+                        if (Platform.osFamily == OsFamily.MACOSX) {
+                            val home = platform.posix.getenv("HOME")?.toKString() ?: "~"
+                            "launchctl load -w $home/Library/LaunchAgents/io.github.klaw.engine.plist"
+                        } else {
+                            "systemctl --user start klaw-engine"
+                        }
+                    }
+                }
+            printer("  Start it manually: $manualStartCmd")
+            printer("  Identity generation will proceed and may fail if engine is not running.")
+        } else {
+            spinner.done("Engine started")
+        }
     }
 
     /**

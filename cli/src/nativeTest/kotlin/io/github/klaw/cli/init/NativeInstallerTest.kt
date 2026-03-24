@@ -1,7 +1,10 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.cli.BuildConfig
+import io.github.klaw.cli.update.GitHubRelease
 import io.github.klaw.cli.update.GitHubReleaseClient
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NativeInstallerTest {
@@ -98,5 +101,41 @@ class NativeInstallerTest {
                 commandRunner = { if (it.contains("systemctl")) 1 else 0 },
             )
         assertTrue(!installer.isSystemdAvailable(), "Expected systemd to be unavailable")
+    }
+
+    // --- ensureJars ---
+
+    @Test
+    fun `ensureJars fetches release by own version tag not latest`() {
+        var fetchLatestCalled = false
+        var fetchByTagArg: String? = null
+        val trackingClient =
+            object : GitHubReleaseClient {
+                override suspend fun fetchLatest(): GitHubRelease? {
+                    fetchLatestCalled = true
+                    return null
+                }
+
+                override suspend fun fetchByTag(tag: String): GitHubRelease? {
+                    fetchByTagArg = tag
+                    return null
+                }
+            }
+        val installer =
+            NativeInstaller(
+                commandRunner = { 0 },
+                commandOutput = { null },
+                printer = {},
+                successPrinter = {},
+                releaseClient = trackingClient,
+                jarDir = "/tmp/klaw-test-jars-${kotlin.random.Random.nextInt()}",
+            )
+        installer.ensureJars()
+
+        assertFalse(fetchLatestCalled, "ensureJars must not call fetchLatest()")
+        assertTrue(
+            fetchByTagArg == "v${BuildConfig.VERSION}",
+            "Expected fetchByTag(\"v${BuildConfig.VERSION}\"), got fetchByTag(\"$fetchByTagArg\")",
+        )
     }
 }

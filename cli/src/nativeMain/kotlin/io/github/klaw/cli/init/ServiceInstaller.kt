@@ -13,24 +13,53 @@ internal class ServiceInstaller(
     private val outputDir: String = defaultOutputDir(),
     private val commandRunner: (String) -> Unit = { cmd -> platform.posix.system(cmd) },
 ) {
+    /**
+     * Writes service files and enables them, but does NOT start any services.
+     * Used during init Phase 8 so that Phase 9 (engine start) can find the service files.
+     */
+    fun installWithoutStart(
+        engineBin: String,
+        gatewayBin: String,
+        envFile: String,
+    ) {
+        doInstall(engineBin, gatewayBin, envFile, startServices = false)
+    }
+
     fun install(
         engineBin: String,
         gatewayBin: String,
         envFile: String,
     ) {
-        CliLogger.info { "installing services to $outputDir" }
+        doInstall(engineBin, gatewayBin, envFile, startServices = true)
+    }
+
+    private fun doInstall(
+        engineBin: String,
+        gatewayBin: String,
+        envFile: String,
+        startServices: Boolean,
+    ) {
+        CliLogger.info { "installing services to $outputDir (start=$startServices)" }
         when (Platform.osFamily) {
             OsFamily.LINUX -> {
-                installSystemd(engineBin, gatewayBin, envFile)
+                writeSystemdUnits(engineBin, gatewayBin, envFile)
+                commandRunner("systemctl --user daemon-reload")
+                commandRunner("systemctl --user enable klaw-engine klaw-gateway")
+                if (startServices) {
+                    commandRunner("systemctl --user start klaw-gateway")
+                }
             }
 
             OsFamily.MACOSX -> {
-                installLaunchd(engineBin, gatewayBin)
+                writeLaunchdPlists(engineBin, gatewayBin)
+                if (startServices) {
+                    commandRunner("launchctl load -w $outputDir/io.github.klaw.engine.plist")
+                    commandRunner("launchctl load -w $outputDir/io.github.klaw.gateway.plist")
+                }
             }
 
             else -> {
                 CliLogger.warn { "unsupported OS for service installation" }
-                println("Warning: automatic service installation not supported on this OS")
             }
         }
     }
@@ -52,28 +81,6 @@ internal class ServiceInstaller(
         mkdirMode755(outputDir)
         writeFileText("$outputDir/io.github.klaw.engine.plist", engineLaunchdPlist(engineBin))
         writeFileText("$outputDir/io.github.klaw.gateway.plist", gatewayLaunchdPlist(gatewayBin))
-    }
-
-    private fun installSystemd(
-        engineBin: String,
-        gatewayBin: String,
-        envFile: String,
-    ) {
-        CliLogger.debug { "writing systemd units to $outputDir" }
-        writeSystemdUnits(engineBin, gatewayBin, envFile)
-        commandRunner("systemctl --user daemon-reload")
-        commandRunner("systemctl --user enable klaw-engine klaw-gateway")
-        commandRunner("systemctl --user start klaw-gateway")
-    }
-
-    private fun installLaunchd(
-        engineBin: String,
-        gatewayBin: String,
-    ) {
-        CliLogger.debug { "writing launchd plists to $outputDir" }
-        writeLaunchdPlists(engineBin, gatewayBin)
-        commandRunner("launchctl load -w $outputDir/io.github.klaw.engine.plist")
-        commandRunner("launchctl load -w $outputDir/io.github.klaw.gateway.plist")
     }
 
     companion object {
