@@ -176,9 +176,29 @@ print_success() {
         *)
             echo ""
             warn "${INSTALL_DIR} is not in your PATH."
-            echo "  Add this to your shell config (~/.bashrc, ~/.zshrc, etc.):"
-            echo ""
-            echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+
+            SHELL_NAME="$(basename "${SHELL:-/bin/sh}")"
+            case "${SHELL_NAME}" in
+                zsh)  SHELL_RC="${HOME}/.zshrc"
+                      PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""  ;;
+                bash) SHELL_RC="${HOME}/.bashrc"
+                      PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""  ;;
+                fish) SHELL_RC="${HOME}/.config/fish/config.fish"
+                      PATH_LINE="set -gx PATH \"${INSTALL_DIR}\" \$PATH" ;;
+                *)    SHELL_RC=""  ;;
+            esac
+
+            if [ -n "${SHELL_RC}" ]; then
+                echo "  Run this command to add it permanently:"
+                echo ""
+                echo "    echo '${PATH_LINE}' >> ${SHELL_RC}"
+                echo ""
+                echo "  Then restart your shell or run:  source ${SHELL_RC}"
+            else
+                echo "  Add this to your shell config:"
+                echo ""
+                echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+            fi
             echo ""
             ;;
     esac
