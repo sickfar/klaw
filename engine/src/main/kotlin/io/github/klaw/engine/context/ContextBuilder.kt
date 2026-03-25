@@ -7,6 +7,7 @@ import io.github.klaw.common.llm.ImageUrlData
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.TextContentPart
+import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.llm.LlmRouter
@@ -234,16 +235,26 @@ class ContextBuilder(
         val visionCapable = ModelRegistry.supportsImage(session.model)
         for (msg in dbMessages) {
             if (msg.role == "session_break") continue
-            if (msg.type == "multimodal" && msg.metadata != null) {
-                val llmMsg =
-                    buildMultimodalLlmMessage(
-                        msg,
-                        visionCapable,
-                        config.vision,
-                    )
-                messages.add(llmMsg)
-            } else {
-                messages.add(LlmMessage(role = msg.role, content = msg.content))
+            when (msg.type) {
+                "multimodal" -> {
+                    if (msg.metadata != null) {
+                        messages.add(buildMultimodalLlmMessage(msg, visionCapable, config.vision))
+                    } else {
+                        messages.add(LlmMessage(role = msg.role, content = msg.content))
+                    }
+                }
+
+                "tool_call" -> {
+                    messages.add(buildToolCallLlmMessage(msg))
+                }
+
+                "tool_result" -> {
+                    messages.add(buildToolResultLlmMessage(msg))
+                }
+
+                else -> {
+                    messages.add(LlmMessage(role = msg.role, content = msg.content))
+                }
             }
         }
 
@@ -260,6 +271,29 @@ class ContextBuilder(
             budget = budgetTokens,
         )
     }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun buildToolCallLlmMessage(msg: MessageRepository.MessageRow): LlmMessage {
+        val metadata = msg.metadata
+        if (metadata == null) {
+            logger.warn { "tool_call message has no metadata: id=${msg.id}" }
+            return LlmMessage(role = msg.role, content = msg.content)
+        }
+        return try {
+            val toolCalls = metadataJson.decodeFromString<List<ToolCall>>(metadata)
+            if (toolCalls.isEmpty()) {
+                logger.warn { "tool_call message has empty toolCalls list: id=${msg.id}" }
+                return LlmMessage(role = msg.role, content = msg.content)
+            }
+            LlmMessage(role = msg.role, content = null, toolCalls = toolCalls)
+        } catch (e: Exception) {
+            logger.warn { "Failed to parse tool_call metadata: ${e::class.simpleName}" }
+            LlmMessage(role = msg.role, content = msg.content)
+        }
+    }
+
+    private fun buildToolResultLlmMessage(msg: MessageRepository.MessageRow): LlmMessage =
+        LlmMessage(role = msg.role, content = msg.content, toolCallId = msg.metadata?.takeIf { it.isNotBlank() })
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun buildMultimodalLlmMessage(
