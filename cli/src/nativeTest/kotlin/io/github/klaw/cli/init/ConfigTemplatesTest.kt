@@ -6,6 +6,7 @@ import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -551,6 +552,54 @@ class ConfigTemplatesTest {
         assertNotNull(config.providers["zai"]?.apiKey, "Expected apiKey")
         assertNull(config.providers["zai"]?.type, "Known provider should not have explicit type")
         assertNull(config.providers["zai"]?.endpoint, "Known provider should not have explicit endpoint")
+    }
+
+    // --- Vision config ---
+
+    @Test
+    fun `engineJson with visionModelId sets vision enabled and model`() {
+        val json =
+            ConfigTemplates.engineJson(
+                modelId = "zai/glm-5",
+                visionModelId = "zai/glm-4.6v",
+                attachmentsDirectory = "/data/attachments",
+            )
+        val config = parseEngineConfig(json)
+        assertTrue(config.vision.enabled, "Expected vision.enabled=true")
+        assertEquals("zai/glm-4.6v", config.vision.model, "Expected vision.model=zai/glm-4.6v")
+        assertEquals("/data/attachments", config.vision.attachmentsDirectory, "Expected attachmentsDirectory")
+    }
+
+    @Test
+    fun `engineJson with visionModelId adds vision model to models map`() {
+        val json =
+            ConfigTemplates.engineJson(
+                modelId = "zai/glm-5",
+                visionModelId = "zai/glm-4.6v",
+                attachmentsDirectory = "/data/attachments",
+            )
+        val config = parseEngineConfig(json)
+        assertTrue(config.models.containsKey("zai/glm-5"), "Expected main model in models map")
+        assertTrue(config.models.containsKey("zai/glm-4.6v"), "Expected vision model in models map")
+    }
+
+    @Test
+    fun `engineJson without visionModelId omits vision section`() {
+        val json = ConfigTemplates.engineJson("zai/glm-5")
+        assertFalse(json.contains("\"vision\""), "Expected no vision section in:\n$json")
+    }
+
+    @Test
+    fun `gatewayJson with attachmentsDirectory sets attachments config`() {
+        val json = ConfigTemplates.gatewayJson(attachmentsDirectory = "/path/to/attachments")
+        val config = parseGatewayConfig(json)
+        assertEquals("/path/to/attachments", config.attachments.directory, "Expected attachments.directory")
+    }
+
+    @Test
+    fun `gatewayJson without attachmentsDirectory omits attachments section`() {
+        val json = ConfigTemplates.gatewayJson()
+        assertFalse(json.contains("\"attachments\""), "Expected no attachments section in:\n$json")
     }
 
     @Test

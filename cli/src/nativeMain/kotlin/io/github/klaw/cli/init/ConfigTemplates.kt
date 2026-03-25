@@ -2,6 +2,7 @@ package io.github.klaw.cli.init
 
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
+import io.github.klaw.common.config.AttachmentsConfig
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ComposeConfig
@@ -23,6 +24,7 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.VisionConfig
 import io.github.klaw.common.config.WebConfig
 import io.github.klaw.common.config.WebSearchConfig
 import io.github.klaw.common.config.encodeComposeConfig
@@ -42,6 +44,8 @@ internal object ConfigTemplates {
         webSearchProvider: String? = null,
         webSearchApiKeyEnvVar: String? = null,
         hostExecutionEnabled: Boolean = false,
+        visionModelId: String? = null,
+        attachmentsDirectory: String = "",
     ): String =
         encodeEngineConfigMinimal(
             buildEngineConfig(
@@ -51,6 +55,8 @@ internal object ConfigTemplates {
                 webSearchProvider,
                 webSearchApiKeyEnvVar,
                 hostExecutionEnabled,
+                visionModelId,
+                attachmentsDirectory,
             ),
         )
 
@@ -62,6 +68,8 @@ internal object ConfigTemplates {
         webSearchProvider: String?,
         webSearchApiKeyEnvVar: String?,
         hostExecutionEnabled: Boolean,
+        visionModelId: String?,
+        attachmentsDirectory: String,
     ): EngineConfig {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
         val webSearch =
@@ -74,9 +82,15 @@ internal object ConfigTemplates {
             } else {
                 WebSearchConfig()
             }
+        val vision =
+            if (visionModelId != null) {
+                VisionConfig(enabled = true, model = visionModelId, attachmentsDirectory = attachmentsDirectory)
+            } else {
+                VisionConfig()
+            }
         return EngineConfig(
             providers = buildConfigProviders(providerName),
-            models = buildConfigModels(modelId),
+            models = buildConfigModels(modelId, visionModelId),
             routing = buildConfigRouting(modelId),
             context = buildConfigContext(),
             processing = buildConfigProcessing(),
@@ -88,6 +102,7 @@ internal object ConfigTemplates {
                     channel = heartbeatChannel,
                 ),
             web = WebConfig(search = webSearch),
+            vision = vision,
         )
     }
 
@@ -99,6 +114,7 @@ internal object ConfigTemplates {
         discordAllowedGuilds: List<String> = emptyList(),
         enableLocalWs: Boolean = false,
         localWsPort: Int = 37474,
+        attachmentsDirectory: String = "",
     ): String {
         val telegram =
             if (telegramEnabled) {
@@ -128,6 +144,12 @@ internal object ConfigTemplates {
             } else {
                 null
             }
+        val attachments =
+            if (attachmentsDirectory.isNotBlank()) {
+                AttachmentsConfig(directory = attachmentsDirectory)
+            } else {
+                AttachmentsConfig()
+            }
         val config =
             GatewayConfig(
                 channels =
@@ -136,6 +158,7 @@ internal object ConfigTemplates {
                         discord = discord,
                         localWs = localWs,
                     ),
+                attachments = attachments,
             )
         return encodeGatewayConfigMinimal(config)
     }
@@ -291,7 +314,16 @@ private fun buildConfigProviders(providerName: String): Map<String, ProviderConf
     )
 }
 
-private fun buildConfigModels(modelId: String): Map<String, ModelConfig> = mapOf(modelId to ModelConfig())
+private fun buildConfigModels(
+    modelId: String,
+    visionModelId: String? = null,
+): Map<String, ModelConfig> =
+    buildMap {
+        put(modelId, ModelConfig())
+        if (visionModelId != null) {
+            put(visionModelId, ModelConfig())
+        }
+    }
 
 private fun buildConfigRouting(modelId: String): RoutingConfig =
     RoutingConfig(

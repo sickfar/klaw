@@ -243,7 +243,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "y", // configure telegram
                 "my-bot-token", // token
                 "", // chat IDs
@@ -277,7 +276,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "", // blank = default Y
                 "my-bot-token",
                 "",
@@ -518,6 +516,7 @@ class InitWizardTest {
             listOf(
                 "valid-key",
                 // radio selection at index 0 (glm-5) via lambda — no text prompts for URL or alias
+                "n", // vision (glm-5 doesn't support image)
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -558,6 +557,7 @@ class InitWizardTest {
                 "valid-key",
                 // radioSelector returns null for model → text prompt
                 "my/custom-model", // text fallback
+                "n", // vision (unknown model doesn't support image)
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -591,6 +591,7 @@ class InitWizardTest {
             listOf(
                 "key",
                 "zai/glm-5", // text prompt (no models fetched)
+                "n", // vision (glm-5 doesn't support image)
                 "n",
                 "n",
                 "n", // skip web search
@@ -621,6 +622,186 @@ class InitWizardTest {
         val engineJson = readFileText("$configDir/engine.json")
         assertNotNull(engineJson)
         assertTrue(engineJson.contains("zai/glm-5"), "Expected typed model in engine.json:\n$engineJson")
+    }
+
+    // --- Vision model selection ---
+
+    @Test
+    fun `main model with image support skips vision question`() {
+        val output = mutableListOf<String>()
+        // Use anthropic with claude-sonnet-4-5-20250514 which supports image
+        val inputs =
+            listOf(
+                "valid-key",
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                radioSelector = { _, _ -> 0 }, // Anthropic + first model
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(
+            !outputText.contains("vision", ignoreCase = true),
+            "Expected no vision question for image-capable model:\n$outputText",
+        )
+    }
+
+    @Test
+    fun `main model without image support asks vision and user declines`() {
+        val modelsJson = """{"data":[{"id":"glm-5"},{"id":"glm-4.6v"}]}"""
+        val output = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "valid-key",
+                "n", // vision? no
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                commandOutput = { modelsJson },
+                radioSelector = { _, prompt ->
+                    if (prompt.contains("LLM")) 1 else 0 // zai + glm-5
+                },
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("vision", ignoreCase = true), "Expected vision question:\n$outputText")
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(!engineJson.contains("\"vision\""), "Expected no vision section when declined:\n$engineJson")
+    }
+
+    @Test
+    fun `main model without image support and user enables vision`() {
+        val modelsJson = """{"data":[{"id":"glm-5"},{"id":"glm-4.6v"},{"id":"glm-4.5v"}]}"""
+        val output = mutableListOf<String>()
+        var radioCallIdx = 0
+        val inputs =
+            listOf(
+                "valid-key",
+                "y", // vision? yes
+                // vision model selected via radioSelector
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                commandOutput = { modelsJson },
+                radioSelector = { items, prompt ->
+                    radioCallIdx++
+                    when {
+                        prompt.contains("LLM") -> 1
+
+                        // zai
+                        radioCallIdx == 2 -> 0
+
+                        // glm-5 (main model)
+                        radioCallIdx == 3 -> 0
+
+                        // first vision model (glm-4.6v)
+                        else -> 0
+                    }
+                },
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        assertTrue(config.vision.enabled, "Expected vision.enabled=true")
+        assertTrue(
+            config.vision.model.contains("glm-4"),
+            "Expected vision model to contain glm-4, got: ${config.vision.model}",
+        )
+        assertTrue(config.vision.attachmentsDirectory.isNotBlank(), "Expected non-empty attachmentsDirectory")
+        assertTrue(config.models.size >= 2, "Expected at least 2 models (main + vision)")
+
+        val gatewayJson = readFileText("$configDir/gateway.json")
+        assertNotNull(gatewayJson)
+        val gwConfig = parseGatewayConfig(gatewayJson)
+        assertTrue(gwConfig.attachments.directory.isNotBlank(), "Expected gateway attachments.directory set")
+    }
+
+    @Test
+    fun `vision model selection with no vision-capable models falls back to text input`() {
+        // API returns only non-vision models
+        val modelsJson = """{"data":[{"id":"glm-5"},{"id":"unknown-model"}]}"""
+        val output = mutableListOf<String>()
+        val inputs =
+            listOf(
+                "valid-key",
+                "y", // vision? yes
+                "zai/glm-4.6v", // text fallback for vision model
+                "n", // telegram
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec
+                "Klaw",
+                "assistant",
+                "user",
+            )
+
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                commandOutput = { modelsJson },
+                radioSelector = { _, prompt ->
+                    if (prompt.contains("LLM")) 1 else 0 // zai + glm-5
+                },
+                engineResponses = mapOf("klaw_init_generate_identity" to """{"identity":"Klaw","user":"x"}"""),
+            )
+        platform.posix.mkdir(configDir, 0x1EDu)
+        wizard.run()
+
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        assertTrue(config.vision.enabled, "Expected vision.enabled=true")
+        assertTrue(
+            config.vision.model == "zai/glm-4.6v",
+            "Expected vision model zai/glm-4.6v, got: ${config.vision.model}",
+        )
     }
 
     // --- Existing tests (updated inputs to include telegram? prompt) ---
@@ -707,7 +888,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "", // telegram? Y
                 "my-token",
                 "",
@@ -814,7 +994,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "", // telegram? Y
                 "my-token",
                 "",
@@ -849,7 +1028,6 @@ class InitWizardTest {
             listOf(
                 "", // docker tag (Phase 2, blank = latest)
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -894,7 +1072,6 @@ class InitWizardTest {
             listOf(
                 "", // docker tag (Phase 2)
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -935,7 +1112,6 @@ class InitWizardTest {
             listOf(
                 "", // docker tag (Phase 2)
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -983,7 +1159,6 @@ class InitWizardTest {
             listOf(
                 "", // docker tag (Phase 2)
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -1018,7 +1193,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -1053,7 +1227,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token",
                 "",
@@ -1133,7 +1306,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-api-key",
-                "test/model",
                 "", // telegram? Y
                 "bot-token-123",
                 "", // allowed chat IDs
@@ -1204,7 +1376,6 @@ class InitWizardTest {
             listOf(
                 "unstable", // docker tag
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1236,7 +1407,6 @@ class InitWizardTest {
             listOf(
                 "latest", // docker tag
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1274,7 +1444,6 @@ class InitWizardTest {
             listOf(
                 "unstable", // docker tag
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1307,7 +1476,6 @@ class InitWizardTest {
             listOf(
                 "", // blank docker tag = latest
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1338,7 +1506,6 @@ class InitWizardTest {
             listOf(
                 "latest",
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1373,7 +1540,6 @@ class InitWizardTest {
             listOf(
                 "latest",
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1420,7 +1586,6 @@ class InitWizardTest {
             listOf(
                 "latest",
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs
@@ -1458,7 +1623,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "n",
                 "n",
                 "n", // skip web search
@@ -1495,7 +1659,6 @@ class InitWizardTest {
             listOf(
                 "", // docker tag
                 "my-key",
-                "test/model",
                 "n",
                 "n",
                 "n", // skip web search
@@ -1549,7 +1712,6 @@ class InitWizardTest {
             listOf(
                 "latest",
                 "my-key",
-                "test/model",
                 "n",
                 "n",
                 "n", // skip web search
@@ -1587,7 +1749,6 @@ class InitWizardTest {
             listOf(
                 "latest",
                 "my-key",
-                "test/model",
                 "n",
                 "n",
                 "n", // skip web search
@@ -1651,7 +1812,6 @@ class InitWizardTest {
             listOf(
                 "y", // confirm reinit
                 "my-key", // API key
-                "test/model", // model
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -1699,7 +1859,6 @@ class InitWizardTest {
             listOf(
                 "y", // confirm reinit
                 "my-key",
-                "test/model",
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -1738,7 +1897,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -1790,7 +1948,6 @@ class InitWizardTest {
                 listOf(
                     "y", // confirm reinit
                     "my-key", // API key
-                    "test/model", // model
                     "n", // skip telegram
                     "n", // discord
                     "n", // skip localWs
@@ -1877,7 +2034,6 @@ class InitWizardTest {
             listOf(
                 "y", // confirm reinit
                 "my-key", // API key
-                "test/model", // model
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -1922,7 +2078,6 @@ class InitWizardTest {
             listOf(
                 "y", // confirm reinit
                 "my-key", // API key
-                "test/model", // model
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -1965,7 +2120,6 @@ class InitWizardTest {
                 listOf(
                     "y", // confirm reinit
                     "my-key", // API key
-                    "test/model", // model
                     "n", // skip telegram
                     "n", // discord
                     "n", // skip localWs
@@ -2033,7 +2187,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key", // API key
-                "test/model", // model
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -2073,7 +2226,6 @@ class InitWizardTest {
         val inputs =
             listOf(
                 "my-key",
-                "test/model",
                 "n", // skip telegram
                 "n", // discord
                 "n", // skip localWs
@@ -2386,7 +2538,6 @@ class InitWizardTest {
             listOf(
                 "latest", // docker tag
                 "my-key",
-                "test/model",
                 "n", // telegram
                 "n", // discord
                 "n", // localWs

@@ -15,6 +15,7 @@ import io.github.klaw.cli.util.isDirectory
 import io.github.klaw.cli.util.listDirectory
 import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.registry.ProviderRegistry
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -260,6 +261,24 @@ internal class InitWizard(
             return
         }
 
+        // Vision model configuration — only ask if main model doesn't support images
+        val visionModelId =
+            if (ModelRegistry.supportsImage(modelId)) {
+                null
+            } else {
+                askVisionModelHelper(
+                    validationResponse = validationResponse,
+                    providerAlias = defaultAlias,
+                    providerType = providerType,
+                    readLineOrExit = ::readLineOrExit,
+                    printer = printer,
+                    radioSelector = radioSelector,
+                )
+            }
+        if (visionModelId != null) {
+            success("Vision: $visionModelId")
+        }
+
         CliLogger.info { "phase 4: Telegram setup" }
         phase(PHASE_TELEGRAM, "Telegram setup")
         printer("Configure Telegram bot? [Y/n]:")
@@ -401,6 +420,12 @@ internal class InitWizard(
             skillsDir = skillsDir,
             modelsDir = modelsDir,
         ).initialize()
+        if (visionModelId != null) {
+            val attachDir = "$dataDir/attachments"
+            if (!fileExists(attachDir)) {
+                mkdirMode755(attachDir)
+            }
+        }
         // ── Native: download JARs, create wrapper scripts, write service files ──
         val canUseNativeService =
             resolvedMode == DeployMode.NATIVE &&
@@ -442,6 +467,7 @@ internal class InitWizard(
                 enableLocalWs -> "local_ws"
                 else -> null
             }
+        val attachmentsDirectory = if (visionModelId != null) "$dataDir/attachments" else ""
         writeFileText(
             "$configDir/engine.json",
             ConfigTemplates.engineJson(
@@ -451,6 +477,8 @@ internal class InitWizard(
                 webSearchProvider = webSearchProvider?.name,
                 webSearchApiKeyEnvVar = webSearchProvider?.envVar,
                 hostExecutionEnabled = enableHostExec,
+                visionModelId = visionModelId,
+                attachmentsDirectory = attachmentsDirectory,
             ),
         )
         writeFileText(
@@ -466,6 +494,7 @@ internal class InitWizard(
                 discordAllowedGuilds = discordGuildIds,
                 enableLocalWs = enableLocalWs,
                 localWsPort = localWsPort,
+                attachmentsDirectory = attachmentsDirectory,
             ),
         )
         val apiKeyEnvVar = ConfigTemplates.apiKeyEnvVar(defaultAlias)
@@ -753,10 +782,10 @@ internal class InitWizard(
             }
         return if (models.isNotEmpty()) {
             val selectedIdx = radioSelector(models, "Select model:")
-            if (selectedIdx != null) {
+            if (selectedIdx != null && selectedIdx in models.indices) {
                 "$providerAlias/${models[selectedIdx]}"
             } else {
-                // Radio cancelled — fall back to text prompt
+                // Radio cancelled or out of bounds — fall back to text prompt
                 promptModelText()
             }
         } else {
@@ -823,4 +852,61 @@ internal class InitWizard(
             }
         }
     }
+}
+
+@Suppress("LongParameterList")
+internal fun askVisionModelHelper(
+    validationResponse: String?,
+    providerAlias: String,
+    providerType: String,
+    readLineOrExit: () -> String?,
+    printer: (String) -> Unit,
+    radioSelector: (List<String>, String) -> Int?,
+): String? {
+    printer("Enable vision (image analysis)? [y/N]:")
+    val answer = readLineOrExit() ?: return null
+    if (answer.trim().lowercase() != "y") return null
+    return selectVisionModel(validationResponse, providerAlias, providerType, readLineOrExit, printer, radioSelector)
+}
+
+@Suppress("LongParameterList")
+private fun selectVisionModel(
+    validationResponse: String?,
+    providerAlias: String,
+    providerType: String,
+    readLineOrExit: () -> String?,
+    printer: (String) -> Unit,
+    radioSelector: (List<String>, String) -> Int?,
+): String? {
+    val allModels =
+        if (providerType == "anthropic") {
+            ANTHROPIC_MODELS
+        } else {
+            parseModels(validationResponse)
+        }
+    val visionModels = allModels.filter { ModelRegistry.supportsImage(it) }
+    return if (visionModels.isNotEmpty()) {
+        val selectedIdx = radioSelector(visionModels, "Select vision model:")
+        if (selectedIdx != null && selectedIdx in visionModels.indices) {
+            "$providerAlias/${visionModels[selectedIdx]}"
+        } else {
+            promptVisionModelText(providerAlias, readLineOrExit, printer)
+        }
+    } else {
+        promptVisionModelText(providerAlias, readLineOrExit, printer)
+    }
+}
+
+private fun promptVisionModelText(
+    providerAlias: String,
+    readLineOrExit: () -> String?,
+    printer: (String) -> Unit,
+): String? {
+    printer("Vision model ID (e.g. $providerAlias/model-name):")
+    val input = (readLineOrExit() ?: return null).trim()
+    if (input.isBlank()) {
+        printer("${AnsiColors.YELLOW}⚠ Vision skipped (no model specified).${AnsiColors.RESET}")
+        return null
+    }
+    return input
 }
