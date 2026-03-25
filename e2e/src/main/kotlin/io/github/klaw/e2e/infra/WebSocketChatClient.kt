@@ -26,7 +26,9 @@ import java.io.IOException
 
 private val logger = KotlinLogging.logger {}
 
-class WebSocketChatClient {
+class WebSocketChatClient(
+    private val token: String? = null,
+) {
     private val json = Json { ignoreUnknownKeys = true }
     private val httpClient =
         HttpClient(CIO) {
@@ -45,7 +47,8 @@ class WebSocketChatClient {
         host: String,
         port: Int,
     ) = runBlocking {
-        httpClient.webSocket("ws://$host:$port/ws/chat") {
+        val path = if (token != null) "/ws/chat?token=$token" else "/ws/chat"
+        httpClient.webSocket("ws://$host:$port$path") {
             session = this
             connected = true
             logger.debug { "WebSocket connected to $host:$port" }

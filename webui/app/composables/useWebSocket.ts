@@ -15,7 +15,9 @@ export function useWebSocket() {
   function getWsUrl(): string {
     if (import.meta.client) {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      return `${proto}//${window.location.host}/ws/chat`
+      const base = `${proto}//${window.location.host}/ws/chat`
+      const savedToken = localStorage.getItem('klaw_token')
+      return savedToken ? `${base}?token=${encodeURIComponent(savedToken)}` : base
     }
     return 'ws://localhost/ws/chat'
   }
@@ -108,10 +110,16 @@ export function useWebSocket() {
     if (idx >= 0) callbacks.value.splice(idx, 1)
   }
 
+  function reconnect() {
+    disconnect()
+    connect()
+  }
+
   return {
     status,
     connect,
     disconnect,
+    reconnect,
     send,
     onFrame,
     offFrame,

@@ -28,6 +28,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <CommonAuthGate>
   <div class="flex h-screen overflow-hidden" data-testid="app-layout">
     <!-- Sidebar -->
     <aside
@@ -87,4 +88,5 @@ onUnmounted(() => {
       </main>
     </div>
   </div>
+  </CommonAuthGate>
 </template>

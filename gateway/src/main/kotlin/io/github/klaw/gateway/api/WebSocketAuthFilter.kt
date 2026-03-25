@@ -14,12 +14,12 @@ import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import java.security.MessageDigest
 
-private const val UNAUTHORIZED_JSON =
-    """{"error":"unauthorized","message":"Invalid or missing Bearer token","status":401}"""
+private const val WS_UNAUTHORIZED_JSON =
+    """{"error":"unauthorized","message":"Invalid or missing token","status":401}"""
 
-@Filter("/api/v1/**")
+@Filter("/ws/**")
 @Requires(condition = WebuiEnabledCondition::class)
-class BearerAuthFilter(
+class WebSocketAuthFilter(
     config: GatewayConfig,
 ) : HttpServerFilter {
     private val expectedToken: String? = config.webui.apiToken.ifBlank { null }
@@ -31,15 +31,12 @@ class BearerAuthFilter(
         if (expectedToken == null) {
             return chain.proceed(request)
         }
-        if (request.path == AUTH_CHECK_PATH) {
-            return chain.proceed(request)
-        }
-        val header = request.headers["Authorization"]
-        if (!constantTimeEquals(header, "Bearer $expectedToken")) {
+        val token = request.parameters.getFirst("token").orElse(null)
+        if (!constantTimeEquals(token, expectedToken)) {
             return Flux.just(
                 HttpResponse
                     .unauthorized<String>()
-                    .body(UNAUTHORIZED_JSON)
+                    .body(WS_UNAUTHORIZED_JSON)
                     .contentType(MediaType.APPLICATION_JSON_TYPE),
             )
         }
@@ -50,7 +47,6 @@ class BearerAuthFilter(
 
     companion object {
         const val POSITION = -100
-        private const val AUTH_CHECK_PATH = "/api/v1/auth/check"
 
         private fun constantTimeEquals(
             a: String?,

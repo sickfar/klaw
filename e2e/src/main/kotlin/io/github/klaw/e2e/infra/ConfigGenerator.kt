@@ -133,6 +133,7 @@ object ConfigGenerator {
         telegramAllowedChats: List<Pair<String, List<String>>> = emptyList(),
         attachmentsDirectory: String = "",
         webuiEnabled: Boolean = true,
+        apiToken: String = "",
     ): String {
         val root =
             buildJsonObject {
@@ -150,6 +151,9 @@ object ConfigGenerator {
                 }
                 putJsonObject("webui") {
                     put("enabled", webuiEnabled)
+                    if (apiToken.isNotEmpty()) {
+                        put("apiToken", apiToken)
+                    }
                 }
                 if (attachmentsDirectory.isNotEmpty()) {
                     putJsonObject("attachments") {
