@@ -4,7 +4,6 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
-import io.github.klaw.common.config.CompatibilityConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
@@ -80,7 +79,6 @@ class ContextBuilderMemorySummaryTest {
             codeExecution = CodeExecutionConfig(),
             files = FilesConfig(),
             commands = emptyList(),
-            compatibility = CompatibilityConfig(),
             skills = SkillsConfig(),
             docs = DocsConfig(),
             hostExecution = HostExecutionConfig(),

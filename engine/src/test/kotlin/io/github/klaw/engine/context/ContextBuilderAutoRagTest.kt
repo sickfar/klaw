@@ -5,7 +5,6 @@ import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.CompactionConfig
-import io.github.klaw.common.config.CompatibilityConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
@@ -104,7 +103,6 @@ class ContextBuilderAutoRagTest {
                 ),
             files = FilesConfig(maxFileSizeBytes = 10485760),
             commands = emptyList(),
-            compatibility = CompatibilityConfig(),
         )
 
     private fun buildSession(

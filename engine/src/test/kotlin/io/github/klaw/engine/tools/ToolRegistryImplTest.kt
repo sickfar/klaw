@@ -3,7 +3,6 @@ package io.github.klaw.engine.tools
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
-import io.github.klaw.common.config.CompatibilityConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
@@ -86,7 +85,6 @@ class ToolRegistryImplTest {
         codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
         files = FilesConfig(1048576),
         commands = emptyList(),
-        compatibility = CompatibilityConfig(),
         docs = DocsConfig(enabled = docsEnabled),
         hostExecution = HostExecutionConfig(enabled = hostExecEnabled),
         web =

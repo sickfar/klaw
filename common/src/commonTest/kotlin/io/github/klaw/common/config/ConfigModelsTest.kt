@@ -522,19 +522,4 @@ class ConfigModelsTest {
         EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2")
         EmbeddingConfig(type = "ollama", model = "nomic-embed-text")
     }
-
-    @Test
-    fun `CompatibilityConfig round-trip`() {
-        val c =
-            CompatibilityConfig(
-                openclaw =
-                    OpenClawCompat(
-                        enabled = true,
-                        sync = OpenClawSync(memoryMd = true, dailyLogs = false, userMd = true),
-                    ),
-            )
-        val encoded = json.encodeToString(c)
-        val decoded = json.decodeFromString<CompatibilityConfig>(encoded)
-        assertEquals(c, decoded)
-    }
 }

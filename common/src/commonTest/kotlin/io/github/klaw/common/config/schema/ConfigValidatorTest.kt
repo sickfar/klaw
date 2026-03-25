@@ -168,18 +168,17 @@ class ConfigValidatorTest {
 
     @Test
     fun `null for nullable field produces no error`() {
-        // compatibility is nullable in EngineConfig
+        // providers.p.apiKey is nullable in ProviderConfig
         val json =
             parse(
                 """
             {
-              "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost"}},
+              "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost", "apiKey": null}},
               "models": {},
               "routing": {"default": "p/m", "fallback": [], "tasks": {"summarization": "p/m", "subagent": "p/m"}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
               "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
-              "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
-              "compatibility": null
+              "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
             }
             """,
             )

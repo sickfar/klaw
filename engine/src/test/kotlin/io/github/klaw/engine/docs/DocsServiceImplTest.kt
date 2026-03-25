@@ -4,7 +4,6 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
-import io.github.klaw.common.config.CompatibilityConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.DocsConfig
 import io.github.klaw.common.config.EmbeddingConfig
@@ -39,43 +38,47 @@ class DocsServiceImplTest {
         database = KlawDatabase(driver)
     }
 
-    private fun createService(docsEnabled: Boolean = true): DocsServiceImpl =
+    private fun createService(
+        docsEnabled: Boolean = true,
+        chunkingConfig: ChunkingConfig = ChunkingConfig(512, 64),
+    ): DocsServiceImpl =
         DocsServiceImpl(
             embeddingService = MockEmbeddingService(),
             database = database,
             driver = driver,
             sqliteVecLoader = NoOpSqliteVecLoader(),
-            config = testEngineConfig(docsEnabled),
+            config = testEngineConfig(docsEnabled, chunkingConfig),
         )
 
     @Suppress("LongMethod")
-    private fun testEngineConfig(docsEnabled: Boolean = true) =
-        EngineConfig(
-            providers = emptyMap(),
-            models = emptyMap(),
-            routing =
-                RoutingConfig(
-                    default = "test/model",
-                    fallback = emptyList(),
-                    tasks = TaskRoutingConfig("test/model", "test/model"),
-                ),
-            memory =
-                MemoryConfig(
-                    embedding = EmbeddingConfig("onnx", "model"),
-                    chunking = ChunkingConfig(512, 64),
-                    search = SearchConfig(10),
-                    autoRag = AutoRagConfig(),
-                ),
-            context = ContextConfig(8000, 5),
-            processing = ProcessingConfig(100, 2, 5),
-            httpRetry = HttpRetryConfig(1, 5000, 100, 2.0),
-            logging = LoggingConfig(false),
-            codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
-            files = FilesConfig(1048576),
-            commands = emptyList(),
-            compatibility = CompatibilityConfig(),
-            docs = DocsConfig(enabled = docsEnabled),
-        )
+    private fun testEngineConfig(
+        docsEnabled: Boolean = true,
+        chunkingConfig: ChunkingConfig = ChunkingConfig(512, 64),
+    ) = EngineConfig(
+        providers = emptyMap(),
+        models = emptyMap(),
+        routing =
+            RoutingConfig(
+                default = "test/model",
+                fallback = emptyList(),
+                tasks = TaskRoutingConfig("test/model", "test/model"),
+            ),
+        memory =
+            MemoryConfig(
+                embedding = EmbeddingConfig("onnx", "model"),
+                chunking = chunkingConfig,
+                search = SearchConfig(10),
+                autoRag = AutoRagConfig(),
+            ),
+        context = ContextConfig(8000, 5),
+        processing = ProcessingConfig(100, 2, 5),
+        httpRetry = HttpRetryConfig(1, 5000, 100, 2.0),
+        logging = LoggingConfig(false),
+        codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
+        files = FilesConfig(1048576),
+        commands = emptyList(),
+        docs = DocsConfig(enabled = docsEnabled),
+    )
 
     @Test
     fun `reindex populates doc_chunks`() =
@@ -157,6 +160,34 @@ class DocsServiceImplTest {
             val result = service.list()
             assertTrue(result.contains("test-guide.md"))
             assertTrue(result.contains("commands/test-cmd.md"))
+        }
+
+    @Test
+    fun `smaller chunk size produces more chunks`() =
+        runBlocking {
+            val largeChunkService = createService(chunkingConfig = ChunkingConfig(512, 64))
+            largeChunkService.reindex()
+            val largeChunkCount =
+                database.docChunksQueries
+                    .allDocChunks()
+                    .executeAsList()
+                    .size
+
+            // Reset DB
+            setUp()
+
+            val smallChunkService = createService(chunkingConfig = ChunkingConfig(50, 10))
+            smallChunkService.reindex()
+            val smallChunkCount =
+                database.docChunksQueries
+                    .allDocChunks()
+                    .executeAsList()
+                    .size
+
+            assertTrue(
+                smallChunkCount > largeChunkCount,
+                "Smaller chunks ($smallChunkCount) should produce more chunks than larger ($largeChunkCount)",
+            )
         }
 
     @Test

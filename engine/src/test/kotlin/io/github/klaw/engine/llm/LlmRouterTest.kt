@@ -253,6 +253,65 @@ class LlmRouterTest {
         }
 
     @Test
+    fun `merges model temperature into request when request has no temperature`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery { client.chat(any(), any(), any()) } returns successResponse
+
+            val modelsWithTemp =
+                mapOf("zai/glm-5" to ModelRef("zai", "glm-5", temperature = 0.7))
+            val router = buildRouter(client, customModels = modelsWithTemp)
+            router.chat(request, "zai/glm-5")
+
+            coVerify {
+                client.chat(
+                    match { it.temperature == 0.7 },
+                    any(),
+                    any(),
+                )
+            }
+        }
+
+    @Test
+    fun `request temperature takes precedence over model temperature`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery { client.chat(any(), any(), any()) } returns successResponse
+
+            val modelsWithTemp =
+                mapOf("zai/glm-5" to ModelRef("zai", "glm-5", temperature = 0.7))
+            val router = buildRouter(client, customModels = modelsWithTemp)
+            val requestWithTemp = request.copy(temperature = 0.3)
+            router.chat(requestWithTemp, "zai/glm-5")
+
+            coVerify {
+                client.chat(
+                    match { it.temperature == 0.3 },
+                    any(),
+                    any(),
+                )
+            }
+        }
+
+    @Test
+    fun `no temperature merge when model has no temperature`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery { client.chat(any(), any(), any()) } returns successResponse
+
+            val router = buildRouter(client)
+            router.chat(request, "zai/glm-5")
+
+            coVerify {
+                client.chat(
+                    match { it.temperature == null },
+                    any(),
+                    any(),
+                )
+            }
+        }
+
+    @Test
     fun `throws ProviderError for unknown provider type`() {
         val unknownProviders =
             mapOf(

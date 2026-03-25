@@ -104,6 +104,5 @@ See `doc/skills/` for skill format documentation.
 
 ## See also
 
-- `doc/workspace/openclaw-compatibility.md` — using OpenClaw workspaces
 - `doc/scheduling/heartbeat.md` — HEARTBEAT.md format
 - `doc/memory/` — memory system documentation

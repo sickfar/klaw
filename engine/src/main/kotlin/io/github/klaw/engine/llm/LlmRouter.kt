@@ -45,13 +45,21 @@ class LlmRouter(
             val model = models[fullId] ?: continue
             val provider = providers[model.provider] ?: continue
             val client = clientFor(provider)
+            val effectiveRequest =
+                if (request.temperature == null && model.temperature != null) {
+                    request.copy(temperature = model.temperature)
+                } else {
+                    request
+                }
             logger.trace { "LLM trying: provider=$fullId" }
             try {
-                val response = client.chat(request, provider, model)
+                val response = client.chat(effectiveRequest, provider, model)
                 usageTracker?.record(fullId, response.usage)
                 return response
             } catch (e: KlawError.ContextLengthExceededError) {
                 logger.warn { "LLM context length exceeded: model=$fullId" }
+                throw e
+            } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 logger.debug { "LLM provider $fullId failed: ${e::class.simpleName}, trying next" }

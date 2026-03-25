@@ -2,9 +2,6 @@ package io.github.klaw.engine.socket
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.ModelConfig
-import io.github.klaw.common.config.ProviderConfig
-import io.github.klaw.common.config.RoutingConfig
-import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry

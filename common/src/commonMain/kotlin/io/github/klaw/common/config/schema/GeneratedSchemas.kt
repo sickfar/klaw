@@ -100,13 +100,13 @@ object GeneratedSchemas {
                                 },
                                 "model": {
                                     "type": "string",
-                                    "description": "Embedding model name or path"
+                                    "description": "Embedding model name (ONNX directory name or Ollama model identifier)"
+                                },
+                                "ollamaFallbackModel": {
+                                    "type": "string",
+                                    "description": "Ollama model name used when falling back from ONNX (default: all-minilm:l6-v2)"
                                 }
                             },
-                            "required": [
-                                "type",
-                                "model"
-                            ],
                             "additionalProperties": false
                         },
                         "chunking": {
@@ -123,10 +123,6 @@ object GeneratedSchemas {
                                     "description": "Overlap between consecutive chunks in approximate tokens"
                                 }
                             },
-                            "required": [
-                                "size",
-                                "overlap"
-                            ],
                             "additionalProperties": false
                         },
                         "search": {
@@ -262,8 +258,6 @@ object GeneratedSchemas {
                         }
                     },
                     "required": [
-                        "embedding",
-                        "chunking",
                         "search"
                     ],
                     "additionalProperties": false
@@ -687,40 +681,6 @@ object GeneratedSchemas {
                         "enabled": {
                             "type": "boolean",
                             "description": "Enable the documentation tool for workspace docs"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "compatibility": {
-                    "type": "object",
-                    "properties": {
-                        "openclaw": {
-                            "type": "object",
-                            "properties": {
-                                "enabled": {
-                                    "type": "boolean",
-                                    "description": "Enable OpenClaw compatibility mode"
-                                },
-                                "sync": {
-                                    "type": "object",
-                                    "properties": {
-                                        "memoryMd": {
-                                            "type": "boolean",
-                                            "description": "Sync MEMORY.md file with OpenClaw"
-                                        },
-                                        "dailyLogs": {
-                                            "type": "boolean",
-                                            "description": "Sync daily log files with OpenClaw"
-                                        },
-                                        "userMd": {
-                                            "type": "boolean",
-                                            "description": "Sync USER.md file with OpenClaw"
-                                        }
-                                    },
-                                    "additionalProperties": false
-                                }
-                            },
-                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false

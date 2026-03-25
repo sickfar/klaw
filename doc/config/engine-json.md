@@ -73,7 +73,7 @@ The config has 19 top-level fields organized into logical groups:
 
 **Content processing:** `documents`, `vision`
 
-**Infrastructure:** `httpRetry`, `database`, `logging`, `docs`, `compatibility`
+**Infrastructure:** `httpRetry`, `database`, `logging`, `docs`
 
 ## Example engine.json
 
@@ -337,17 +337,6 @@ Controls the `host_exec` tool — running shell commands directly on the host ou
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `maxInlineSkills` | int | `5` | Maximum number of skills included inline in the system prompt. |
-
-## compatibility
-
-Third-party compatibility settings.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `openclaw.enabled` | bool | `false` | Enable OpenClaw compatibility mode. |
-| `openclaw.sync.memoryMd` | bool | `false` | Sync MEMORY.md file with OpenClaw. |
-| `openclaw.sync.dailyLogs` | bool | `false` | Sync daily log files with OpenClaw. |
-| `openclaw.sync.userMd` | bool | `false` | Sync USER.md file with OpenClaw. |
 
 ## codeExecution
 

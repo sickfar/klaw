@@ -34,7 +34,7 @@ class DocsServiceImpl(
     private val config: EngineConfig,
 ) : DocsService {
     private val scope = CoroutineScope(Dispatchers.VT + SupervisorJob())
-    private val markdownChunker = MarkdownChunker()
+    private val markdownChunker = MarkdownChunker(config.memory.chunking.size, config.memory.chunking.overlap)
 
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")

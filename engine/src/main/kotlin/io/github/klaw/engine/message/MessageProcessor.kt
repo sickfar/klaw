@@ -34,9 +34,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -140,129 +142,142 @@ class MessageProcessor(
             }
             val startTimeMs = System.currentTimeMillis()
             try {
-                llmLimiter.withSubagentPermit {
-                    try {
-                        val session = sessionManager.getOrCreate(chatId, model)
-                        if (message.model != null) {
-                            sessionManager.updateModel(chatId, message.model)
-                        }
+                withTimeout(config.processing.subagentTimeoutMs) {
+                    llmLimiter.withSubagentPermit {
+                        try {
+                            val session = sessionManager.getOrCreate(chatId, model)
+                            if (message.model != null) {
+                                sessionManager.updateModel(chatId, message.model)
+                            }
 
-                        val contextResult =
-                            contextBuilder.buildContext(
-                                session,
-                                listOf(message.message),
-                                isSubagent = true,
-                                taskName = message.name,
-                            )
-                        logger.debug {
-                            "Subagent context built: name=${message.name}, contextMsgCount=${contextResult.messages.size}"
-                        }
-                        val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
-                        val tools =
-                            toolRegistry.listTools(
-                                includeSkillList = contextResult.includeSkillList,
-                                includeSkillLoad = contextResult.includeSkillLoad,
-                                includeScheduleDeliver = sink != null,
-                                includeSendMessage = false,
-                            )
-
-                        // Persist scheduled user message before LLM call
-                        if (config.logging.subagentConversations) {
-                            val userRowId =
-                                messageRepository.saveAndGetRowId(
-                                    id = UUID.randomUUID().toString(),
-                                    channel = "scheduler",
-                                    chatId = chatId,
-                                    role = "user",
-                                    type = "text",
-                                    content = message.message,
-                                    tokens = approximateTokenCount(message.message),
+                            val contextResult =
+                                contextBuilder.buildContext(
+                                    session,
+                                    listOf(message.message),
+                                    isSubagent = true,
+                                    taskName = message.name,
                                 )
-                            messageEmbeddingService.embedAsync(
-                                userRowId,
-                                "user",
-                                "text",
-                                message.message,
-                                config.memory.autoRag,
-                                processingScope,
-                            )
-                        }
+                            logger.debug {
+                                "Subagent context built: name=${message.name}, contextMsgCount=${contextResult.messages.size}"
+                            }
+                            val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
+                            val tools =
+                                toolRegistry.listTools(
+                                    includeSkillList = contextResult.includeSkillList,
+                                    includeSkillLoad = contextResult.includeSkillLoad,
+                                    includeScheduleDeliver = sink != null,
+                                    includeSendMessage = false,
+                                )
 
-                        val scheduledModelContextLimit = ModelRegistry.contextLength(model) ?: 0
-                        val runner =
-                            ToolCallLoopRunner(
-                                llmRouter,
-                                toolExecutor,
-                                config.processing.maxToolCallRounds,
-                                maxToolOutputChars = config.processing.maxToolOutputChars,
-                                modelContextLimit = scheduledModelContextLimit,
-                            )
-                        val response =
-                            if (sink != null) {
-                                withContext(ScheduleDeliverContext(sink)) {
+                            // Persist scheduled user message before LLM call
+                            if (config.logging.subagentConversations) {
+                                val userRowId =
+                                    messageRepository.saveAndGetRowId(
+                                        id = UUID.randomUUID().toString(),
+                                        channel = "scheduler",
+                                        chatId = chatId,
+                                        role = "user",
+                                        type = "text",
+                                        content = message.message,
+                                        tokens = approximateTokenCount(message.message),
+                                    )
+                                messageEmbeddingService.embedAsync(
+                                    userRowId,
+                                    "user",
+                                    "text",
+                                    message.message,
+                                    config.memory.autoRag,
+                                    processingScope,
+                                )
+                            }
+
+                            val scheduledModelContextLimit = ModelRegistry.contextLength(model) ?: 0
+                            val runner =
+                                ToolCallLoopRunner(
+                                    llmRouter,
+                                    toolExecutor,
+                                    config.processing.maxToolCallRounds,
+                                    maxToolOutputChars = config.processing.maxToolOutputChars,
+                                    modelContextLimit = scheduledModelContextLimit,
+                                )
+                            val response =
+                                if (sink != null) {
+                                    withContext(ScheduleDeliverContext(sink)) {
+                                        runner.run(contextResult.messages.toMutableList(), session, tools)
+                                    }
+                                } else {
                                     runner.run(contextResult.messages.toMutableList(), session, tools)
                                 }
-                            } else {
-                                runner.run(contextResult.messages.toMutableList(), session, tools)
-                            }
-                        val content = response.content ?: ""
+                            val content = response.content ?: ""
 
-                        // Persist assistant response
-                        val subagentAssistantTokens =
-                            response.usage?.completionTokens ?: approximateTokenCount(content)
-                        if (config.logging.subagentConversations) {
-                            val assistantRowId =
-                                messageRepository.saveAndGetRowId(
-                                    id = UUID.randomUUID().toString(),
-                                    channel = "scheduler",
-                                    chatId = chatId,
-                                    role = "assistant",
-                                    type = "text",
-                                    content = content,
-                                    tokens = subagentAssistantTokens,
+                            // Persist assistant response
+                            val subagentAssistantTokens =
+                                response.usage?.completionTokens ?: approximateTokenCount(content)
+                            if (config.logging.subagentConversations) {
+                                val assistantRowId =
+                                    messageRepository.saveAndGetRowId(
+                                        id = UUID.randomUUID().toString(),
+                                        channel = "scheduler",
+                                        chatId = chatId,
+                                        role = "assistant",
+                                        type = "text",
+                                        content = content,
+                                        tokens = subagentAssistantTokens,
+                                    )
+                                messageEmbeddingService.embedAsync(
+                                    assistantRowId,
+                                    "assistant",
+                                    "text",
+                                    content,
+                                    config.memory.autoRag,
+                                    processingScope,
                                 )
-                            messageEmbeddingService.embedAsync(
-                                assistantRowId,
-                                "assistant",
-                                "text",
-                                content,
-                                config.memory.autoRag,
-                                processingScope,
-                            )
-                        }
-
-                        deliverScheduledResult(sink, message)
-
-                        if (message.runId != null) {
-                            val durationMs = System.currentTimeMillis() - startTimeMs
-                            subagentRunRepository.completeRun(
-                                message.runId,
-                                lastResponse = content,
-                                deliveredResult = sink?.lastDeliveredMessage,
-                            )
-                            logger.info {
-                                "Subagent completed: name=${message.name}, runId=${message.runId}, durationMs=$durationMs"
                             }
-                            logger.trace { "Subagent DB status update: runId=${message.runId}, status=COMPLETED" }
-                            notifySourceSession(message, "completed")
-                        }
-                    } catch (e: CancellationException) {
-                        if (message.runId != null) {
-                            subagentRunRepository.cancelRun(message.runId)
-                            logger.info { "Subagent cancelled: name=${message.name}, runId=${message.runId}" }
-                        }
-                        throw e
-                    } catch (e: Exception) {
-                        logger.error(e) { "Subagent '${message.name}' failed" }
-                        if (message.runId != null) {
-                            val errorInfo = buildErrorInfo(e)
-                            subagentRunRepository.failRun(message.runId, errorInfo)
-                            logger.info {
-                                "Subagent failed: name=${message.name}, runId=${message.runId}, error=${e::class.simpleName}"
+
+                            deliverScheduledResult(sink, message)
+
+                            if (message.runId != null) {
+                                val durationMs = System.currentTimeMillis() - startTimeMs
+                                subagentRunRepository.completeRun(
+                                    message.runId,
+                                    lastResponse = content,
+                                    deliveredResult = sink?.lastDeliveredMessage,
+                                )
+                                logger.info {
+                                    "Subagent completed: name=${message.name}, runId=${message.runId}, durationMs=$durationMs"
+                                }
+                                logger.trace { "Subagent DB status update: runId=${message.runId}, status=COMPLETED" }
+                                notifySourceSession(message, "completed")
                             }
-                            notifySourceSession(message, "failed: $errorInfo")
+                        } catch (e: TimeoutCancellationException) {
+                            throw e
+                        } catch (e: CancellationException) {
+                            if (message.runId != null) {
+                                subagentRunRepository.cancelRun(message.runId)
+                                logger.info { "Subagent cancelled: name=${message.name}, runId=${message.runId}" }
+                            }
+                            throw e
+                        } catch (e: Exception) {
+                            logger.error(e) { "Subagent '${message.name}' failed" }
+                            if (message.runId != null) {
+                                val errorInfo = buildErrorInfo(e)
+                                subagentRunRepository.failRun(message.runId, errorInfo)
+                                logger.info {
+                                    "Subagent failed: name=${message.name}, runId=${message.runId}, error=${e::class.simpleName}"
+                                }
+                                notifySourceSession(message, "failed: $errorInfo")
+                            }
                         }
                     }
+                }
+            } catch (e: TimeoutCancellationException) {
+                logger.warn(e) { "Subagent timed out: name=${message.name}" }
+                if (message.runId != null) {
+                    subagentRunRepository.failRun(
+                        message.runId,
+                        "Timeout after ${config.processing.subagentTimeoutMs}ms",
+                    )
+                    notifySourceSession(message, "timed out")
                 }
             } finally {
                 if (message.runId != null) {

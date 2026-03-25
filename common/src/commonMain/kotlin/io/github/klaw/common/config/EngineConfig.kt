@@ -50,8 +50,6 @@ data class EngineConfig(
     val logging: LoggingConfig = LoggingConfig(),
     @ConfigDoc("Documentation tool settings")
     val docs: DocsConfig = DocsConfig(),
-    @ConfigDoc("Third-party compatibility settings")
-    val compatibility: CompatibilityConfig? = null,
 )
 
 @Serializable
@@ -122,9 +120,9 @@ data class TaskRoutingConfig(
 @Serializable
 data class MemoryConfig(
     @ConfigDoc("Embedding model and backend settings")
-    val embedding: EmbeddingConfig,
+    val embedding: EmbeddingConfig = EmbeddingConfig(),
     @ConfigDoc("Text chunking settings for memory storage")
-    val chunking: ChunkingConfig,
+    val chunking: ChunkingConfig = ChunkingConfig(),
     @ConfigDoc("Hybrid search settings for memory retrieval")
     val search: SearchConfig,
     @ConfigDoc("Inject a Memory Map of database categories into the system prompt")
@@ -142,31 +140,42 @@ data class MemoryConfig(
 @Serializable
 data class EmbeddingConfig(
     @ConfigDoc("Embedding backend type", possibleValues = ["onnx", "ollama"])
-    val type: String,
-    @ConfigDoc("Embedding model name or path")
-    val model: String,
+    val type: String = "onnx",
+    @ConfigDoc("Embedding model name (ONNX directory name or Ollama model identifier)")
+    val model: String = "all-MiniLM-L6-v2",
+    @ConfigDoc("Ollama model name used when falling back from ONNX (default: all-minilm:l6-v2)")
+    val ollamaFallbackModel: String = DEFAULT_OLLAMA_MODEL,
 ) {
     init {
         require(type in VALID_TYPES) { "embedding type must be one of $VALID_TYPES, got $type" }
         require(model.isNotBlank()) { "embedding model must not be blank" }
+        require(!model.contains('/') && !model.contains('\\') && !model.contains("..")) {
+            "embedding model name must not contain path separators or '..'"
+        }
     }
 
     companion object {
         private val VALID_TYPES = setOf("onnx", "ollama")
+        const val DEFAULT_OLLAMA_MODEL = "all-minilm:l6-v2"
     }
 }
 
 @Serializable
 data class ChunkingConfig(
     @ConfigDoc("Maximum chunk size in approximate tokens")
-    val size: Int,
+    val size: Int = DEFAULT_CHUNK_SIZE,
     @ConfigDoc("Overlap between consecutive chunks in approximate tokens")
-    val overlap: Int,
+    val overlap: Int = DEFAULT_OVERLAP,
 ) {
     init {
         require(size > 0) { "chunking size must be > 0, got $size" }
         require(overlap >= 0) { "chunking overlap must be >= 0, got $overlap" }
         require(overlap < size) { "chunking overlap ($overlap) must be < size ($size)" }
+    }
+
+    companion object {
+        const val DEFAULT_CHUNK_SIZE = 400
+        const val DEFAULT_OVERLAP = 80
     }
 }
 
@@ -338,30 +347,6 @@ data class CommandConfig(
     val name: String,
     @ConfigDoc("Human-readable description shown in command help")
     val description: String,
-)
-
-@Serializable
-data class CompatibilityConfig(
-    @ConfigDoc("OpenClaw compatibility settings")
-    val openclaw: OpenClawCompat? = null,
-)
-
-@Serializable
-data class OpenClawCompat(
-    @ConfigDoc("Enable OpenClaw compatibility mode")
-    val enabled: Boolean = false,
-    @ConfigDoc("OpenClaw file synchronization settings")
-    val sync: OpenClawSync? = null,
-)
-
-@Serializable
-data class OpenClawSync(
-    @ConfigDoc("Sync MEMORY.md file with OpenClaw")
-    val memoryMd: Boolean = false,
-    @ConfigDoc("Sync daily log files with OpenClaw")
-    val dailyLogs: Boolean = false,
-    @ConfigDoc("Sync USER.md file with OpenClaw")
-    val userMd: Boolean = false,
 )
 
 @Serializable
