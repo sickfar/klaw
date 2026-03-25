@@ -141,7 +141,7 @@ class EngineHealthProvider(
             runningSubagents = runningSubagents,
         )
 
-    private fun classifyEmbeddingService(): String =
+    internal fun classifyEmbeddingService(): String =
         when (embeddingService) {
             is OnnxEmbeddingService -> "onnx"
             else -> "ollama"
@@ -149,7 +149,7 @@ class EngineHealthProvider(
 
     private fun isRunningInDocker(): Boolean = File("/.dockerenv").exists()
 
-    private suspend fun checkDatabase(): Boolean =
+    suspend fun checkDatabase(): Boolean =
         withContext(Dispatchers.VT) {
             try {
                 driver.execute(null, "SELECT 1", 0, null)

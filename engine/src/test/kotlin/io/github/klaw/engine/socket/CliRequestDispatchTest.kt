@@ -9,6 +9,7 @@ import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.tools.DoctorDeepProbe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -41,6 +42,7 @@ class CliRequestDispatchTest {
             engineHealthProvider = mockk(relaxed = true),
             llmUsageTracker = mockk(relaxed = true),
             config = mockk(relaxed = true),
+            doctorDeepProbe = mockk(relaxed = true),
         )
 
     @Test

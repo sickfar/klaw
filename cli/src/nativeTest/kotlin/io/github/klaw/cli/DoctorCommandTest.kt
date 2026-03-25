@@ -1,7 +1,11 @@
 package io.github.klaw.cli
 
 import com.github.ajalt.clikt.testing.test
+import io.github.klaw.common.config.klawJson
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import platform.posix.mkdir
 import platform.posix.remove
 import platform.posix.rmdir
@@ -546,6 +550,254 @@ class DoctorCommandTest {
                 doctorCommandOutput = { null },
             ).test("doctor --dump-schema engine")
         assertTrue(!calledCommands.contains("skills_validate"), "skills_validate should NOT be called for dump-schema")
+        assertEquals(0, result.statusCode)
+    }
+
+    // --- JSON output ---
+
+    @Test
+    fun `doctor --json outputs valid JSON with checks array`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result = cli().test("doctor --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        assertTrue(parsed.containsKey("checks"))
+        assertTrue(parsed["checks"]?.jsonArray != null)
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --json reports ok status for valid config`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result = cli().test("doctor --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        val checks = parsed["checks"]?.jsonArray ?: error("no checks")
+        val gatewayCheck = checks.first { it.jsonObject["name"]?.jsonPrimitive?.content == "gateway.json" }
+        assertEquals("ok", gatewayCheck.jsonObject["status"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `doctor --json reports fail status for missing config`() {
+        val result = cli().test("doctor --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        val checks = parsed["checks"]?.jsonArray ?: error("no checks")
+        val gatewayCheck = checks.first { it.jsonObject["name"]?.jsonPrimitive?.content == "gateway.json" }
+        assertEquals("fail", gatewayCheck.jsonObject["status"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `doctor --json includes deploy mode`() {
+        val result = cli().test("doctor --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        assertEquals("native", parsed["deployMode"]?.jsonPrimitive?.content)
+    }
+
+    // --- Non-interactive ---
+
+    @Test
+    fun `doctor --non-interactive runs without error`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result = cli().test("doctor --non-interactive")
+        assertContains(result.output, "Deploy mode")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --non-interactive --json works together`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result = cli().test("doctor --non-interactive --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        assertTrue(parsed.containsKey("checks"))
+        assertEquals(0, result.statusCode)
+    }
+
+    // --- Deep probe ---
+
+    @Test
+    fun `doctor --deep calls doctor_deep engine command`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val calledCommands = mutableListOf<String>()
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    calledCommands += cmd
+                    if (cmd == "doctor_deep") {
+                        """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
+                    } else {
+                        """{"valid": true}"""
+                    }
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --deep")
+        assertTrue(
+            calledCommands.contains("doctor_deep"),
+            "Expected doctor_deep to be called, got: $calledCommands",
+        )
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --deep shows deep results in text mode`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    if (cmd == "doctor_deep") {
+                        """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
+                    } else {
+                        """{"valid": true}"""
+                    }
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --deep")
+        assertContains(result.output, "Deep Probe")
+        assertContains(result.output, "embedding")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --deep --json includes deep in json output`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    if (cmd == "doctor_deep") {
+                        """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
+                    } else {
+                        """{"valid": true}"""
+                    }
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --deep --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        assertTrue(parsed.containsKey("deep"))
+        val deep = parsed["deep"]?.jsonObject
+        assertEquals(
+            "ok",
+            deep
+                ?.get("embedding")
+                ?.jsonObject
+                ?.get("status")
+                ?.jsonPrimitive
+                ?.content,
+        )
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --deep skips when engine not running`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result =
+            KlawCli(
+                requestFn = { _, _ ->
+                    throw io.github.klaw.cli.socket
+                        .EngineNotRunningException()
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { false },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --deep")
+        // Should not crash, deep section skipped
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --json with docker mode includes container checks`() {
+        writeFile("$tmpDir/deploy.conf", "mode=hybrid\ndocker_tag=latest\n")
+        writeFile("$tmpDir/docker-compose.json", MINIMAL_COMPOSE_JSON)
+        val result = cli(commandOutput = { "" }).test("doctor --json")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        val checks = parsed["checks"]?.jsonArray ?: error("no checks")
+        val containerNames = checks.map { it.jsonObject["name"]?.jsonPrimitive?.content }
+        assertTrue(containerNames.any { it?.startsWith("Container") == true })
+    }
+
+    // --- Flag combinations ---
+
+    @Test
+    fun `doctor --deep --json --non-interactive all flags combined`() {
+        writeFile("$tmpDir/gateway.json", """{"channels": {}}""")
+        writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    if (cmd == "doctor_deep") {
+                        """{"embedding":{"status":"ok"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
+                    } else {
+                        """{"valid": true}"""
+                    }
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --deep --json --non-interactive")
+        val parsed = klawJson.parseToJsonElement(result.output.trim()).jsonObject
+        assertTrue(parsed.containsKey("deep"))
+        assertTrue(parsed.containsKey("checks"))
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor --dump-schema ignores --json and --deep`() {
+        val calledCommands = mutableListOf<String>()
+        val result =
+            KlawCli(
+                requestFn = { cmd, _ ->
+                    calledCommands += cmd
+                    "{}"
+                },
+                conversationsDir = "/nonexistent",
+                engineChecker = { true },
+                configDir = tmpDir,
+                modelsDir = "$tmpDir/models",
+                workspaceDir = workspaceDir,
+                logDir = "/nonexistent/logs",
+                doctorCommandOutput = { null },
+            ).test("doctor --dump-schema engine --json --deep")
+        // dump-schema returns schema JSON, not report JSON
+        assertContains(result.output, "\$schema")
+        assertTrue(!calledCommands.contains("doctor_deep"), "doctor_deep should not be called with dump-schema")
+        assertEquals(0, result.statusCode)
+    }
+
+    @Test
+    fun `doctor fix subcommand still works with new flags on parent`() {
+        val result = cli().test("doctor fix")
+        // fix should run its own logic
+        assertContains(result.output, "Skipped")
         assertEquals(0, result.statusCode)
     }
 }

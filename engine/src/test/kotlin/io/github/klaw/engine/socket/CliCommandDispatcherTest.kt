@@ -16,6 +16,7 @@ import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.tools.DoctorDeepProbe
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -44,6 +45,7 @@ class CliCommandDispatcherTest {
     private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
     private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
+    private val doctorDeepProbe = mockk<DoctorDeepProbe>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -57,6 +59,7 @@ class CliCommandDispatcherTest {
             engineHealthProvider,
             llmUsageTracker,
             engineConfig,
+            doctorDeepProbe,
         )
 
     @Test
@@ -571,5 +574,18 @@ class CliCommandDispatcherTest {
             val result = dispatcher.dispatch(CliRequestMessage("session_messages"))
 
             assertTrue(result.contains("error", ignoreCase = true))
+        }
+
+    @Test
+    fun `doctor_deep dispatches to DoctorDeepProbe`() =
+        runTest {
+            val probeResponse = """{"embedding":{"status":"ok"},"database":{"status":"ok"}}"""
+            coEvery { doctorDeepProbe.probe() } returns probeResponse
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("doctor_deep"))
+
+            assertEquals(probeResponse, result)
+            coVerify { doctorDeepProbe.probe() }
         }
 }

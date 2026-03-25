@@ -73,6 +73,7 @@ class CliCommandDispatcherStatusTest {
             engineHealthProvider,
             llmUsageTracker,
             engineConfig,
+            mockk(relaxed = true),
         )
 
     private fun stubSessions(count: Int = 2) {

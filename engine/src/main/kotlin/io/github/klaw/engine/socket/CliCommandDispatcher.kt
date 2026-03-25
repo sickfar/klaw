@@ -13,6 +13,7 @@ import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.tools.DoctorDeepProbe
 import io.github.klaw.engine.tools.EngineHealth
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.util.VT
@@ -40,6 +41,7 @@ class CliCommandDispatcher(
     private val engineHealthProvider: EngineHealthProvider,
     private val llmUsageTracker: LlmUsageTracker,
     private val config: EngineConfig,
+    private val doctorDeepProbe: DoctorDeepProbe,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String {
         logger.debug { "CLI command: ${request.command}" }
@@ -114,6 +116,7 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchCoreCommand(request: CliRequestMessage): String =
         dispatchScheduleCommand(request)
+            ?: dispatchSessionCommand(request)
             ?: when (request.command) {
                 "klaw_init_status" -> {
                     initCliHandler.handleStatus()
@@ -125,18 +128,6 @@ class CliCommandDispatcher(
 
                 "status" -> {
                     handleStatus(request.params)
-                }
-
-                "sessions" -> {
-                    handleSessions()
-                }
-
-                "sessions_list" -> {
-                    handleSessionsList(request.params)
-                }
-
-                "sessions_cleanup" -> {
-                    handleSessionsCleanup(request.params)
                 }
 
                 "reindex" -> {
@@ -155,8 +146,8 @@ class CliCommandDispatcher(
                     handleModelsList()
                 }
 
-                "session_messages" -> {
-                    handleSessionMessages(request.params)
+                "doctor_deep" -> {
+                    doctorDeepProbe.probe()
                 }
 
                 else -> {
@@ -164,6 +155,15 @@ class CliCommandDispatcher(
                     """{"error":"unknown command: $safe"}"""
                 }
             }
+
+    private suspend fun dispatchSessionCommand(request: CliRequestMessage): String? =
+        when (request.command) {
+            "sessions" -> handleSessions()
+            "sessions_list" -> handleSessionsList(request.params)
+            "sessions_cleanup" -> handleSessionsCleanup(request.params)
+            "session_messages" -> handleSessionMessages(request.params)
+            else -> null
+        }
 
     private suspend fun dispatchScheduleCommand(request: CliRequestMessage): String? =
         when (request.command) {
