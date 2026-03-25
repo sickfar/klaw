@@ -3,9 +3,12 @@ package io.github.klaw.engine.config
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Singleton
 import java.io.File
+
+private val logger = KotlinLogging.logger {}
 
 @Factory
 class EngineConfigFactory {
@@ -23,6 +26,10 @@ class EngineConfigFactory {
                     ?.readText()
                     ?: error("engine.json not found at ${configFile.absolutePath} or on classpath")
             }
-        return parseEngineConfig(jsonContent)
+        val config = parseEngineConfig(jsonContent)
+        logger.info {
+            "Engine config loaded: ${if (configFile.exists()) configFile.absolutePath else "classpath:/engine.json"}"
+        }
+        return config
     }
 }

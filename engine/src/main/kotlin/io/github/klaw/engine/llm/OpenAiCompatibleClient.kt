@@ -29,6 +29,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -88,6 +91,10 @@ class OpenAiCompatibleClient(
         val body = response.body()
         logger.debug { "LLM response status=$status bodyBytes=${body?.length ?: 0}" }
         if (status !in HTTP_SUCCESS_RANGE) {
+            logger.warn {
+                "LLM error: status=$status endpoint=${provider.endpoint} model=${model.modelId}" +
+                    " detail=${extractApiErrorDetail(body)}"
+            }
             throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
         }
 
@@ -211,4 +218,27 @@ internal fun OpenAiChatResponse.toKlawResponse(): LlmResponse {
                 else -> FinishReason.STOP
             },
     )
+}
+
+private const val MAX_ERROR_DETAIL_LENGTH = 200
+
+internal fun extractApiErrorDetail(body: String?): String {
+    if (body.isNullOrBlank()) return "<empty>"
+    return try {
+        val obj = json.decodeFromString<JsonObject>(body)
+        val errorMsg =
+            obj["error"]
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonPrimitive
+                ?.content
+        if (errorMsg != null) return errorMsg
+        val msg = obj["message"]?.jsonPrimitive?.content
+        if (msg != null) return msg
+        body.take(MAX_ERROR_DETAIL_LENGTH)
+    } catch (_: kotlinx.serialization.SerializationException) {
+        body.take(MAX_ERROR_DETAIL_LENGTH)
+    } catch (_: IllegalArgumentException) {
+        body.take(MAX_ERROR_DETAIL_LENGTH)
+    }
 }

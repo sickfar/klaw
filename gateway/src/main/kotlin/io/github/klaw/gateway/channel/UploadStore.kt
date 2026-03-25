@@ -51,7 +51,12 @@ class UploadStore(
         val extension = originalName.substringAfterLast('.', "").lowercase()
         val fileName = if (extension.isNotEmpty()) "$id.$extension" else id
         val filePath = uploadDir.resolve(fileName)
-        Files.write(filePath, bytes)
+        try {
+            Files.write(filePath, bytes)
+        } catch (e: java.io.IOException) {
+            logger.warn(e) { "Upload file write failed: id=$id, size=${bytes.size}" }
+            throw e
+        }
 
         val uploaded = UploadedFile(id = id, path = filePath, mimeType = mimeType, originalName = originalName)
         uploads[id] = uploaded

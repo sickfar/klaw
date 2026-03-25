@@ -37,6 +37,8 @@ class WebFetchTool(
         val timeout = computeTimeout(timeoutSeconds)
         val request = buildRequest(uri, timeout)
 
+        logger.trace { "web_fetch: url length=${url.length} timeout=$timeout" }
+
         val response = executeRequest(request, url) ?: return "Error: request failed"
 
         return processResponse(url, response)

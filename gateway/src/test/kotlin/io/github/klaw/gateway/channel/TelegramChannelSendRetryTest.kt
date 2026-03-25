@@ -61,6 +61,7 @@ class TelegramChannelSendRetryTest {
             val attempts = AtomicInteger(0)
             channel.sendApprovalAction = { _, _, _ ->
                 if (attempts.incrementAndGet() == 1) throw IOException("transient")
+                1L
             }
 
             var callbackCalled = false
@@ -100,7 +101,7 @@ class TelegramChannelSendRetryTest {
             ) { }
 
             // pendingApprovals should be cleaned up after failure
-            assertTrue(channel.pendingApprovalsForTest.isEmpty())
+            assertTrue(channel.pendingApprovals.isEmpty())
         }
 
     @Test

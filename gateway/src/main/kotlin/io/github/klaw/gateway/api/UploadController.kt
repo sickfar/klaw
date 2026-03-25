@@ -26,6 +26,7 @@ class UploadController(
     fun upload(request: HttpRequest<ByteArray>): HttpResponse<String> {
         val contentType = request.contentType.map { it.toString() }.orElse("")
         if (!contentType.startsWith("image/")) {
+            logger.warn { "Upload rejected: contentType=$contentType" }
             return errorResponse("""{"error":"unsupported content type, expected image/*"}""")
         }
 
@@ -35,6 +36,7 @@ class UploadController(
         val bytes = request.body.orElse(null) ?: byteArrayOf()
 
         if (bytes.isEmpty()) {
+            logger.warn { "Upload rejected: empty body" }
             return errorResponse("""{"error":"empty body"}""")
         }
 

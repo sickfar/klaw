@@ -48,6 +48,7 @@ class FileSummaryService(
                     tokens = tokens,
                 )
             }
+        logger.trace { "Summaries loaded: total=${loaded.size} budget=$budgetTokens" }
 
         // Budget-trim: keep newest summaries that fit within budget
         val kept = mutableListOf<SummaryText>()
@@ -59,6 +60,7 @@ class FileSummaryService(
         }
 
         val hasEvictedSummaries = kept.size < loaded.size
+        logger.trace { "Summaries trimmed: kept=${kept.size} hasEvicted=$hasEvictedSummaries" }
 
         // Return in chronological order (oldest first) for natural reading
         return SummaryContextResult(

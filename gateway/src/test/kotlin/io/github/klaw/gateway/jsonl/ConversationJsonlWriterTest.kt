@@ -1,13 +1,16 @@
 package io.github.klaw.gateway.jsonl
 
+import io.github.klaw.gateway.channel.AttachmentInfo
 import io.github.klaw.gateway.channel.IncomingMessage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -192,5 +195,57 @@ class ConversationJsonlWriterTest {
             val writer = writer()
             // Should not throw
             writer.writeInbound(sampleInbound("discord_channel_456"))
+        }
+
+    @Test
+    fun `inbound message with attachments includes attachments in JSONL`() =
+        runBlocking {
+            val writer = writer()
+            val message =
+                sampleInbound().copy(
+                    attachments =
+                        listOf(
+                            AttachmentInfo(
+                                path = "/data/photo.jpg",
+                                mimeType = "image/jpeg",
+                                originalName = "sunset.jpg",
+                            ),
+                            AttachmentInfo(path = "/data/doc.png", mimeType = "image/png"),
+                        ),
+                )
+            writer.writeInbound(message)
+            val today =
+                java.time.LocalDate
+                    .now()
+                    .toString()
+            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val json = Json.parseToJsonElement(line).jsonObject
+            assertTrue(json.containsKey("attachments"), "JSONL should contain attachments key")
+            val attachments = json["attachments"]!!.jsonArray
+            assertEquals(2, attachments.size)
+
+            val first = attachments[0].jsonObject
+            assertEquals("/data/photo.jpg", first["path"]?.jsonPrimitive?.content)
+            assertEquals("image/jpeg", first["mimeType"]?.jsonPrimitive?.content)
+            assertEquals("sunset.jpg", first["originalName"]?.jsonPrimitive?.content)
+
+            val second = attachments[1].jsonObject
+            assertEquals("/data/doc.png", second["path"]?.jsonPrimitive?.content)
+            assertEquals("image/png", second["mimeType"]?.jsonPrimitive?.content)
+            assertFalse(second.containsKey("originalName"), "Null originalName should be omitted")
+        }
+
+    @Test
+    fun `inbound message without attachments has no attachments field`() =
+        runBlocking {
+            val writer = writer()
+            writer.writeInbound(sampleInbound())
+            val today =
+                java.time.LocalDate
+                    .now()
+                    .toString()
+            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val json = Json.parseToJsonElement(line).jsonObject
+            assertFalse(json.containsKey("attachments"), "JSONL should NOT contain attachments when empty")
         }
 }

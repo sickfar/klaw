@@ -37,6 +37,7 @@ class MessageEmbeddingService(
     ) {
         if (!sqliteVecLoader.isAvailable()) return
         if (!isEligible(role, type, content, config)) return
+        logger.debug { "Embedding async: rowId=$messageRowId role=$role" }
         scope.launch {
             try {
                 val embedding = embeddingService.embed(content)

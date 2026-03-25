@@ -36,6 +36,7 @@ class ScheduledMessageJob(
         @Suppress("TooGenericExceptionCaught")
         try {
             runBlocking { messageProcessor.handleScheduledMessage(message).join() }
+            logger.debug { "Scheduled job completed: name=$name" }
         } catch (e: Exception) {
             logger.error(e) { "Scheduled job failed name=$name class=${e::class.simpleName}" }
             throw JobExecutionException(e, false)

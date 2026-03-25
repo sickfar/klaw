@@ -40,8 +40,11 @@ class DatabaseFactory(
         replaceConnectionManager(d, connectionManager)
 
         KlawDatabase.Schema.create(d)
+        logger.info { "Database initialized: $dbPath" }
         sqliteVecLoader.loadExtension(d)
+        logger.debug { "sqlite-vec extension loaded" }
         VirtualTableSetup.createVirtualTables(d, sqliteVecLoader.isAvailable())
+        logger.debug { "Virtual tables ready" }
         if (config.database.integrityCheckOnStartup) {
             checkIntegrity(connectionManager.connection)
         }

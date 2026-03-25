@@ -14,12 +14,15 @@ import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.util.VT
 import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 class CommandHandler(
@@ -34,8 +37,9 @@ class CommandHandler(
     suspend fun handle(
         message: CommandSocketMessage,
         session: Session,
-    ): String =
-        when (message.command) {
+    ): String {
+        logger.debug { "Chat command: ${message.command} chatId=${message.chatId}" }
+        return when (message.command) {
             "new" -> handleNew(message.chatId)
             "model" -> handleModel(message.chatId, message.args, session)
             "models" -> listModels()
@@ -46,10 +50,12 @@ class CommandHandler(
             "help" -> showHelp()
             else -> "Unknown command: /${message.command}"
         }
+    }
 
     private suspend fun handleNew(chatId: String): String {
         messageRepository.appendSessionBreak(chatId)
         sessionManager.resetSegment(chatId)
+        logger.debug { "Session reset: chatId=$chatId" }
         return "New conversation started. Previous context cleared."
     }
 
@@ -67,6 +73,7 @@ class CommandHandler(
             "Unknown model '$model'. Available: $available"
         } else {
             sessionManager.updateModel(chatId, model)
+            logger.debug { "Model changed: chatId=$chatId model=$model" }
             "Switched to model: $model"
         }
     }

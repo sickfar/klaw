@@ -75,7 +75,7 @@ class MemoryServiceImpl(
                 }
             }
         }
-        logger.debug { "Fact saved: category=$category source=$source" }
+        logger.debug { "Fact saved: source=$source" }
 
         onSaveCallback?.invoke()
         return "Saved to category '$category'."
@@ -121,8 +121,9 @@ class MemoryServiceImpl(
     override suspend fun renameCategory(
         oldName: String,
         newName: String,
-    ): String =
-        withContext(Dispatchers.VT) {
+    ): String {
+        logger.debug { "Memory rename" }
+        return withContext(Dispatchers.VT) {
             val cat =
                 database.memoryCategoriesQueries.getByName(oldName).executeAsOneOrNull()
                     ?: return@withContext "Category '$oldName' not found."
@@ -134,12 +135,14 @@ class MemoryServiceImpl(
             onSaveCallback?.invoke()
             "Renamed '$oldName' to '$newName'."
         }
+    }
 
     override suspend fun mergeCategories(
         sourceNames: List<String>,
         targetName: String,
-    ): String =
-        withContext(Dispatchers.VT) {
+    ): String {
+        logger.debug { "Memory merge: sources=${sourceNames.size}" }
+        return withContext(Dispatchers.VT) {
             val now = Clock.System.now().toString()
             val targetId = getOrCreateCategory(targetName, now)
             var movedCount = 0L
@@ -157,12 +160,14 @@ class MemoryServiceImpl(
             onSaveCallback?.invoke()
             "Merged ${sourceNames.size} categories into '$targetName' ($movedCount facts moved)."
         }
+    }
 
     override suspend fun deleteCategory(
         name: String,
         deleteFacts: Boolean,
-    ): String =
-        withContext(Dispatchers.VT) {
+    ): String {
+        logger.debug { "Memory delete: deleteFacts=$deleteFacts" }
+        return withContext(Dispatchers.VT) {
             val cat =
                 database.memoryCategoriesQueries.getByName(name).executeAsOneOrNull()
                     ?: return@withContext "Category '$name' not found."
@@ -178,6 +183,7 @@ class MemoryServiceImpl(
             onSaveCallback?.invoke()
             "Deleted category '$name'${if (deleteFacts) " and its facts" else ""}."
         }
+    }
 
     override suspend fun hasCategories(): Boolean =
         withContext(Dispatchers.VT) {
@@ -281,8 +287,9 @@ class MemoryServiceImpl(
     internal suspend fun ftsSearch(
         query: String,
         topK: Int,
-    ): List<MemorySearchResult> =
-        withContext(Dispatchers.VT) {
+    ): List<MemorySearchResult> {
+        logger.trace { "FTS search: queryLength=${query.length} topK=$topK" }
+        return withContext(Dispatchers.VT) {
             val results = mutableListOf<MemorySearchResult>()
 
             // Search messages via messages_fts
@@ -362,11 +369,13 @@ class MemoryServiceImpl(
             val sorted = results.sortedByDescending { it.score }.take(topK)
             sorted
         }
+    }
 
     internal suspend fun vectorSearch(
         query: String,
         topK: Int,
     ): List<MemorySearchResult> {
+        logger.trace { "Vector search: queryLength=${query.length} topK=$topK" }
         if (!sqliteVecLoader.isAvailable()) return emptyList()
 
         val queryEmbedding = embeddingService.embed(query)
@@ -399,6 +408,7 @@ class MemoryServiceImpl(
     ): List<MemorySearchResult> {
         val ftsResults = ftsSearch(query, topK)
         val vectorResults = vectorSearch(query, topK)
+        logger.debug { "Hybrid search: vecResults=${vectorResults.size} ftsResults=${ftsResults.size}" }
         var merged = RrfMerge.reciprocalRankFusion(vectorResults, ftsResults, topK = topK)
         if (searchConfig.temporalDecay.enabled) {
             merged = TemporalDecayScorer.applyDecay(merged, searchConfig.temporalDecay.halfLifeDays)

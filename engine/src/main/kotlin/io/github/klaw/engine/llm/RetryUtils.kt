@@ -24,16 +24,24 @@ suspend fun <T> withRetry(
             logger.trace { "LLM attempt ${attempt + 1}/${ maxRetries + 1}" }
             return block()
         } catch (e: KlawError.ContextLengthExceededError) {
+            logger.debug { "LLM context length exceeded, not retrying" }
             throw e
         } catch (e: KlawError.ProviderError) {
-            if (e.statusCode != null && e.statusCode !in RETRYABLE_STATUS_CODES) throw e
-            if (attempt >= maxRetries) throw e
+            if (e.statusCode != null && e.statusCode !in RETRYABLE_STATUS_CODES) {
+                logger.warn { "LLM non-retryable error: status=${e.statusCode}" }
+                throw e
+            }
+            if (attempt >= maxRetries) {
+                logger.warn { "LLM retries exhausted after ${attempt + 1} attempts, status=${e.statusCode}" }
+                throw e
+            }
             logger.warn { "LLM retry ${attempt + 1}/$maxRetries after ${backoffMs}ms (${e::class.simpleName})" }
             delay(backoffMs)
             backoffMs = (backoffMs * multiplier).toLong()
             attempt++
         } catch (e: IOException) {
             if (attempt >= maxRetries) {
+                logger.warn { "LLM network retries exhausted after ${attempt + 1} attempts" }
                 throw KlawError.ProviderError(null, "Network error: ${e::class.simpleName}")
             }
             logger.warn { "LLM network error retry ${attempt + 1}/$maxRetries after ${backoffMs}ms" }

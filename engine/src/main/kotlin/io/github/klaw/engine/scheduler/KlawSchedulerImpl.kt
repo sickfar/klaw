@@ -3,10 +3,13 @@ package io.github.klaw.engine.scheduler
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.tools.stubs.StubKlawScheduler
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Replaces
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Micronaut singleton wrapper for [QuartzKlawScheduler].
@@ -23,6 +26,7 @@ class KlawSchedulerImpl(
     override fun start() {
         inner.quartzScheduler.setJobFactory(MicronautJobFactory(applicationContext))
         inner.start()
+        logger.info { "Scheduler started" }
     }
 
     // NOTE: shutdownBlocking() is called both explicitly by EngineLifecycle (to enforce ordering)
@@ -32,7 +36,10 @@ class KlawSchedulerImpl(
     @PreDestroy
     fun preDestroy() = inner.shutdownBlocking()
 
-    override fun shutdownBlocking() = inner.shutdownBlocking()
+    override fun shutdownBlocking() {
+        inner.shutdownBlocking()
+        logger.info { "Scheduler stopped" }
+    }
 
     override suspend fun list() = inner.list()
 
@@ -46,9 +53,15 @@ class KlawSchedulerImpl(
         model: String?,
         injectInto: String?,
         channel: String?,
-    ) = inner.add(name, cron, at, message, model, injectInto, channel)
+    ): String {
+        logger.debug { "Schedule add: name=$name" }
+        return inner.add(name, cron, at, message, model, injectInto, channel)
+    }
 
-    override suspend fun remove(name: String) = inner.remove(name)
+    override suspend fun remove(name: String): String {
+        logger.debug { "Schedule remove: name=$name" }
+        return inner.remove(name)
+    }
 
     override suspend fun edit(
         name: String,
@@ -61,7 +74,10 @@ class KlawSchedulerImpl(
 
     override suspend fun disable(name: String) = inner.disable(name)
 
-    override suspend fun run(name: String) = inner.run(name)
+    override suspend fun run(name: String): String {
+        logger.debug { "Schedule manual run: name=$name" }
+        return inner.run(name)
+    }
 
     override suspend fun status() = inner.status()
 

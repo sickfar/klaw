@@ -38,6 +38,8 @@ class WebSearchTool(
                 return "Error: ${e::class.simpleName}"
             }
 
+        logger.debug { "web_search completed: provider=${config.provider} results=${results.size}" }
+
         if (results.isEmpty()) {
             return "No results found for the given query.\nProvider: ${config.provider}"
         }

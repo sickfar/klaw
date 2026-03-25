@@ -40,6 +40,7 @@ class GatewayBuffer(
                 }
             }
             file.appendText(json.encodeToString<SocketMessage>(message) + "\n")
+            logger.trace { "Buffer append: type=${message::class.simpleName}" }
         }
     }
 
@@ -67,6 +68,7 @@ class GatewayBuffer(
                 }
             }
             tempFile.delete()
+            logger.debug { "Buffer drained: count=${messages.size}" }
             messages
         }
     }
