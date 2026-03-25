@@ -3,6 +3,7 @@ const chatStore = useChatStore()
 const ws = useWebSocket()
 const { sendMessage, sendApproval, handleFrame } = useChat()
 const { api } = useApi()
+const route = useRoute()
 
 onMounted(async () => {
   ws.onFrame(handleFrame)
@@ -14,6 +15,14 @@ onMounted(async () => {
   }
   catch {
     // sessions endpoint may not exist yet
+  }
+
+  const querySession = route.query.session as string | undefined
+  if (querySession && chatStore.availableSessions.includes(querySession)) {
+    chatStore.setCurrentSession(querySession)
+  }
+  else if (chatStore.availableSessions.includes('local_ws_default')) {
+    chatStore.setCurrentSession('local_ws_default')
   }
 
   try {

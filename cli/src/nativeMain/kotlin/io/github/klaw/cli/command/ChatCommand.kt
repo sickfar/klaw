@@ -8,6 +8,7 @@ import io.github.klaw.cli.chat.ChatTui
 import io.github.klaw.cli.chat.ChatWebSocketClient
 import io.github.klaw.cli.chat.ConsoleChatConfig
 import io.github.klaw.cli.chat.KeyParser
+import io.github.klaw.cli.chat.fetchHistory
 import io.github.klaw.cli.chat.readConsoleChatConfig
 import io.github.klaw.cli.chat.readRawByte
 import io.github.klaw.cli.ui.AnsiColors
@@ -29,6 +30,7 @@ internal class ChatCommand(
     private val configDir: String = KlawPaths.config,
     private val configReader: (String) -> ConsoleChatConfig = { dir -> readConsoleChatConfig(dir) },
     private val sessionFactory: (String) -> ChatSession = { url -> ChatWebSocketClient(url) },
+    private val historyFetcher: suspend (String, String) -> List<ChatTui.Message> = ::fetchHistory,
 ) : CliktCommand(name = "chat") {
     private val url by option("--url", help = "Override gateway WebSocket URL (bypasses enabled check)")
 
@@ -41,8 +43,8 @@ internal class ChatCommand(
             return
         }
         val resolvedUrl = url ?: chatConfig.wsUrl
-        CliLogger.debug { "connecting to $resolvedUrl" }
-        runBlocking { runChat(resolvedUrl) }
+        CliLogger.debug { "connecting to ${resolvedUrl.substringBefore("?")}" }
+        runBlocking { runChat(resolvedUrl, chatConfig) }
         CliLogger.info { "chat end" }
     }
 
@@ -57,11 +59,17 @@ internal class ChatCommand(
         echo("Or re-run: klaw init")
     }
 
-    private suspend fun CoroutineScope.runChat(wsUrl: String) {
+    private suspend fun CoroutineScope.runChat(
+        wsUrl: String,
+        chatConfig: ConsoleChatConfig,
+    ) {
         val sendChannel = Channel<ChatFrame>(Channel.UNLIMITED)
         val events = Channel<ChatEvent>(Channel.UNLIMITED)
         val session = sessionFactory(wsUrl)
         val tui = ChatTui()
+
+        val history = historyFetcher(chatConfig.httpBaseUrl, chatConfig.apiToken)
+        history.forEach { tui.addMessage(it) }
 
         tui.init()
         try {

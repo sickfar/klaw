@@ -13,6 +13,9 @@ internal data class ConsoleChatConfig(
             val base = "ws://localhost:$port/ws/chat"
             return if (apiToken.isNotBlank()) "$base?token=$apiToken" else base
         }
+
+    val httpBaseUrl: String
+        get() = "http://localhost:$port"
 }
 
 private val envVarPattern = Regex("""\$\{([A-Z_][A-Z0-9_]*)\}""")

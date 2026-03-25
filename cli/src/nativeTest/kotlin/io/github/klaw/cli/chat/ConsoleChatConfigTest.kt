@@ -287,6 +287,18 @@ class ConsoleChatConfigTest {
     }
 
     @Test
+    fun `httpBaseUrl returns correct URL with default port`() {
+        val config = ConsoleChatConfig(enabled = true, port = 37474)
+        assertEquals("http://localhost:37474", config.httpBaseUrl)
+    }
+
+    @Test
+    fun `httpBaseUrl returns correct URL with custom port`() {
+        val config = ConsoleChatConfig(enabled = true, port = 9090)
+        assertEquals("http://localhost:9090", config.httpBaseUrl)
+    }
+
+    @Test
     fun `parseConsoleConfig resolves env var token from dotenv`() {
         val dotenv = "WEBUI_API_TOKEN=resolved-secret"
         val config =

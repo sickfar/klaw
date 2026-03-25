@@ -64,4 +64,19 @@ class WebUiSessionsApiE2eTest {
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.body.contains("local_ws_default") || response.body.contains("chatId"))
     }
+
+    @Test
+    @Order(2)
+    fun `session messages returns user and assistant messages after chat`() {
+        wireMock.stubChatResponse("session-msg-e2e-reply")
+        wsClient.sendAndReceive("session-msg-e2e-input")
+
+        val response = restClient.get("/api/v1/sessions/local_ws_default/messages")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.body.contains("\"role\":\"user\""), "Should contain user role")
+        assertTrue(response.body.contains("\"role\":\"assistant\""), "Should contain assistant role")
+        assertTrue(response.body.contains("session-msg-e2e-input"), "Should contain user message content")
+        assertTrue(response.body.contains("session-msg-e2e-reply"), "Should contain assistant message content")
+        assertTrue(response.body.contains("\"timestamp\":"), "Should contain timestamp field")
+    }
 }
