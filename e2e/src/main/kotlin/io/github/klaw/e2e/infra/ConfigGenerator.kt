@@ -65,6 +65,10 @@ object ConfigGenerator {
         visionMaxTokens: Int = DEFAULT_VISION_MAX_TOKENS,
         visionAttachmentsDirectory: String = "",
         defaultModelId: String = "test/model",
+        heartbeatInterval: String = "off",
+        heartbeatModel: String? = null,
+        heartbeatChannel: String? = null,
+        heartbeatInjectInto: String? = null,
     ): String {
         val root =
             buildJsonObject {
@@ -105,6 +109,10 @@ object ConfigGenerator {
                     preValidationModel,
                     preValidationRiskThreshold,
                     preValidationTimeoutMs,
+                    heartbeatInterval,
+                    heartbeatModel,
+                    heartbeatChannel,
+                    heartbeatInjectInto,
                 )
                 buildWebTools(
                     webFetchEnabled,
@@ -346,6 +354,10 @@ object ConfigGenerator {
         preValidationModel: String,
         preValidationRiskThreshold: Int,
         preValidationTimeoutMs: Long,
+        heartbeatInterval: String,
+        heartbeatModel: String?,
+        heartbeatChannel: String?,
+        heartbeatInjectInto: String?,
     ) {
         putJsonObject("docs") {
             put("enabled", false)
@@ -363,7 +375,10 @@ object ConfigGenerator {
             put("askTimeoutMin", askTimeoutMin)
         }
         putJsonObject("heartbeat") {
-            put("interval", "off")
+            put("interval", heartbeatInterval)
+            if (heartbeatModel != null) put("model", heartbeatModel)
+            if (heartbeatChannel != null) put("channel", heartbeatChannel)
+            if (heartbeatInjectInto != null) put("injectInto", heartbeatInjectInto)
         }
         putJsonObject("database") {
         }

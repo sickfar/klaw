@@ -8,6 +8,7 @@ import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.tools.SandboxManager
 import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.util.VT
+import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.context.event.StartupEvent
@@ -41,6 +42,7 @@ private val logger = KotlinLogging.logger {}
  * calling handleScheduledMessage on a closed processor.
  */
 @Singleton
+@Suppress("LongParameterList")
 class EngineLifecycle(
     private val socketServer: EngineSocketServer,
     private val messageProcessor: MessageProcessor,
@@ -49,6 +51,8 @@ class EngineLifecycle(
     private val backupService: BackupService,
     private val healthProvider: EngineHealthProvider,
     private val subagentRunRepository: SubagentRunRepository,
+    // Eagerly instantiates HeartbeatRunnerFactory so @PostConstruct schedules heartbeat on startup
+    @Suppress("unused") private val heartbeatRunnerFactory: HeartbeatRunnerFactory,
 ) : ApplicationEventListener<StartupEvent> {
     private val shutdownOnce = AtomicBoolean(false)
     private val backupScope = CoroutineScope(Dispatchers.VT + SupervisorJob())

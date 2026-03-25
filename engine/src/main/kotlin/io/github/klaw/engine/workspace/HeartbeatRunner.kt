@@ -57,8 +57,10 @@ class HeartbeatRunner(
             logger.debug { "Heartbeat run skipped — previous still running" }
             return
         }
+        logger.trace { "Heartbeat run starting" }
         try {
             runBlocking { doExecute() }
+            logger.trace { "Heartbeat run finished" }
         } catch (e: Exception) {
             logger.error(e) { "Heartbeat execution failed" }
         } finally {
@@ -86,21 +88,24 @@ class HeartbeatRunner(
         val channel = deliveryChannel
         val chatId = deliveryChatId
         if (channel == null || chatId == null) {
-            logger.debug { "Heartbeat delivery target not configured — skipping" }
+            logger.trace { "Heartbeat delivery target not configured — skipping" }
             return
         }
 
         val heartbeatPath = workspacePath.resolve("HEARTBEAT.md")
         if (!Files.exists(heartbeatPath)) {
-            logger.debug { "No HEARTBEAT.md found — skipping heartbeat" }
+            logger.trace { "No HEARTBEAT.md found — skipping heartbeat" }
             return
         }
         val content = Files.readString(heartbeatPath)
         if (content.isBlank()) {
-            logger.debug { "HEARTBEAT.md is empty — skipping heartbeat" }
+            logger.trace { "HEARTBEAT.md is empty — skipping heartbeat" }
             return
         }
+        logger.trace { "HEARTBEAT.md loaded: length=${content.length}" }
+
         val model = config.heartbeat.model ?: config.routing.default
+        logger.debug { "Heartbeat executing: model=$model, target=$channel/$chatId" }
         val session = getOrCreateSession("heartbeat", model)
 
         val systemPrompt = workspaceLoader.loadSystemPrompt()
@@ -111,6 +116,7 @@ class HeartbeatRunner(
                 includeHeartbeatDeliver = true,
                 includeSendMessage = false,
             )
+        logger.trace { "Heartbeat context built: tools=${tools.size}, systemPromptLength=${systemPrompt.length}" }
 
         val fullSystemPrompt =
             systemPrompt + HEARTBEAT_SYSTEM_SUFFIX
@@ -127,7 +133,7 @@ class HeartbeatRunner(
 
         val deliveryMessage = sink.consumeMessage()
         if (deliveryMessage != null) {
-            logger.debug { "Heartbeat delivering message to $channel/$chatId" }
+            logger.debug { "Heartbeat delivering message to $channel/$chatId, length=${deliveryMessage.length}" }
             pushToGateway(OutboundSocketMessage(channel = channel, chatId = chatId, content = deliveryMessage))
         } else {
             logger.debug { "Heartbeat completed without delivery" }
@@ -143,15 +149,23 @@ class HeartbeatRunner(
     ): LlmResponse {
         var rounds = 0
         while (rounds < maxToolCallRounds) {
+            logger.trace { "Heartbeat LLM call round=${rounds + 1}/$maxToolCallRounds, messages=${context.size}" }
             val response =
                 chat(
                     LlmRequest(messages = context, tools = tools.ifEmpty { null }),
                     modelId,
                 )
             rounds++
-            if (response.toolCalls.isNullOrEmpty()) return response
+            if (response.toolCalls.isNullOrEmpty()) {
+                logger.trace { "Heartbeat LLM returned text response at round=$rounds" }
+                return response
+            }
 
             val toolCalls = response.toolCalls!!
+            logger.trace {
+                "Heartbeat LLM requested ${toolCalls.size} tool call(s) at round=$rounds: " +
+                    toolCalls.joinToString { it.name }
+            }
             val results = executeToolCalls(toolCalls, sink)
 
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
@@ -169,9 +183,13 @@ class HeartbeatRunner(
         sink: HeartbeatDeliverSink,
     ): List<ToolResult> =
         try {
-            withContext(HeartbeatDeliverContext(sink)) {
-                toolExecutor.executeAll(toolCalls)
-            }
+            logger.trace { "Heartbeat executing ${toolCalls.size} tool call(s)" }
+            val results =
+                withContext(HeartbeatDeliverContext(sink)) {
+                    toolExecutor.executeAll(toolCalls)
+                }
+            logger.trace { "Heartbeat tool execution completed: ${results.size} result(s)" }
+            results
         } catch (e: Exception) {
             logger.warn(e) { "Heartbeat tool execution failed" }
             // e::class.simpleName in tool result content is intentional and safe (no message text)

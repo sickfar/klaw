@@ -24,8 +24,10 @@ private const val CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
 private const val SUMMARIZATION_MARKER = "You are a conversation summarizer"
 private const val CONSOLIDATION_MARKER = "reviewing conversation history"
 private const val RISK_ASSESSMENT_MARKER = "security risk assessor"
+private const val HEARTBEAT_MARKER = "Heartbeat Run"
 private const val VISION_MARKER = "image_url"
 private const val HTTP_OK = 200
+private const val PRIORITY_HEARTBEAT = 2
 private const val PRIORITY_VISION = 1
 private const val PRIORITY_CONSOLIDATION = 1
 private const val PRIORITY_SUMMARIZATION = 1
@@ -396,6 +398,58 @@ class WireMockLlmServer {
                 ),
         )
     }
+
+    fun stubHeartbeatResponse(
+        content: String,
+        promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+        completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+    ) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing(HEARTBEAT_MARKER))
+                .atPriority(PRIORITY_HEARTBEAT)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(buildChatResponseJson(content, promptTokens, completionTokens)),
+                ),
+        )
+    }
+
+    fun stubHeartbeatResponseSequenceRaw(responses: List<String>) {
+        val scenarioName = "heartbeat-sequence"
+        responses.forEachIndexed { index, bodyJson ->
+            val currentState = if (index == 0) Scenario.STARTED else "hb-state-$index"
+            val nextState = if (index < responses.lastIndex) "hb-state-${index + 1}" else "hb-state-done"
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .withRequestBody(containing(HEARTBEAT_MARKER))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_HEARTBEAT)
+                    .willSetStateTo(nextState)
+                    .willReturn(
+                        aResponse()
+                            .withStatus(HTTP_OK)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(bodyJson),
+                    ),
+            )
+        }
+    }
+
+    fun getHeartbeatRequests(): List<String> = getRecordedRequests().filter { it.contains(HEARTBEAT_MARKER) }
+
+    fun getHeartbeatCallCount(): Int = getRecordedRequests().count { it.contains(HEARTBEAT_MARKER) }
+
+    fun getNonHeartbeatChatRequests(): List<String> =
+        getRecordedRequests().filter {
+            !it.contains(SUMMARIZATION_MARKER) &&
+                !it.contains(CONSOLIDATION_MARKER) &&
+                !it.contains(HEARTBEAT_MARKER)
+        }
 
     companion object {
         fun buildChatResponseJson(

@@ -35,9 +35,17 @@ class HeartbeatRunnerFactory(
     fun start() {
         val interval =
             HeartbeatRunner.parseInterval(config.heartbeat.interval) ?: run {
-                logger.debug { "Heartbeat disabled (interval=${config.heartbeat.interval})" }
+                logger.info { "Heartbeat disabled (interval=${config.heartbeat.interval})" }
                 return
             }
+
+        val channel = config.heartbeat.channel
+        val injectInto = config.heartbeat.injectInto
+        val model = config.heartbeat.model ?: config.routing.default
+        logger.info {
+            "Heartbeat starting: interval=$interval, model=$model, " +
+                "channel=${channel ?: "<not set>"}, injectInto=${injectInto ?: "<not set>"}"
+        }
 
         val r =
             HeartbeatRunner(
@@ -54,6 +62,6 @@ class HeartbeatRunnerFactory(
         runner = r
 
         taskScheduler.scheduleAtFixedRate(interval, interval) { r.runHeartbeat() }
-        logger.info { "Heartbeat scheduled with interval=$interval" }
+        logger.info { "Heartbeat scheduled — first run in $interval" }
     }
 }

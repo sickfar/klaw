@@ -32,6 +32,15 @@ object WorkspaceGenerator {
         memoryFile.setReadable(true, false)
     }
 
+    fun createHeartbeatMd(
+        workspaceDir: File,
+        content: String,
+    ) {
+        val file = File(workspaceDir, "HEARTBEAT.md")
+        file.writeText(content)
+        file.setReadable(true, false)
+    }
+
     fun createSkillFile(
         skillsBaseDir: File,
         name: String,
