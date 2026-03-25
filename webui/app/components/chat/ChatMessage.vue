@@ -28,7 +28,7 @@ defineProps<{
           {{ message.role === 'user' ? 'You' : 'Klaw' }}
         </span>
         <span class="text-xs text-gray-400">
-          {{ message.timestamp.toLocaleTimeString() }}
+          {{ message.timestamp?.toLocaleTimeString?.() ?? '' }}
         </span>
       </div>
       <CommonMarkdownContent :content="message.content" />

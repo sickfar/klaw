@@ -10,13 +10,15 @@ export function useChat() {
       content,
     }
     const sent = ws.send(frame)
-    chatStore.addMessage({
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    })
-    if (!sent) {
+    if (sent) {
+      chatStore.addMessage({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content,
+        timestamp: new Date(),
+      })
+    }
+    else {
       chatStore.addMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -33,8 +35,18 @@ export function useChat() {
       approvalId,
       approved,
     }
-    ws.send(frame)
-    chatStore.clearPendingApproval()
+    const sent = ws.send(frame)
+    if (sent) {
+      chatStore.clearPendingApproval()
+    }
+    else {
+      chatStore.addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: 'Error: Could not send approval response. Please wait for reconnection and try again.',
+        timestamp: new Date(),
+      })
+    }
   }
 
   function handleFrame(frame: ChatFrame) {

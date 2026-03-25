@@ -34,11 +34,11 @@ async function cleanupSessions() {
 onMounted(fetchSessions)
 
 const columns = [
-  { key: 'chatId', label: 'Chat ID' },
-  { key: 'model', label: 'Model' },
-  { key: 'messageCount', label: 'Messages' },
-  { key: 'updatedAt', label: 'Last Updated' },
-  { key: 'actions', label: '' },
+  { accessorKey: 'chatId', header: 'Chat ID' },
+  { accessorKey: 'model', header: 'Model' },
+  { accessorKey: 'messageCount', header: 'Messages' },
+  { accessorKey: 'updatedAt', header: 'Last Updated' },
+  { id: 'actions', header: '' },
 ]
 </script>
 

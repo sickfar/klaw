@@ -133,11 +133,11 @@ function formatNumber(n: number): string {
           totalTokens: formatNumber(usage.totalTokens),
         }))"
         :columns="[
-          { key: 'model', label: 'Model' },
-          { key: 'requests', label: 'Requests' },
-          { key: 'promptTokens', label: 'Prompt Tokens' },
-          { key: 'completionTokens', label: 'Completion Tokens' },
-          { key: 'totalTokens', label: 'Total Tokens' },
+          { accessorKey: 'model', header: 'Model' },
+          { accessorKey: 'requests', header: 'Requests' },
+          { accessorKey: 'promptTokens', header: 'Prompt Tokens' },
+          { accessorKey: 'completionTokens', header: 'Completion Tokens' },
+          { accessorKey: 'totalTokens', header: 'Total Tokens' },
         ]"
         data-testid="usage-table"
       />

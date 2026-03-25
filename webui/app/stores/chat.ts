@@ -55,6 +55,8 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadSessionMessages(sessionId: string) {
     const { api } = useApi()
+    const previous = [...messages.value]
+    clearMessages()
     try {
       const response = await api<Array<{ role: string, content: string, timestamp: string }>>(`/sessions/${encodeURIComponent(sessionId)}/messages`)
       messages.value = response.map(m => ({
@@ -65,7 +67,7 @@ export const useChatStore = defineStore('chat', () => {
       }))
     }
     catch {
-      // session messages endpoint may not exist yet
+      messages.value = previous
     }
   }
 

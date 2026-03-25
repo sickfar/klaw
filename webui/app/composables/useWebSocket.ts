@@ -2,14 +2,15 @@ import type { ChatFrame } from '~/types/chat'
 
 type FrameCallback = (frame: ChatFrame) => void
 
+// Module-level singleton state — shared across all useWebSocket() callers
+let ws: WebSocket | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectDelay = 1000
+let intentionalClose = false
+
 export function useWebSocket() {
   const status = useState<'connecting' | 'connected' | 'disconnected'>('wsStatus', () => 'disconnected')
   const callbacks = useState<FrameCallback[]>('wsCallbacks', () => [])
-
-  let ws: WebSocket | null = null
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  let reconnectDelay = 1000
-  let intentionalClose = false
 
   function getWsUrl(): string {
     if (import.meta.client) {
@@ -37,7 +38,12 @@ export function useWebSocket() {
       try {
         const frame = JSON.parse(event.data) as ChatFrame
         for (const cb of callbacks.value) {
-          cb(frame)
+          try {
+            cb(frame)
+          }
+          catch {
+            // isolate callback errors to prevent poisoning other callbacks
+          }
         }
       }
       catch {
@@ -68,6 +74,7 @@ export function useWebSocket() {
 
   function disconnect() {
     intentionalClose = true
+    reconnectDelay = 1000
     if (reconnectTimer) {
       clearTimeout(reconnectTimer)
       reconnectTimer = null
@@ -81,8 +88,13 @@ export function useWebSocket() {
 
   function send(frame: ChatFrame): boolean {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(frame))
-      return true
+      try {
+        ws.send(JSON.stringify(frame))
+        return true
+      }
+      catch {
+        return false
+      }
     }
     return false
   }

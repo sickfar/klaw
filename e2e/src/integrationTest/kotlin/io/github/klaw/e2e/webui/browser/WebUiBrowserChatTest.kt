@@ -1,11 +1,17 @@
 package io.github.klaw.e2e.webui.browser
 
+import com.microsoft.playwright.Page
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestMethodOrder
 
 @Suppress("TooManyFunctions")
+@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class WebUiBrowserChatTest : BrowserE2eBase() {
     private fun waitForWsConnected() {
         waitForTestId("connection-dot")
@@ -13,13 +19,12 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
             "document.querySelector('[data-testid=\"connection-dot\"]')" +
                 "?.classList?.contains('bg-green-500') === true",
             null,
-            com.microsoft.playwright.Page
-                .WaitForFunctionOptions()
-                .setTimeout(30_000.0),
+            Page.WaitForFunctionOptions().setTimeout(WS_CONNECT_TIMEOUT),
         )
     }
 
     @Test
+    @Order(1)
     fun `chat page loads with input`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-page")
@@ -27,6 +32,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(2)
     fun `chat send button is clickable`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-input")
@@ -38,6 +44,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(3)
     fun `chat message list renders`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-message-list")
@@ -45,6 +52,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(4)
     fun `send message shows user message and clears input`() {
         wireMock.stubChatResponse("test response")
         page.navigate("${baseUrl()}/chat")
@@ -64,6 +72,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(5)
     fun `connection status shows connected`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-page")
@@ -73,6 +82,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(6)
     fun `slash command menu appears on slash input`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-input")
@@ -89,6 +99,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
     }
 
     @Test
+    @Order(7)
     fun `slash command menu filters on typing`() {
         page.navigate("${baseUrl()}/chat")
         waitForTestId("chat-input")
@@ -109,5 +120,150 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
             statusCmd != null && statusCmd.isVisible,
             "Should not show /status when filtering for /mem",
         )
+    }
+
+    @Test
+    @Order(8)
+    fun `full round trip shows assistant response`() {
+        wireMock.stubChatResponse("browser-e2e-reply")
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+        waitForWsConnected()
+
+        page.fill("[data-testid='chat-input']", "Hello round trip")
+        page.click("[data-testid='chat-send-button']")
+
+        waitForTestId("chat-message-user")
+
+        page.waitForSelector(
+            "[data-testid='chat-message-assistant']",
+            Page.WaitForSelectorOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
+        )
+        val assistantMsg = page.querySelector("[data-testid='chat-message-assistant']")
+        assertNotNull(assistantMsg, "Assistant message should appear")
+        assertTrue(
+            assistantMsg!!.textContent().contains("browser-e2e-reply"),
+            "Assistant message should contain WireMock response text",
+        )
+    }
+
+    @Test
+    @Order(9)
+    fun `thinking indicator shows during processing`() {
+        wireMock.stubChatResponseWithDelay("delayed-reply", THINKING_DELAY_MS)
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+        waitForWsConnected()
+
+        page.fill("[data-testid='chat-input']", "Trigger thinking")
+        page.click("[data-testid='chat-send-button']")
+
+        waitForTestId("thinking-indicator")
+        val indicator = page.querySelector("[data-testid='thinking-indicator']")
+        assertNotNull(indicator, "Thinking indicator should appear while waiting for response")
+
+        page.waitForSelector(
+            "[data-testid='chat-message-assistant']",
+            Page.WaitForSelectorOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
+        )
+
+        val indicatorAfter = page.querySelector("[data-testid='thinking-indicator']")
+        assertNull(indicatorAfter, "Thinking indicator should disappear after assistant response")
+    }
+
+    @Test
+    @Order(10)
+    fun `error from LLM shows error in chat`() {
+        wireMock.stubChatError(HTTP_INTERNAL_SERVER_ERROR)
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+        waitForWsConnected()
+
+        page.fill("[data-testid='chat-input']", "Trigger error")
+        page.click("[data-testid='chat-send-button']")
+
+        // Engine may send error as assistant message or error frame — wait for any assistant message
+        page.waitForSelector(
+            "[data-testid='chat-message-assistant']",
+            Page.WaitForSelectorOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
+        )
+        val assistantMsg = page.querySelector("[data-testid='chat-message-assistant']")
+        assertNotNull(assistantMsg, "An assistant message should appear after LLM error")
+    }
+
+    @Test
+    @Order(11)
+    fun `websocket reconnects after page navigation`() {
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+        waitForWsConnected()
+
+        page.navigate("${baseUrl()}/dashboard")
+        waitForTestId("dashboard-page")
+
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+        waitForWsConnected()
+    }
+
+    @Test
+    @Order(12)
+    fun `disconnected send shows only error not user message`() {
+        // Inject script that overrides WebSocket before page JS executes
+        page.addInitScript(
+            """
+            window._OriginalWebSocket = window.WebSocket;
+            window.WebSocket = function(url, protocols) {
+                const ws = new window._OriginalWebSocket(url, protocols);
+                setTimeout(() => ws.close(), 50);
+                return ws;
+            };
+            window.WebSocket.OPEN = window._OriginalWebSocket.OPEN;
+            window.WebSocket.CLOSED = window._OriginalWebSocket.CLOSED;
+            window.WebSocket.CONNECTING = window._OriginalWebSocket.CONNECTING;
+            window.WebSocket.CLOSING = window._OriginalWebSocket.CLOSING;
+            """,
+        )
+        page.navigate("${baseUrl()}/chat")
+        waitForTestId("chat-page")
+
+        // Wait for disconnected state (dot should be red)
+        page.waitForFunction(
+            "document.querySelector('[data-testid=\"connection-dot\"]')" +
+                "?.classList?.contains('bg-red-500') === true",
+            null,
+            Page.WaitForFunctionOptions().setTimeout(SHORT_TIMEOUT),
+        )
+
+        page.fill("[data-testid='chat-input']", "Lost message text")
+        page.click("[data-testid='chat-send-button']")
+
+        // Wait for error message to appear
+        page.waitForFunction(
+            """
+            (() => {
+                const msgs = document.querySelectorAll('[data-testid="chat-message-assistant"]');
+                for (const m of msgs) {
+                    if (m.textContent.includes('Not connected')) return true;
+                }
+                return false;
+            })()
+            """.trimIndent(),
+            null,
+            Page.WaitForFunctionOptions().setTimeout(SHORT_TIMEOUT),
+        )
+
+        // Verify user message with "Lost message text" does NOT appear (Bug B fix)
+        val userMessages = page.querySelectorAll("[data-testid='chat-message-user']")
+        val hasLostMsg = userMessages.any { it.textContent().contains("Lost message text") }
+        assertFalse(hasLostMsg, "User message should NOT appear when send fails (Bug B fix)")
+    }
+
+    companion object {
+        private const val WS_CONNECT_TIMEOUT = 30_000.0
+        private const val ASSISTANT_RESPONSE_TIMEOUT = 30_000.0
+        private const val SHORT_TIMEOUT = 10_000.0
+        private const val THINKING_DELAY_MS = 2000
+        private const val HTTP_INTERNAL_SERVER_ERROR = 500
     }
 }

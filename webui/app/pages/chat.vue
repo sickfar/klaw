@@ -27,6 +27,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   ws.offFrame(handleFrame)
+  ws.disconnect()
 })
 
 watch(() => chatStore.currentSessionId, async (sessionId) => {

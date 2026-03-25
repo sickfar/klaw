@@ -10,11 +10,16 @@ async function validateSkill(name: string) {
   validationResults.value[name] = await skillsStore.validateSkill(name)
 }
 
+function refreshSkills() {
+  validationResults.value = {}
+  skillsStore.fetchSkills()
+}
+
 const columns = [
-  { key: 'name', label: 'Name' },
-  { key: 'description', label: 'Description' },
-  { key: 'source', label: 'Source' },
-  { key: 'actions', label: '' },
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'description', header: 'Description' },
+  { accessorKey: 'source', header: 'Source' },
+  { id: 'actions', header: '' },
 ]
 </script>
 
@@ -33,7 +38,7 @@ const columns = [
         size="sm"
         :loading="skillsStore.loading"
         data-testid="skills-refresh"
-        @click="skillsStore.fetchSkills()"
+        @click="refreshSkills()"
       />
     </div>
 
