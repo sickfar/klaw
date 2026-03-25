@@ -1,6 +1,7 @@
 package io.github.klaw.engine.memory
 
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -11,6 +12,8 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+
+private val logger = KotlinLogging.logger {}
 
 @Suppress("MagicNumber")
 class OllamaEmbeddingService(
@@ -45,6 +48,7 @@ class OllamaEmbeddingService(
 
     override suspend fun embed(text: String): FloatArray =
         withContext(Dispatchers.VT) {
+            logger.trace { "Ollama embed: model=$model inputLen=${text.length}" }
             val requestBody = json.encodeToString(SingleEmbedRequest(model, text))
             val request =
                 HttpRequest
@@ -56,6 +60,7 @@ class OllamaEmbeddingService(
 
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() != 200) {
+                logger.warn { "Ollama embed error: status=${response.statusCode()}" }
                 error("Ollama embed failed: HTTP ${response.statusCode()} — ${response.body()}")
             }
 
@@ -68,6 +73,7 @@ class OllamaEmbeddingService(
 
     override suspend fun embedBatch(texts: List<String>): List<FloatArray> =
         withContext(Dispatchers.VT) {
+            logger.debug { "Ollama embedBatch: model=$model count=${texts.size}" }
             val requestBody = json.encodeToString(BatchEmbedRequest(model, texts))
             val request =
                 HttpRequest
@@ -79,6 +85,7 @@ class OllamaEmbeddingService(
 
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() != 200) {
+                logger.warn { "Ollama embedBatch error: status=${response.statusCode()}" }
                 error("Ollama embed failed: HTTP ${response.statusCode()} — ${response.body()}")
             }
 

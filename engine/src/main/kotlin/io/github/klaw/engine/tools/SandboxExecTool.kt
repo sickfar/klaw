@@ -18,6 +18,8 @@ class SandboxExecTool(
         logger.trace { "sandbox_exec: timeout=$timeout" }
         return try {
             val output = sandboxManager.execute(code, timeout)
+            val outLen = output.stdout.length + output.stderr.length
+            logger.debug { "sandbox_exec completed: exitCode=${output.exitCode} outputLen=$outLen" }
             output.formatForLlm()
         } catch (e: CancellationException) {
             throw e

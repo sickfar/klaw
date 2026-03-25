@@ -30,14 +30,18 @@ class EngineApiProxy(
         withContext(Dispatchers.IO) {
             val request = CliRequestMessage(command, params)
             val addr = InetSocketAddress(paths.engineHost, paths.enginePort)
+            logger.debug { "Engine proxy: command=$command" }
             try {
                 SocketChannel.open().use { channel ->
                     channel.connect(addr)
                     val writer = PrintWriter(Channels.newOutputStream(channel), true)
                     val reader = BufferedReader(InputStreamReader(Channels.newInputStream(channel)))
                     writer.println(json.encodeToString(request))
-                    (reader.readLine() ?: """{"error":"empty response from engine"}""")
-                        .replace("\\n", "\n")
+                    val response =
+                        (reader.readLine() ?: """{"error":"empty response from engine"}""")
+                            .replace("\\n", "\n")
+                    logger.trace { "Engine proxy response: command=$command, responseLen=${response.length}" }
+                    response
                 }
             } catch (e: java.io.IOException) {
                 logger.warn { "Engine proxy failed: ${e::class.simpleName}" }

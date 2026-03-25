@@ -98,6 +98,11 @@ class ContextBuilder(
     ): ContextResult {
         skillRegistry.discover()
         val systemPrompt = workspaceLoader.loadSystemPrompt()
+        logger.debug {
+            "Building context: chatId=${session.chatId} model=${session.model} " +
+                "isSubagent=$isSubagent pendingMsgs=${pendingMessages.size}"
+        }
+        logger.trace { "System prompt: chars=${systemPrompt.length}" }
 
         val allSkills = skillRegistry.listAll()
         val skillCount = allSkills.size
@@ -138,6 +143,7 @@ class ContextBuilder(
                     append("If there is nothing to deliver, complete without calling it.")
                 }
             val historyMessages = subagentHistoryLoader.loadHistory(taskName, config.context.subagentHistory)
+            logger.debug { "Subagent context: taskName=$taskName historyMsgs=${historyMessages.size}" }
             return ContextResult(
                 buildSubagentContext(scheduledSystemContent, historyMessages, pendingMessages),
                 includeSkillList = includeSkillList,
@@ -159,6 +165,9 @@ class ContextBuilder(
         } else {
             summaryResult = SummaryContextResult(emptyList(), null, false)
         }
+        logger.trace {
+            "Summaries: count=${summaryResult.summaries.size} hasEvicted=${summaryResult.hasEvictedSummaries}"
+        }
 
         // Fetch messages: coverage-based (no budget trimming — zero gap guarantee)
         val dbMessages =
@@ -169,6 +178,7 @@ class ContextBuilder(
             }
 
         val uncoveredMessageTokens = dbMessages.sumOf { it.tokens.toLong() }
+        logger.trace { "DB messages: count=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens" }
 
         // Auto-RAG guard: triggers when summaries have been evicted (model lost summarized access)
         val autoRagResults: List<AutoRagResult> =
@@ -189,6 +199,9 @@ class ContextBuilder(
             } else {
                 emptyList()
             }
+        if (autoRagResults.isNotEmpty()) {
+            logger.debug { "Auto-RAG triggered: results=${autoRagResults.size}" }
+        }
 
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContent))
@@ -238,6 +251,7 @@ class ContextBuilder(
             messages.add(LlmMessage(role = "user", content = content))
         }
 
+        logger.debug { "Context ready: totalMsgs=${messages.size} budget=$budgetTokens" }
         return ContextResult(
             messages = messages,
             includeSkillList = includeSkillList,

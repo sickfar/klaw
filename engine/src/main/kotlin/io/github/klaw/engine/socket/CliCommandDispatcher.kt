@@ -16,6 +16,7 @@ import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.tools.EngineHealth
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,6 +24,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 @Suppress("LongParameterList")
@@ -38,10 +41,15 @@ class CliCommandDispatcher(
     private val llmUsageTracker: LlmUsageTracker,
     private val config: EngineConfig,
 ) {
-    suspend fun dispatch(request: CliRequestMessage): String =
-        withContext(Dispatchers.VT) {
-            dispatchMemoryCommand(request) ?: dispatchCoreCommand(request)
-        }
+    suspend fun dispatch(request: CliRequestMessage): String {
+        logger.debug { "CLI command: ${request.command}" }
+        val result =
+            withContext(Dispatchers.VT) {
+                dispatchMemoryCommand(request) ?: dispatchCoreCommand(request)
+            }
+        logger.trace { "CLI response: command=${request.command} responseLen=${result.length}" }
+        return result
+    }
 
     private suspend fun dispatchMemoryCommand(request: CliRequestMessage): String? =
         when (request.command) {

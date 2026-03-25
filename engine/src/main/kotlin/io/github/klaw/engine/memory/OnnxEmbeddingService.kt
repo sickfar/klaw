@@ -2,10 +2,13 @@ package io.github.klaw.engine.memory
 
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.LongBuffer
 import java.nio.file.Path
+
+private val logger = KotlinLogging.logger {}
 
 class OnnxEmbeddingService internal constructor(
     private val env: ai.onnxruntime.OrtEnvironment,
@@ -24,7 +27,9 @@ class OnnxEmbeddingService internal constructor(
         env = ai.onnxruntime.OrtEnvironment.getEnvironment(),
         session = createSession(ai.onnxruntime.OrtEnvironment.getEnvironment(), modelDir),
         tokenizer = createTokenizer(modelDir),
-    )
+    ) {
+        logger.info { "ONNX embedding model loaded from: $modelDir" }
+    }
 
     companion object {
         private fun createSession(
@@ -46,6 +51,7 @@ class OnnxEmbeddingService internal constructor(
     @Suppress("LongMethod")
     override suspend fun embed(text: String): FloatArray =
         withContext(Dispatchers.VT) {
+            logger.trace { "ONNX embed: inputLen=${text.length}" }
             val encoding = tokenizer.encode(text)
             val inputIds = encoding.ids
             val attentionMask = encoding.attentionMask
@@ -118,7 +124,10 @@ class OnnxEmbeddingService internal constructor(
             }
         }
 
-    override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { embed(it) }
+    override suspend fun embedBatch(texts: List<String>): List<FloatArray> {
+        logger.debug { "ONNX embedBatch: count=${texts.size}" }
+        return texts.map { embed(it) }
+    }
 
     private fun normalize(arr: FloatArray) {
         val norm = kotlin.math.sqrt(arr.sumOf { (it * it).toDouble() }).toFloat()

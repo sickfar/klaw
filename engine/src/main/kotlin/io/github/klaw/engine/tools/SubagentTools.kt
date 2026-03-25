@@ -51,6 +51,7 @@ class SubagentTools(
                 sourceChannel = sourceChannel,
             )
         processorProvider.get().handleScheduledMessage(scheduled)
+        logger.trace { "subagent_spawn dispatched: runId=$runId" }
         return """{"id":"$runId","name":"$name","status":"RUNNING"}"""
     }
 }

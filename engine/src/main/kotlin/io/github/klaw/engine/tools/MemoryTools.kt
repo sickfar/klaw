@@ -15,7 +15,9 @@ class MemoryTools(
         topK: Int = 10,
     ): String {
         logger.trace { "memory_search: topK=$topK" }
-        return memoryService.search(query, topK, trackAccess = true)
+        val result = memoryService.search(query, topK, trackAccess = true)
+        logger.debug { "memory_search: resultLen=${result.length}" }
+        return result
     }
 
     suspend fun save(
@@ -23,8 +25,10 @@ class MemoryTools(
         category: String,
         source: String = "manual",
     ): String {
-        logger.trace { "memory_save: category=$category source=$source" }
-        return memoryService.save(content, category, source)
+        logger.trace { "memory_save" }
+        val result = memoryService.save(content, category, source)
+        logger.debug { "memory_save: completed" }
+        return result
     }
 
     suspend fun renameCategory(
@@ -32,22 +36,28 @@ class MemoryTools(
         newName: String,
     ): String {
         logger.trace { "memory_rename_category" }
-        return memoryService.renameCategory(oldName, newName)
+        val result = memoryService.renameCategory(oldName, newName)
+        logger.debug { "memory_rename_category: completed" }
+        return result
     }
 
     suspend fun mergeCategories(
         sourceNames: List<String>,
         targetName: String,
     ): String {
-        logger.trace { "memory_merge_categories: targetName=$targetName" }
-        return memoryService.mergeCategories(sourceNames, targetName)
+        logger.trace { "memory_merge_categories: sources=${sourceNames.size}" }
+        val result = memoryService.mergeCategories(sourceNames, targetName)
+        logger.debug { "memory_merge_categories: completed" }
+        return result
     }
 
     suspend fun deleteCategory(
         name: String,
         deleteFacts: Boolean = true,
     ): String {
-        logger.trace { "memory_delete_category: name=$name" }
-        return memoryService.deleteCategory(name, deleteFacts)
+        logger.trace { "memory_delete_category: deleteFacts=$deleteFacts" }
+        val result = memoryService.deleteCategory(name, deleteFacts)
+        logger.debug { "memory_delete_category: completed" }
+        return result
     }
 }

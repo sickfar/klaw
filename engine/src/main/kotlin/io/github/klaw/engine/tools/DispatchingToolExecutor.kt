@@ -18,7 +18,7 @@ class DispatchingToolExecutor(
 ) : ToolExecutor {
     override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =
         coroutineScope {
-            logger.debug { "executeAll: ${toolCalls.size} calls" }
+            logger.debug { "executeAll: ${toolCalls.size} calls: ${toolCalls.map { it.name }}" }
             toolCalls
                 .map { call ->
                     async { registry.execute(call) }

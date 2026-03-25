@@ -26,8 +26,9 @@ class SubagentHistoryLoader(
     suspend fun loadHistory(
         taskName: String,
         n: Int,
-    ): List<LlmMessage> =
-        withContext(Dispatchers.VT) {
+    ): List<LlmMessage> {
+        logger.debug { "Loading subagent history: taskName=$taskName" }
+        return withContext(Dispatchers.VT) {
             val base = File(conversationsDir).canonicalFile
             val dir = File("$conversationsDir/scheduler_$taskName").canonicalFile
             // Path traversal protection
@@ -56,8 +57,11 @@ class SubagentHistoryLoader(
 
             val runs = detectRuns(allMessages)
             val lastN = runs.takeLast(n)
-            lastN.flatten()
+            val result = lastN.flatten()
+            logger.trace { "Subagent history loaded: messages=${result.size}" }
+            result
         }
+    }
 
     /**
      * Groups messages into complete runs.

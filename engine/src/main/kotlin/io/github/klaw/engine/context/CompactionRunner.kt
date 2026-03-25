@@ -96,6 +96,8 @@ class CompactionRunner(
 
         val conversationText = textMessages.joinToString("\n") { "[${it.role}] ${it.content}" }
 
+        logger.debug { "Compacting: chatId=$chatId messagesToSummarize=${compactionMessages.size}" }
+
         val request =
             LlmRequest(
                 messages =
@@ -129,6 +131,7 @@ class CompactionRunner(
 
         memoryService.save(summaryContent, "summary:$chatId")
 
+        logger.trace { "Summary saved: chatId=$chatId summaryChars=${summaryContent.length}" }
         logger.debug {
             "Compaction completed: chatId=$chatId messageCount=${compactionMessages.size} " +
                 "filePathLength=${summaryFile.absolutePath.length}"

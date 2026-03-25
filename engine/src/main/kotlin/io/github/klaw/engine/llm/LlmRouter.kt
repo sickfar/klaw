@@ -7,7 +7,10 @@ import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
+
+private val logger = KotlinLogging.logger {}
 
 class LlmRouter(
     private val providers: Map<String, ResolvedProviderConfig>,
@@ -35,23 +38,28 @@ class LlmRouter(
         modelId: String,
     ): LlmResponse {
         val chain = buildFallbackChain(modelId)
+        logger.debug { "LLM routing: modelId=$modelId chain=${chain.joinToString(",")}" }
         var lastError: Throwable? = null
 
         for (fullId in chain) {
             val model = models[fullId] ?: continue
             val provider = providers[model.provider] ?: continue
             val client = clientFor(provider)
+            logger.trace { "LLM trying: provider=$fullId" }
             try {
                 val response = client.chat(request, provider, model)
                 usageTracker?.record(fullId, response.usage)
                 return response
             } catch (e: KlawError.ContextLengthExceededError) {
+                logger.warn { "LLM context length exceeded: model=$fullId" }
                 throw e
             } catch (e: Throwable) {
+                logger.debug { "LLM provider $fullId failed: ${e::class.simpleName}, trying next" }
                 lastError = e
             }
         }
 
+        logger.error(lastError) { "All LLM providers failed: modelId=$modelId chain=${chain.joinToString(",")}" }
         throw KlawError.AllProvidersFailedError
     }
 

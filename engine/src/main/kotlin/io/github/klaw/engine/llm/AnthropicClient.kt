@@ -76,6 +76,9 @@ class AnthropicClient(
                     client.messages().create(params)
                 }
             } catch (e: AnthropicServiceException) {
+                logger.warn {
+                    "Anthropic error: status=${e.statusCode()} endpoint=${provider.endpoint} model=${model.modelId}"
+                }
                 throw KlawError.ProviderError(e.statusCode(), "Anthropic API error: ${e.statusCode()}", e)
             } catch (e: AnthropicIoException) {
                 throw IOException("Anthropic I/O error", e)

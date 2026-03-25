@@ -68,6 +68,7 @@ class DebounceBuffer(
                         }
                     if (messages.isNotEmpty()) {
                         try {
+                            logger.trace { "Debounce flush: chatId=$chatId batchSize=${messages.size}" }
                             onFlush(messages)
                         } catch (e: Exception) {
                             logger.error(e) { "Error in onFlush callback for chatId=$chatId" }

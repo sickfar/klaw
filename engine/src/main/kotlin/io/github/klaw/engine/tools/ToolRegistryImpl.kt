@@ -90,6 +90,7 @@ class ToolRegistryImpl(
                 logger.warn(e) { "execute failed: tool=${call.name}" }
                 "Error: ${e.message}"
             }
+        logger.trace { "Tool completed: name=${call.name} resultLen=${result.length}" }
         return ToolResult(callId = call.id, content = result)
     }
 

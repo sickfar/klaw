@@ -38,8 +38,12 @@ class ConversationJsonlWriter(
         require(chatId.matches(CHAT_ID_REGEX)) { "Invalid chatId format" }
         mutexFor(chatId).withLock {
             val file = fileFor(chatId)
-            file.parentFile?.mkdirs()
+            val created = file.parentFile?.mkdirs() == true
+            if (created) {
+                logger.debug { "JSONL directory created for chatId=$chatId" }
+            }
             file.appendText(jsonLine + "\n")
+            logger.trace { "JSONL line appended: chatId=$chatId, length=${jsonLine.length}" }
         }
     }
 

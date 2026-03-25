@@ -2,10 +2,13 @@ package io.github.klaw.engine.message
 
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 class MessageRepository(
@@ -38,6 +41,7 @@ class MessageRepository(
         withContext(Dispatchers.VT) {
             val now = Clock.System.now().toString()
             db.messagesQueries.insertMessage(id, channel, chatId, role, type, content, metadata, now, tokens.toLong())
+            logger.trace { "Message saved: chatId=$chatId role=$role type=$type" }
         }
 
     @Suppress("LongParameterList")
@@ -65,7 +69,9 @@ class MessageRepository(
                     now,
                     tokens.toLong(),
                 )
-                db.messagesQueries.lastInsertRowId().executeAsOne()
+                val rowId = db.messagesQueries.lastInsertRowId().executeAsOne()
+                logger.trace { "Message saved with rowId: chatId=$chatId role=$role rowId=$rowId" }
+                rowId
             }
         }
 
@@ -135,6 +141,7 @@ class MessageRepository(
     ): Unit =
         withContext(Dispatchers.VT) {
             db.messagesQueries.updateTokensById(tokens.toLong(), id)
+            logger.trace { "Tokens updated: messageId=$id tokens=$tokens" }
         }
 
     suspend fun updateMetadata(

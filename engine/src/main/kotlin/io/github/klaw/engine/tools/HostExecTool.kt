@@ -214,6 +214,8 @@ class HostExecTool(
             if (result.timedOut) {
                 "Error: command timed out after ${DEFAULT_COMMAND_TIMEOUT_SECONDS}s"
             } else {
+                val outLen = result.stdout.length + result.stderr.length
+                logger.debug { "host_exec completed: exitCode=${result.exitCode} outputLen=$outLen" }
                 formatOutput(result.stdout, result.stderr, result.exitCode)
             }
         } catch (e: Exception) {

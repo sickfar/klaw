@@ -69,6 +69,7 @@ internal class ToolCallLoopRunner(
         session: Session,
         tools: List<ToolDef> = emptyList(),
     ): LlmResponse {
+        logger.debug { "Tool loop started: model=${session.model} maxRounds=$maxRounds contextMsgs=${context.size}" }
         var rounds = 0
         var prevPromptTokens: Int? = null
         var prevCompletionTokens: Int? = null
@@ -81,6 +82,12 @@ internal class ToolCallLoopRunner(
                     session.model,
                 )
             rounds++
+            logger.trace {
+                "Tool loop round $rounds: finish=${response.finishReason}" +
+                    " toolCalls=${response.toolCalls?.size ?: 0}" +
+                    " promptTokens=${response.usage?.promptTokens}" +
+                    " completionTokens=${response.usage?.completionTokens}"
+            }
 
             correctToolResultTokens(response, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
 
@@ -88,8 +95,12 @@ internal class ToolCallLoopRunner(
                 firstPromptTokens = response.usage?.promptTokens
             }
 
-            if (response.toolCalls.isNullOrEmpty()) return response
+            if (response.toolCalls.isNullOrEmpty()) {
+                logger.debug { "Tool loop completed: $rounds round(s)" }
+                return response
+            }
             val toolCalls = response.toolCalls!!
+            logger.debug { "Executing ${toolCalls.size} tool(s) round $rounds: ${toolCalls.map { it.name }}" }
             val results = executeToolCalls(toolCalls, session.model)
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->

@@ -81,6 +81,7 @@ class AutoRagService(
             logger.trace { "Auto-RAG: vec=${vecResults.size} fts=${ftsResults.size} before merge" }
 
             val merged = rrfMerge(vecResults, ftsResults, k = 60)
+            logger.trace { "Auto-RAG RRF merge: input=${vecResults.size + ftsResults.size} output=${merged.size}" }
             val filtered = merged.filter { it.rowId !in windowRowIds }
 
             // Relevance threshold: applies only when vec results are available.
@@ -93,7 +94,9 @@ class AutoRagService(
                 }
             }
 
-            val result = truncateToTokenBudget(filtered.take(config.topK), config.maxTokens)
+            val beforeTrim = filtered.take(config.topK)
+            val result = truncateToTokenBudget(beforeTrim, config.maxTokens)
+            logger.trace { "Auto-RAG budget trim: before=${beforeTrim.size} after=${result.size}" }
             logger.debug { "Auto-RAG: returning ${result.size} results for chatId=$chatId" }
             result.map { AutoRagResult(it.messageId, it.content, it.role, it.createdAt) }
         } catch (

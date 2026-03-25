@@ -1,7 +1,10 @@
 package io.github.klaw.engine.context
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import java.util.concurrent.ConcurrentHashMap
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 class CompactionTracker {
@@ -19,6 +22,7 @@ class CompactionTracker {
                 current
             }
         }
+        logger.trace { "Compaction tryStart: chatId=$chatId result=$transitioned" }
         return transitioned
     }
 
@@ -37,6 +41,7 @@ class CompactionTracker {
             wasQueued = current == Status.QUEUED
             Status.IDLE
         }
+        logger.trace { "Compaction complete: chatId=$chatId wasQueued=$wasQueued" }
         return wasQueued
     }
 

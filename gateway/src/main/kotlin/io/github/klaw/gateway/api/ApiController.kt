@@ -37,6 +37,7 @@ class ApiController(
         @QueryValue deep: String?,
         @QueryValue usage: String?,
     ): HttpResponse<String> {
+        logger.debug { "API request: /status" }
         val params = mutableMapOf("json" to "true")
         deep?.let { params["deep"] = it }
         usage?.let { params["usage"] = it }
@@ -291,6 +292,7 @@ class ApiController(
             kotlinx.serialization.json.Json
                 .parseToJsonElement(body)
         } catch (_: Exception) {
+            logger.warn { "API config update: invalid JSON for $filename" }
             return respondError(HttpStatus.BAD_REQUEST, "invalid JSON")
         }
         File(paths.config, filename).writeText(body)

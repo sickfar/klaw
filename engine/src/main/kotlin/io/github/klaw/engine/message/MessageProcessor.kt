@@ -100,6 +100,7 @@ class MessageProcessor(
     }
 
     override suspend fun handleCommand(message: CommandSocketMessage) {
+        logger.debug { "Command: chatId=${message.chatId} command=${message.command}" }
         if (message.command == "new") {
             val activeJob = activeProcessingJobs[message.chatId]
             if (activeJob != null) {
@@ -351,6 +352,7 @@ class MessageProcessor(
         val first = messages.first()
         val chatId = first.chatId
         val channel = first.channel
+        logger.debug { "Processing: chatId=$chatId channel=$channel msgCount=${messages.size}" }
 
         val currentJob = kotlin.coroutines.coroutineContext[Job]!!
         activeProcessingJobs[chatId] = currentJob
@@ -379,6 +381,10 @@ class MessageProcessor(
                             isSubagent = false,
                             senderContext = senderContext,
                         )
+                    logger.debug {
+                        "Context built: chatId=$chatId contextMsgs=${contextResult.messages.size}" +
+                            " uncoveredTokens=${contextResult.uncoveredMessageTokens}"
+                    }
                     val tools: List<ToolDef> =
                         toolRegistry.listTools(
                             includeSkillList = contextResult.includeSkillList,
@@ -401,6 +407,10 @@ class MessageProcessor(
                             modelContextLimit = modelContextLimit,
                         )
                     val response = runner.run(contextResult.messages.toMutableList(), session, tools)
+                    logger.debug {
+                        "LLM responded: chatId=$chatId contentLen=${response.content?.length ?: 0}" +
+                            " tokens=${response.usage?.totalTokens}"
+                    }
 
                     correctUserMessageTokens(runner.firstPromptTokens, contextResult.messages, messages)
 
@@ -428,6 +438,7 @@ class MessageProcessor(
                         }
                     }
                 } catch (e: KlawError) {
+                    logger.warn { "Processing failed: chatId=$chatId error=${e::class.simpleName}" }
                     socketServerProvider.get().pushToGateway(
                         OutboundSocketMessage(
                             channel = channel,
@@ -437,7 +448,10 @@ class MessageProcessor(
                     )
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    logger.error(e) { "Unexpected error processing chatId=$chatId" }
                     socketServerProvider.get().pushToGateway(
                         OutboundSocketMessage(
                             channel = channel,
