@@ -18,6 +18,7 @@ import io.github.klaw.common.config.HostExecutionConfig
 import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
+import io.github.klaw.common.config.PreValidationConfig
 import io.github.klaw.common.config.ProcessingConfig
 import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
@@ -44,6 +45,7 @@ internal object ConfigTemplates {
         webSearchProvider: String? = null,
         webSearchApiKeyEnvVar: String? = null,
         hostExecutionEnabled: Boolean = false,
+        preValidationModel: String? = null,
         visionModelId: String? = null,
         attachmentsDirectory: String = "",
     ): String =
@@ -55,6 +57,7 @@ internal object ConfigTemplates {
                 webSearchProvider,
                 webSearchApiKeyEnvVar,
                 hostExecutionEnabled,
+                preValidationModel,
                 visionModelId,
                 attachmentsDirectory,
             ),
@@ -68,6 +71,7 @@ internal object ConfigTemplates {
         webSearchProvider: String?,
         webSearchApiKeyEnvVar: String?,
         hostExecutionEnabled: Boolean,
+        preValidationModel: String?,
         visionModelId: String?,
         attachmentsDirectory: String,
     ): EngineConfig {
@@ -95,7 +99,20 @@ internal object ConfigTemplates {
             context = buildConfigContext(),
             processing = buildConfigProcessing(),
             memory = buildConfigMemory(),
-            hostExecution = if (hostExecutionEnabled) HostExecutionConfig(enabled = true) else HostExecutionConfig(),
+            hostExecution =
+                if (hostExecutionEnabled) {
+                    HostExecutionConfig(
+                        enabled = true,
+                        preValidation =
+                            if (preValidationModel != null) {
+                                PreValidationConfig(model = preValidationModel)
+                            } else {
+                                PreValidationConfig()
+                            },
+                    )
+                } else {
+                    HostExecutionConfig()
+                },
             heartbeat =
                 HeartbeatConfig(
                     interval = if (heartbeatChannel != null) "PT1H" else "off",

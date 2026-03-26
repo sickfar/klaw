@@ -19,6 +19,7 @@ import platform.posix.stat
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -178,6 +179,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -212,6 +214,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -250,6 +253,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -282,6 +286,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -315,6 +320,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -347,6 +353,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -390,6 +397,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -422,6 +430,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -464,6 +473,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -522,6 +532,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -563,6 +574,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -596,6 +608,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -638,6 +651,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -673,6 +687,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -714,6 +729,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -776,6 +792,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -819,6 +836,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "TestAgent", // agent name
                 "personal assistant", // role
                 "developer", // user info
@@ -858,6 +876,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -895,6 +914,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "MyBot",
                 "coding helper",
                 "engineer",
@@ -954,6 +974,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "MyBot",
                 "coding helper",
                 "Roman",
@@ -1001,6 +1022,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1200,6 +1222,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -1234,6 +1257,7 @@ class InitWizardTest {
                 "n", // Phase 5: disable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -1278,6 +1302,7 @@ class InitWizardTest {
                 "37474", // Phase 5: port
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1313,6 +1338,7 @@ class InitWizardTest {
                 "n", // Phase 5: do not enable localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1347,6 +1373,7 @@ class InitWizardTest {
                 "9090", // Phase 5: custom port
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "personal assistant",
                 "developer",
@@ -1627,6 +1654,7 @@ class InitWizardTest {
                 "n",
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1817,6 +1845,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw", // agent name
                 "assistant", // role
                 "user", // user info
@@ -1864,6 +1893,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1902,6 +1932,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -1953,6 +1984,7 @@ class InitWizardTest {
                     "n", // skip localWs
                     "n", // skip web search
                     "", // host exec (default yes)
+                    "", // pre-approval (default yes)
                 ),
             )
         val output = mutableListOf<String>()
@@ -2039,6 +2071,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -2083,6 +2116,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw", // agent name (identity hatching runs)
                 "assistant", // role
                 "user", // user info
@@ -2125,6 +2159,7 @@ class InitWizardTest {
                     "n", // skip localWs
                     "n", // skip web search
                     "", // host exec (default yes)
+                    "", // pre-approval (default yes)
                 ),
             )
         val output = mutableListOf<String>()
@@ -2192,6 +2227,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "NewBot", // agent name (hatching runs on fresh init)
                 "helper", // role
                 "dev", // user info
@@ -2231,6 +2267,7 @@ class InitWizardTest {
                 "n", // skip localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2278,6 +2315,7 @@ class InitWizardTest {
                 "y", // enable web search
                 "brave-api-key-123", // search API key
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2337,6 +2375,7 @@ class InitWizardTest {
                 "y", // enable web search
                 "tavily-api-key-456", // search API key
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2408,6 +2447,7 @@ class InitWizardTest {
                 "bad-search-key", // first attempt (will fail validation)
                 "good-search-key", // second attempt (will pass validation)
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "user",
@@ -2475,6 +2515,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -2565,6 +2606,218 @@ class InitWizardTest {
         assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
     }
 
+    // --- Pre-approval ---
+
+    @Test
+    fun `native mode pre-approval defaults to yes and selects model via radio`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "", // pre-approval (default yes)
+                // model selected via radioSelector (index 0)
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("pre-approval"), "Expected pre-approval prompt in output")
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true")
+        assertTrue(config.hostExecution.preValidation.enabled, "Expected preValidation.enabled=true")
+        assertEquals(
+            "anthropic/${ANTHROPIC_MODELS[0]}",
+            config.hostExecution.preValidation.model,
+            "Expected first Anthropic model as pre-approval model",
+        )
+    }
+
+    @Test
+    fun `native mode pre-approval no leaves model empty`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "n", // pre-approval = no
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        val outputText = output.joinToString("\n")
+        assertTrue(outputText.contains("pre-approval"), "Expected pre-approval prompt in output")
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true")
+        // preValidation.enabled defaults to true; with empty model the engine skips LLM scoring (by design)
+        assertEquals("", config.hostExecution.preValidation.model, "Expected empty model when pre-approval declined")
+    }
+
+    @Test
+    fun `native mode host exec no skips pre-approval question`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "n", // host exec = no
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+            )
+        wizard.run()
+
+        val outputText = output.joinToString("\n")
+        assertTrue(!outputText.contains("pre-approval"), "Should not ask about pre-approval when host exec disabled")
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        assertTrue(!engineJson.contains("hostExecution"), "Expected no hostExecution when disabled")
+    }
+
+    @Test
+    fun `native mode pre-approval selects non-first model`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "", // pre-approval (default yes)
+                // model selected via radioSelector with custom index
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                radioSelector = { _, prompt ->
+                    if (prompt.contains("pre-approval")) 2 else 0
+                },
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        assertEquals(
+            "anthropic/${ANTHROPIC_MODELS[2]}",
+            config.hostExecution.preValidation.model,
+            "Expected third Anthropic model as pre-approval model",
+        )
+    }
+
+    @Test
+    fun `native mode pre-approval falls back to text input when radio cancelled`() {
+        val inputs =
+            listOf(
+                "my-api-key",
+                "", // telegram? Y
+                "bot-token",
+                "",
+                "n", // discord
+                "n", // localWs
+                "n", // skip web search
+                "", // host exec (default yes)
+                "", // pre-approval (default yes)
+                // radio cancelled (returns null) → falls back to text input
+                "anthropic/claude-3-5-haiku-20241022", // typed model
+                "Klaw",
+                "assistant",
+                "developer",
+            )
+        val engineResponse = """{"identity":"Klaw","user":"developer"}"""
+        platform.posix.mkdir(configDir, 0x1EDu)
+
+        val output = mutableListOf<String>()
+        val wizard =
+            buildWizard(
+                inputs = inputs,
+                output = output,
+                engineResponses = mapOf("klaw_init_generate_identity" to engineResponse),
+                radioSelector = { _, prompt ->
+                    if (prompt.contains("pre-approval")) null else 0
+                },
+            )
+        wizard.run()
+
+        assertTrue(fileExists("$configDir/engine.json"), "engine.json should exist")
+        val engineJson = readFileText("$configDir/engine.json")
+        assertNotNull(engineJson)
+        val config = parseEngineConfig(engineJson)
+        assertEquals(
+            "anthropic/claude-3-5-haiku-20241022",
+            config.hostExecution.preValidation.model,
+            "Expected typed model as pre-approval model",
+        )
+    }
+
     // --- Native mode Docker warning ---
 
     @Test
@@ -2579,6 +2832,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -2614,6 +2868,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",
@@ -2655,6 +2910,7 @@ class InitWizardTest {
                 "n", // localWs
                 "n", // skip web search
                 "", // host exec (default yes)
+                "", // pre-approval (default yes)
                 "Klaw",
                 "assistant",
                 "developer",

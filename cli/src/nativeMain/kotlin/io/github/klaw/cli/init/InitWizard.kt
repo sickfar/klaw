@@ -374,6 +374,7 @@ internal class InitWizard(
         // ── Native: Docker check + host exec prompt ──
         var dockerAvailable = true
         var enableHostExec = false
+        var preValidationModel: String? = null
         if (resolvedMode == DeployMode.NATIVE) {
             dockerAvailable = nativeInstaller.isDockerAvailable()
             if (!dockerAvailable) {
@@ -393,6 +394,16 @@ internal class InitWizard(
             enableHostExec = hostExecAnswer.trim().lowercase() != "n"
             if (enableHostExec) {
                 success("Host execution enabled")
+                preValidationModel =
+                    askPreApproval(
+                        validationResponse,
+                        defaultAlias,
+                        providerType,
+                        ::readLineOrExit,
+                        printer,
+                        radioSelector,
+                        ::success,
+                    )
             } else {
                 printer("Host execution disabled (can be enabled later in engine.json)")
             }
@@ -477,6 +488,7 @@ internal class InitWizard(
                 webSearchProvider = webSearchProvider?.name,
                 webSearchApiKeyEnvVar = webSearchProvider?.envVar,
                 hostExecutionEnabled = enableHostExec,
+                preValidationModel = preValidationModel,
                 visionModelId = visionModelId,
                 attachmentsDirectory = attachmentsDirectory,
             ),
@@ -650,7 +662,7 @@ internal class InitWizard(
             writeFileText("$workspaceDir/USER.md", user)
         }
 
-        printSummary(agentName, modelId, resolvedMode, dockerTag)
+        printSummary(printer, configDir, workspaceDir, agentName, modelId, resolvedMode, dockerTag)
     }
 
     /**
@@ -808,50 +820,94 @@ internal class InitWizard(
     private fun success(message: String) {
         printer("${AnsiColors.GREEN}✓ $message${AnsiColors.RESET}")
     }
+}
 
-    @Suppress("LongParameterList")
-    private fun printSummary(
-        agentName: String,
-        modelId: String,
-        resolvedMode: DeployMode,
-        dockerTag: String,
-    ) {
-        printer("")
-        printer("${AnsiColors.BOLD}─── Setup complete ───${AnsiColors.RESET}")
-        printer("  ${AnsiColors.CYAN}Config${AnsiColors.RESET}: $configDir")
-        printer("  ${AnsiColors.CYAN}Workspace${AnsiColors.RESET}: $workspaceDir")
-        printer("  ${AnsiColors.CYAN}Agent${AnsiColors.RESET}: $agentName")
-        printer("  ${AnsiColors.CYAN}Model${AnsiColors.RESET}: $modelId")
-        when (resolvedMode) {
-            DeployMode.DOCKER -> {
-                printer("")
-                printer("  To run klaw commands:")
-                printer("    docker run -it --rm \\")
-                printer("      -v /var/run/docker.sock:/var/run/docker.sock \\")
-                printer("      -v klaw-config:/home/klaw/.config/klaw \\")
-                printer("      -v klaw-state:/home/klaw/.local/state/klaw \\")
-                printer("      -v klaw-data:/home/klaw/.local/share/klaw \\")
-                printer("      -v klaw-workspace:/workspace \\")
-                printer("      ghcr.io/sickfar/klaw-cli:$dockerTag [command]")
-                printer("")
-                printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
-                @Suppress("MaxLineLength")
-                printer(
-                    "    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install",
-                )
-            }
+@Suppress("LongParameterList")
+private fun printSummary(
+    printer: (String) -> Unit,
+    configDir: String,
+    workspaceDir: String,
+    agentName: String,
+    modelId: String,
+    resolvedMode: DeployMode,
+    dockerTag: String,
+) {
+    printer("")
+    printer("${AnsiColors.BOLD}─── Setup complete ───${AnsiColors.RESET}")
+    printer("  ${AnsiColors.CYAN}Config${AnsiColors.RESET}: $configDir")
+    printer("  ${AnsiColors.CYAN}Workspace${AnsiColors.RESET}: $workspaceDir")
+    printer("  ${AnsiColors.CYAN}Agent${AnsiColors.RESET}: $agentName")
+    printer("  ${AnsiColors.CYAN}Model${AnsiColors.RESET}: $modelId")
+    when (resolvedMode) {
+        DeployMode.DOCKER -> {
+            printer("")
+            printer("  To run klaw commands:")
+            printer("    docker run -it --rm \\")
+            printer("      -v /var/run/docker.sock:/var/run/docker.sock \\")
+            printer("      -v klaw-config:/home/klaw/.config/klaw \\")
+            printer("      -v klaw-state:/home/klaw/.local/state/klaw \\")
+            printer("      -v klaw-data:/home/klaw/.local/share/klaw \\")
+            printer("      -v klaw-workspace:/workspace \\")
+            printer("      ghcr.io/sickfar/klaw-cli:$dockerTag [command]")
+            printer("")
+            printer("  Or install the klaw wrapper (adds 'klaw' to PATH):")
+            @Suppress("MaxLineLength")
+            printer(
+                "    bash <(curl -sSL https://raw.githubusercontent.com/sickfar/klaw/main/scripts/get-klaw.sh) install",
+            )
+        }
 
-            DeployMode.HYBRID -> {
-                printer("")
-                printer("  ${AnsiColors.CYAN}Compose${AnsiColors.RESET}: $configDir/docker-compose.json")
-                printer("  Engine and Gateway run in Docker; CLI runs natively.")
-            }
+        DeployMode.HYBRID -> {
+            printer("")
+            printer("  ${AnsiColors.CYAN}Compose${AnsiColors.RESET}: $configDir/docker-compose.json")
+            printer("  Engine and Gateway run in Docker; CLI runs natively.")
+        }
 
-            DeployMode.NATIVE -> {
-                // No additional summary for native mode
-            }
+        DeployMode.NATIVE -> {
+            // No additional summary for native mode
         }
     }
+}
+
+@Suppress("LongParameterList")
+internal fun askPreApproval(
+    validationResponse: String?,
+    providerAlias: String,
+    providerType: String,
+    readLineOrExit: () -> String?,
+    printer: (String) -> Unit,
+    radioSelector: (List<String>, String) -> Int?,
+    success: (String) -> Unit,
+): String? {
+    printer("Enable LLM pre-approval for commands? [Y/n]:")
+    val answer = readLineOrExit() ?: return null
+    if (answer.trim().lowercase() == "n") {
+        printer("LLM pre-approval disabled (can be enabled later in engine.json)")
+        return null
+    }
+    val models = if (providerType == "anthropic") ANTHROPIC_MODELS else parseModels(validationResponse)
+    var selectedModel: String? = null
+    if (models.isNotEmpty()) {
+        val selectedIdx = radioSelector(models, "Select pre-approval model:")
+        if (selectedIdx != null && selectedIdx in models.indices) {
+            selectedModel = "$providerAlias/${models[selectedIdx]}"
+        }
+    }
+    // Fall back to text input if radio was cancelled or model list was empty
+    if (selectedModel == null) {
+        printer("Model ID for pre-approval (provider/model):")
+        val typed = readLineOrExit() ?: return null
+        val trimmed = typed.trim()
+        if (trimmed.isNotEmpty()) {
+            selectedModel = trimmed
+        }
+    }
+    if (selectedModel != null) {
+        success("LLM pre-approval enabled with $selectedModel")
+    } else {
+        success("LLM pre-approval enabled (configure model in engine.json)")
+    }
+    return selectedModel
 }
 
 @Suppress("LongParameterList")

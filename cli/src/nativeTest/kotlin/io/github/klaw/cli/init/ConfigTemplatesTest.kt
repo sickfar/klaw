@@ -673,6 +673,58 @@ class ConfigTemplatesTest {
         assertEquals("999", guilds.first().guildId)
     }
 
+    // --- Pre-validation model ---
+
+    @Test
+    fun `engineJson with hostExecution and preValidationModel includes model in config`() {
+        val json =
+            ConfigTemplates.engineJson(
+                modelId = "test/model",
+                hostExecutionEnabled = true,
+                preValidationModel = "anthropic/claude-sonnet-4-5-20250514",
+            )
+        val config = parseEngineConfig(json)
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true")
+        assertTrue(
+            config.hostExecution.preValidation.enabled,
+            "Expected preValidation.enabled=true",
+        )
+        assertEquals(
+            "anthropic/claude-sonnet-4-5-20250514",
+            config.hostExecution.preValidation.model,
+            "Expected preValidation.model to match",
+        )
+    }
+
+    @Test
+    fun `engineJson with hostExecution and null preValidationModel uses default empty model`() {
+        val json =
+            ConfigTemplates.engineJson(
+                modelId = "test/model",
+                hostExecutionEnabled = true,
+                preValidationModel = null,
+            )
+        val config = parseEngineConfig(json)
+        assertTrue(config.hostExecution.enabled, "Expected hostExecution.enabled=true")
+        assertEquals(
+            "",
+            config.hostExecution.preValidation.model,
+            "Expected default empty model",
+        )
+    }
+
+    @Test
+    fun `engineJson with hostExecution disabled ignores preValidationModel`() {
+        val json =
+            ConfigTemplates.engineJson(
+                modelId = "test/model",
+                hostExecutionEnabled = false,
+                preValidationModel = "anthropic/claude-sonnet-4-5-20250514",
+            )
+        val config = parseEngineConfig(json)
+        assertFalse(config.hostExecution.enabled, "Expected hostExecution.enabled=false")
+    }
+
     @Test
     fun `gatewayJson discord round-trips through parser`() {
         val json =
