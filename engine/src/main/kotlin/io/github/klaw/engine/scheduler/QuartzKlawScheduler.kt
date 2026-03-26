@@ -351,20 +351,37 @@ class QuartzKlawScheduler(
             }
         }
 
-    override suspend fun run(name: String): String =
+    override suspend fun run(name: String): String = run(name, null)
+
+    suspend fun run(
+        name: String,
+        runId: String?,
+    ): String =
         withContext(Dispatchers.VT) {
             val jobKey = JobKey(name, JOB_GROUP)
             if (!quartzScheduler.checkExists(jobKey)) {
                 return@withContext "Error: schedule '$name' not found"
             }
             try {
-                quartzScheduler.triggerJob(jobKey)
-                logger.debug { "Schedule triggered immediately name=$name" }
+                if (runId != null) {
+                    val extraData = org.quartz.JobDataMap().apply { put("runId", runId) }
+                    quartzScheduler.triggerJob(jobKey, extraData)
+                } else {
+                    quartzScheduler.triggerJob(jobKey)
+                }
+                logger.debug { "Schedule triggered immediately name=$name runId=$runId" }
                 "OK: '$name' triggered"
             } catch (e: SchedulerException) {
                 logger.warn(e) { "Failed to trigger schedule name=$name" }
                 "Error: ${e::class.simpleName}"
             }
+        }
+
+    suspend fun getJobModel(name: String): String? =
+        withContext(Dispatchers.VT) {
+            val jobKey = JobKey(name, JOB_GROUP)
+            if (!quartzScheduler.checkExists(jobKey)) return@withContext null
+            quartzScheduler.getJobDetail(jobKey)?.jobDataMap?.getString("model")
         }
 
     override suspend fun status(): String =

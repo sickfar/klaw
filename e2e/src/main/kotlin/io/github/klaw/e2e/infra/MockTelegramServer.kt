@@ -382,9 +382,8 @@ class MockTelegramServer(
                 ).size
 
     fun reset() {
-        wireMock.resetAll()
-        updateCounter = 0
-        callbackQueryCounter = 0
+        wireMock.resetRequests()
+        wireMock.resetScenarios()
         setupStubs()
     }
 

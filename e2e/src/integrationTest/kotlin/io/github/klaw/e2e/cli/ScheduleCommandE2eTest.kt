@@ -273,6 +273,8 @@ class ScheduleCommandE2eTest {
     @Test
     @Order(16)
     fun `schedule_run triggers immediate execution`() {
+        // Reset model to test/model so engine routes to WireMock (test 7 changed it to deepseek-chat)
+        cliClient.request("schedule_edit", mapOf("name" to TEST_JOB_NAME, "model" to "test/model"))
         wireMock.stubChatResponse("SCHEDULE-RUN-RESULT: task completed successfully")
 
         val response = cliClient.request("schedule_run", mapOf("name" to TEST_JOB_NAME))
@@ -281,14 +283,22 @@ class ScheduleCommandE2eTest {
             "Expected run confirmation, got: $response",
         )
 
-        // Wait for the subagent run to complete
+        // Wait for the subagent run to complete (COMPLETED or FAILED)
         awaitCondition(
             description = "schedule_run subagent completes",
             timeout = Duration.ofSeconds(RUN_WAIT_TIMEOUT_SECONDS),
         ) {
             val runsResponse = cliClient.request("schedule_runs", mapOf("name" to TEST_JOB_NAME))
-            runsResponse.contains("COMPLETED", ignoreCase = true)
+            runsResponse.contains("COMPLETED", ignoreCase = true) ||
+                runsResponse.contains("FAILED", ignoreCase = true)
         }
+
+        // Verify it completed successfully (not failed)
+        val runsCheck = cliClient.request("schedule_runs", mapOf("name" to TEST_JOB_NAME))
+        assertTrue(
+            runsCheck.contains("COMPLETED", ignoreCase = true),
+            "Run should be COMPLETED, got: $runsCheck",
+        )
     }
 
     @Test
@@ -350,6 +360,6 @@ class ScheduleCommandE2eTest {
     companion object {
         private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val TEST_JOB_NAME = "e2e-test-job"
-        private const val RUN_WAIT_TIMEOUT_SECONDS = 30L
+        private const val RUN_WAIT_TIMEOUT_SECONDS = 60L
     }
 }

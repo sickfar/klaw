@@ -3,7 +3,6 @@ package io.github.klaw.e2e.webui.browser
 import com.microsoft.playwright.Page
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -135,16 +134,16 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
 
         waitForTestId("chat-message-user")
 
-        page.waitForSelector(
-            "[data-testid='chat-message-assistant']",
-            Page.WaitForSelectorOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
+        // Wait for the specific assistant response text (not any historical message)
+        page.waitForFunction(
+            """Array.from(document.querySelectorAll('[data-testid="chat-message-assistant"]'))
+                .some(el => el.textContent.includes('browser-e2e-reply'))""",
+            null,
+            Page.WaitForFunctionOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
         )
-        val assistantMsg = page.querySelector("[data-testid='chat-message-assistant']")
-        assertNotNull(assistantMsg, "Assistant message should appear")
-        assertTrue(
-            assistantMsg!!.textContent().contains("browser-e2e-reply"),
-            "Assistant message should contain WireMock response text",
-        )
+        val allAssistant = page.querySelectorAll("[data-testid='chat-message-assistant']")
+        val matchingMsg = allAssistant.find { it.textContent().contains("browser-e2e-reply") }
+        assertNotNull(matchingMsg, "Assistant message with 'browser-e2e-reply' should appear")
     }
 
     @Test
@@ -162,13 +161,20 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
         val indicator = page.querySelector("[data-testid='thinking-indicator']")
         assertNotNull(indicator, "Thinking indicator should appear while waiting for response")
 
-        page.waitForSelector(
-            "[data-testid='chat-message-assistant']",
-            Page.WaitForSelectorOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
+        // Wait for the specific delayed response (not historical assistant messages)
+        page.waitForFunction(
+            """Array.from(document.querySelectorAll('[data-testid="chat-message-assistant"]'))
+                .some(el => el.textContent.includes('delayed-reply'))""",
+            null,
+            Page.WaitForFunctionOptions().setTimeout(ASSISTANT_RESPONSE_TIMEOUT),
         )
 
-        val indicatorAfter = page.querySelector("[data-testid='thinking-indicator']")
-        assertNull(indicatorAfter, "Thinking indicator should disappear after assistant response")
+        // After the fresh response arrives, thinking indicator should be cleared
+        page.waitForFunction(
+            """document.querySelector('[data-testid="thinking-indicator"]') === null""",
+            null,
+            Page.WaitForFunctionOptions().setTimeout(INDICATOR_CLEAR_TIMEOUT),
+        )
     }
 
     @Test
@@ -264,6 +270,7 @@ class WebUiBrowserChatTest : BrowserE2eBase() {
         private const val ASSISTANT_RESPONSE_TIMEOUT = 30_000.0
         private const val SHORT_TIMEOUT = 10_000.0
         private const val THINKING_DELAY_MS = 2000
+        private const val INDICATOR_CLEAR_TIMEOUT = 10_000.0
         private const val HTTP_INTERNAL_SERVER_ERROR = 500
     }
 }

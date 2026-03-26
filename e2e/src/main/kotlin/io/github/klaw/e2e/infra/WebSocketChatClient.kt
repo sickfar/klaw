@@ -23,6 +23,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 private val logger = KotlinLogging.logger {}
 
@@ -39,6 +40,7 @@ class WebSocketChatClient(
     private var connectedHost: String = ""
     private var connectedPort: Int = 0
     private val incomingFrames = Channel<ChatFrame>(Channel.UNLIMITED)
+    private val assistantFrameCount = AtomicInteger(0)
 
     @Volatile
     private var connected = false
@@ -62,6 +64,9 @@ class WebSocketChatClient(
                             try {
                                 val chatFrame = json.decodeFromString<ChatFrame>(text)
                                 incomingFrames.send(chatFrame)
+                                if (chatFrame.type == "assistant") {
+                                    assistantFrameCount.incrementAndGet()
+                                }
                             } catch (e: SerializationException) {
                                 logger.warn { "Failed to decode frame: ${e::class.simpleName}" }
                             } catch (e: IllegalArgumentException) {
@@ -195,10 +200,13 @@ class WebSocketChatClient(
             drained++
             logger.debug { "Drained frame: type=${frame.type}" }
         }
+        assistantFrameCount.set(0)
         if (drained > 0) {
             logger.debug { "Drained $drained pending frames" }
         }
     }
+
+    fun pendingFrameCount(): Int = assistantFrameCount.get()
 
     fun waitForAssistantResponse(timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS): String =
         runBlocking {

@@ -101,15 +101,24 @@ class MessageOrderingRecoveryE2eTest {
         ) {
             wireMock.getChatRequests().size >= EXPECTED_MESSAGE_COUNT
         }
-        // Wait for all LLM delays to complete + processing margin
+        // Wait for all LLM delays to complete — engine processes messages sequentially,
+        // so total time is up to 3 * LLM_DELAY_MS + margin
         @Suppress("BlockingMethodInNonBlockingContext")
-        Thread.sleep(LLM_DELAY_MS + PROCESSING_MARGIN_MS)
+        Thread.sleep(EXPECTED_MESSAGE_COUNT.toLong() * LLM_DELAY_MS + PROCESSING_MARGIN_MS)
 
         // Step 6: Reconnect WS — registerSession → onBecameAlive → drain buffer in order
         client.reconnect(containers.gatewayHost, containers.gatewayMappedPort)
 
-        // Step 8: Collect all frames delivered from the buffer
-        val frames = client.collectFrames(timeoutMs = COLLECT_TIMEOUT_MS)
+        // Step 7: Wait for buffered assistant messages to arrive
+        awaitCondition(
+            description = "All buffered assistant messages delivered",
+            timeout = Duration.ofSeconds(COLLECT_TIMEOUT_SECONDS),
+        ) {
+            client.pendingFrameCount() >= EXPECTED_MESSAGE_COUNT
+        }
+
+        // Step 8: Collect all delivered frames
+        val frames = client.collectFrames(timeoutMs = DRAIN_COLLECT_MS)
         val assistantMessages =
             frames
                 .filter { it.type == "assistant" }
@@ -141,11 +150,12 @@ class MessageOrderingRecoveryE2eTest {
     companion object {
         private const val CONTEXT_BUDGET_TOKENS = 2000
         private const val RESPONSE_TIMEOUT_MS = 30_000L
-        private const val LLM_DELAY_MS = 10_000
+        private const val LLM_DELAY_MS = 5_000
         private const val MESSAGE_GAP_MS = 1500L
         private const val WIREMOCK_REQUEST_WAIT_SECONDS = 60L
-        private const val PROCESSING_MARGIN_MS = 3000L
-        private const val COLLECT_TIMEOUT_MS = 30_000L
+        private const val PROCESSING_MARGIN_MS = 5000L
+        private const val COLLECT_TIMEOUT_SECONDS = 30L
+        private const val DRAIN_COLLECT_MS = 5_000L
         private const val EXPECTED_MESSAGE_COUNT = 3
     }
 }

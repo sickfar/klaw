@@ -80,10 +80,35 @@ class KlawContainers(
     }
 
     fun startEngine() {
+        val logsBefore =
+            if (::gatewayContainer.isInitialized && gatewayContainer.isRunning) {
+                gatewayContainer.logs
+            } else {
+                null
+            }
         engineContainer = createEngineContainer()
         logger.info { "Starting engine container..." }
         engineContainer.start()
         logger.info { "Engine container started" }
+        if (logsBefore != null) {
+            waitForGatewayReconnect(logsBefore)
+        }
+    }
+
+    private fun waitForGatewayReconnect(logsBefore: String) {
+        val countBefore = CONNECTED_PATTERN.findAll(logsBefore).count()
+        logger.info { "Waiting for gateway to reconnect to engine (had $countBefore connects before)..." }
+        val deadline = System.currentTimeMillis() + GATEWAY_RECONNECT_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            val logsNow = gatewayContainer.logs
+            val countNow = CONNECTED_PATTERN.findAll(logsNow).count()
+            if (countNow > countBefore) {
+                logger.info { "Gateway reconnected to engine ($countNow connects total)" }
+                return
+            }
+            Thread.sleep(GATEWAY_RECONNECT_POLL_MS)
+        }
+        logger.warn { "Gateway reconnect wait timed out after ${GATEWAY_RECONNECT_TIMEOUT_MS}ms" }
     }
 
     fun disconnectGatewayFromNetwork() {
@@ -282,5 +307,8 @@ class KlawContainers(
         private const val GATEWAY_LOCAL_WS_PORT = 37474
         private const val STARTUP_TIMEOUT_SECONDS = 180L
         private const val GATEWAY_STARTUP_TIMEOUT_SECONDS = 60L
+        private const val GATEWAY_RECONNECT_TIMEOUT_MS = 30_000L
+        private const val GATEWAY_RECONNECT_POLL_MS = 500L
+        private val CONNECTED_PATTERN = Regex("Engine socket connected")
     }
 }

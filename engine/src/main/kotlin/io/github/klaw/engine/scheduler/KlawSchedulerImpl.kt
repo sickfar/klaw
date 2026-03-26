@@ -1,6 +1,7 @@
 package io.github.klaw.engine.scheduler
 
 import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.engine.tools.StartRunRequest
 import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.tools.stubs.StubKlawScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -8,6 +9,7 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Replaces
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
+import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -76,7 +78,19 @@ class KlawSchedulerImpl(
 
     override suspend fun run(name: String): String {
         logger.debug { "Schedule manual run: name=$name" }
-        return inner.run(name)
+        val runId = UUID.randomUUID().toString()
+        val model = inner.getJobModel(name)
+        subagentRunRepository.startRun(
+            StartRunRequest(
+                id = runId,
+                name = name,
+                model = model,
+                injectInto = null,
+                sourceChatId = null,
+                sourceChannel = null,
+            ),
+        )
+        return inner.run(name, runId)
     }
 
     override suspend fun status() = inner.status()
