@@ -111,7 +111,7 @@ systemctl --user status klaw-engine klaw-gateway
 ```bash
 # 3. Run CLI commands
 ./klaw status
-./klaw memory show
+./klaw memory categories list
 ```
 
 ### Useful Docker commands

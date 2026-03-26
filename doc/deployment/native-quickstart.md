@@ -185,7 +185,7 @@ klaw logs --follow       # stream messages live
 klaw service restart engine  # restart the engine
 klaw service restart gateway # restart the gateway
 klaw service stop all        # stop both
-klaw memory show         # show MEMORY.md
+klaw memory categories list  # list memory categories
 klaw status --sessions   # include active sessions
 ```
 

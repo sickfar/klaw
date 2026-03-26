@@ -424,28 +424,68 @@ klaw schedule status
 
 ## Memory
 
-### `klaw memory show`
-
-Prints the contents of `MEMORY.md` from the workspace.
-
-```
-klaw memory show
-```
-
-### `klaw memory edit`
-
-Opens `MEMORY.md` from the workspace in `$EDITOR`.
-
-```
-klaw memory edit
-```
-
 ### `klaw memory search QUERY`
 
-Searches the memory index (delegated to Engine).
+Searches the memory index (delegated to Engine). Uses hybrid search (vector + FTS5) with RRF ranking.
 
 ```
 klaw memory search "machine learning papers"
+```
+
+### `klaw memory categories list`
+
+Lists all memory categories with entry counts and access counts.
+
+```
+klaw memory categories list
+klaw memory categories list --json
+```
+
+Options:
+- `--json` — output as JSON format with `categories` array and `total` count
+
+### `klaw memory categories rename OLD NEW`
+
+Renames a memory category.
+
+```
+klaw memory categories rename "old-name" "new-name"
+```
+
+### `klaw memory categories merge SOURCES TARGET`
+
+Merges one or more source categories into a target category. Sources is a comma-separated list.
+
+```
+klaw memory categories merge "cat-a,cat-b" "target-cat"
+```
+
+### `klaw memory categories delete NAME`
+
+Deletes a memory category. By default, also deletes all facts in the category.
+
+```
+klaw memory categories delete "old-category"
+klaw memory categories delete "old-category" --keep-facts
+```
+
+Options:
+- `--keep-facts` — keep facts when deleting the category (re-assigns them to no category)
+
+### `klaw memory facts list CATEGORY`
+
+Lists all facts in a memory category.
+
+```
+klaw memory facts list "daily-summary"
+```
+
+### `klaw memory facts add CATEGORY CONTENT`
+
+Adds a new fact to a memory category (creates the category if it doesn't exist).
+
+```
+klaw memory facts add "tech-stack" "Kotlin is the primary language"
 ```
 
 ### `klaw memory consolidate`
@@ -576,7 +616,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `channels status --probe`, `schedule`, `memory search`, `memory consolidate`, `reindex`) print a
+- Commands requiring the Engine (`status`, `channels status --probe`, `schedule`, `memory search`, `memory categories`, `memory facts`, `memory consolidate`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

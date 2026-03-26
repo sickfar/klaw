@@ -539,7 +539,7 @@ class CliCommandDispatcher(
                 try {
                     LocalDate.parse(dateStr)
                 } catch (_: IllegalArgumentException) {
-                    return """{"error":"invalid date '$dateStr', expected ISO-8601 (e.g. 2026-03-21)"}"""
+                    return """{"error":"invalid date '${escapeJson(dateStr)}', expected ISO-8601 (e.g. 2026-03-21)"}"""
                 }
             } else {
                 DailyConsolidationService.yesterday()

@@ -58,9 +58,12 @@ internal class MemoryCategoriesCommand(
 internal class MemoryCategoriesListCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "list") {
+    private val json by option("--json").flag(default = false)
+
     override fun run() {
+        val params = if (json) mapOf("json" to "true") else emptyMap()
         try {
-            echo(requestFn("memory_categories_list", emptyMap()))
+            echo(requestFn("memory_categories_list", params))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -126,11 +129,27 @@ internal class MemoryFactsCommand(
 ) : CliktCommand(name = "facts") {
     init {
         subcommands(
+            MemoryFactsListCommand(requestFn),
             MemoryFactsAddCommand(requestFn),
         )
     }
 
     override fun run() = Unit
+}
+
+internal class MemoryFactsListCommand(
+    private val requestFn: EngineRequest,
+) : CliktCommand(name = "list") {
+    private val category by argument()
+
+    override fun run() {
+        try {
+            echo(requestFn("memory_facts_list", mapOf("category" to category)))
+        } catch (_: EngineNotRunningException) {
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
+        }
+    }
 }
 
 internal class MemoryFactsAddCommand(

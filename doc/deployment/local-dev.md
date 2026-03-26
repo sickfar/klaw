@@ -53,7 +53,7 @@ docker run -it --rm \
 
 ```bash
 ./klaw status          # send a command to the engine
-./klaw memory show     # show memory
+./klaw memory categories list  # list memory categories
 ./klaw --help          # list available commands
 ```
 
