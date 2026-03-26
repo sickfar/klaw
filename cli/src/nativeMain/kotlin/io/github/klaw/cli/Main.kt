@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
+import io.github.klaw.cli.command.ChannelsCommand
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.ConfigureCommand
@@ -13,13 +14,11 @@ import io.github.klaw.cli.command.DoctorCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
 import io.github.klaw.cli.command.MemoryCommand
-import io.github.klaw.cli.command.PairCommand
 import io.github.klaw.cli.command.ReindexCommand
 import io.github.klaw.cli.command.ScheduleCommand
 import io.github.klaw.cli.command.ServiceCommand
 import io.github.klaw.cli.command.SessionsCommand
 import io.github.klaw.cli.command.StatusCommand
-import io.github.klaw.cli.command.UnpairCommand
 import io.github.klaw.cli.command.UpdateCommand
 import io.github.klaw.cli.init.checkTcpPort
 import io.github.klaw.cli.socket.EngineSocketClient
@@ -86,8 +85,7 @@ internal class KlawCli(
             ConfigCommand(configDir),
             ConfigureCommand(configDir, commandRunner, doctorCommandOutput),
             ServiceCommand(commandRunner, configDir),
-            PairCommand(configDir, pairingRequestsPath),
-            UnpairCommand(configDir),
+            ChannelsCommand(configDir, pairingRequestsPath, requestFn),
             UpdateCommand(configDir, releaseClient, commandRunner, readLine, doctorCommandOutput),
         )
     }

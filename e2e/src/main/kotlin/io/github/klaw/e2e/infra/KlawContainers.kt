@@ -174,7 +174,10 @@ class KlawContainers(
         GenericContainer(DockerImageName.parse(CLI_IMAGE))
             .withNetwork(network)
             .withEnv("HOME", "/home/klaw")
+            .withEnv("KLAW_ENGINE_HOST", "engine")
+            .withEnv("KLAW_ENGINE_PORT", ENGINE_PORT.toString())
             .withFileSystemBind(gatewayDataDir.absolutePath, "/home/klaw/.local/share/klaw", BindMode.READ_ONLY)
+            .withFileSystemBind(gatewayConfigDir.absolutePath, "/home/klaw/.config/klaw", BindMode.READ_WRITE)
             .withCreateContainerCmdModifier { cmd ->
                 cmd.withEntrypoint("tail", "-f", "/dev/null")
             }

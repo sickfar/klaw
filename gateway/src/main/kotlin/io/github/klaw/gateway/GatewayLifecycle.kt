@@ -252,7 +252,7 @@ class GatewayLifecycle(
                             replyFn(
                                 incoming.chatId,
                                 "Pairing code: ${result.code}\n\n" +
-                                    "Run on the server: klaw pair ${incoming.channel} ${result.code}\n\n" +
+                                    "Run on the server: klaw channels pair ${incoming.channel} ${result.code}\n\n" +
                                     "Code expires in 5 minutes.",
                             )
                             if (pairingService.hasPendingRequests()) {

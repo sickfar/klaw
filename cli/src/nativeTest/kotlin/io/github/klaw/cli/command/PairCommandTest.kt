@@ -88,7 +88,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair telegram ABC123")
+        val result = makeCli().test("channels pair telegram ABC123")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Paired"), "Expected 'Paired' in: ${result.output}")
 
@@ -109,7 +109,7 @@ class PairCommandTest {
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeGatewayConfig()))
         writePairingRequests(emptyList())
 
-        val result = makeCli().test("pair telegram WRONG1")
+        val result = makeCli().test("channels pair telegram WRONG1")
         assertEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Invalid"), result.output)
     }
@@ -129,7 +129,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair telegram EXP001")
+        val result = makeCli().test("channels pair telegram EXP001")
         assertEquals(0, result.statusCode, "Exit code != 0, output: ${result.output}")
         assertTrue(result.output.contains("expired") || result.output.contains("Expired"), "output: ${result.output}")
     }
@@ -150,7 +150,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair telegram NEW001")
+        val result = makeCli().test("channels pair telegram NEW001")
         assertEquals(0, result.statusCode, "output: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
@@ -177,7 +177,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair telegram MIS001")
+        val result = makeCli().test("channels pair telegram MIS001")
         assertEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Invalid"), result.output)
     }
@@ -206,7 +206,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair discord DIS001")
+        val result = makeCli().test("channels pair discord DIS001")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Paired"), "Expected 'Paired' in: ${result.output}")
 
@@ -237,7 +237,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair discord DIS002")
+        val result = makeCli().test("channels pair discord DIS002")
         assertEquals(0, result.statusCode, "output: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
@@ -266,7 +266,7 @@ class PairCommandTest {
             ),
         )
 
-        val result = makeCli().test("pair discord DIS003")
+        val result = makeCli().test("channels pair discord DIS003")
         assertEquals(0, result.statusCode, "output: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)

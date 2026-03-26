@@ -144,8 +144,8 @@ class TelegramPairingE2eTest {
             "Response should contain 'Pairing code:', got: ${responseBody.take(500)}",
         )
         assertTrue(
-            responseBody.contains("klaw pair"),
-            "Response should contain CLI instruction 'klaw pair', got: ${responseBody.take(500)}",
+            responseBody.contains("klaw channels pair"),
+            "Response should contain CLI instruction 'klaw channels pair', got: ${responseBody.take(500)}",
         )
         assertTrue(
             responseBody.contains("expires"),

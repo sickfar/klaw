@@ -173,24 +173,47 @@ klaw service restart gateway
 
 ---
 
-## Pairing
+## Channels
 
-### `klaw pair CHANNEL CODE`
+### `klaw channels list`
+
+Shows all configured channels from `gateway.json` — name, enabled status, and paired chats/guilds count.
+
+```
+klaw channels list
+klaw channels list --json
+```
+
+### `klaw channels status`
+
+Shows channel configuration with optional gateway connectivity probe.
+
+```
+klaw channels status
+klaw channels status --probe
+klaw channels status --probe --json
+```
+
+Options:
+- `--probe` — check gateway connectivity via Engine deep status
+- `--json` — output as JSON format
+
+### `klaw channels pair CHANNEL CODE`
 
 Pairs a new chat with the bot using a pairing code. The code is generated when a user sends `/start` in an unpaired Telegram chat. Codes expire after 5 minutes.
 
 ```
-klaw pair telegram ABC123
+klaw channels pair telegram ABC123
 ```
 
 This adds the chat to the `allowedChats` list in `gateway.json` and removes the pairing request.
 
-### `klaw unpair CHANNEL CHATID`
+### `klaw channels unpair CHANNEL CHATID`
 
 Removes a paired chat from the `allowedChats` list in `gateway.json`.
 
 ```
-klaw unpair telegram 123456789
+klaw channels unpair telegram 123456789
 ```
 
 ---
@@ -553,7 +576,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `schedule`, `memory search`, `memory consolidate`, `reindex`) print a
+- Commands requiring the Engine (`status`, `channels status --probe`, `schedule`, `memory search`, `memory consolidate`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

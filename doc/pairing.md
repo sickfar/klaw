@@ -6,7 +6,7 @@ Klaw requires pairing before a chat can interact with the bot. This prevents una
 
 1. **User sends `/start`** in a Telegram chat or Discord channel
 2. **Gateway replies** with a 6-character pairing code and instructions
-3. **Operator runs** `klaw pair <channel> <code>` on the server
+3. **Operator runs** `klaw channels pair <channel> <code>` on the server
 4. **Gateway detects** the config change and reloads the allowlist
 5. **User can now** send messages to the bot
 
@@ -16,7 +16,7 @@ Klaw requires pairing before a chat can interact with the bot. This prevents una
 
 ```bash
 # After user sends /start and receives a code like "A7K3M2"
-klaw pair telegram A7K3M2
+klaw channels pair telegram A7K3M2
 ```
 
 This adds the chat and user to `allowedChats` in `gateway.json`.
@@ -25,7 +25,7 @@ This adds the chat and user to `allowedChats` in `gateway.json`.
 
 ```bash
 # After user sends /start and receives a code like "B9X4P1"
-klaw pair discord B9X4P1
+klaw channels pair discord B9X4P1
 ```
 
 This adds the guild, channel, and user to `allowedGuilds` in `gateway.json`.
@@ -42,7 +42,7 @@ The command:
 ### Telegram
 
 ```bash
-klaw unpair telegram telegram_123456789
+klaw channels unpair telegram telegram_123456789
 ```
 
 This removes the chat entry from `allowedChats` in `gateway.json`.
@@ -50,7 +50,7 @@ This removes the chat entry from `allowedChats` in `gateway.json`.
 ### Discord
 
 ```bash
-klaw unpair discord 123456789012345678
+klaw channels unpair discord 123456789012345678
 ```
 
 This removes the guild entry from `allowedGuilds` in `gateway.json`. The argument is the guild (server) ID.
@@ -116,5 +116,5 @@ The local WebSocket channel (`klaw chat`) is always allowed when enabled -- no p
 
 | File | Description |
 |------|-------------|
-| `~/.config/klaw/gateway.json` | Stores allowlists (modified by `klaw pair`/`klaw unpair`) |
-| `~/.local/state/klaw/pairing_requests.json` | Pending pairing requests (written by gateway, consumed by `klaw pair`) |
+| `~/.config/klaw/gateway.json` | Stores allowlists (modified by `klaw channels pair`/`klaw channels unpair`) |
+| `~/.local/state/klaw/pairing_requests.json` | Pending pairing requests (written by gateway, consumed by `klaw channels pair`) |

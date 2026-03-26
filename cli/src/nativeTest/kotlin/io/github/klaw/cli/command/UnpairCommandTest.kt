@@ -64,7 +64,7 @@ class UnpairCommandTest {
             )
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeGatewayConfig(chats)))
 
-        val result = makeCli().test("unpair telegram telegram_123")
+        val result = makeCli().test("channels unpair telegram telegram_123")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Unpaired") || result.output.contains("Removed"), result.output)
 
@@ -78,7 +78,7 @@ class UnpairCommandTest {
     fun `not found warning for non-existent chat`() {
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeGatewayConfig()))
 
-        val result = makeCli().test("unpair telegram telegram_999")
+        val result = makeCli().test("channels unpair telegram telegram_999")
         assertEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Not found"), result.output)
     }
@@ -100,7 +100,7 @@ class UnpairCommandTest {
             )
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeDiscordGatewayConfig(guilds)))
 
-        val result = makeCli().test("unpair discord guild_111")
+        val result = makeCli().test("channels unpair discord guild_111")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Unpaired") || result.output.contains("Removed"), result.output)
 
@@ -114,7 +114,7 @@ class UnpairCommandTest {
     fun `unpair discord not found for non-existent guild`() {
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(makeDiscordGatewayConfig()))
 
-        val result = makeCli().test("unpair discord guild_999")
+        val result = makeCli().test("channels unpair discord guild_999")
         assertEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Not found"), result.output)
     }
