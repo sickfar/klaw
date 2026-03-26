@@ -12,11 +12,8 @@ import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.FinishReason
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
-import io.github.klaw.common.llm.ToolDef
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

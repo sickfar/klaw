@@ -73,7 +73,7 @@ class LlmRouter(
         throw KlawError.AllProvidersFailedError
     }
 
-    // TODO: add fallback chain for streaming (currently single provider, no retry)
+    // Streaming currently uses single provider without fallback chain
     fun chatStream(
         request: LlmRequest,
         modelId: String,

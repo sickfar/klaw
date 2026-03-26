@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.pdfbox)
     implementation(libs.kotlin.logging)
     implementation(libs.anthropic.java)
+    implementation(libs.openai.java)
 
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)

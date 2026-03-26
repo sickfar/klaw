@@ -11,7 +11,6 @@ import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
-import io.github.klaw.engine.tools.DoctorDeepProbe
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify

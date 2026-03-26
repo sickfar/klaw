@@ -1,5 +1,28 @@
 package io.github.klaw.engine.llm
 
+import com.openai.client.OpenAIClient
+import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.core.JsonValue
+import com.openai.errors.OpenAIIoException
+import com.openai.errors.OpenAIServiceException
+import com.openai.models.ChatModel
+import com.openai.models.FunctionDefinition
+import com.openai.models.FunctionParameters
+import com.openai.models.chat.completions.ChatCompletion
+import com.openai.models.chat.completions.ChatCompletionAssistantMessageParam
+import com.openai.models.chat.completions.ChatCompletionChunk
+import com.openai.models.chat.completions.ChatCompletionContentPart
+import com.openai.models.chat.completions.ChatCompletionContentPartImage
+import com.openai.models.chat.completions.ChatCompletionContentPartText
+import com.openai.models.chat.completions.ChatCompletionCreateParams
+import com.openai.models.chat.completions.ChatCompletionFunctionTool
+import com.openai.models.chat.completions.ChatCompletionMessageFunctionToolCall
+import com.openai.models.chat.completions.ChatCompletionMessageParam
+import com.openai.models.chat.completions.ChatCompletionMessageToolCall
+import com.openai.models.chat.completions.ChatCompletionSystemMessageParam
+import com.openai.models.chat.completions.ChatCompletionTool
+import com.openai.models.chat.completions.ChatCompletionToolMessageParam
+import com.openai.models.chat.completions.ChatCompletionUserMessageParam
 import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.ModelRef
 import io.github.klaw.common.config.ResolvedProviderConfig
@@ -13,54 +36,22 @@ import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
-import io.github.klaw.engine.llm.openai.OpenAiChatRequest
-import io.github.klaw.engine.llm.openai.OpenAiChatResponse
-import io.github.klaw.engine.llm.openai.OpenAiContent
-import io.github.klaw.engine.llm.openai.OpenAiFunction
-import io.github.klaw.engine.llm.openai.OpenAiFunctionCall
-import io.github.klaw.engine.llm.openai.OpenAiImageUrl
-import io.github.klaw.engine.llm.openai.OpenAiImageUrlPart
-import io.github.klaw.engine.llm.openai.OpenAiMessage
-import io.github.klaw.engine.llm.openai.OpenAiStreamAccumulator
-import io.github.klaw.engine.llm.openai.OpenAiStreamParser
-import io.github.klaw.engine.llm.openai.OpenAiTextPart
-import io.github.klaw.engine.llm.openai.OpenAiToolCallOut
-import io.github.klaw.engine.llm.openai.OpenAiToolDef
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
+import java.io.IOException
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
-
-private val json =
-    Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = false
-    }
-
-@Suppress("MagicNumber")
-private val HTTP_SUCCESS_RANGE = 200..299
 
 class OpenAiCompatibleClient(
     private val retryConfig: HttpRetryConfig,
 ) : LlmClient {
-    private val httpClient: HttpClient =
-        HttpClient
-            .newBuilder()
-            .connectTimeout(Duration.ofMillis(retryConfig.requestTimeoutMs))
-            .build()
+    private val clients = ConcurrentHashMap<String, OpenAIClient>()
 
     override suspend fun chat(
         request: LlmRequest,
@@ -80,52 +71,29 @@ class OpenAiCompatibleClient(
         provider: ResolvedProviderConfig,
         model: ModelRef,
     ): LlmResponse {
-        val requestBody = json.encodeToString(request.toOpenAiRequest(model.modelId))
-        val url = "${provider.endpoint}/chat/completions"
+        val client = getOrCreateClient(provider)
+        val params = request.toOpenAiSdkParams(model.modelId)
         logger.debug { "LLM request to ${provider.endpoint} model=${model.modelId} messages=${request.messages.size}" }
-        logger.trace { "LLM request body size=${requestBody.length} chars" }
-        val httpRequest = buildHttpRequest(url, requestBody, provider.apiKey)
 
-        val response =
-            withContext(Dispatchers.VT) {
-                httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
+        val completion =
+            try {
+                withContext(Dispatchers.VT) {
+                    client.chat().completions().create(params)
+                }
+            } catch (e: OpenAIServiceException) {
+                logger.warn {
+                    "LLM error: status=${e.statusCode()} endpoint=${provider.endpoint} model=${model.modelId}"
+                }
+                throw KlawError.ProviderError(e.statusCode(), "HTTP ${e.statusCode()} from ${provider.endpoint}", e)
+            } catch (e: OpenAIIoException) {
+                throw IOException("OpenAI I/O error", e)
             }
 
-        val status = response.statusCode()
-        val body = response.body()
-        logger.debug { "LLM response status=$status bodyBytes=${body?.length ?: 0}" }
-        if (status !in HTTP_SUCCESS_RANGE) {
-            logger.warn {
-                "LLM error: status=$status endpoint=${provider.endpoint} model=${model.modelId}" +
-                    " detail=${extractApiErrorDetail(body)}"
-            }
-            throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
-        }
-
-        if (body == null) throw KlawError.ProviderError(status, "Empty response body")
-        val klawResponse = json.decodeFromString<OpenAiChatResponse>(body).toKlawResponse()
+        val klawResponse = completion.toKlawResponse()
         logger.trace {
             "LLM response: finishReason=${klawResponse.finishReason} tokens=${klawResponse.usage?.totalTokens}"
         }
         return klawResponse
-    }
-
-    private fun buildHttpRequest(
-        url: String,
-        body: String,
-        apiKey: String?,
-    ): HttpRequest {
-        val builder =
-            HttpRequest
-                .newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofMillis(retryConfig.requestTimeoutMs))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-        if (apiKey != null) {
-            builder.header("Authorization", "Bearer $apiKey")
-        }
-        return builder.build()
     }
 
     override fun chatStream(
@@ -134,162 +102,360 @@ class OpenAiCompatibleClient(
         model: ModelRef,
     ): Flow<StreamEvent> =
         channelFlow {
-            val openAiRequest = request.toOpenAiRequest(model.modelId).copy(stream = true)
-            val requestBody = json.encodeToString(openAiRequest)
-            val url = "${provider.endpoint}/chat/completions"
+            val client = getOrCreateClient(provider)
+            val params = request.toOpenAiSdkParams(model.modelId)
             logger.debug { "LLM stream request to ${provider.endpoint} model=${model.modelId}" }
-            val httpRequest = buildHttpRequest(url, requestBody, provider.apiKey)
 
-            val response =
+            try {
                 withContext(Dispatchers.VT) {
-                    httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofLines())
-                }
+                    client.chat().completions().createStreaming(params).use { streamResponse ->
+                        val accumulator = SdkStreamAccumulator()
+                        var toolCallEmitted = false
 
-            val status = response.statusCode()
-            if (status !in HTTP_SUCCESS_RANGE) {
-                throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
-            }
+                        streamResponse.stream().forEach { chunk ->
+                            accumulator.accept(chunk)
+                            val choice = chunk.choices().firstOrNull() ?: return@forEach
+                            val delta = choice.delta()
 
-            val accumulator = OpenAiStreamAccumulator()
-            var toolCallEmitted = false
+                            if (delta.toolCalls().isPresent && delta.toolCalls().get().isNotEmpty() &&
+                                !toolCallEmitted
+                            ) {
+                                toolCallEmitted = true
+                                channel.trySend(StreamEvent.ToolCallDetected)
+                            }
 
-            withContext(Dispatchers.VT) {
-                response.body().forEach { line ->
-                    val chunk = OpenAiStreamParser.parseSseLine(line) ?: return@forEach
-                    accumulator.accept(chunk)
+                            if (!toolCallEmitted) {
+                                delta.content().ifPresent { content ->
+                                    if (content.isNotEmpty()) {
+                                        channel.trySend(StreamEvent.Delta(content))
+                                    }
+                                }
+                            }
+                        }
 
-                    val choice = chunk.choices.firstOrNull() ?: return@forEach
-                    val delta = choice.delta
-
-                    if (delta.toolCalls != null && !toolCallEmitted) {
-                        toolCallEmitted = true
-                        channel.trySend(StreamEvent.ToolCallDetected)
+                        channel.send(StreamEvent.End(accumulator.build()))
                     }
-
-                    if (delta.content != null && delta.content.isNotEmpty() && !toolCallEmitted) {
-                        channel.trySend(StreamEvent.Delta(delta.content))
-                    }
                 }
+            } catch (e: OpenAIServiceException) {
+                logger.warn {
+                    "LLM stream error: status=${e.statusCode()} endpoint=${provider.endpoint} model=${model.modelId}"
+                }
+                throw KlawError.ProviderError(e.statusCode(), "HTTP ${e.statusCode()} from ${provider.endpoint}", e)
+            } catch (e: OpenAIIoException) {
+                throw IOException("OpenAI I/O error", e)
             }
-
-            send(StreamEvent.End(accumulator.build()))
         }
+
+    private fun getOrCreateClient(provider: ResolvedProviderConfig): OpenAIClient {
+        val cacheKey = "${provider.endpoint}|${provider.apiKey.orEmpty().hashCode()}"
+        return clients.computeIfAbsent(cacheKey) {
+            OpenAIOkHttpClient
+                .builder()
+                .baseUrl(provider.endpoint)
+                .apiKey(provider.apiKey ?: "")
+                .maxRetries(0) // We handle retries ourselves via withRetry
+                .timeout(Duration.ofMillis(retryConfig.requestTimeoutMs))
+                .build()
+        }
+    }
 }
 
-// --- Mapping: LlmRequest → OpenAiChatRequest ---
+// --- Mapping: LlmRequest → ChatCompletionCreateParams ---
 
-internal fun LlmRequest.toOpenAiRequest(modelId: String): OpenAiChatRequest =
-    OpenAiChatRequest(
-        model = modelId,
-        messages = messages.map { it.toOpenAiMessage() },
-        tools = tools?.map { it.toOpenAiToolDef() },
-        maxTokens = maxTokens,
-        temperature = temperature,
+internal fun LlmRequest.toOpenAiSdkParams(modelId: String): ChatCompletionCreateParams {
+    val builder =
+        ChatCompletionCreateParams
+            .builder()
+            .model(ChatModel.of(modelId))
+            .messages(messages.map { it.toSdkMessageParam() })
+
+    val toolDefs = tools
+    if (!toolDefs.isNullOrEmpty()) {
+        builder.tools(toolDefs.map { it.toSdkTool() })
+    }
+
+    val max = maxTokens
+    if (max != null) {
+        builder.maxCompletionTokens(max.toLong())
+    }
+
+    val temp = temperature
+    if (temp != null) {
+        builder.temperature(temp)
+    }
+
+    return builder.build()
+}
+
+internal fun LlmMessage.toSdkMessageParam(): ChatCompletionMessageParam =
+    when {
+        role == "system" -> toSdkSystemMessage()
+        role == "tool" && toolCallId != null -> toSdkToolResultMessage()
+        role == "assistant" && !toolCalls.isNullOrEmpty() -> toSdkAssistantWithToolCalls()
+        role == "assistant" -> toSdkAssistantMessage()
+        contentParts != null -> toSdkMultimodalUserMessage()
+        else -> toSdkTextUserMessage()
+    }
+
+private fun LlmMessage.toSdkSystemMessage(): ChatCompletionMessageParam =
+    ChatCompletionMessageParam.ofSystem(
+        ChatCompletionSystemMessageParam
+            .builder()
+            .content(content.orEmpty())
+            .build(),
     )
 
-internal fun LlmMessage.toOpenAiMessage(): OpenAiMessage {
-    val parts = contentParts
+private fun LlmMessage.toSdkToolResultMessage(): ChatCompletionMessageParam =
+    ChatCompletionMessageParam.ofTool(
+        ChatCompletionToolMessageParam
+            .builder()
+            .toolCallId(toolCallId!!)
+            .content(content.orEmpty())
+            .build(),
+    )
+
+private fun LlmMessage.toSdkAssistantWithToolCalls(): ChatCompletionMessageParam {
+    val assistantBuilder =
+        ChatCompletionAssistantMessageParam
+            .builder()
+            .toolCalls(
+                toolCalls!!.map { tc ->
+                    ChatCompletionMessageToolCall.ofFunction(
+                        ChatCompletionMessageFunctionToolCall
+                            .builder()
+                            .id(tc.id)
+                            .function(
+                                ChatCompletionMessageFunctionToolCall.Function
+                                    .builder()
+                                    .name(tc.name)
+                                    .arguments(tc.arguments)
+                                    .build(),
+                            ).build(),
+                    )
+                },
+            )
     val text = content
-    return OpenAiMessage(
-        role = role,
-        content =
-            when {
-                parts != null -> {
-                    OpenAiContent.Parts(
-                        parts.map { part ->
-                            when (part) {
-                                is TextContentPart -> OpenAiTextPart(part.text)
-                                is ImageUrlContentPart -> OpenAiImageUrlPart(OpenAiImageUrl(part.imageUrl.url))
-                            }
-                        },
+    if (text != null) {
+        assistantBuilder.content(text)
+    }
+    return ChatCompletionMessageParam.ofAssistant(assistantBuilder.build())
+}
+
+private fun LlmMessage.toSdkAssistantMessage(): ChatCompletionMessageParam =
+    ChatCompletionMessageParam.ofAssistant(
+        ChatCompletionAssistantMessageParam
+            .builder()
+            .content(content.orEmpty())
+            .build(),
+    )
+
+private fun LlmMessage.toSdkMultimodalUserMessage(): ChatCompletionMessageParam {
+    val sdkParts =
+        contentParts!!.map { part ->
+            when (part) {
+                is TextContentPart -> {
+                    ChatCompletionContentPart.ofText(
+                        ChatCompletionContentPartText.builder().text(part.text).build(),
                     )
                 }
 
-                text != null -> {
-                    OpenAiContent.Text(text)
+                is ImageUrlContentPart -> {
+                    ChatCompletionContentPart.ofImageUrl(
+                        ChatCompletionContentPartImage
+                            .builder()
+                            .imageUrl(
+                                ChatCompletionContentPartImage.ImageUrl
+                                    .builder()
+                                    .url(part.imageUrl.url)
+                                    .build(),
+                            ).build(),
+                    )
                 }
-
-                else -> {
-                    null
-                }
-            },
-        toolCalls =
-            toolCalls?.map { tc ->
-                OpenAiToolCallOut(
-                    id = tc.id,
-                    type = "function",
-                    function = OpenAiFunctionCall(name = tc.name, arguments = tc.arguments),
-                )
-            },
-        toolCallId = toolCallId,
+            }
+        }
+    return ChatCompletionMessageParam.ofUser(
+        ChatCompletionUserMessageParam
+            .builder()
+            .content(ChatCompletionUserMessageParam.Content.ofArrayOfContentParts(sdkParts))
+            .build(),
     )
 }
 
-internal fun ToolDef.toOpenAiToolDef(): OpenAiToolDef =
-    OpenAiToolDef(
-        type = "function",
-        function =
-            OpenAiFunction(
-                name = name,
-                description = description,
-                parameters = parameters,
-            ),
+private fun LlmMessage.toSdkTextUserMessage(): ChatCompletionMessageParam =
+    ChatCompletionMessageParam.ofUser(
+        ChatCompletionUserMessageParam
+            .builder()
+            .content(content.orEmpty())
+            .build(),
     )
 
-// --- Mapping: OpenAiChatResponse → LlmResponse ---
+internal fun ToolDef.toSdkTool(): ChatCompletionTool {
+    val paramsBuilder = FunctionParameters.builder()
+    for ((key, value) in parameters.entries) {
+        paramsBuilder.putAdditionalProperty(key, JsonValue.from(kotlinxJsonElementToJava(value)))
+    }
 
-internal fun OpenAiChatResponse.toKlawResponse(): LlmResponse {
+    return ChatCompletionTool.ofFunction(
+        ChatCompletionFunctionTool
+            .builder()
+            .function(
+                FunctionDefinition
+                    .builder()
+                    .name(name)
+                    .description(description)
+                    .parameters(paramsBuilder.build())
+                    .build(),
+            ).build(),
+    )
+}
+
+// --- Mapping: ChatCompletion → LlmResponse ---
+
+internal fun ChatCompletion.toKlawResponse(): LlmResponse {
     val choice =
-        choices.firstOrNull()
+        choices().firstOrNull()
             ?: throw KlawError.ProviderError(null, "Provider returned empty choices array")
-    val message = choice.message
+    val message = choice.message()
+
+    val textContent = message.content().orElse(null)
+    val sdkToolCalls = message.toolCalls().orElse(null)
+
+    val toolCallList =
+        sdkToolCalls?.map { tc ->
+            val fnCall = tc.asFunction()
+            val fn = fnCall.function()
+            ToolCall(
+                id = fnCall.id(),
+                name = fn.name(),
+                arguments = fn.arguments(),
+            )
+        }
+
+    val sdkUsage = usage().orElse(null)
+    val tokenUsage =
+        sdkUsage?.let { u ->
+            TokenUsage(
+                promptTokens = u.promptTokens().toInt(),
+                completionTokens = u.completionTokens().toInt(),
+                totalTokens = u.totalTokens().toInt(),
+            )
+        }
+
+    val finishReason =
+        when (choice.finishReason().value()) {
+            ChatCompletion.Choice.FinishReason.Value.STOP -> FinishReason.STOP
+            ChatCompletion.Choice.FinishReason.Value.LENGTH -> FinishReason.LENGTH
+            ChatCompletion.Choice.FinishReason.Value.TOOL_CALLS -> FinishReason.TOOL_CALLS
+            else -> FinishReason.STOP
+        }
+
     return LlmResponse(
-        content = message.content,
-        toolCalls =
-            message.toolCalls?.map { tc ->
-                ToolCall(
-                    id = tc.id,
-                    name = tc.function.name,
-                    arguments = tc.function.arguments,
-                )
-            },
-        usage =
-            usage?.let { u ->
+        content = textContent,
+        toolCalls = toolCallList?.ifEmpty { null },
+        usage = tokenUsage,
+        finishReason = finishReason,
+    )
+}
+
+// --- Streaming accumulator ---
+
+private class ToolCallAccumulator(
+    val id: String,
+    val name: String,
+) {
+    val arguments = StringBuilder()
+}
+
+private class SdkStreamAccumulator {
+    private val contentBuilder = StringBuilder()
+    private val toolCallMap = mutableMapOf<Int, ToolCallAccumulator>()
+    private var finishReason: String? = null
+    private var promptTokens: Int = 0
+    private var completionTokens: Int = 0
+    private var totalTokens: Int = 0
+
+    fun accept(chunk: ChatCompletionChunk) {
+        val choice = chunk.choices().firstOrNull() ?: return
+        val delta = choice.delta()
+
+        delta.content().ifPresent { text ->
+            contentBuilder.append(text)
+        }
+
+        choice.finishReason().ifPresent { fr ->
+            finishReason = fr.value().toString().lowercase()
+        }
+
+        delta.toolCalls().ifPresent { toolCalls ->
+            for (tc in toolCalls) {
+                val index = tc.index().toInt()
+                val existing = toolCallMap[index]
+                if (existing == null) {
+                    val id = tc.id().orElse("")
+                    val fn = tc.function().orElse(null)
+                    val name = fn?.name()?.orElse("") ?: ""
+                    val args = fn?.arguments()?.orElse("") ?: ""
+                    val acc = ToolCallAccumulator(id, name)
+                    acc.arguments.append(args)
+                    toolCallMap[index] = acc
+                } else {
+                    tc.function().ifPresent { fn ->
+                        fn.arguments().ifPresent { args ->
+                            existing.arguments.append(args)
+                        }
+                    }
+                }
+            }
+        }
+
+        chunk.usage().ifPresent { usage ->
+            promptTokens = usage.promptTokens().toInt()
+            completionTokens = usage.completionTokens().toInt()
+            totalTokens = usage.totalTokens().toInt()
+        }
+    }
+
+    fun build(): LlmResponse {
+        val content = contentBuilder.toString().ifBlank { null }
+        val tools =
+            if (toolCallMap.isEmpty()) {
+                null
+            } else {
+                toolCallMap.entries
+                    .sortedBy { it.key }
+                    .map { (_, acc) ->
+                        ToolCall(
+                            id = acc.id,
+                            name = acc.name,
+                            arguments = acc.arguments.toString(),
+                        )
+                    }
+            }
+
+        val usage =
+            if (totalTokens > 0 || promptTokens > 0 || completionTokens > 0) {
                 TokenUsage(
-                    promptTokens = u.promptTokens,
-                    completionTokens = u.completionTokens,
-                    totalTokens = u.totalTokens,
+                    promptTokens = promptTokens,
+                    completionTokens = completionTokens,
+                    totalTokens = totalTokens,
                 )
-            },
-        finishReason =
-            when (choice.finishReason) {
+            } else {
+                null
+            }
+
+        val fr =
+            when (finishReason) {
                 "stop" -> FinishReason.STOP
                 "length" -> FinishReason.LENGTH
                 "tool_calls" -> FinishReason.TOOL_CALLS
                 else -> FinishReason.STOP
-            },
-    )
-}
+            }
 
-private const val MAX_ERROR_DETAIL_LENGTH = 200
-
-internal fun extractApiErrorDetail(body: String?): String {
-    if (body.isNullOrBlank()) return "<empty>"
-    return try {
-        val obj = json.decodeFromString<JsonObject>(body)
-        val errorMsg =
-            obj["error"]
-                ?.jsonObject
-                ?.get("message")
-                ?.jsonPrimitive
-                ?.content
-        if (errorMsg != null) return errorMsg
-        val msg = obj["message"]?.jsonPrimitive?.content
-        if (msg != null) return msg
-        body.take(MAX_ERROR_DETAIL_LENGTH)
-    } catch (_: kotlinx.serialization.SerializationException) {
-        body.take(MAX_ERROR_DETAIL_LENGTH)
-    } catch (_: IllegalArgumentException) {
-        body.take(MAX_ERROR_DETAIL_LENGTH)
+        return LlmResponse(
+            content = content,
+            toolCalls = tools,
+            usage = usage,
+            finishReason = fr,
+        )
     }
 }

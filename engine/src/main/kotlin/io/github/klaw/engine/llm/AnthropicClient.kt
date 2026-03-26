@@ -34,7 +34,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -132,8 +131,8 @@ class AnthropicClient(
         }
 
     private fun getOrCreateClient(provider: ResolvedProviderConfig): com.anthropic.client.AnthropicClient {
-        val cacheKey = "${provider.endpoint}|${provider.apiKey?.length ?: 0}"
-        return clients.getOrPut(cacheKey) {
+        val cacheKey = "${provider.endpoint}|${provider.apiKey.orEmpty().hashCode()}"
+        return clients.computeIfAbsent(cacheKey) {
             AnthropicOkHttpClient
                 .builder()
                 .apiKey(provider.apiKey ?: "")
@@ -432,43 +431,7 @@ private fun mapStopReason(stopReason: StopReason): FinishReason =
 
 // --- JSON conversion helpers ---
 
-private fun jsonObjectToJsonValue(obj: JsonObject): JsonValue =
-    JsonValue.from(
-        kotlinxJsonToJacksonMap(obj),
-    )
-
-private fun kotlinxJsonToJacksonMap(obj: JsonObject): Map<String, Any?> =
-    obj.entries.associate { (key, value) -> key to kotlinxJsonElementToJava(value) }
-
-private fun kotlinxJsonElementToJava(element: kotlinx.serialization.json.JsonElement): Any? =
-    when (element) {
-        is kotlinx.serialization.json.JsonPrimitive -> {
-            when {
-                element.isString -> element.content
-                element.content == "true" -> true
-                element.content == "false" -> false
-                element.content == "null" -> null
-                element.content.contains('.') -> element.content.toDoubleOrNull()
-                else -> element.content.toLongOrNull() ?: element.content
-            }
-        }
-
-        is kotlinx.serialization.json.JsonArray -> {
-            element.map { kotlinxJsonElementToJava(it) }
-        }
-
-        is kotlinx.serialization.json.JsonObject -> {
-            kotlinxJsonToJacksonMap(element)
-        }
-    }
-
-private fun parseJsonValueFromArguments(arguments: String): JsonValue =
-    try {
-        val parsed =
-            kotlinx.serialization.json.Json
-                .parseToJsonElement(arguments)
-                as? kotlinx.serialization.json.JsonObject
-        if (parsed != null) jsonObjectToJsonValue(parsed) else JsonValue.from(emptyMap<String, Any?>())
-    } catch (_: Exception) {
-        JsonValue.from(emptyMap<String, Any?>())
-    }
+private fun parseJsonValueFromArguments(arguments: String): JsonValue {
+    val map = parseJsonObjectFromArguments(arguments)
+    return JsonValue.from(map ?: emptyMap<String, Any?>())
+}

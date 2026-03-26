@@ -234,7 +234,7 @@ class ChineseLlmFunctionCallingTest {
                     .postRequestedFor(urlEqualTo("/chat/completions"))
                     .withRequestBody(
                         com.github.tomakehurst.wiremock.client.WireMock
-                            .containing("\"max_tokens\":256"),
+                            .containing("\"max_completion_tokens\":256"),
                     ).withRequestBody(
                         com.github.tomakehurst.wiremock.client.WireMock
                             .containing("\"type\":\"function\""),

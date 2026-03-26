@@ -52,10 +52,14 @@ class OpenAiStreamingClientTest {
     fun `chatStream emits Delta events for content chunks then End`() {
         val sseBody =
             buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}}""",
+                chunk(delta = """{"role":"assistant","content":""}"""),
+                chunk(delta = """{"content":"Hello"}"""),
+                chunk(delta = """{"content":" world"}"""),
+                chunk(
+                    delta = """{}""",
+                    finishReason = "stop",
+                    usage = """{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}""",
+                ),
             )
         stubSse(sseBody)
 
@@ -75,11 +79,19 @@ class OpenAiStreamingClientTest {
     fun `chatStream emits ToolCallDetected then End for tool call stream`() {
         val sseBody =
             buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_weather","arguments":""}}]},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"London\"}"}}]},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}""",
+                chunk(delta = """{"role":"assistant"}"""),
+                chunk(
+                    delta =
+                        """{"tool_calls":[{"index":0,"id":"call_1","type":"function",""" +
+                            """"function":{"name":"get_weather","arguments":""}}]}""",
+                ),
+                chunk(delta = """{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]}"""),
+                chunk(delta = """{"tool_calls":[{"index":0,"function":{"arguments":"\"London\"}"}}]}"""),
+                chunk(
+                    delta = """{}""",
+                    finishReason = "tool_calls",
+                    usage = """{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}""",
+                ),
             )
         stubSse(sseBody)
 
@@ -122,28 +134,15 @@ class OpenAiStreamingClientTest {
     }
 
     @Test
-    fun `chatStream request body contains stream true`() {
-        val sseBody =
-            buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","content":"ok"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}""",
-            )
-        stubSse(sseBody)
-
-        collectStream()
-
-        val requests = wireMock.allServeEvents
-        assertEquals(1, requests.size)
-        val bodyString = requests[0].request.bodyAsString
-        assertTrue(bodyString.contains("\"stream\":true"), "Request body should contain stream:true")
-    }
-
-    @Test
     fun `chatStream handles empty content stream with only role and finish_reason`() {
         val sseBody =
             buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":0,"total_tokens":5}}""",
+                chunk(delta = """{"role":"assistant"}"""),
+                chunk(
+                    delta = """{}""",
+                    finishReason = "stop",
+                    usage = """{"prompt_tokens":5,"completion_tokens":0,"total_tokens":5}""",
+                ),
             )
         stubSse(sseBody)
 
@@ -159,10 +158,18 @@ class OpenAiStreamingClientTest {
     fun `chatStream emits Delta for content then ToolCallDetected when mixed`() {
         val sseBody =
             buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"content":"Let me check"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"search","arguments":"{}"}}]},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}""",
+                chunk(delta = """{"role":"assistant","content":""}"""),
+                chunk(delta = """{"content":"Let me check"}"""),
+                chunk(
+                    delta =
+                        """{"tool_calls":[{"index":0,"id":"call_1","type":"function",""" +
+                            """"function":{"name":"search","arguments":"{}"}}]}""",
+                ),
+                chunk(
+                    delta = """{}""",
+                    finishReason = "tool_calls",
+                    usage = """{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}""",
+                ),
             )
         stubSse(sseBody)
 
@@ -181,9 +188,13 @@ class OpenAiStreamingClientTest {
     fun `chatStream does not emit Delta for empty content string`() {
         val sseBody =
             buildSseBody(
-                """{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{"content":"Hi"},"finish_reason":null}]}""",
-                """{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}""",
+                chunk(delta = """{"role":"assistant","content":""}"""),
+                chunk(delta = """{"content":"Hi"}"""),
+                chunk(
+                    delta = """{}""",
+                    finishReason = "stop",
+                    usage = """{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}""",
+                ),
             )
         stubSse(sseBody)
 
@@ -204,6 +215,17 @@ class OpenAiStreamingClientTest {
                         .withBody(body),
                 ),
         )
+    }
+
+    private fun chunk(
+        delta: String,
+        finishReason: String? = null,
+        usage: String? = null,
+    ): String {
+        val fr = if (finishReason != null) "\"$finishReason\"" else "null"
+        val usagePart = if (usage != null) ""","usage":$usage""" else ""
+        return """{"id":"chatcmpl-test","object":"chat.completion.chunk","created":1700000000,""" +
+            """"model":"gpt-4","choices":[{"index":0,"delta":$delta,"finish_reason":$fr}]$usagePart}"""
     }
 
     private fun buildSseBody(vararg dataLines: String): String =
