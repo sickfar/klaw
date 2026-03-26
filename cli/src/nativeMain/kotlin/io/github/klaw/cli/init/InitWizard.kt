@@ -435,6 +435,9 @@ internal class InitWizard(
                 DeployMode.NATIVE -> ""
             }
 
+        // Snapshot identity files before WorkspaceInitializer creates stubs
+        val hasIdentityFiles = fileExists("$workspaceDir/SOUL.md") && fileExists("$workspaceDir/IDENTITY.md")
+
         CliLogger.info { "phase 8: setup" }
         phase(PHASE_SETUP, "Setup")
         WorkspaceInitializer(
@@ -623,7 +626,6 @@ internal class InitWizard(
 
         // ── Identity: skip hatching if workspace already has identity files ──
 
-        val hasIdentityFiles = fileExists("$workspaceDir/SOUL.md") && fileExists("$workspaceDir/IDENTITY.md")
         val agentName: String
         if (hasIdentityFiles || (force && workspaceExistedWithContent)) {
             CliLogger.info { "workspace has identity files or is non-empty on reinit, skipping hatching" }

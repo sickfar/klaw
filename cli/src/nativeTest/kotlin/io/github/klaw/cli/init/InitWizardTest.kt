@@ -100,6 +100,7 @@ class InitWizardTest {
                 )
             },
             force = force,
+            workspacePath = workspaceDir,
             releaseClient = releaseClient,
             jarDir = "$tmpDir/jars",
             binDir = "$tmpDir/bin",
