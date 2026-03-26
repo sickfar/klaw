@@ -48,6 +48,7 @@ internal object ConfigTemplates {
         preValidationModel: String? = null,
         visionModelId: String? = null,
         attachmentsDirectory: String = "",
+        workspace: String? = null,
     ): String =
         encodeEngineConfigMinimal(
             buildEngineConfig(
@@ -60,6 +61,7 @@ internal object ConfigTemplates {
                 preValidationModel,
                 visionModelId,
                 attachmentsDirectory,
+                workspace,
             ),
         )
 
@@ -74,6 +76,7 @@ internal object ConfigTemplates {
         preValidationModel: String?,
         visionModelId: String?,
         attachmentsDirectory: String,
+        workspace: String?,
     ): EngineConfig {
         val providerName = modelId.substringBefore("/").ifBlank { "default" }
         val webSearch =
@@ -93,6 +96,7 @@ internal object ConfigTemplates {
                 VisionConfig()
             }
         return EngineConfig(
+            workspace = workspace,
             providers = buildConfigProviders(providerName),
             models = buildConfigModels(modelId, visionModelId),
             routing = buildConfigRouting(modelId),

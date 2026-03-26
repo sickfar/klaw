@@ -204,6 +204,10 @@ class CliCommandDispatcher(
                 klawScheduler.status()
             }
 
+            "schedule_import" -> {
+                handleScheduleImport(request.params)
+            }
+
             else -> {
                 null
             }
@@ -450,6 +454,60 @@ class CliCommandDispatcher(
         val rawLimit = params["limit"]?.toIntOrNull() ?: DEFAULT_RUNS_LIMIT
         val limit = rawLimit.coerceIn(1, MAX_RUNS_LIMIT)
         return klawScheduler.runs(name, limit)
+    }
+
+    private suspend fun handleScheduleImport(params: Map<String, String>): String {
+        val content = params["content"] ?: return """{"error":"missing content"}"""
+        val includeDisabled = params["all"]?.toBoolean() ?: false
+        val jobs =
+            try {
+                io.github.klaw.common.migration.OpenClawCronConverter
+                    .parseJobs(content, includeDisabled)
+            } catch (e: kotlinx.serialization.SerializationException) {
+                return """{"error":"parse failed: ${e::class.simpleName}"}"""
+            } catch (e: IllegalArgumentException) {
+                return """{"error":"parse failed: ${e::class.simpleName}"}"""
+            }
+        if (jobs.isEmpty()) return """{"imported":0,"failed":0,"message":"no jobs to import"}"""
+
+        var imported = 0
+        var failed = 0
+        val errors = mutableListOf<String>()
+        for (job in jobs) {
+            val p =
+                try {
+                    io.github.klaw.common.migration.OpenClawCronConverter
+                        .toKlawScheduleParams(job)
+                } catch (e: IllegalArgumentException) {
+                    logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
+                    failed++
+                    errors += "${job.name}: conversion error"
+                    continue
+                } catch (e: IllegalStateException) {
+                    logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
+                    failed++
+                    errors += "${job.name}: conversion error"
+                    continue
+                }
+            val result =
+                klawScheduler.add(
+                    name = p["name"]!!,
+                    cron = p["cron"],
+                    at = p["at"],
+                    message = p["message"]!!,
+                    model = p["model"],
+                    injectInto = p["inject_into"],
+                    channel = p["channel"],
+                )
+            if (result.contains("error", ignoreCase = true)) {
+                failed++
+                errors += "${job.name}: $result"
+            } else {
+                imported++
+            }
+        }
+        val errorsJson = if (errors.isEmpty()) "[]" else errors.joinToString(",", "[", "]") { "\"$it\"" }
+        return """{"imported":$imported,"failed":$failed,"errors":$errorsJson}"""
     }
 
     private suspend fun handleMemorySearch(params: Map<String, String>): String {

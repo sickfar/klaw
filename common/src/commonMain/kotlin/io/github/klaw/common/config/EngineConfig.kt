@@ -5,6 +5,9 @@ import kotlinx.serialization.Transient
 
 @Serializable
 data class EngineConfig(
+    // --- Workspace ---
+    @ConfigDoc("Workspace directory path (overrides KLAW_WORKSPACE env var)")
+    val workspace: String? = null,
     // --- LLM providers & routing ---
     @ConfigDoc("LLM provider definitions keyed by provider name")
     val providers: Map<String, ProviderConfig>,

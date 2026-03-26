@@ -9,6 +9,10 @@ object GeneratedSchemas {
             "${'$'}schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
             "properties": {
+                "workspace": {
+                    "type": "string",
+                    "description": "Workspace directory path (overrides KLAW_WORKSPACE env var)"
+                },
                 "providers": {
                     "type": "object",
                     "additionalProperties": {

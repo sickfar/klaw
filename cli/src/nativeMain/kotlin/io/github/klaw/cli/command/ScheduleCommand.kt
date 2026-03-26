@@ -4,11 +4,14 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import io.github.klaw.cli.EngineRequest
 import io.github.klaw.cli.socket.EngineNotRunningException
 import io.github.klaw.cli.util.CliLogger
+import io.github.klaw.cli.util.readFileText
+import io.github.klaw.common.migration.OpenClawCronConverter
 
 internal class ScheduleCommand(
     requestFn: EngineRequest,
@@ -24,6 +27,7 @@ internal class ScheduleCommand(
             ScheduleRunCommand(requestFn),
             ScheduleRunsCommand(requestFn),
             ScheduleStatusCommand(requestFn),
+            ScheduleImportCommand(requestFn),
         )
     }
 
@@ -194,5 +198,84 @@ internal class ScheduleStatusCommand(
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
         }
+    }
+}
+
+internal class ScheduleImportCommand(
+    private val requestFn: EngineRequest,
+) : CliktCommand(name = "import") {
+    private val fromOpenclaw by option("--from-openclaw", help = "Path to OpenClaw jobs.json file")
+    private val all by option("--all", help = "Import all jobs including disabled").flag()
+
+    override fun run() {
+        val path = fromOpenclaw
+        if (path == null) {
+            echo("Error: --from-openclaw is required")
+            return
+        }
+
+        CliLogger.debug { "schedule import from-openclaw=$path all=$all" }
+
+        val content = readFileText(path)
+        if (content == null) {
+            echo("Error: cannot read file: $path")
+            return
+        }
+
+        val jobs =
+            try {
+                OpenClawCronConverter.parseJobs(content, includeDisabled = all)
+            } catch (e: kotlinx.serialization.SerializationException) {
+                echo("Error: failed to parse jobs.json: ${e::class.simpleName}")
+                return
+            } catch (e: IllegalArgumentException) {
+                echo("Error: failed to parse jobs.json: ${e::class.simpleName}")
+                return
+            }
+
+        if (jobs.isEmpty()) {
+            echo(
+                "No jobs to import (${if (all) "file is empty" else "no enabled jobs, use --all to include disabled"})",
+            )
+            return
+        }
+
+        echo("Found ${jobs.size} job(s) to import:")
+        val (imported, failed) = importJobs(jobs)
+        echo("")
+        echo("Import complete: $imported imported, $failed failed, ${jobs.size} total")
+    }
+
+    private fun importJobs(jobs: List<io.github.klaw.common.migration.OpenClawJob>): Pair<Int, Int> {
+        var imported = 0
+        var failed = 0
+        try {
+            for (job in jobs) {
+                val params =
+                    try {
+                        OpenClawCronConverter.toKlawScheduleParams(job)
+                    } catch (e: IllegalArgumentException) {
+                        echo("  SKIP  ${job.name} — conversion error: ${e::class.simpleName}")
+                        failed++
+                        continue
+                    } catch (e: IllegalStateException) {
+                        echo("  SKIP  ${job.name} — conversion error: ${e::class.simpleName}")
+                        failed++
+                        continue
+                    }
+                val result = requestFn("schedule_add", params)
+                if (result.contains("error", ignoreCase = true)) {
+                    echo("  FAIL  ${job.name} — $result")
+                    failed++
+                } else {
+                    echo("  OK    ${job.name}")
+                    imported++
+                }
+            }
+        } catch (_: EngineNotRunningException) {
+            CliLogger.error { "engine not running" }
+            echo("Engine is not running. Start it with: klaw service start engine")
+        }
+        return imported to failed
     }
 }

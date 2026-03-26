@@ -86,7 +86,7 @@ internal val WEB_SEARCH_PROVIDERS =
 @Suppress("LongParameterList", "TooManyFunctions")
 internal class InitWizard(
     private val configDir: String = KlawPaths.config,
-    private val workspaceDir: String = KlawPaths.workspace,
+    private var workspaceDir: String = KlawPaths.workspace,
     private val dataDir: String = KlawPaths.data,
     private val stateDir: String = KlawPaths.state,
     private val cacheDir: String = KlawPaths.cache,
@@ -140,6 +140,7 @@ internal class InitWizard(
             )
         },
     private val force: Boolean = false,
+    private val workspacePath: String? = null,
     private val releaseClient: GitHubReleaseClient = GitHubReleaseClientImpl(),
     private val jarDir: String = InstallPaths.installDir,
     private val binDir: String = InstallPaths.installDir,
@@ -221,6 +222,22 @@ internal class InitWizard(
                 printer("  Install Docker and try again.")
                 return
             }
+        }
+
+        // ── Workspace path: ask or use --workspace flag ──
+        if (workspacePath != null) {
+            workspaceDir = workspacePath
+            CliLogger.info { "workspace path from flag: $workspaceDir" }
+        } else {
+            printer("Workspace directory [$workspaceDir]:")
+            val input = readLineOrExit() ?: return
+            val trimmed = input.trim()
+            if (trimmed.isNotBlank()) {
+                workspaceDir = trimmed
+            }
+        }
+        if (!isDirectory(workspaceDir)) {
+            commandRunner("mkdir -p '$workspaceDir'")
         }
 
         CliLogger.info { "phase 3: LLM provider setup" }
@@ -491,6 +508,7 @@ internal class InitWizard(
                 preValidationModel = preValidationModel,
                 visionModelId = visionModelId,
                 attachmentsDirectory = attachmentsDirectory,
+                workspace = "\${KLAW_WORKSPACE}",
             ),
         )
         writeFileText(
@@ -514,6 +532,7 @@ internal class InitWizard(
             mutableMapOf(
                 apiKeyEnvVar to llmApiKey,
                 "KLAW_TELEGRAM_TOKEN" to telegramToken,
+                "KLAW_WORKSPACE" to workspaceDir,
             )
         if (configureDiscord && discordToken.isNotBlank()) {
             envEntries["KLAW_DISCORD_TOKEN"] = discordToken
@@ -602,12 +621,13 @@ internal class InitWizard(
             }
         }
 
-        // ── Identity: skip hatching if workspace was non-empty on --force reinit ──
+        // ── Identity: skip hatching if workspace already has identity files ──
 
+        val hasIdentityFiles = fileExists("$workspaceDir/SOUL.md") && fileExists("$workspaceDir/IDENTITY.md")
         val agentName: String
-        if (force && workspaceExistedWithContent) {
-            CliLogger.info { "workspace is non-empty, skipping hatching" }
-            success("Workspace preserved from previous installation")
+        if (hasIdentityFiles || (force && workspaceExistedWithContent)) {
+            CliLogger.info { "workspace has identity files or is non-empty on reinit, skipping hatching" }
+            success("Using existing workspace files")
             agentName = "Klaw"
         } else {
             printer("")

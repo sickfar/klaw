@@ -813,4 +813,18 @@ class ConfigParsingTest {
         assertNull(config.channels.discord)
         assertNotNull(config.channels.telegram)
     }
+
+    @Test
+    fun engineConfigParsesWorkspaceField() {
+        // Insert workspace field into existing fixture
+        val withWorkspace = engineJson.replaceFirst("{", """{"workspace": "/home/user/my-workspace",""")
+        val config = parseEngineConfig(withWorkspace)
+        assertEquals("/home/user/my-workspace", config.workspace)
+    }
+
+    @Test
+    fun engineConfigWorkspaceDefaultsToNull() {
+        val config = parseEngineConfig(engineJson)
+        assertNull(config.workspace)
+    }
 }
