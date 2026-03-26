@@ -56,7 +56,7 @@ internal data class LlmProvider(
     val alias: String,
 )
 
-private val ANTHROPIC_MODELS =
+internal val ANTHROPIC_MODELS =
     listOf(
         "claude-sonnet-4-5-20250514",
         "claude-opus-4-6",
@@ -64,7 +64,7 @@ private val ANTHROPIC_MODELS =
         "claude-3-5-haiku-20241022",
     )
 
-private val LLM_PROVIDERS =
+internal val LLM_PROVIDERS =
     listOf(
         LlmProvider("Anthropic Claude", "anthropic"),
         LlmProvider("z.ai GLM", "zai"),
@@ -76,7 +76,7 @@ internal data class WebSearchProvider(
     val envVar: String,
 )
 
-private val WEB_SEARCH_PROVIDERS =
+internal val WEB_SEARCH_PROVIDERS =
     listOf(
         WebSearchProvider("Brave Search (brave.com)", "brave", "BRAVE_SEARCH_API_KEY"),
         WebSearchProvider("Tavily (tavily.com)", "tavily", "TAVILY_API_KEY"),

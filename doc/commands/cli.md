@@ -83,6 +83,31 @@ klaw config edit gateway
 
 **Validation:** On save, the editor validates the modified config against the JSON schema. If validation fails, errors are displayed and changes are not written until fixed.
 
+### `klaw configure`
+
+Interactive reconfiguration of specific settings. Reads existing `engine.json`, `gateway.json`, and `.env`, lets you modify specific sections, and merges changes back.
+
+```
+klaw configure                          # all sections
+klaw configure --section model          # LLM provider, API key, model
+klaw configure -s telegram -s discord   # multiple sections
+```
+
+**Available sections:**
+
+| Section      | What it configures                                  |
+|--------------|-----------------------------------------------------|
+| `model`      | LLM provider, API key, default model, vision model  |
+| `telegram`   | Telegram bot token, allowed chat IDs                |
+| `discord`    | Discord bot token, allowed guild IDs                |
+| `websocket`  | WebSocket chat (enable/disable, port)               |
+| `web-search` | Web search provider (Brave/Tavily), API key         |
+| `services`   | Restart running services                            |
+
+Without `--section`, all sections run in order. Existing values are shown as defaults — press Enter to keep them. Secrets are masked in the display. Per-chat user restrictions and per-guild channel/user restrictions are preserved when re-confirming IDs.
+
+Requires `klaw init` to have been run first.
+
 ### `klaw service start / stop / restart TARGET`
 
 Manages Klaw services. TARGET is required and must be one of: `engine`, `gateway`, or `all`.

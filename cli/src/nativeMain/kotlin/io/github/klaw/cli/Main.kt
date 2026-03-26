@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
+import io.github.klaw.cli.command.ConfigureCommand
 import io.github.klaw.cli.command.DoctorCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
@@ -83,6 +84,7 @@ internal class KlawCli(
                 requestFn,
             ),
             ConfigCommand(configDir),
+            ConfigureCommand(configDir, commandRunner, doctorCommandOutput),
             ServiceCommand(commandRunner, configDir),
             PairCommand(configDir, pairingRequestsPath),
             UnpairCommand(configDir),
