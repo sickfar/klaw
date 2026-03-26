@@ -22,6 +22,7 @@ data class OpenAiChatRequest(
     val tools: List<OpenAiToolDef>? = null,
     @SerialName("max_tokens") val maxTokens: Int? = null,
     val temperature: Double? = null,
+    val stream: Boolean? = null,
 )
 
 @Serializable

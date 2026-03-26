@@ -23,7 +23,7 @@ object ConfigGenerator {
     private const val DEFAULT_VISION_MAX_IMAGE_SIZE_BYTES = 10485760
     private const val DEFAULT_VISION_MAX_IMAGES_PER_MESSAGE = 5
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList", "LongMethod")
     fun engineJson(
         wiremockBaseUrl: String,
         contextBudgetTokens: Int = CHUNK_SIZE,
@@ -66,6 +66,8 @@ object ConfigGenerator {
         visionAttachmentsDirectory: String = "",
         defaultModelId: String = "test/model",
         fallbackModels: List<String> = emptyList(),
+        streamingEnabled: Boolean = false,
+        streamingThrottleMs: Long = 50,
         heartbeatInterval: String = "off",
         heartbeatModel: String? = null,
         heartbeatChannel: String? = null,
@@ -95,7 +97,13 @@ object ConfigGenerator {
                     consolidationMinMessages,
                     consolidationCategory,
                 )
-                buildContextAndProcessing(contextBudgetTokens, maxToolCallRounds, debounceMs)
+                buildContextAndProcessing(
+                    contextBudgetTokens,
+                    maxToolCallRounds,
+                    debounceMs,
+                    streamingEnabled,
+                    streamingThrottleMs,
+                )
                 if (maxInlineSkills != null) {
                     putJsonObject("skills") {
                         put("maxInlineSkills", maxInlineSkills)
@@ -344,6 +352,8 @@ object ConfigGenerator {
         contextBudgetTokens: Int,
         maxToolCallRounds: Int,
         debounceMs: Int,
+        streamingEnabled: Boolean,
+        streamingThrottleMs: Long,
     ) {
         putJsonObject("context") {
             put("defaultBudgetTokens", contextBudgetTokens)
@@ -353,6 +363,10 @@ object ConfigGenerator {
             put("debounceMs", debounceMs)
             put("maxConcurrentLlm", 1)
             put("maxToolCallRounds", maxToolCallRounds)
+            putJsonObject("streaming") {
+                put("enabled", streamingEnabled)
+                put("throttleMs", streamingThrottleMs)
+            }
         }
     }
 

@@ -96,6 +96,37 @@ class LocalWsChannel(
         logger.trace { "Local WS message enqueued: ${content.length} chars, attachments=${attachments.size}" }
     }
 
+    override suspend fun sendStreamDelta(
+        chatId: String,
+        delta: String,
+        streamId: String,
+    ) {
+        val session =
+            activeSession ?: run {
+                logger.warn { "LocalWsChannel.sendStreamDelta: no active session" }
+                return
+            }
+        val message = Json.encodeToString(ChatFrame(type = "stream_delta", content = delta))
+        runCatching { session.sendSync(message) }
+            .onFailure { e -> logger.trace { "LocalWsChannel: stream delta send failed: ${e::class.simpleName}" } }
+    }
+
+    override suspend fun sendStreamEnd(
+        chatId: String,
+        fullContent: String,
+        streamId: String,
+    ) {
+        val session =
+            activeSession ?: run {
+                logger.warn { "LocalWsChannel.sendStreamEnd: no active session" }
+                return
+            }
+        sendStatusFrame(session, "")
+        val message = Json.encodeToString(ChatFrame(type = "stream_end", content = fullContent))
+        runCatching { session.sendSync(message) }
+            .onFailure { e -> logger.error(e) { "LocalWsChannel: stream end send failed" } }
+    }
+
     override suspend fun send(
         chatId: String,
         response: OutgoingMessage,

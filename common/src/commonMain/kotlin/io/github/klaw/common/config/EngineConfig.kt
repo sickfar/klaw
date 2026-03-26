@@ -244,6 +244,8 @@ data class ProcessingConfig(
     val maxDebounceEntries: Int = 1000,
     @ConfigDoc("Subagent execution timeout in milliseconds (default 5 minutes)")
     val subagentTimeoutMs: Long = 300_000L,
+    @ConfigDoc("LLM response streaming configuration")
+    val streaming: StreamingConfig = StreamingConfig(),
 ) {
     init {
         require(debounceMs >= 0) { "debounceMs must be >= 0, got $debounceMs" }
@@ -252,6 +254,18 @@ data class ProcessingConfig(
         require(maxToolOutputChars > 0) { "maxToolOutputChars must be > 0, got $maxToolOutputChars" }
         require(maxDebounceEntries > 0) { "maxDebounceEntries must be > 0, got $maxDebounceEntries" }
         require(subagentTimeoutMs > 0) { "subagentTimeoutMs must be > 0, got $subagentTimeoutMs" }
+    }
+}
+
+@Serializable
+data class StreamingConfig(
+    @ConfigDoc("Enable streaming for interactive responses")
+    val enabled: Boolean = false,
+    @ConfigDoc("Minimum interval between stream deltas sent to gateway (ms)")
+    val throttleMs: Long = 50,
+) {
+    init {
+        require(throttleMs >= 0) { "throttleMs must be >= 0, got $throttleMs" }
     }
 }
 

@@ -5,6 +5,8 @@ import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
+import io.github.klaw.common.protocol.StreamDeltaSocketMessage
+import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
 import io.github.klaw.gateway.channel.PermanentDeliveryError
@@ -123,6 +125,54 @@ class GatewayOutboundHandler(
             applicationContext.close()
             exitFn(0)
         }, "klaw-gateway-restart").apply { isDaemon = false }.start()
+    }
+
+    override suspend fun handleStreamDelta(message: StreamDeltaSocketMessage) {
+        if (!isAllowed(message.chatId, message.channel)) {
+            logger.trace { "Stream delta blocked: chatId=${message.chatId} not allowed" }
+            return
+        }
+        val channel = channels.firstOrNull { it.name == message.channel }
+        if (channel == null) {
+            logger.warn { "No channel found for stream delta channel=${message.channel}" }
+            return
+        }
+        if (!channel.isAlive()) {
+            logger.trace { "Channel ${message.channel} not alive, dropping stream delta" }
+            return
+        }
+        channel.sendStreamDelta(message.chatId, message.delta, message.streamId)
+    }
+
+    override suspend fun handleStreamEnd(message: StreamEndSocketMessage) {
+        if (!isAllowed(message.chatId, detectChannel(message.chatId))) {
+            logger.warn { "Stream end blocked: chatId=${message.chatId} not allowed" }
+            return
+        }
+        jsonlWriter.writeOutbound(
+            chatId = message.chatId,
+            content = message.fullContent,
+            model = message.meta?.get("model"),
+        )
+        val channel = channels.firstOrNull { it.name == message.channel }
+        if (channel == null) {
+            logger.warn { "No channel found for stream end channel=${message.channel}" }
+            return
+        }
+        if (!channel.isAlive()) {
+            bufferMessage(
+                channel.name,
+                OutboundSocketMessage(
+                    channel = message.channel,
+                    chatId = message.chatId,
+                    content = message.fullContent,
+                    meta = message.meta,
+                ),
+            )
+            return
+        }
+        channel.sendStreamEnd(message.chatId, message.fullContent, message.streamId)
+        logger.debug { "Stream end dispatched to channel=${message.channel} chatId=${message.chatId}" }
     }
 
     private fun bufferMessage(

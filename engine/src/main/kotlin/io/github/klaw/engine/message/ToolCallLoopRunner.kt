@@ -11,6 +11,7 @@ import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
+import io.github.klaw.engine.llm.StreamEvent
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
@@ -57,6 +58,8 @@ internal class ToolCallLoopRunner(
     private val contextBudgetTokens: Int = 0,
     private val maxToolOutputChars: Int = 8000,
     private val modelContextLimit: Int = 0,
+    private val streamingEnabled: Boolean = false,
+    private val onDelta: (suspend (String) -> Unit)? = null,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -76,11 +79,7 @@ internal class ToolCallLoopRunner(
         var prevToolResultIds: List<String> = emptyList()
 
         while (rounds < maxRounds) {
-            val response =
-                llmRouter.chat(
-                    LlmRequest(messages = context, tools = tools.ifEmpty { null }),
-                    session.model,
-                )
+            val response = callLlm(context, tools, session)
             rounds++
             logger.trace {
                 "Tool loop round $rounds: finish=${response.finishReason}" +
@@ -124,6 +123,45 @@ internal class ToolCallLoopRunner(
             requestGracefulSummary(context, session, "tool call limit ($maxRounds rounds)")
         correctToolResultTokens(summaryResponse, prevPromptTokens, prevCompletionTokens, prevToolResultIds)
         return summaryResponse
+    }
+
+    /**
+     * Calls the LLM either via streaming or non-streaming path.
+     * When streaming, collects the flow and invokes [onDelta] for content deltas
+     * until a [StreamEvent.ToolCallDetected] is encountered.
+     */
+    private suspend fun callLlm(
+        context: List<LlmMessage>,
+        tools: List<ToolDef>,
+        session: Session,
+    ): LlmResponse {
+        val request = LlmRequest(messages = context, tools = tools.ifEmpty { null })
+        if (!streamingEnabled || onDelta == null) {
+            return llmRouter.chat(request, session.model)
+        }
+        val flow = llmRouter.chatStream(request, session.model)
+        var toolCallSeen = false
+        var endResponse: LlmResponse? = null
+        flow.collect { event ->
+            when (event) {
+                is StreamEvent.Delta -> {
+                    if (!toolCallSeen) {
+                        logger.trace { "Stream delta: length=${event.content.length}" }
+                        onDelta(event.content)
+                    }
+                }
+
+                is StreamEvent.ToolCallDetected -> {
+                    toolCallSeen = true
+                    logger.trace { "Stream tool call detected, suppressing further deltas" }
+                }
+
+                is StreamEvent.End -> {
+                    endResponse = event.response
+                }
+            }
+        }
+        return endResponse ?: error("Stream ended without End event")
     }
 
     /**

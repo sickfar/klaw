@@ -275,6 +275,23 @@ class WebSocketChatClient(
             collected
         }
 
+    fun collectStreamingFrames(timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS): List<ChatFrame> =
+        runBlocking {
+            val collected = mutableListOf<ChatFrame>()
+            try {
+                withTimeout(timeoutMs) {
+                    while (true) {
+                        val frame = incomingFrames.receive()
+                        collected.add(frame)
+                        if (frame.type == "stream_end" || frame.type == "assistant") break
+                    }
+                }
+            } catch (_: TimeoutCancellationException) {
+                // Timeout means we didn't get a terminal frame
+            }
+            collected
+        }
+
     fun sendAndReceive(
         text: String,
         timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS,

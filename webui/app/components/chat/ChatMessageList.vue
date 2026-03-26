@@ -11,6 +11,7 @@ function scrollToBottom() {
 }
 
 watch(() => chatStore.messages.length, scrollToBottom)
+watch(() => chatStore.streamingContent, scrollToBottom)
 onMounted(scrollToBottom)
 </script>
 

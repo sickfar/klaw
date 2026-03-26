@@ -1,5 +1,5 @@
 export interface ChatFrame {
-  type: 'user' | 'assistant' | 'status' | 'approval_request' | 'approval_response' | 'error'
+  type: 'user' | 'assistant' | 'status' | 'approval_request' | 'approval_response' | 'error' | 'stream_delta' | 'stream_end'
   content: string
   attachments?: string[]
   approvalId?: string
@@ -14,4 +14,5 @@ export interface Message {
   content: string
   timestamp: Date
   attachments?: string[]
+  isStreaming?: boolean
 }

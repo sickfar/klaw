@@ -312,6 +312,20 @@ object GeneratedSchemas {
                         "subagentTimeoutMs": {
                             "type": "integer",
                             "description": "Subagent execution timeout in milliseconds (default 5 minutes)"
+                        },
+                        "streaming": {
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable streaming for interactive responses"
+                                },
+                                "throttleMs": {
+                                    "type": "integer",
+                                    "description": "Minimum interval between stream deltas sent to gateway (ms)"
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "required": [

@@ -5,6 +5,7 @@ import io.github.klaw.common.config.ResolvedProviderConfig
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 interface LlmClient {
     suspend fun chat(
@@ -13,10 +14,12 @@ interface LlmClient {
         model: ModelRef,
     ): LlmResponse
 
-    @Suppress("UnusedParameter")
     fun chatStream(
         request: LlmRequest,
         provider: ResolvedProviderConfig,
         model: ModelRef,
-    ): Flow<String> = throw UnsupportedOperationException("chatStream is Post-MVP P2")
+    ): Flow<StreamEvent> =
+        flow {
+            emit(StreamEvent.End(chat(request, provider, model)))
+        }
 }

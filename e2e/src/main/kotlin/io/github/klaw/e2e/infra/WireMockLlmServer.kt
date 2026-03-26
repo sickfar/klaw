@@ -439,6 +439,55 @@ class WireMockLlmServer {
         )
     }
 
+    fun stubChatStreamingResponse(
+        chunks: List<String>,
+        promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+        completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+    ) {
+        val sseBody = buildSseBody(chunks, promptTokens, completionTokens)
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing("\"stream\":true"))
+                .atPriority(PRIORITY_DEFAULT)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "text/event-stream")
+                        .withBody(sseBody),
+                ),
+        )
+    }
+
+    fun stubChatStreamingResponseSequence(responses: List<SseStubResponse>) {
+        val scenarioName = "chat-streaming-sequence"
+        responses.forEachIndexed { index, stub ->
+            val currentState = if (index == 0) Scenario.STARTED else "sse-state-$index"
+            val nextState = if (index < responses.lastIndex) "sse-state-${index + 1}" else "sse-state-done"
+
+            val body =
+                if (stub.toolCalls != null) {
+                    buildSseToolCallBody(stub.toolCalls, stub.promptTokens, stub.completionTokens)
+                } else {
+                    buildSseBody(stub.chunks, stub.promptTokens, stub.completionTokens)
+                }
+
+            server.stubFor(
+                post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                    .withRequestBody(containing("\"stream\":true"))
+                    .inScenario(scenarioName)
+                    .whenScenarioStateIs(currentState)
+                    .atPriority(PRIORITY_SEQUENCE)
+                    .willSetStateTo(nextState)
+                    .willReturn(
+                        aResponse()
+                            .withStatus(HTTP_OK)
+                            .withHeader("Content-Type", "text/event-stream")
+                            .withBody(body),
+                    ),
+            )
+        }
+    }
+
     fun stubHeartbeatResponse(
         content: String,
         promptTokens: Int = DEFAULT_PROMPT_TOKENS,
@@ -492,6 +541,88 @@ class WireMockLlmServer {
         }
 
     companion object {
+        fun buildSseBody(
+            chunks: List<String>,
+            promptTokens: Int,
+            completionTokens: Int,
+        ): String {
+            val sb = StringBuilder()
+            // Role delta
+            sb.appendLine(
+                "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}",
+            )
+            sb.appendLine()
+            // Content deltas
+            for (chunk in chunks) {
+                val escaped = escapeJsonValue(chunk)
+                sb.appendLine(
+                    "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                        "\"delta\":{\"content\":\"$escaped\"},\"finish_reason\":null}]}",
+                )
+                sb.appendLine()
+            }
+            // Final chunk with finish_reason and usage
+            sb.appendLine(
+                "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{},\"finish_reason\":\"stop\"}]," +
+                    "\"usage\":{\"prompt_tokens\":$promptTokens," +
+                    "\"completion_tokens\":$completionTokens," +
+                    "\"total_tokens\":${promptTokens + completionTokens}}}",
+            )
+            sb.appendLine()
+            sb.appendLine("data: [DONE]")
+            sb.appendLine()
+            return sb.toString()
+        }
+
+        fun buildSseToolCallBody(
+            toolCalls: List<StubToolCall>,
+            promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+            completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+        ): String {
+            val sb = StringBuilder()
+            sb.appendLine(
+                "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{\"role\":\"assistant\"},\"finish_reason\":null}]}",
+            )
+            sb.appendLine()
+            for ((i, tc) in toolCalls.withIndex()) {
+                val escapedArgs = escapeJsonValue(tc.arguments)
+                sb.appendLine(
+                    "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                        "\"delta\":{\"tool_calls\":[{\"index\":$i,\"id\":\"${tc.id}\"," +
+                        "\"type\":\"function\",\"function\":{\"name\":\"${tc.name}\"," +
+                        "\"arguments\":\"\"}}]},\"finish_reason\":null}]}",
+                )
+                sb.appendLine()
+                sb.appendLine(
+                    "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                        "\"delta\":{\"tool_calls\":[{\"index\":$i," +
+                        "\"function\":{\"arguments\":\"$escapedArgs\"}}]}," +
+                        "\"finish_reason\":null}]}",
+                )
+                sb.appendLine()
+            }
+            sb.appendLine(
+                "data: {\"id\":\"chatcmpl-test\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{},\"finish_reason\":\"tool_calls\"}]," +
+                    "\"usage\":{\"prompt_tokens\":$promptTokens," +
+                    "\"completion_tokens\":$completionTokens," +
+                    "\"total_tokens\":${promptTokens + completionTokens}}}",
+            )
+            sb.appendLine()
+            sb.appendLine("data: [DONE]")
+            sb.appendLine()
+            return sb.toString()
+        }
+
+        private fun escapeJsonValue(value: String): String =
+            value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+
         fun buildChatResponseJson(
             content: String,
             promptTokens: Int,

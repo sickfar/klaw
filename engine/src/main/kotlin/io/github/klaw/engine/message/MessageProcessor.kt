@@ -9,6 +9,8 @@ import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.RestartRequestSocketMessage
+import io.github.klaw.common.protocol.StreamDeltaSocketMessage
+import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.command.CommandHandler
@@ -409,6 +411,8 @@ class MessageProcessor(
                     val registryContextLength = ModelRegistry.contextLength(session.model)
                     val rawBudget = registryContextLength ?: config.context.defaultBudgetTokens
                     val modelContextLimit = registryContextLength ?: 0
+                    val streamCtx = buildStreamContext(channel, chatId)
+
                     val runner =
                         ToolCallLoopRunner(
                             llmRouter,
@@ -420,6 +424,8 @@ class MessageProcessor(
                             contextBudgetTokens = rawBudget,
                             maxToolOutputChars = config.processing.maxToolOutputChars,
                             modelContextLimit = modelContextLimit,
+                            streamingEnabled = streamCtx != null,
+                            onDelta = streamCtx?.onDelta,
                         )
                     val response = runner.run(contextResult.messages.toMutableList(), session, tools)
                     logger.debug {
@@ -431,11 +437,7 @@ class MessageProcessor(
 
                     val content = persistAssistantResponse(response, channel, chatId)
 
-                    if (!isSilent(content)) {
-                        socketServerProvider.get().pushToGateway(
-                            OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
-                        )
-                    }
+                    deliverResponse(content, channel, chatId, streamCtx)
 
                     // Fire-and-forget background compaction
                     processingScope.launch {
@@ -479,6 +481,56 @@ class MessageProcessor(
         } finally {
             activeProcessingJobs.remove(chatId, currentJob)
             executeDeferredRestarts()
+        }
+    }
+
+    /**
+     * Holds streaming context for a single interactive message processing turn.
+     * Created only when streaming is enabled in config.
+     */
+    private class StreamContext(
+        val streamId: String,
+        val onDelta: suspend (String) -> Unit,
+    )
+
+    private fun buildStreamContext(
+        channel: String,
+        chatId: String,
+    ): StreamContext? {
+        if (!config.processing.streaming.enabled) return null
+        val streamId = UUID.randomUUID().toString()
+        return StreamContext(streamId) { delta ->
+            socketServerProvider.get().pushMessage(
+                StreamDeltaSocketMessage(
+                    channel = channel,
+                    chatId = chatId,
+                    delta = delta,
+                    streamId = streamId,
+                ),
+            )
+        }
+    }
+
+    private suspend fun deliverResponse(
+        content: String,
+        channel: String,
+        chatId: String,
+        streamCtx: StreamContext?,
+    ) {
+        if (isSilent(content)) return
+        if (streamCtx != null) {
+            socketServerProvider.get().pushMessage(
+                StreamEndSocketMessage(
+                    channel = channel,
+                    chatId = chatId,
+                    streamId = streamCtx.streamId,
+                    fullContent = content,
+                ),
+            )
+        } else {
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(channel = channel, chatId = chatId, content = content),
+            )
         }
     }
 

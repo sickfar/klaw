@@ -32,6 +32,11 @@ defineProps<{
         </span>
       </div>
       <CommonMarkdownContent :content="message.content" />
+      <span
+        v-if="message.isStreaming"
+        class="inline-block w-2 h-4 ml-0.5 bg-gray-500 dark:bg-gray-400 animate-pulse rounded-sm align-text-bottom"
+        data-testid="streaming-cursor"
+      />
       <div
         v-if="message.attachments?.length"
         class="mt-2 flex flex-wrap gap-2"

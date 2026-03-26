@@ -16,9 +16,53 @@ export const useChatStore = defineStore('chat', () => {
   const pendingApproval = ref<PendingApproval | null>(null)
   const availableSessions = ref<string[]>([])
   const availableModels = ref<string[]>([])
+  const streamingContent = ref<string | null>(null)
+  const isStreaming = ref(false)
 
   function addMessage(message: Message) {
     messages.value.push(message)
+  }
+
+  function appendToStreamingMessage(delta: string) {
+    if (!isStreaming.value) {
+      isStreaming.value = true
+      streamingContent.value = delta
+      messages.value.push({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: delta,
+        timestamp: new Date(),
+        isStreaming: true,
+      })
+    }
+    else {
+      streamingContent.value += delta
+      const lastMsg = messages.value[messages.value.length - 1]
+      if (lastMsg && lastMsg.isStreaming) {
+        lastMsg.content = streamingContent.value!
+      }
+    }
+  }
+
+  function finalizeStreamingMessage(fullContent: string) {
+    if (isStreaming.value) {
+      const lastMsg = messages.value[messages.value.length - 1]
+      if (lastMsg && lastMsg.isStreaming) {
+        lastMsg.content = fullContent
+        lastMsg.isStreaming = false
+      }
+      streamingContent.value = null
+      isStreaming.value = false
+    }
+    else {
+      messages.value.push({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: fullContent,
+        timestamp: new Date(),
+      })
+    }
+    thinking.value = false
   }
 
   function clearMessages() {
@@ -79,6 +123,8 @@ export const useChatStore = defineStore('chat', () => {
     pendingApproval,
     availableSessions,
     availableModels,
+    streamingContent,
+    isStreaming,
     addMessage,
     clearMessages,
     setThinking,
@@ -89,5 +135,7 @@ export const useChatStore = defineStore('chat', () => {
     setAvailableSessions,
     setAvailableModels,
     loadSessionMessages,
+    appendToStreamingMessage,
+    finalizeStreamingMessage,
   }
 })

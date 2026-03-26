@@ -8,6 +8,8 @@ import io.github.klaw.common.protocol.RegisterMessage
 import io.github.klaw.common.protocol.RestartRequestSocketMessage
 import io.github.klaw.common.protocol.ShutdownMessage
 import io.github.klaw.common.protocol.SocketMessage
+import io.github.klaw.common.protocol.StreamDeltaSocketMessage
+import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
@@ -209,6 +211,18 @@ class EngineSocketClient(
                 is RestartRequestSocketMessage -> {
                     logger.debug { "Received restart request from engine" }
                     outboundHandler.handleRestartRequest()
+                    false
+                }
+
+                is StreamDeltaSocketMessage -> {
+                    logger.trace { "Received stream delta: ${msg.delta.length} chars" }
+                    outboundHandler.handleStreamDelta(msg)
+                    false
+                }
+
+                is StreamEndSocketMessage -> {
+                    logger.trace { "Received stream end: streamId=${msg.streamId}" }
+                    outboundHandler.handleStreamEnd(msg)
                     false
                 }
 

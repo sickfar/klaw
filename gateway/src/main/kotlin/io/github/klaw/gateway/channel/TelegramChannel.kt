@@ -10,6 +10,7 @@ import dev.inmo.tgbotapi.extensions.api.edit.reply_markup.editMessageReplyMarkup
 import dev.inmo.tgbotapi.extensions.api.files.downloadFile
 import dev.inmo.tgbotapi.extensions.api.get.getFileAdditionalInfo
 import dev.inmo.tgbotapi.extensions.api.send.sendActionTyping
+import dev.inmo.tgbotapi.extensions.api.send.sendMessageDraft
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onDataCallbackQuery
@@ -18,6 +19,7 @@ import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onText
 import dev.inmo.tgbotapi.types.BotCommand
 import dev.inmo.tgbotapi.types.CallbackQueryId
 import dev.inmo.tgbotapi.types.ChatId
+import dev.inmo.tgbotapi.types.DraftId
 import dev.inmo.tgbotapi.types.MessageId
 import dev.inmo.tgbotapi.types.RawChatId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
@@ -58,6 +60,8 @@ class TelegramChannel(
     internal val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
     internal val approvalMessageIds = ConcurrentHashMap<String, Pair<Long, Long>>()
     internal val typingJobs = ConcurrentHashMap<String, Job>()
+    internal val chatTypes = ConcurrentHashMap<String, String>()
+    internal val streamStates = ConcurrentHashMap<String, TelegramStreamState>()
     internal var typingAction: suspend (Long) -> Unit = { platformId ->
         bot?.sendActionTyping(ChatId(RawChatId(platformId)))
     }
@@ -68,6 +72,7 @@ class TelegramChannel(
     internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Long)? = null
     internal var answerCallbackAction: (suspend (String, String?) -> Unit)? = null
     internal var editMessageAction: (suspend (Long, Long) -> Unit)? = null
+    internal var draftAction: (suspend (Long, Long, String) -> Unit)? = null
 
     override fun isAlive(): Boolean = alive
 
@@ -105,6 +110,11 @@ class TelegramChannel(
                 }
             }
         bot = b
+        if (draftAction == null) {
+            draftAction = { platformId, draftId, text ->
+                b.sendMessageDraft(ChatId(RawChatId(platformId)), DraftId(draftId), text)
+            }
+        }
         setAlive(true)
         if (config.commands.isNotEmpty()) {
             runCatching {
@@ -187,6 +197,7 @@ class TelegramChannel(
                             chatTitle = chatTitleStr,
                             platformMessageId = platformMsgId,
                         )
+                    chatTypes[incoming.chatId] = chatTypeStr
                     startTyping(incoming.chatId, chatId)
                     logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
                     runCatching {
@@ -207,6 +218,47 @@ class TelegramChannel(
                 }
             }
         pollingJob?.join()
+    }
+
+    override suspend fun sendStreamDelta(
+        chatId: String,
+        delta: String,
+        streamId: String,
+    ) {
+        val chatType = chatTypes[chatId]
+        if (chatType != "private") return
+
+        val platformId = chatId.removePrefix("telegram_").toLongOrNull() ?: return
+        val state =
+            streamStates.getOrPut(chatId) {
+                TelegramStreamState(
+                    draftId = streamId.hashCode().toLong().and(MAX_DRAFT_ID) or 1L,
+                    accumulatedText = StringBuffer(),
+                )
+            }
+        state.accumulatedText.append(delta)
+
+        val now = System.currentTimeMillis()
+        if (now - state.lastSendTimeMs < STREAM_THROTTLE_MS) return
+        state.lastSendTimeMs = now
+
+        try {
+            draftAction?.invoke(platformId, state.draftId, state.accumulatedText.toString())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            logger.trace { "sendMessageDraft failed for chatId=$chatId" }
+        }
+    }
+
+    override suspend fun sendStreamEnd(
+        chatId: String,
+        fullContent: String,
+        streamId: String,
+    ) {
+        streamStates.remove(chatId)
+        stopTyping(chatId)
+        send(chatId, OutgoingMessage(fullContent))
     }
 
     override suspend fun send(
@@ -339,6 +391,7 @@ class TelegramChannel(
                 platformMessageId = platformMsgId,
                 attachments = attachments,
             )
+        chatTypes[incoming.chatId] = chatTypeStr
         startTyping(incoming.chatId, chatId)
         logger.trace { "Telegram photo received: chatId=$chatId attachments=${attachments.size}" }
         runCatching {
@@ -494,6 +547,8 @@ class TelegramChannel(
         typingJobs.clear()
         pendingApprovals.clear()
         approvalMessageIds.clear()
+        streamStates.clear()
+        chatTypes.clear()
         logger.info { "TelegramChannel stopped" }
     }
 
@@ -504,5 +559,13 @@ class TelegramChannel(
         private const val MAX_POLL_BACKOFF_MS = 60_000L
         private const val BACKOFF_RESET_THRESHOLD_MS = 30_000L
         private const val NANOS_PER_MS = 1_000_000L
+        private const val STREAM_THROTTLE_MS = 300L
+        private const val MAX_DRAFT_ID = 0x7FFFFFFFL
     }
 }
+
+internal data class TelegramStreamState(
+    val draftId: Long,
+    val accumulatedText: StringBuffer,
+    var lastSendTimeMs: Long = 0,
+)

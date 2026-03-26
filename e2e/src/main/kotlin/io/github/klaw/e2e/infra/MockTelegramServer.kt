@@ -66,6 +66,7 @@ class MockTelegramServer(
         stubSetMyCommands()
         stubAnswerCallbackQuery()
         stubEditMessageReplyMarkup()
+        stubSendMessageDraft()
     }
 
     private fun stubGetMe() {
@@ -295,6 +296,18 @@ class MockTelegramServer(
         )
     }
 
+    private fun stubSendMessageDraft() {
+        wireMock.stubFor(
+            post(urlEqualTo("/bot$token/sendMessageDraft"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"ok":true,"result":true}"""),
+                ),
+        )
+    }
+
     private fun stubEditMessageReplyMarkup() {
         wireMock.stubFor(
             post(urlEqualTo("/bot$token/editMessageReplyMarkup"))
@@ -366,6 +379,9 @@ class MockTelegramServer(
         wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/sendMessage")))
 
     fun getReceivedMessageCount(): Int = getReceivedMessages().size
+
+    fun getReceivedDrafts(): List<LoggedRequest> =
+        wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/sendMessageDraft")))
 
     fun getAnswerCallbackQueryRequests(): List<LoggedRequest> =
         wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/answerCallbackQuery")))

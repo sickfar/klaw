@@ -8,6 +8,8 @@ import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.LlmResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onEach
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = KotlinLogging.logger {}
@@ -69,6 +71,29 @@ class LlmRouter(
 
         logger.error(lastError) { "All LLM providers failed: modelId=$modelId chain=${chain.joinToString(",")}" }
         throw KlawError.AllProvidersFailedError
+    }
+
+    // TODO: add fallback chain for streaming (currently single provider, no retry)
+    fun chatStream(
+        request: LlmRequest,
+        modelId: String,
+    ): Flow<StreamEvent> {
+        val (provider, model) = resolve(modelId)
+        val client = clientFor(provider)
+        val effectiveRequest =
+            if (request.temperature == null && model.temperature != null) {
+                request.copy(temperature = model.temperature)
+            } else {
+                request
+            }
+        logger.debug { "LLM streaming: modelId=$modelId" }
+        return client
+            .chatStream(effectiveRequest, provider, model)
+            .onEach { event ->
+                if (event is StreamEvent.End) {
+                    usageTracker?.record(modelId, event.response.usage)
+                }
+            }
     }
 
     private fun clientFor(provider: ResolvedProviderConfig): LlmClient {

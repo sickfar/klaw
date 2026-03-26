@@ -77,6 +77,12 @@ export function useChat() {
           timeout: frame.timeout,
         })
         break
+      case 'stream_delta':
+        chatStore.appendToStreamingMessage(frame.content)
+        break
+      case 'stream_end':
+        chatStore.finalizeStreamingMessage(frame.content)
+        break
       case 'error':
         chatStore.addMessage({
           id: crypto.randomUUID(),

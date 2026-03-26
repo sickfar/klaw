@@ -21,12 +21,16 @@ import io.github.klaw.engine.llm.openai.OpenAiFunctionCall
 import io.github.klaw.engine.llm.openai.OpenAiImageUrl
 import io.github.klaw.engine.llm.openai.OpenAiImageUrlPart
 import io.github.klaw.engine.llm.openai.OpenAiMessage
+import io.github.klaw.engine.llm.openai.OpenAiStreamAccumulator
+import io.github.klaw.engine.llm.openai.OpenAiStreamParser
 import io.github.klaw.engine.llm.openai.OpenAiTextPart
 import io.github.klaw.engine.llm.openai.OpenAiToolCallOut
 import io.github.klaw.engine.llm.openai.OpenAiToolDef
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -123,6 +127,53 @@ class OpenAiCompatibleClient(
         }
         return builder.build()
     }
+
+    override fun chatStream(
+        request: LlmRequest,
+        provider: ResolvedProviderConfig,
+        model: ModelRef,
+    ): Flow<StreamEvent> =
+        channelFlow {
+            val openAiRequest = request.toOpenAiRequest(model.modelId).copy(stream = true)
+            val requestBody = json.encodeToString(openAiRequest)
+            val url = "${provider.endpoint}/chat/completions"
+            logger.debug { "LLM stream request to ${provider.endpoint} model=${model.modelId}" }
+            val httpRequest = buildHttpRequest(url, requestBody, provider.apiKey)
+
+            val response =
+                withContext(Dispatchers.VT) {
+                    httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofLines())
+                }
+
+            val status = response.statusCode()
+            if (status !in HTTP_SUCCESS_RANGE) {
+                throw KlawError.ProviderError(status, "HTTP $status from ${provider.endpoint}")
+            }
+
+            val accumulator = OpenAiStreamAccumulator()
+            var toolCallEmitted = false
+
+            withContext(Dispatchers.VT) {
+                response.body().forEach { line ->
+                    val chunk = OpenAiStreamParser.parseSseLine(line) ?: return@forEach
+                    accumulator.accept(chunk)
+
+                    val choice = chunk.choices.firstOrNull() ?: return@forEach
+                    val delta = choice.delta
+
+                    if (delta.toolCalls != null && !toolCallEmitted) {
+                        toolCallEmitted = true
+                        channel.trySend(StreamEvent.ToolCallDetected)
+                    }
+
+                    if (delta.content != null && delta.content.isNotEmpty() && !toolCallEmitted) {
+                        channel.trySend(StreamEvent.Delta(delta.content))
+                    }
+                }
+            }
+
+            send(StreamEvent.End(accumulator.build()))
+        }
 }
 
 // --- Mapping: LlmRequest → OpenAiChatRequest ---

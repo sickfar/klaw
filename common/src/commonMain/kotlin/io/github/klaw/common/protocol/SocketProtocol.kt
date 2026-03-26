@@ -96,6 +96,25 @@ data object PongMessage : SocketMessage()
 @SerialName("restart_request")
 data object RestartRequestSocketMessage : SocketMessage()
 
+@Serializable
+@SerialName("stream_delta")
+data class StreamDeltaSocketMessage(
+    val channel: String,
+    val chatId: String,
+    val delta: String,
+    val streamId: String,
+) : SocketMessage()
+
+@Serializable
+@SerialName("stream_end")
+data class StreamEndSocketMessage(
+    val channel: String,
+    val chatId: String,
+    val streamId: String,
+    val fullContent: String,
+    val meta: Map<String, String>? = null,
+) : SocketMessage()
+
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
 // It uses a separate framing path for CLI ↔ Engine communication,
 // distinct from the Gateway ↔ Engine socket protocol above.

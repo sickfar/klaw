@@ -26,6 +26,23 @@ interface Channel {
         send(chatId, OutgoingMessage("Approve command: ${request.command}? (approval not supported on this channel)"))
     }
 
+    suspend fun sendStreamDelta(
+        chatId: String,
+        delta: String,
+        streamId: String,
+    ) {
+        // Default: no-op (channels that don't support streaming ignore deltas)
+    }
+
+    suspend fun sendStreamEnd(
+        chatId: String,
+        fullContent: String,
+        streamId: String,
+    ) {
+        // Default: send as regular message (fallback for non-streaming channels)
+        send(chatId, OutgoingMessage(fullContent))
+    }
+
     suspend fun start()
 
     suspend fun stop()

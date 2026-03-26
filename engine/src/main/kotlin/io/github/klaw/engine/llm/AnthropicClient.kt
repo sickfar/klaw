@@ -9,6 +9,7 @@ import com.anthropic.models.messages.Message
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.MessageParam
 import com.anthropic.models.messages.Model
+import com.anthropic.models.messages.RawMessageStreamEvent
 import com.anthropic.models.messages.StopReason
 import com.anthropic.models.messages.TextBlockParam
 import com.anthropic.models.messages.Tool
@@ -30,6 +31,8 @@ import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import java.io.IOException
@@ -91,6 +94,43 @@ class AnthropicClient(
         return klawResponse
     }
 
+    override fun chatStream(
+        request: LlmRequest,
+        provider: ResolvedProviderConfig,
+        model: ModelRef,
+    ): Flow<StreamEvent> =
+        channelFlow {
+            val client = getOrCreateClient(provider)
+            val params = request.toAnthropicParams(model.modelId)
+            logger.debug {
+                "Anthropic stream request to ${provider.endpoint} model=${model.modelId} messages=${request.messages.size}"
+            }
+
+            try {
+                withContext(Dispatchers.VT) {
+                    client.messages().createStreaming(params).use { streamResponse ->
+                        val accumulator = AnthropicStreamAccumulator()
+                        val iterator = streamResponse.stream().iterator()
+                        while (iterator.hasNext()) {
+                            val event = iterator.next()
+                            val streamEvent = processStreamEvent(event, accumulator)
+                            if (streamEvent != null) {
+                                channel.send(streamEvent)
+                            }
+                        }
+                        channel.send(StreamEvent.End(accumulator.buildResponse()))
+                    }
+                }
+            } catch (e: AnthropicServiceException) {
+                logger.warn {
+                    "Anthropic stream error: status=${e.statusCode()} endpoint=${provider.endpoint} model=${model.modelId}"
+                }
+                throw KlawError.ProviderError(e.statusCode(), "Anthropic API error: ${e.statusCode()}", e)
+            } catch (e: AnthropicIoException) {
+                throw IOException("Anthropic I/O error", e)
+            }
+        }
+
     private fun getOrCreateClient(provider: ResolvedProviderConfig): com.anthropic.client.AnthropicClient {
         val cacheKey = "${provider.endpoint}|${provider.apiKey?.length ?: 0}"
         return clients.getOrPut(cacheKey) {
@@ -101,6 +141,120 @@ class AnthropicClient(
                 .maxRetries(0) // We handle retries ourselves via withRetry
                 .build()
         }
+    }
+}
+
+// --- Streaming helpers ---
+
+private fun processStreamEvent(
+    event: RawMessageStreamEvent,
+    accumulator: AnthropicStreamAccumulator,
+): StreamEvent? {
+    when {
+        event.isMessageStart() -> {
+            val msg = event.asMessageStart().message()
+            val usage = msg.usage()
+            accumulator.inputTokens = usage.inputTokens().toInt()
+        }
+
+        event.isContentBlockStart() -> {
+            val startEvent = event.asContentBlockStart()
+            val block = startEvent.contentBlock()
+            if (block.isToolUse()) {
+                val toolUse = block.toolUse().get()
+                accumulator.startToolUse(
+                    index = startEvent.index().toInt(),
+                    id = toolUse.id(),
+                    name = toolUse.name(),
+                )
+                return StreamEvent.ToolCallDetected
+            }
+        }
+
+        event.isContentBlockDelta() -> {
+            val deltaEvent = event.asContentBlockDelta()
+            val delta = deltaEvent.delta()
+            if (delta.isText()) {
+                val text = delta.asText().text()
+                if (text.isNotEmpty()) {
+                    accumulator.appendText(text)
+                    return StreamEvent.Delta(text)
+                }
+            } else if (delta.isInputJson()) {
+                accumulator.appendToolJson(deltaEvent.index().toInt(), delta.asInputJson().partialJson())
+            }
+        }
+
+        event.isMessageDelta() -> {
+            val msgDelta = event.asMessageDelta()
+            accumulator.stopReason = msgDelta.delta().stopReason().orElse(null)
+            accumulator.outputTokens = msgDelta.usage().outputTokens().toInt()
+        }
+    }
+    return null
+}
+
+private class AnthropicStreamAccumulator {
+    var inputTokens: Int = 0
+    var outputTokens: Int = 0
+    var stopReason: StopReason? = null
+    private val textContent = StringBuilder()
+    private val toolCalls = mutableListOf<ToolCallBuilder>()
+    private val toolCallByIndex = mutableMapOf<Int, ToolCallBuilder>()
+
+    fun appendText(text: String) {
+        textContent.append(text)
+    }
+
+    fun startToolUse(
+        index: Int,
+        id: String,
+        name: String,
+    ) {
+        val builder = ToolCallBuilder(id, name)
+        toolCalls.add(builder)
+        toolCallByIndex[index] = builder
+    }
+
+    fun appendToolJson(
+        index: Int,
+        json: String,
+    ) {
+        toolCallByIndex[index]?.arguments?.append(json)
+    }
+
+    fun buildResponse(): LlmResponse {
+        val content = textContent.toString().ifBlank { null }
+        val tools =
+            if (toolCalls.isEmpty()) {
+                null
+            } else {
+                toolCalls.map {
+                    ToolCall(
+                        id = it.id,
+                        name = it.name,
+                        arguments = it.arguments.toString(),
+                    )
+                }
+            }
+        return LlmResponse(
+            content = content,
+            toolCalls = tools,
+            usage =
+                TokenUsage(
+                    promptTokens = inputTokens,
+                    completionTokens = outputTokens,
+                    totalTokens = inputTokens + outputTokens,
+                ),
+            finishReason = mapStopReason(stopReason ?: StopReason.END_TURN),
+        )
+    }
+
+    private class ToolCallBuilder(
+        val id: String,
+        val name: String,
+    ) {
+        val arguments = StringBuilder()
     }
 }
 
