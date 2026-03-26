@@ -241,6 +241,37 @@ Full config with multiple providers and overrides:
 }
 ```
 
+## routing
+
+Configures model selection and fallback behavior for all LLM calls.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default` | string | — | Default model for interactive chat (`provider/modelId`). |
+| `fallback` | string[] | `[]` | Fallback models tried in order if the requested model fails. |
+| `tasks.summarization` | string | — | Model for compaction summarization tasks. |
+| `tasks.subagent` | string | — | Model for subagent tasks. |
+| `tasks.consolidation` | string | `""` | Model for daily consolidation. Empty falls back (see cascade below). |
+
+### Fallback chain
+
+When any LLM call is made, the engine builds a fallback chain: `[requested model] + routing.fallback` (duplicates filtered out). Models are tried in order until one succeeds.
+
+The fallback list is **global** — it applies to all model calls, including task-specific models (`summarization`, `subagent`, `consolidation`), not just `routing.default`. Task models do not have their own fallback lists.
+
+Example: if `routing.tasks.summarization = "zai/glm-5"` and `routing.fallback = ["deepseek/deepseek-chat"]`, a failed summarization call retries with `deepseek/deepseek-chat`.
+
+### Error behavior
+
+- **`ContextLengthExceededError`** — skips the fallback chain entirely and is thrown immediately. Retrying with a different model would not help since the context is too large.
+- **`AllProvidersFailedError`** — thrown when all models in the chain fail. The user sees "All LLM providers are unreachable. Please try again later."
+
+### Consolidation model cascade
+
+The consolidation task resolves its model via a cascade:
+`memory.consolidation.model` → `routing.tasks.consolidation` → `routing.tasks.summarization`.
+The first non-empty value is used.
+
 ## memory
 
 Configures the memory system: embedding backend, chunking, search, categories, memory map injection, auto-RAG, compaction, and consolidation.
@@ -460,7 +491,5 @@ See [vision.md](../tools/vision.md) for tool documentation.
 
 ## Notes
 
-- `routing.fallback` lists model IDs tried in order if the primary model fails.
-- `ContextLengthExceededError` is never retried and skips the fallback chain.
 - Ollama does not require an `apiKey` — omit the field or set to `null`.
 - Model IDs may contain colons (e.g. `qwen3:8b`) — use `provider/modelId` as the full ID for routing.

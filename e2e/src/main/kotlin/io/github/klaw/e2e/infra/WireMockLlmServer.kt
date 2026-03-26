@@ -32,6 +32,7 @@ private const val PRIORITY_VISION = 1
 private const val PRIORITY_CONSOLIDATION = 1
 private const val PRIORITY_SUMMARIZATION = 1
 private const val PRIORITY_RISK_ASSESSMENT = 2
+private const val PRIORITY_MODEL_SPECIFIC = 3
 private const val PRIORITY_SEQUENCE = 5
 private const val PRIORITY_DEFAULT = 10
 private const val DEFAULT_PROMPT_TOKENS = 10
@@ -309,6 +310,45 @@ class WireMockLlmServer {
                 ),
         )
     }
+
+    fun stubChatResponseForModel(
+        modelId: String,
+        content: String,
+        promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+        completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+    ) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing("\"model\":\"$modelId\""))
+                .atPriority(PRIORITY_MODEL_SPECIFIC)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(buildChatResponseJson(content, promptTokens, completionTokens)),
+                ),
+        )
+    }
+
+    fun stubChatErrorForModel(
+        modelId: String,
+        statusCode: Int,
+    ) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing("\"model\":\"$modelId\""))
+                .atPriority(PRIORITY_MODEL_SPECIFIC)
+                .willReturn(
+                    aResponse()
+                        .withStatus(statusCode)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""{"error":{"message":"test error","type":"test_error"}}"""),
+                ),
+        )
+    }
+
+    fun getRequestsForModel(modelId: String): List<String> =
+        getRecordedRequests().filter { it.contains("\"model\":\"$modelId\"") }
 
     fun stubRiskAssessmentResponse(riskScore: Int) {
         server.stubFor(

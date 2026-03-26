@@ -225,6 +225,38 @@ class ConfigGeneratorTest {
     }
 
     @Test
+    fun `engine json with fallbackModels populates routing fallback and models`() {
+        val engineJson =
+            ConfigGenerator.engineJson(
+                wiremockBaseUrl = "http://localhost:8080",
+                defaultModelId = "test/primary",
+                fallbackModels = listOf("test/fallback"),
+            )
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val routing = root["routing"]!!.jsonObject
+        assertEquals("test/primary", routing["default"]!!.jsonPrimitive.content)
+
+        val fallback = routing["fallback"]!!.jsonArray
+        assertEquals(1, fallback.size)
+        assertEquals("test/fallback", fallback[0].jsonPrimitive.content)
+
+        val models = root["models"]!!.jsonObject
+        assertTrue(models.containsKey("test/primary"))
+        assertTrue(models.containsKey("test/fallback"))
+    }
+
+    @Test
+    fun `engine json defaults have empty fallback list`() {
+        val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
+
+        val root = json.parseToJsonElement(engineJson).jsonObject
+        val routing = root["routing"]!!.jsonObject
+        val fallback = routing["fallback"]!!.jsonArray
+        assertTrue(fallback.isEmpty())
+    }
+
+    @Test
     fun `engine json defaults have empty allowList and notifyList`() {
         val engineJson = ConfigGenerator.engineJson(wiremockBaseUrl = "http://localhost:8080")
 

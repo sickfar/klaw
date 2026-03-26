@@ -65,6 +65,7 @@ object ConfigGenerator {
         visionMaxTokens: Int = DEFAULT_VISION_MAX_TOKENS,
         visionAttachmentsDirectory: String = "",
         defaultModelId: String = "test/model",
+        fallbackModels: List<String> = emptyList(),
         heartbeatInterval: String = "off",
         heartbeatModel: String? = null,
         heartbeatChannel: String? = null,
@@ -73,8 +74,8 @@ object ConfigGenerator {
         val root =
             buildJsonObject {
                 buildProviders(wiremockBaseUrl)
-                buildModels(visionModel, defaultModelId)
-                buildRouting(defaultModelId)
+                buildModels(visionModel, defaultModelId, fallbackModels)
+                buildRouting(defaultModelId, fallbackModels)
                 buildMemory(
                     memoryInjectSummary,
                     mmrEnabled,
@@ -242,6 +243,7 @@ object ConfigGenerator {
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildModels(
         visionModel: String,
         defaultModelId: String = "test/model",
+        additionalModels: List<String> = emptyList(),
     ) {
         putJsonObject("models") {
             putJsonObject("test/model") {}
@@ -251,13 +253,23 @@ object ConfigGenerator {
             if (visionModel.isNotEmpty() && visionModel != defaultModelId) {
                 putJsonObject(visionModel) {}
             }
+            additionalModels.forEach { modelId ->
+                if (modelId != "test/model" && modelId != defaultModelId && modelId != visionModel) {
+                    putJsonObject(modelId) {}
+                }
+            }
         }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting(defaultModelId: String) {
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildRouting(
+        defaultModelId: String,
+        fallbackModels: List<String> = emptyList(),
+    ) {
         putJsonObject("routing") {
             put("default", defaultModelId)
-            putJsonArray("fallback") {}
+            putJsonArray("fallback") {
+                fallbackModels.forEach { add(JsonPrimitive(it)) }
+            }
             putJsonObject("tasks") {
                 put("summarization", "test/model")
                 put("subagent", "test/model")
