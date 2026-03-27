@@ -89,6 +89,26 @@ class TelegramChannelLivenessTest {
         }
 
     @Test
+    fun `isAlive stays true when send fails with content validation error`() =
+        runTest {
+            val channel = makeChannel()
+            // First send succeeds to set alive=true
+            channel.sendAction = { _, _ -> }
+            channel.send("telegram_123", OutgoingMessage("hello"))
+            assertTrue(channel.isAlive())
+
+            // Content validation error (empty text) — not a connectivity failure
+            channel.sendAction = { _, _ ->
+                throw IllegalStateException("Text length must be in range 1..4096, but was 0")
+            }
+            channel.send("telegram_123", OutgoingMessage(""))
+            assertTrue(
+                channel.isAlive(),
+                "alive should stay true after content validation error, not connectivity failure",
+            )
+        }
+
+    @Test
     fun `isAlive returns false after stop`() =
         runTest {
             val channel = makeChannel()

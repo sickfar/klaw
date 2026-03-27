@@ -290,7 +290,9 @@ class TelegramChannel(
             }.onSuccess {
                 setAlive(true)
             }.onFailure { e ->
-                alive = false
+                if (isConnectivityError(e)) {
+                    alive = false
+                }
                 logger.error(e) { "Failed to send Telegram message to chatId=$chatId" }
                 return
             }
@@ -551,6 +553,9 @@ class TelegramChannel(
         chatTypes.clear()
         logger.info { "TelegramChannel stopped" }
     }
+
+    private fun isConnectivityError(e: Throwable): Boolean =
+        e is IOException || e is CommonBotException || e is HttpRequestTimeoutException
 
     companion object {
         private const val APPROVAL_CALLBACK_PARTS = 3

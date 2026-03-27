@@ -107,6 +107,7 @@ class GatewayOutboundHandler(
             return
         }
         if (!channel.isAlive()) {
+            logger.warn { "Channel ${channel.name} not alive: approval id=${message.id} chatId=$chatId, buffering" }
             bufferApproval(channelName, message)
             return
         }

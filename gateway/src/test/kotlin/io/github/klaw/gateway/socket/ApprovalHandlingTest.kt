@@ -28,6 +28,8 @@ import java.io.File
 import java.net.InetSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.ServerSocketChannel
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class ApprovalHandlingTest {
     @TempDir
@@ -179,11 +181,51 @@ class ApprovalHandlingTest {
         }
 
     @Test
+    fun `handleApprovalRequest buffers and sends when channel later becomes alive`() =
+        runBlocking {
+            var alive = false
+            var onBecameAliveCallback: (suspend () -> Unit)? = null
+            val telegramChannel = mockk<Channel>(relaxed = true)
+            every { telegramChannel.name } returns "telegram"
+            every { telegramChannel.isAlive() } answers { alive }
+            every { telegramChannel.onBecameAlive = any() } answers { onBecameAliveCallback = firstArg() }
+
+            val handler =
+                GatewayOutboundHandler(
+                    channels = listOf(telegramChannel),
+                    allowlistService = makeAllowlistService(listOf(AllowedChat("telegram_123"))),
+                    jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
+                    applicationContext = mockk<ApplicationContext>(relaxed = true),
+                )
+
+            val request =
+                ApprovalRequestMessage(
+                    id = "req-1",
+                    chatId = "telegram_123",
+                    command = "rm -rf /tmp/test",
+                    riskScore = 8,
+                    timeout = 5,
+                )
+            handler.handleApprovalRequest(request)
+
+            // Not sent yet — buffered for recovery
+            coVerify(exactly = 0) { telegramChannel.sendApproval(any(), any(), any()) }
+
+            // Channel becomes alive → buffer drained
+            alive = true
+            onBecameAliveCallback?.invoke()
+
+            coVerify(exactly = 1) { telegramChannel.sendApproval(eq("telegram_123"), eq(request), any()) }
+        }
+
+    @Test
     fun `handleIncomingLine dispatches ApprovalRequestMessage to handler`() {
         val server = ServerSocketChannel.open()
         server.bind(InetSocketAddress("127.0.0.1", 0))
         val serverPort = (server.localAddress as InetSocketAddress).port
 
+        val connectedLatch = CountDownLatch(1)
+        val handledLatch = CountDownLatch(1)
         val handledRequests = mutableListOf<ApprovalRequestMessage>()
         val handler =
             object : OutboundMessageHandler {
@@ -195,6 +237,7 @@ class ApprovalHandlingTest {
 
                 override suspend fun handleApprovalRequest(message: ApprovalRequestMessage) {
                     handledRequests.add(message)
+                    handledLatch.countDown()
                 }
             }
 
@@ -210,10 +253,11 @@ class ApprovalHandlingTest {
 
         try {
             client.start()
-            Thread.sleep(300)
 
-            // Accept connection and send an ApprovalRequestMessage
+            // Accept connection — blocks until client connects
             val conn = server.accept()
+            connectedLatch.countDown()
+
             val writer = java.io.PrintWriter(Channels.newOutputStream(conn), true)
             val approvalJson =
                 json.encodeToString<SocketMessage>(
@@ -227,7 +271,7 @@ class ApprovalHandlingTest {
                 )
             writer.println(approvalJson)
 
-            Thread.sleep(300)
+            assertTrue(handledLatch.await(5, TimeUnit.SECONDS), "Approval request should be handled within 5 seconds")
 
             assertEquals(1, handledRequests.size)
             assertEquals("req-42", handledRequests[0].id)
