@@ -3,7 +3,6 @@ package io.github.klaw.cli.configure
 import io.github.klaw.cli.init.ConfigTemplates
 import io.github.klaw.cli.init.EnvWriter
 import io.github.klaw.cli.util.deleteRecursively
-import io.github.klaw.cli.util.fileExists
 import io.github.klaw.cli.util.readFileText
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig

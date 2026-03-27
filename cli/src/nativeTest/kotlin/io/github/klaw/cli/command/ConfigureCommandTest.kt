@@ -5,7 +5,6 @@ import io.github.klaw.cli.KlawCli
 import io.github.klaw.cli.init.ConfigTemplates
 import io.github.klaw.cli.init.EnvWriter
 import io.github.klaw.cli.util.deleteRecursively
-import io.github.klaw.cli.util.readFileText
 import io.github.klaw.cli.util.writeFileText
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.posix.getpid

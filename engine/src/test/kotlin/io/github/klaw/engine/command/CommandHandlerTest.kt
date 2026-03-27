@@ -280,9 +280,16 @@ class CommandHandlerTest {
                     getOrCreateSession = { _, _ -> error("not called") },
                     workspaceLoader = mockk(),
                     toolRegistry = mockk(),
-                    pushToGateway = {},
                     workspacePath = workspace,
                     maxToolCallRounds = 5,
+                    persistence =
+                        io.github.klaw.engine.workspace.HeartbeatPersistence(
+                            jsonlWriter =
+                                io.github.klaw.engine.workspace
+                                    .HeartbeatJsonlWriter(workspace),
+                            persistDelivered = { _, _, _ -> },
+                            pushToGateway = {},
+                        ),
                 )
             every { heartbeatRunnerFactory.runner } returns runner
             val handler = makeHandler()

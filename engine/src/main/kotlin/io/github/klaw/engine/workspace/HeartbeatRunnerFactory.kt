@@ -6,8 +6,6 @@ import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
-import io.github.klaw.engine.socket.EngineSocketServer
-import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.scheduling.TaskScheduler
 import jakarta.annotation.PostConstruct
@@ -17,16 +15,15 @@ import java.nio.file.Path
 private val logger = KotlinLogging.logger {}
 
 @Singleton
-@Suppress("LongParameterList")
 class HeartbeatRunnerFactory(
     private val config: EngineConfig,
     private val llmRouter: LlmRouter,
-    private val toolExecutor: ToolExecutor,
+    private val toolExecutor: io.github.klaw.engine.tools.ToolExecutor,
     private val sessionManager: SessionManager,
     private val workspaceLoader: WorkspaceLoader,
     private val toolRegistry: ToolRegistry,
-    private val socketServer: EngineSocketServer,
     private val taskScheduler: TaskScheduler,
+    private val persistenceProvider: HeartbeatPersistenceProvider,
 ) {
     var runner: HeartbeatRunner? = null
         private set
@@ -55,9 +52,9 @@ class HeartbeatRunnerFactory(
                 getOrCreateSession = sessionManager::getOrCreate,
                 workspaceLoader = workspaceLoader,
                 toolRegistry = toolRegistry,
-                pushToGateway = { socketServer.pushToGateway(it) },
                 workspacePath = Path.of(KlawPaths.workspace),
                 maxToolCallRounds = config.processing.maxToolCallRounds,
+                persistence = persistenceProvider.create(),
             )
         runner = r
 

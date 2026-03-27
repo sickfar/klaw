@@ -5,7 +5,6 @@ import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.TelegramConfig
-import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.gateway.channel.Channel

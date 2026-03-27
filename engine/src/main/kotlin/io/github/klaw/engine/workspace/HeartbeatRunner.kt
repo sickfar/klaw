@@ -17,6 +17,7 @@ import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -24,7 +25,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
-@Suppress("LongParameterList")
 class HeartbeatRunner(
     private val config: EngineConfig,
     private val chat: suspend (LlmRequest, String) -> LlmResponse,
@@ -32,9 +32,9 @@ class HeartbeatRunner(
     private val getOrCreateSession: suspend (chatId: String, defaultModel: String) -> Session,
     private val workspaceLoader: WorkspaceLoader,
     private val toolRegistry: ToolRegistry,
-    private val pushToGateway: suspend (OutboundSocketMessage) -> Unit,
     private val workspacePath: Path,
     private val maxToolCallRounds: Int,
+    private val persistence: HeartbeatPersistence,
 ) {
     private val running = AtomicBoolean(false)
 
@@ -46,9 +46,9 @@ class HeartbeatRunner(
     @Volatile
     var deliveryChatId: String? = config.heartbeat.injectInto
 
-    fun acquireRunLock(): Boolean = running.compareAndSet(false, true)
+    internal fun acquireRunLock(): Boolean = running.compareAndSet(false, true)
 
-    fun releaseRunLock() {
+    internal fun releaseRunLock() {
         running.set(false)
     }
 
@@ -115,12 +115,12 @@ class HeartbeatRunner(
                 includeSkillList = false,
                 includeSkillLoad = false,
                 includeHeartbeatDeliver = true,
+                includeScheduleDeliver = false,
                 includeSendMessage = false,
             )
         logger.trace { "Heartbeat context built: tools=${tools.size}, systemPromptLength=${systemPrompt.length}" }
 
-        val fullSystemPrompt =
-            systemPrompt + HEARTBEAT_SYSTEM_SUFFIX
+        val fullSystemPrompt = systemPrompt + HEARTBEAT_SYSTEM_SUFFIX
 
         val context =
             mutableListOf(
@@ -128,14 +128,23 @@ class HeartbeatRunner(
                 LlmMessage(role = "user", content = content),
             )
 
-        val sink = HeartbeatDeliverSink()
+        val runCtx = HeartbeatRunCtx(sink = HeartbeatDeliverSink(), chatId = chatId, channel = channel)
 
-        runToolLoop(context, session.model, tools, sink, chatId, channel)
+        runToolLoop(context, session.model, tools, runCtx)
 
-        val deliveryMessage = sink.consumeMessage()
+        try {
+            persistence.jsonlWriter.writeDialog(context, model)
+        } catch (e: IOException) {
+            logger.warn(e) { "Heartbeat JSONL write failed — continuing with delivery" }
+        }
+
+        val deliveryMessage = runCtx.sink.consumeMessage()
         if (deliveryMessage != null) {
             logger.debug { "Heartbeat delivering message to $channel/$chatId, length=${deliveryMessage.length}" }
-            pushToGateway(OutboundSocketMessage(channel = channel, chatId = chatId, content = deliveryMessage))
+            persistence.pushToGateway(
+                OutboundSocketMessage(channel = channel, chatId = chatId, content = deliveryMessage),
+            )
+            persistence.persistDelivered(channel, chatId, deliveryMessage)
         } else {
             logger.debug { "Heartbeat completed without delivery" }
         }
@@ -146,9 +155,7 @@ class HeartbeatRunner(
         context: MutableList<LlmMessage>,
         modelId: String,
         tools: List<ToolDef>,
-        sink: HeartbeatDeliverSink,
-        chatId: String,
-        channel: String,
+        runCtx: HeartbeatRunCtx,
     ): LlmResponse {
         var rounds = 0
         while (rounds < maxToolCallRounds) {
@@ -161,6 +168,7 @@ class HeartbeatRunner(
             rounds++
             if (response.toolCalls.isNullOrEmpty()) {
                 logger.trace { "Heartbeat LLM returned text response at round=$rounds" }
+                context.add(LlmMessage(role = "assistant", content = response.content))
                 return response
             }
 
@@ -169,7 +177,7 @@ class HeartbeatRunner(
                 "Heartbeat LLM requested ${toolCalls.size} tool call(s) at round=$rounds: " +
                     toolCalls.joinToString { it.name }
             }
-            val results = executeToolCalls(toolCalls, sink, chatId, channel)
+            val results = executeToolCalls(toolCalls, runCtx)
 
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->
@@ -183,14 +191,12 @@ class HeartbeatRunner(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun executeToolCalls(
         toolCalls: List<ToolCall>,
-        sink: HeartbeatDeliverSink,
-        chatId: String,
-        channel: String,
+        runCtx: HeartbeatRunCtx,
     ): List<ToolResult> =
         try {
             logger.trace { "Heartbeat executing ${toolCalls.size} tool call(s)" }
             val results =
-                withContext(HeartbeatDeliverContext(sink) + ChatContext(chatId, channel)) {
+                withContext(HeartbeatDeliverContext(runCtx.sink) + ChatContext(runCtx.chatId, runCtx.channel)) {
                     toolExecutor.executeAll(toolCalls)
                 }
             logger.trace { "Heartbeat tool execution completed: ${results.size} result(s)" }
@@ -200,6 +206,12 @@ class HeartbeatRunner(
             // e::class.simpleName in tool result content is intentional and safe (no message text)
             toolCalls.map { ToolResult(callId = it.id, content = "Tool execution failed: ${e::class.simpleName}") }
         }
+
+    private data class HeartbeatRunCtx(
+        val sink: HeartbeatDeliverSink,
+        val chatId: String,
+        val channel: String,
+    )
 
     companion object {
         @Suppress("MaxLineLength")

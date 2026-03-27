@@ -1,9 +1,6 @@
 package io.github.klaw.cli.configure
 
 import io.github.klaw.cli.init.ConfigTemplates
-import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.config.parseGatewayConfig
 import kotlin.test.Test
