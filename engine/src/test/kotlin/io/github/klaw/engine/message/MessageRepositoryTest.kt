@@ -105,37 +105,121 @@ class MessageRepositoryTest {
         }
 
     @Test
-    fun `getWindowTokenCount returns accumulated tokens within budget`() =
+    fun `getWindowStats without coverageEnd returns stats for all messages in window`() =
         runBlocking {
-            // Insert messages with known token counts (newest first in DESC order)
-            repo.save("id1", "telegram", "chat1", "user", "text", "msg1", tokens = 2000)
-            repo.save("id2", "telegram", "chat1", "user", "text", "msg2", tokens = 2000)
-            repo.save("id3", "telegram", "chat1", "user", "text", "msg3", tokens = 2000)
-            repo.save("id4", "telegram", "chat1", "user", "text", "msg4", tokens = 2000)
-            repo.save("id5", "telegram", "chat1", "user", "text", "msg5", tokens = 2000)
-            // Total = 10K tokens
+            database.messagesQueries.insertMessage(
+                "msg-1",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "first",
+                null,
+                "2024-01-01T00:01:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-2",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "second",
+                null,
+                "2024-01-01T00:02:00Z",
+                200,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-3",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "third",
+                null,
+                "2024-01-01T00:03:00Z",
+                300,
+            )
 
-            // Budget of 6K: should accumulate newest messages until budget exceeded
-            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 6000)
-            assertEquals(6000L, count)
+            val stats = repo.getWindowStats("chat1", "2024-01-01T00:00:00Z", null, 100_000)
+
+            assertEquals(3, stats.messageCount)
+            assertEquals(600L, stats.totalTokens)
+            assertEquals("2024-01-01T00:01:00Z", stats.firstMessageTime)
+            assertEquals("2024-01-01T00:03:00Z", stats.lastMessageTime)
         }
 
     @Test
-    fun `getWindowTokenCount returns full total when all fit in budget`() =
+    fun `getWindowStats with coverageEnd returns only uncovered messages stats`() =
         runBlocking {
-            repo.save("id1", "telegram", "chat1", "user", "text", "msg1", tokens = 1000)
-            repo.save("id2", "telegram", "chat1", "user", "text", "msg2", tokens = 1000)
-            repo.save("id3", "telegram", "chat1", "user", "text", "msg3", tokens = 1000)
+            database.messagesQueries.insertMessage(
+                "msg-1",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "covered 1",
+                null,
+                "2024-01-01T00:01:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-2",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "covered 2",
+                null,
+                "2024-01-01T00:02:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-3",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "uncovered 1",
+                null,
+                "2024-01-01T00:03:00Z",
+                150,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-4",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "uncovered 2",
+                null,
+                "2024-01-01T00:04:00Z",
+                250,
+            )
 
-            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 10000)
-            assertEquals(3000L, count)
+            val stats =
+                repo.getWindowStats(
+                    "chat1",
+                    "2024-01-01T00:00:00Z",
+                    "2024-01-01T00:02:30Z",
+                    100_000,
+                )
+
+            assertEquals(2, stats.messageCount)
+            assertEquals(400L, stats.totalTokens)
+            assertEquals("2024-01-01T00:03:00Z", stats.firstMessageTime)
+            assertEquals("2024-01-01T00:04:00Z", stats.lastMessageTime)
         }
 
     @Test
-    fun `getWindowTokenCount returns zero for empty segment`() =
+    fun `getWindowStats returns empty stats when no messages`() =
         runBlocking {
-            val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 6000)
-            assertEquals(0L, count)
+            val stats = repo.getWindowStats("chat1", "2024-01-01T00:00:00Z", null, 100_000)
+
+            assertEquals(0, stats.messageCount)
+            assertEquals(0L, stats.totalTokens)
+            assertEquals(null, stats.firstMessageTime)
+            assertEquals(null, stats.lastMessageTime)
         }
 
     @Test

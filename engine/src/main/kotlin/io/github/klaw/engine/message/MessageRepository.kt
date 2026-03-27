@@ -14,6 +14,13 @@ private val logger = KotlinLogging.logger {}
 class MessageRepository(
     private val db: KlawDatabase,
 ) {
+    data class WindowStats(
+        val messageCount: Int,
+        val totalTokens: Long,
+        val firstMessageTime: String?,
+        val lastMessageTime: String?,
+    )
+
     data class MessageRow(
         val rowId: Long,
         val id: String,
@@ -154,21 +161,25 @@ class MessageRepository(
             kept.reversed()
         }
 
-    suspend fun getWindowTokenCount(
+    suspend fun getWindowStats(
         chatId: String,
         segmentStart: String,
+        coverageEnd: String?,
         budgetTokens: Int,
-    ): Long =
-        withContext(Dispatchers.VT) {
-            val allDesc = db.messagesQueries.getWindowMessages(chatId, segmentStart).executeAsList()
-            var accumulated = 0L
-            for (row in allDesc) {
-                val rowTokens = row.tokens
-                if (accumulated + rowTokens > budgetTokens) break
-                accumulated += rowTokens
+    ): WindowStats {
+        val messages =
+            if (coverageEnd != null) {
+                getWindowUncoveredMessages(chatId, segmentStart, coverageEnd, budgetTokens)
+            } else {
+                getWindowMessages(chatId, segmentStart, budgetTokens)
             }
-            accumulated
-        }
+        return WindowStats(
+            messageCount = messages.size,
+            totalTokens = messages.sumOf { it.tokens.toLong() },
+            firstMessageTime = messages.firstOrNull()?.createdAt,
+            lastMessageTime = messages.lastOrNull()?.createdAt,
+        )
+    }
 
     suspend fun sumTokensInSegment(
         chatId: String,

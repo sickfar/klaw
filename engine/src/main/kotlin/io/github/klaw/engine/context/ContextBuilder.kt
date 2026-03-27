@@ -196,6 +196,12 @@ class ContextBuilder(
 
         val uncoveredMessageTokens = dbMessages.sumOf { it.tokens.toLong() }
         logger.trace { "DB messages: count=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens" }
+        if (dbMessages.isNotEmpty()) {
+            logger.trace {
+                "Window messages: firstId=${dbMessages.first().id} firstTime=${dbMessages.first().createdAt} " +
+                    "lastId=${dbMessages.last().id} lastTime=${dbMessages.last().createdAt}"
+            }
+        }
         logger.debug {
             "Sliding window: budget=$budgetTokens overhead=$overhead messageBudget=$messageBudget " +
                 "dbMessages=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens " +

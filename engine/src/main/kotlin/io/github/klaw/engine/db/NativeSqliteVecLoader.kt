@@ -3,14 +3,17 @@ package io.github.klaw.engine.db
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.paths.KlawPaths
 import io.github.oshai.kotlinlogging.KotlinLogging
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 @Singleton
 class NativeSqliteVecLoader(
-    private val cacheDir: String = KlawPaths.cache,
+    private val cacheDir: String,
 ) : SqliteVecLoader {
+    @Inject
+    constructor() : this(KlawPaths.cache)
     private val logger = KotlinLogging.logger {}
 
     internal val suffix: String =

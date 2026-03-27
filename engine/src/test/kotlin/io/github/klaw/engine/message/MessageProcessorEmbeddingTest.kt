@@ -176,6 +176,7 @@ class MessageProcessorEmbeddingTest {
             CommandHandler(
                 sessionManager = sessionManager,
                 messageRepository = messageRepository,
+                summaryRepository = mockk(relaxed = true),
                 config = config,
                 heartbeatRunnerFactory = jakarta.inject.Provider { mockk(relaxed = true) },
                 skillRegistry = mockk(relaxed = true),

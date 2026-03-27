@@ -10,6 +10,7 @@ import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationReport
+import io.github.klaw.engine.context.SummaryRepository
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -29,6 +30,7 @@ private val logger = KotlinLogging.logger {}
 class CommandHandler(
     private val sessionManager: SessionManager,
     private val messageRepository: MessageRepository,
+    private val summaryRepository: SummaryRepository,
     private val config: EngineConfig,
     private val heartbeatRunnerFactory: Provider<HeartbeatRunnerFactory>,
     private val skillRegistry: SkillRegistry,
@@ -104,11 +106,22 @@ class CommandHandler(
             config.context.tokenBudget
                 ?: ModelRegistry.contextLength(session.model)
                 ?: ContextConfig.FALLBACK_BUDGET_TOKENS
-        val windowTokens = messageRepository.getWindowTokenCount(session.chatId, session.segmentStart, budgetTokens)
-        val totalTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
-        val pct = if (budgetTokens > 0) windowTokens * PERCENT_MULTIPLIER / budgetTokens else 0
+        val coverageEnd = summaryRepository.maxCoverageEnd(session.chatId, session.segmentStart)
+        val stats = messageRepository.getWindowStats(session.chatId, session.segmentStart, coverageEnd, budgetTokens)
+        val pct = if (budgetTokens > 0) stats.totalTokens * PERCENT_MULTIPLIER / budgetTokens else 0
+        val coveredPart =
+            if (coverageEnd != null) " | Covered to: ${formatShortTime(coverageEnd)}" else ""
         return "Chat: ${session.chatId} | Model: ${session.model} | Segment start: ${session.segmentStart}\n" +
-            "Context: $windowTokens/$budgetTokens tokens ($pct%) | Segment total: $totalTokens"
+            "Context: ${stats.totalTokens}/$budgetTokens tokens ($pct%) | Window: ${stats.messageCount} msgs$coveredPart"
+    }
+
+    private fun formatShortTime(isoTimestamp: String): String {
+        val tIdx = isoTimestamp.indexOf('T')
+        if (tIdx < 0) return isoTimestamp
+        val timePart = isoTimestamp.substring(tIdx + 1)
+        val dotOrEndIdx = timePart.indexOfFirst { it == '.' || it == 'Z' }
+        val seconds = if (dotOrEndIdx >= 0) timePart.substring(0, dotOrEndIdx) else timePart
+        return "${seconds}Z"
     }
 
     private suspend fun handleSkills(args: String?): String =

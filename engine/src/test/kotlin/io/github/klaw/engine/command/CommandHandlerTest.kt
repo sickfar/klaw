@@ -20,6 +20,7 @@ import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
+import io.github.klaw.engine.context.SummaryRepository
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -43,6 +44,7 @@ class CommandHandlerTest {
 
     private val sessionManager = mockk<SessionManager>(relaxed = true)
     private val messageRepository = mockk<MessageRepository>(relaxed = true)
+    private val summaryRepository = mockk<SummaryRepository>(relaxed = true)
     private val heartbeatRunnerFactory = mockk<HeartbeatRunnerFactory>(relaxed = true)
     private val skillRegistry = mockk<SkillRegistry>(relaxed = true)
 
@@ -100,6 +102,7 @@ class CommandHandlerTest {
         CommandHandler(
             sessionManager,
             messageRepository,
+            summaryRepository,
             makeConfig(models),
             jakarta.inject.Provider { heartbeatRunnerFactory },
             skillRegistry,
@@ -193,8 +196,16 @@ class CommandHandlerTest {
         }
 
     @Test
-    fun `slash_status returns session info and context usage`() =
+    fun `slash_status returns session info and context usage without coverage`() =
         runTest {
+            coEvery { summaryRepository.maxCoverageEnd(any(), any()) } returns null
+            coEvery { messageRepository.getWindowStats(any(), any(), null, any()) } returns
+                MessageRepository.WindowStats(
+                    messageCount = 12,
+                    totalTokens = 8500,
+                    firstMessageTime = "2026-03-27T10:00:00Z",
+                    lastMessageTime = "2026-03-27T11:00:00Z",
+                )
             val handler = makeHandler()
             val session = makeSession(model = "test/model")
 
@@ -203,11 +214,32 @@ class CommandHandlerTest {
             assertTrue(result.contains("chat-1"), "Response should contain chatId, got: $result")
             assertTrue(result.contains("test/model"), "Response should contain model name, got: $result")
             assertTrue(result.contains("Context:"), "Response should contain context usage, got: $result")
-            assertTrue(result.contains("tokens"), "Response should contain token info, got: $result")
-            assertTrue(
-                result.contains("Segment total:"),
-                "Response should contain segment total, got: $result",
-            )
+            assertTrue(result.contains("8500"), "Response should contain window token count, got: $result")
+            assertTrue(result.contains("Window: 12 msgs"), "Response should contain message count, got: $result")
+            assertTrue(!result.contains("Covered to:"), "Response should not contain coverage info, got: $result")
+            assertTrue(!result.contains("Segment total:"), "Response should not contain segment total, got: $result")
+        }
+
+    @Test
+    fun `slash_status shows Covered to when compaction has run`() =
+        runTest {
+            val coverageEnd = "2026-03-27T18:06:32.300644625Z"
+            coEvery { summaryRepository.maxCoverageEnd(any(), any()) } returns coverageEnd
+            coEvery { messageRepository.getWindowStats(any(), any(), coverageEnd, any()) } returns
+                MessageRepository.WindowStats(
+                    messageCount = 27,
+                    totalTokens = 27804,
+                    firstMessageTime = "2026-03-27T18:07:00Z",
+                    lastMessageTime = "2026-03-27T19:33:00Z",
+                )
+            val handler = makeHandler()
+            val session = makeSession(model = "test/model")
+
+            val result = handler.handle(makeCmd("status"), session)
+
+            assertTrue(result.contains("27804"), "Response should contain uncovered tokens, got: $result")
+            assertTrue(result.contains("Window: 27 msgs"), "Response should contain message count, got: $result")
+            assertTrue(result.contains("Covered to: 18:06:32Z"), "Response should contain coverage time, got: $result")
         }
 
     @Test
