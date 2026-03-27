@@ -269,10 +269,10 @@ object GeneratedSchemas {
                 "context": {
                     "type": "object",
                     "properties": {
-                        "defaultBudgetTokens": {
+                        "tokenBudget": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
-                            "description": "Default token budget for historical messages in the context window"
+                            "description": "Token budget for context window. Priority: config > model registry > 100000."
                         },
                         "subagentHistory": {
                             "type": "integer",

@@ -26,7 +26,7 @@ object ConfigGenerator {
     @Suppress("LongParameterList", "LongMethod")
     fun engineJson(
         wiremockBaseUrl: String,
-        contextBudgetTokens: Int = CHUNK_SIZE,
+        tokenBudget: Int = CHUNK_SIZE,
         summarizationEnabled: Boolean = false,
         compactionThresholdFraction: Double = 0.5,
         summaryBudgetFraction: Double = 0.25,
@@ -98,7 +98,7 @@ object ConfigGenerator {
                     consolidationCategory,
                 )
                 buildContextAndProcessing(
-                    contextBudgetTokens,
+                    tokenBudget,
                     maxToolCallRounds,
                     debounceMs,
                     streamingEnabled,
@@ -349,14 +349,14 @@ object ConfigGenerator {
     }
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildContextAndProcessing(
-        contextBudgetTokens: Int,
+        tokenBudget: Int,
         maxToolCallRounds: Int,
         debounceMs: Int,
         streamingEnabled: Boolean,
         streamingThrottleMs: Long,
     ) {
         putJsonObject("context") {
-            put("defaultBudgetTokens", contextBudgetTokens)
+            put("tokenBudget", tokenBudget)
             put("subagentHistory", SUBAGENT_HISTORY)
         }
         putJsonObject("processing") {

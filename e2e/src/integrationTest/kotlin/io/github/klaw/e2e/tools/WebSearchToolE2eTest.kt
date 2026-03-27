@@ -24,7 +24,7 @@ import org.junit.jupiter.api.TestMethodOrder
 /**
  * E2E tests for the web_search tool with Brave Search provider.
  *
- * Config: contextBudgetTokens=5000, maxToolCallRounds=3,
+ * Config: tokenBudget=5000, maxToolCallRounds=3,
  * webSearchEnabled=true, webSearchProvider=brave, webSearchApiKey=test-key,
  * webSearchEndpoint pointing to WireMock.
  *
@@ -54,7 +54,7 @@ class WebSearchToolE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
@@ -214,7 +214,7 @@ class WebSearchToolE2eTest {
                     engineJson =
                         ConfigGenerator.engineJson(
                             wiremockBaseUrl = wiremockBaseUrl,
-                            contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                            tokenBudget = CONTEXT_BUDGET_TOKENS,
                             summarizationEnabled = false,
                             autoRagEnabled = false,
                             maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

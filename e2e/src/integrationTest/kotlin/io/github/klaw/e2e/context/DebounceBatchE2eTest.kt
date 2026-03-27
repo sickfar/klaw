@@ -18,7 +18,7 @@ import org.junit.jupiter.api.TestInstance
  * E2E test verifying that multiple messages sent within the debounce window are batched into a
  * single LLM call.
  *
- * Config: contextBudgetTokens=5000, debounceMs=3000, maxToolCallRounds=1,
+ * Config: tokenBudget=5000, debounceMs=3000, maxToolCallRounds=1,
  * summarizationEnabled=false, autoRagEnabled=false
  *
  * With debounceMs=3000 (3 seconds), all 3 fire-and-forget messages arrive within the window
@@ -44,7 +44,7 @@ class DebounceBatchE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         debounceMs = DEBOUNCE_MS,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
                         summarizationEnabled = false,

@@ -78,7 +78,7 @@ class ContextBuilderAutoRagTest {
                 ),
             context =
                 ContextConfig(
-                    defaultBudgetTokens = budgetTokens,
+                    tokenBudget = budgetTokens,
                     subagentHistory = 5,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),

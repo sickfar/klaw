@@ -47,7 +47,7 @@ class BufferOverflowE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                     ),
                 gatewayJson = ConfigGenerator.gatewayJson(),
                 workspaceDir = workspaceDir,

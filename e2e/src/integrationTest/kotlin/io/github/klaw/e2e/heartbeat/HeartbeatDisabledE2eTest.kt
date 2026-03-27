@@ -25,7 +25,7 @@ import org.junit.jupiter.api.TestMethodOrder
 /**
  * E2E test verifying heartbeat is disabled when interval=off (default).
  *
- * Config: heartbeatInterval=off (default), no HEARTBEAT.md, contextBudgetTokens=5000.
+ * Config: heartbeatInterval=off (default), no HEARTBEAT.md, tokenBudget=5000.
  *
  * Tests cover:
  * 1. Heartbeat disabled — no heartbeat LLM calls; engine_health reports heartbeat_running=false
@@ -51,7 +51,7 @@ class HeartbeatDisabledE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

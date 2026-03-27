@@ -222,14 +222,20 @@ data class TemporalDecayConfig(
 
 @Serializable
 data class ContextConfig(
-    @ConfigDoc("Default token budget for historical messages in the context window")
-    val defaultBudgetTokens: Int = 100_000,
+    @ConfigDoc("Token budget for context window. Priority: config > model registry > 100000.")
+    val tokenBudget: Int? = null,
     @ConfigDoc("Maximum number of history runs to include for subagents")
     val subagentHistory: Int,
 ) {
     init {
-        require(defaultBudgetTokens > 0) { "defaultBudgetTokens must be > 0, got $defaultBudgetTokens" }
+        require(tokenBudget == null || tokenBudget > 0) {
+            "tokenBudget must be > 0, got $tokenBudget"
+        }
         require(subagentHistory > 0) { "subagentHistory must be > 0, got $subagentHistory" }
+    }
+
+    companion object {
+        const val FALLBACK_BUDGET_TOKENS = 100_000
     }
 }
 

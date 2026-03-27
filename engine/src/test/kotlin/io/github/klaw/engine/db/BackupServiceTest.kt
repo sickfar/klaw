@@ -59,7 +59,7 @@ class BackupServiceTest {
                     search = SearchConfig(topK = 10),
                     autoRag = AutoRagConfig(enabled = false),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
+            context = ContextConfig(tokenBudget = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             httpRetry =
                 HttpRetryConfig(

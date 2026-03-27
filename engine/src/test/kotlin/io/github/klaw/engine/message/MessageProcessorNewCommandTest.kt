@@ -56,7 +56,7 @@ class MessageProcessorNewCommandTest {
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 10),
+            context = ContextConfig(tokenBudget = 4096, subagentHistory = 10),
             processing = ProcessingConfig(debounceMs = 10L, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             httpRetry =
                 HttpRetryConfig(

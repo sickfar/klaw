@@ -44,7 +44,7 @@ Performs a line-level replacement of the YAML key's value.
 
 ```
 klaw config set routing.default glm/glm-5
-klaw config set context.defaultBudgetTokens 100000
+klaw config set context.tokenBudget 100000
 ```
 
 Prints a reminder to restart the Engine after changes:

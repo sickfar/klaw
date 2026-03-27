@@ -1,5 +1,6 @@
 package io.github.klaw.engine.memory
 
+import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
@@ -107,8 +108,9 @@ class DailyConsolidationService(
 
         val modelId = resolveModelId()
         val contextBudget =
-            ModelRegistry.contextLength(modelId)
-                ?: config.context.defaultBudgetTokens
+            config.context.tokenBudget
+                ?: ModelRegistry.contextLength(modelId)
+                ?: ContextConfig.FALLBACK_BUDGET_TOKENS
         val messageBudget = contextBudget - PROMPT_OVERHEAD_TOKENS - RESPONSE_RESERVE_TOKENS
 
         val chunks = chunkMessages(messages, messageBudget)

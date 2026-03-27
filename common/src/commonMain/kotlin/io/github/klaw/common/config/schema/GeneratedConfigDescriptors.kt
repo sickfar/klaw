@@ -351,9 +351,10 @@ object GeneratedConfigDescriptors {
                 false,
             ),
             ConfigPropertyDescriptor(
-                "context.defaultBudgetTokens",
+                "context.tokenBudget",
                 ConfigValueType.INT,
-                "Default token budget for historical messages in the context window",
+                "Token budget for context window. " +
+                    "Priority: config > model registry > 100000.",
                 null,
                 null,
                 false,

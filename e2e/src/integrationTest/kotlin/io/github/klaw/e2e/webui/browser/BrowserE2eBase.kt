@@ -57,7 +57,7 @@ abstract class BrowserE2eBase {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
-                        contextBudgetTokens = 5000,
+                        tokenBudget = 5000,
                     ),
                 gatewayJson = ConfigGenerator.gatewayJson(webuiEnabled = true),
                 workspaceDir = workspaceDir,

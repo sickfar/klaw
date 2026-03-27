@@ -1,5 +1,6 @@
 package io.github.klaw.engine.message
 
+import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.ToolDef
@@ -409,7 +410,10 @@ class MessageProcessor(
                         )
 
                     val registryContextLength = ModelRegistry.contextLength(session.model)
-                    val rawBudget = registryContextLength ?: config.context.defaultBudgetTokens
+                    val rawBudget =
+                        config.context.tokenBudget
+                            ?: registryContextLength
+                            ?: ContextConfig.FALLBACK_BUDGET_TOKENS
                     val modelContextLimit = registryContextLength ?: 0
                     val streamCtx = buildStreamContext(channel, chatId)
 

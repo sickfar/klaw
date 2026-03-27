@@ -48,7 +48,7 @@ class TelegramPairingE2eTest {
         val engineJson =
             ConfigGenerator.engineJson(
                 wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
-                contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                tokenBudget = CONTEXT_BUDGET_TOKENS,
                 summarizationEnabled = false,
                 autoRagEnabled = false,
             )

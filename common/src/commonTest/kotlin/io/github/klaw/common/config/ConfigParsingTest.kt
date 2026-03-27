@@ -79,7 +79,7 @@ class ConfigParsingTest {
     }
   },
   "context": {
-    "defaultBudgetTokens": 8000,
+    "tokenBudget": 8000,
     "subagentHistory": 5
   },
   "processing": {
@@ -345,7 +345,7 @@ class ConfigParsingTest {
     }
   },
   "context": {
-    "defaultBudgetTokens": 8000,
+    "tokenBudget": 8000,
     "subagentHistory": 5
   },
   "processing": {
@@ -439,7 +439,7 @@ class ConfigParsingTest {
   "models": {},
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
 }
             """.trimIndent()
@@ -463,7 +463,7 @@ class ConfigParsingTest {
   "models": {},
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
   "unknownField": "should be ignored"
 }
@@ -626,7 +626,7 @@ class ConfigParsingTest {
   "models": {},
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
   "database": {
     "busyTimeoutMs": 10000,
@@ -654,7 +654,7 @@ class ConfigParsingTest {
   "models": {},
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
-  "context": {"defaultBudgetTokens": 100, "subagentHistory": 3},
+  "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
 }
             """.trimIndent()
@@ -826,5 +826,17 @@ class ConfigParsingTest {
     fun engineConfigWorkspaceDefaultsToNull() {
         val config = parseEngineConfig(engineJson)
         assertNull(config.workspace)
+    }
+
+    @Test
+    fun tokenBudgetDefaultsToNull() {
+        // Remove tokenBudget from the context section to test default
+        val withoutBudget =
+            engineJson.replace(
+                Regex(""""tokenBudget"\s*:\s*\d+\s*,?\s*"""),
+                "",
+            )
+        val config = parseEngineConfig(withoutBudget)
+        assertNull(config.context.tokenBudget, "tokenBudget should default to null when not specified")
     }
 }

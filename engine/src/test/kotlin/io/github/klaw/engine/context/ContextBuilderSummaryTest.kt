@@ -28,6 +28,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -72,7 +73,7 @@ class ContextBuilderSummaryTest {
                             summaryBudgetFraction = summaryBudgetFraction,
                         ),
                 ),
-            context = ContextConfig(defaultBudgetTokens = contextBudget, subagentHistory = 5),
+            context = ContextConfig(tokenBudget = contextBudget, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             httpRetry =
                 HttpRetryConfig(
@@ -295,15 +296,16 @@ class ContextBuilderSummaryTest {
                 )
             }
 
-            val config = buildConfig(contextBudget = 500, summarizationEnabled = true, summaryBudgetFraction = 0.25)
+            // Budget 1000, system overhead ~300, summary 200 tokens → messageBudget ~500 → 5 messages fit
+            val config = buildConfig(contextBudget = 1000, summarizationEnabled = true, summaryBudgetFraction = 0.25)
             val contextBuilder = buildContextBuilder(config)
             val session = buildSession()
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            // All 20 messages should be present (zero gap - no budget trimming)
             val historyMessages = result.messages.filter { it.role == "user" }
-            assertEquals(20, historyMessages.size, "All uncovered messages should be included (zero gap)")
+            assertTrue(historyMessages.size < 20, "Sliding window should trim old uncovered messages")
+            assertEquals("Message 20", historyMessages.last().content, "Newest message should be present")
         }
 
     @Test
@@ -383,7 +385,7 @@ class ContextBuilderSummaryTest {
         }
 
     @Test
-    fun `no awareness section when summarization disabled`() =
+    fun `sliding window awareness section present even when summarization disabled`() =
         runTest {
             val config = buildConfig(contextBudget = 4096, summarizationEnabled = false)
             val contextBuilder = buildContextBuilder(config)
@@ -393,13 +395,21 @@ class ContextBuilderSummaryTest {
 
             val systemContent = result.messages[0].content!!
             assertTrue(
-                !systemContent.contains("Conversation History"),
-                "System prompt should NOT contain awareness section when summarization is disabled",
+                systemContent.contains("Conversation History"),
+                "System prompt should contain sliding window section even when summarization is disabled",
+            )
+            assertTrue(
+                systemContent.contains("sliding window"),
+                "System prompt should mention sliding window",
+            )
+            assertFalse(
+                systemContent.contains("summarized"),
+                "System prompt should NOT mention summarization when compaction is disabled",
             )
         }
 
     @Test
-    fun `all messages included when no summaries exist - zero gap`() =
+    fun `sliding window trims messages when no summaries exist`() =
         runTest {
             for (i in 1..10) {
                 db.messagesQueries.insertMessage(
@@ -415,14 +425,16 @@ class ContextBuilderSummaryTest {
                 )
             }
 
-            val config = buildConfig(contextBudget = 200, summarizationEnabled = true, summaryBudgetFraction = 0.25)
+            // Budget 800, system ~300 overhead → messageBudget ~500 → 5 of 10 messages (5 × 100) fit
+            val config = buildConfig(contextBudget = 800, summarizationEnabled = true, summaryBudgetFraction = 0.25)
             val contextBuilder = buildContextBuilder(config)
             val session = buildSession()
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            // All messages should be present regardless of budget (zero gap)
             val historyMessages = result.messages.filter { it.role == "user" }
-            assertEquals(10, historyMessages.size, "All messages should be included (zero gap, no budget trimming)")
+            assertTrue(historyMessages.size < 10, "Sliding window should trim old messages")
+            assertTrue(historyMessages.isNotEmpty(), "Some messages should fit in budget")
+            assertEquals("Message 10", historyMessages.last().content, "Newest message should be present")
         }
 }

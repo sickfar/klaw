@@ -49,7 +49,7 @@ class ConcurrentBurstE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         debounceMs = DEBOUNCE_MS,
                     ),
                 gatewayJson = ConfigGenerator.gatewayJson(),

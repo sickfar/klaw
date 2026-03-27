@@ -111,6 +111,49 @@ class MessageRepository(
             kept.reversed() // return in chronological order (ASC)
         }
 
+    /**
+     * Fetches recent uncovered messages (after [coverageEnd]) in the segment, ordered newest-first (DESC).
+     * Accumulates tokens until [budgetTokens] is exceeded, then stops.
+     * Returns matching messages in chronological order (ASC).
+     */
+    suspend fun getWindowUncoveredMessages(
+        chatId: String,
+        segmentStart: String,
+        coverageEnd: String,
+        budgetTokens: Int,
+    ): List<MessageRow> =
+        withContext(Dispatchers.VT) {
+            val allDesc =
+                db.messagesQueries
+                    .getWindowUncoveredMessages(
+                        chatId,
+                        coverageEnd,
+                        segmentStart,
+                    ).executeAsList()
+            var accumulated = 0L
+            val kept = mutableListOf<MessageRow>()
+            for (row in allDesc) {
+                val rowTokens = row.tokens.toInt()
+                if (accumulated + rowTokens > budgetTokens) break
+                accumulated += rowTokens
+                kept.add(
+                    MessageRow(
+                        rowId = row.row_id,
+                        id = row.id,
+                        channel = row.channel,
+                        chatId = row.chat_id,
+                        role = row.role,
+                        type = row.type,
+                        content = row.content,
+                        metadata = row.metadata,
+                        createdAt = row.created_at,
+                        tokens = rowTokens,
+                    ),
+                )
+            }
+            kept.reversed()
+        }
+
     suspend fun getWindowTokenCount(
         chatId: String,
         segmentStart: String,

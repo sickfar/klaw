@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestMethodOrder
  * These tools are directly available in the tools list. The bundled "documents"
  * skill provides detailed usage guidelines.
  *
- * Config: contextBudgetTokens=5000, maxToolCallRounds=5.
+ * Config: tokenBudget=5000, maxToolCallRounds=5.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -65,7 +65,7 @@ class DocumentToolsE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

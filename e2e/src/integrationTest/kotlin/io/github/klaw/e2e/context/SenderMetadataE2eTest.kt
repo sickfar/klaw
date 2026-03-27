@@ -26,7 +26,7 @@ import org.junit.jupiter.api.TestMethodOrder
  * Verifies that the ## Current Sender section is present in the system prompt
  * as a JSON block with sender fields: name, id, chat_type, platform, chat_title, message_id.
  *
- * Config: contextBudgetTokens=5000, maxToolCallRounds=1, summarizationEnabled=false,
+ * Config: tokenBudget=5000, maxToolCallRounds=1, summarizationEnabled=false,
  * autoRagEnabled=false.
  *
  * Tests cover:
@@ -55,7 +55,7 @@ class SenderMetadataE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

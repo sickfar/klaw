@@ -1,5 +1,6 @@
 package io.github.klaw.engine.context
 
+import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.VisionConfig
 import io.github.klaw.common.llm.ImageUrlContentPart
@@ -10,6 +11,7 @@ import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.registry.ModelRegistry
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.memory.AutoRagResult
 import io.github.klaw.engine.memory.AutoRagService
@@ -156,8 +158,9 @@ class ContextBuilder(
             buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, senderContext)
 
         val budgetTokens =
-            ModelRegistry.contextLength(session.model)
-                ?: config.context.defaultBudgetTokens
+            config.context.tokenBudget
+                ?: ModelRegistry.contextLength(session.model)
+                ?: ContextConfig.FALLBACK_BUDGET_TOKENS
         // Summarization: compute summary budget, fetch summaries with coverage info
         val summaryResult: SummaryContextResult
         if (config.memory.compaction.enabled) {
@@ -170,16 +173,44 @@ class ContextBuilder(
             "Summaries: count=${summaryResult.summaries.size} hasEvicted=${summaryResult.hasEvictedSummaries}"
         }
 
-        // Fetch messages: coverage-based (no budget trimming — zero gap guarantee)
+        // Calculate overhead to subtract from budget before loading messages
+        val systemPromptTokens = approximateTokenCount(systemContent)
+        val toolTokens = approximateTokenCount(toolDescriptions)
+        val summaryTokens = summaryResult.summaries.sumOf { it.tokens }
+        val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
+        val overhead = systemPromptTokens + toolTokens + summaryTokens + pendingTokens
+        val messageBudget = (budgetTokens - overhead).coerceAtLeast(0)
+
+        // Sliding window: load messages within remaining budget, keeping the most recent
         val dbMessages =
             if (summaryResult.coverageEnd != null) {
-                messageRepository.getUncoveredMessages(session.chatId, session.segmentStart, summaryResult.coverageEnd)
+                messageRepository.getWindowUncoveredMessages(
+                    session.chatId,
+                    session.segmentStart,
+                    summaryResult.coverageEnd,
+                    messageBudget,
+                )
             } else {
-                messageRepository.getAllMessagesInSegment(session.chatId, session.segmentStart)
+                messageRepository.getWindowMessages(session.chatId, session.segmentStart, messageBudget)
             }
 
         val uncoveredMessageTokens = dbMessages.sumOf { it.tokens.toLong() }
         logger.trace { "DB messages: count=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens" }
+        logger.debug {
+            "Sliding window: budget=$budgetTokens overhead=$overhead messageBudget=$messageBudget " +
+                "dbMessages=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens " +
+                "compactionEnabled=${config.memory.compaction.enabled} " +
+                "coverageEnd=${summaryResult.coverageEnd}"
+        }
+        if (dbMessages.isEmpty() && messageBudget > 0) {
+            val totalInSegment = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
+            if (totalInSegment > 0) {
+                logger.warn {
+                    "Sliding window empty despite messages in segment: " +
+                        "messageBudget=$messageBudget totalSegmentTokens=$totalInSegment"
+                }
+            }
+        }
 
         // Auto-RAG guard: triggers when summaries have been evicted (model lost summarized access)
         val autoRagResults: List<AutoRagResult> =
@@ -532,7 +563,16 @@ class ContextBuilder(
                 "## Conversation History\n" +
                     "You see a sliding window of the most recent messages, not the full conversation. " +
                     "Older messages are automatically summarized — summaries are included above for " +
-                    "continuity. If you need exact details from earlier in the conversation, use " +
+                    "continuity. Oldest summaries may also fall out of the context window. " +
+                    "If you need exact details from earlier in the conversation, use " +
+                    "`history_search` to find specific past messages by topic.",
+            )
+        } else {
+            parts.add(
+                "## Conversation History\n" +
+                    "You see a sliding window of the most recent messages, not the full conversation. " +
+                    "Older messages have fallen out of the context window. " +
+                    "If you need details from earlier in the conversation, use " +
                     "`history_search` to find specific past messages by topic.",
             )
         }

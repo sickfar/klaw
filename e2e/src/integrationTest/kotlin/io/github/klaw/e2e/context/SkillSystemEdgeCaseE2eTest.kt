@@ -48,7 +48,7 @@ class SkillSystemEdgeCaseE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                     ),

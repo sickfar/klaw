@@ -44,7 +44,7 @@ class RapidFireCompactionE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = true,
                         compactionThresholdFraction = COMPACTION_THRESHOLD_FRACTION,
                         summaryBudgetFraction = SUMMARY_BUDGET_FRACTION,

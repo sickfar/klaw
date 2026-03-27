@@ -33,7 +33,7 @@ private const val STUB_COMPLETION_TOKENS = 30
  * sends the result back to LLM, LLM responds with final text,
  * and the bot delivers the response via Telegram sendMessage.
  *
- * Config: maxToolCallRounds=3, contextBudgetTokens=5000, telegramEnabled=true.
+ * Config: maxToolCallRounds=3, tokenBudget=5000, telegramEnabled=true.
  *
  * Flow:
  * - WireMock call 0: tool_calls response (file_list on $WORKSPACE)
@@ -61,7 +61,7 @@ class TelegramToolCallE2eTest {
         val engineJson =
             ConfigGenerator.engineJson(
                 wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
-                contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                tokenBudget = CONTEXT_BUDGET_TOKENS,
                 maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
                 summarizationEnabled = false,
                 autoRagEnabled = false,

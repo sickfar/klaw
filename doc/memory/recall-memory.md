@@ -10,7 +10,7 @@ Only messages since the last `/new` command are in the context window. Messages 
 
 ## Token budget
 
-The context window is governed by a token budget based on the model's `contextLength` from the built-in model registry, or `context.defaultBudgetTokens` (default: 100,000 tokens) for unknown models. Messages are included newest-first until the budget is exhausted. Oldest messages are dropped first.
+The context window is governed by a token budget based on the model's `contextLength` from the built-in model registry, or `context.tokenBudget` (token budget override for context window; takes priority over model registry `contextLength`, falls back to 100,000) for unknown models. Messages are included newest-first until the budget is exhausted. Oldest messages are dropped first.
 
 ## Token precision
 

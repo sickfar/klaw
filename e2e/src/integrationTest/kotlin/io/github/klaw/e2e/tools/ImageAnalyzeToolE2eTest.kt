@@ -23,7 +23,7 @@ import org.junit.jupiter.api.TestMethodOrder
  * E2E tests for the image_analyze tool and file_read image support.
  *
  * Config: visionEnabled=true, visionModel="test/vision-model",
- * contextBudgetTokens=5000, maxToolCallRounds=3.
+ * tokenBudget=5000, maxToolCallRounds=3.
  *
  * Tests cover:
  * 1. Happy path: image_analyze describes an image via vision model
@@ -56,7 +56,7 @@ class ImageAnalyzeToolE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
@@ -266,7 +266,7 @@ class ImageAnalyzeToolE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = noVisionBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         maxToolCallRounds = 1,
                         visionEnabled = false,
                     ),

@@ -16,7 +16,7 @@ private val ENGINE_OVERRIDES =
         ".memory.chunking.size" to buildJsonObject { put("exclusiveMinimum", 0) },
         ".memory.chunking.overlap" to buildJsonObject { put("minimum", 0) },
         ".memory.search.topK" to buildJsonObject { put("exclusiveMinimum", 0) },
-        ".context.defaultBudgetTokens" to buildJsonObject { put("exclusiveMinimum", 0) },
+        ".context.tokenBudget" to buildJsonObject { put("exclusiveMinimum", 0) },
         ".context.subagentHistory" to buildJsonObject { put("exclusiveMinimum", 0) },
         ".processing.debounceMs" to buildJsonObject { put("minimum", 0) },
         ".processing.maxConcurrentLlm" to buildJsonObject { put("exclusiveMinimum", 0) },

@@ -43,7 +43,7 @@ class ScheduleImportE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET,
+                        tokenBudget = CONTEXT_BUDGET,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                     ),

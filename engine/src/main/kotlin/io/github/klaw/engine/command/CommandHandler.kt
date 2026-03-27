@@ -1,5 +1,6 @@
 package io.github.klaw.engine.command
 
+import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.encodeEngineConfig
 import io.github.klaw.common.config.parseEngineConfig
@@ -100,8 +101,9 @@ class CommandHandler(
 
     private suspend fun showStatus(session: Session): String {
         val budgetTokens =
-            ModelRegistry.contextLength(session.model)
-                ?: config.context.defaultBudgetTokens
+            config.context.tokenBudget
+                ?: ModelRegistry.contextLength(session.model)
+                ?: ContextConfig.FALLBACK_BUDGET_TOKENS
         val windowTokens = messageRepository.getWindowTokenCount(session.chatId, session.segmentStart, budgetTokens)
         val totalTokens = messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
         val pct = if (budgetTokens > 0) windowTokens * PERCENT_MULTIPLIER / budgetTokens else 0

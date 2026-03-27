@@ -35,7 +35,7 @@ class ConfigGeneratorTest {
         )
 
         val context = root["context"]!!.jsonObject
-        assertEquals(500, context["defaultBudgetTokens"]!!.jsonPrimitive.int)
+        assertEquals(500, context["tokenBudget"]!!.jsonPrimitive.int)
 
         val compaction = root["memory"]!!.jsonObject["compaction"]!!.jsonObject
         assertFalse(compaction["enabled"]!!.jsonPrimitive.boolean)

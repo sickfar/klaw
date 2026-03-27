@@ -43,7 +43,7 @@ class CommandInjectionNotifyListE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         hostExecutionEnabled = true,
                         hostExecutionNotifyList = listOf("systemctl restart *"),
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

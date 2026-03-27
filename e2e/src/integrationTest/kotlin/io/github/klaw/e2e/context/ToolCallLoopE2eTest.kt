@@ -18,7 +18,7 @@ import org.junit.jupiter.api.TestInstance
  * E2E test for the tool call loop: engine executes a tool call and includes the result
  * in the follow-up LLM request.
  *
- * Config: contextBudgetTokens=5000, maxToolCallRounds=3, summarizationEnabled=false,
+ * Config: tokenBudget=5000, maxToolCallRounds=3, summarizationEnabled=false,
  * autoRagEnabled=false.
  *
  * Flow:
@@ -50,7 +50,7 @@ class ToolCallLoopE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

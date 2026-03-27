@@ -12,7 +12,7 @@ class ModelRegistryTest {
     fun `known model returns capabilities`() {
         val caps = ModelRegistry.get("glm-5")
         assertNotNull(caps)
-        assertEquals(200000, caps.contextLength)
+        assertEquals(195000, caps.contextLength)
         assertEquals(128000, caps.maxOutput)
         assertFalse(caps.image)
     }
@@ -21,7 +21,7 @@ class ModelRegistryTest {
     fun `lookup strips provider prefix`() {
         val caps = ModelRegistry.get("zai/glm-5")
         assertNotNull(caps)
-        assertEquals(200000, caps.contextLength)
+        assertEquals(195000, caps.contextLength)
     }
 
     @Test
@@ -46,8 +46,9 @@ class ModelRegistryTest {
     }
 
     @Test
-    fun `glm-5 and glm-4_7 and glm-4_6 have 200k context`() {
-        listOf("glm-5", "glm-4.7", "glm-4.6").forEach { modelId ->
+    fun `glm-5 has 195k context, glm-4_7 and glm-4_6 have 200k context`() {
+        assertEquals(195000, ModelRegistry.contextLength("glm-5"), "Wrong contextLength for glm-5")
+        listOf("glm-4.7", "glm-4.6").forEach { modelId ->
             assertEquals(200000, ModelRegistry.contextLength(modelId), "Wrong contextLength for $modelId")
         }
     }

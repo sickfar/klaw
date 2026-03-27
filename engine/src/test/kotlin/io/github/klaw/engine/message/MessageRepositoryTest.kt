@@ -137,4 +137,85 @@ class MessageRepositoryTest {
             val count = repo.getWindowTokenCount("chat1", "2000-01-01T00:00:00Z", 6000)
             assertEquals(0L, count)
         }
+
+    @Test
+    fun `getWindowUncoveredMessages filters by coverageEnd and applies budget`() =
+        runBlocking {
+            // Insert messages with controlled timestamps directly via queries
+            database.messagesQueries.insertMessage(
+                "msg-1",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "message 1",
+                null,
+                "2024-01-01T00:01:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-2",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "message 2",
+                null,
+                "2024-01-01T00:02:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-3",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "message 3",
+                null,
+                "2024-01-01T00:03:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-4",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "message 4",
+                null,
+                "2024-01-01T00:04:00Z",
+                100,
+            )
+            database.messagesQueries.insertMessage(
+                "msg-5",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "message 5",
+                null,
+                "2024-01-01T00:05:00Z",
+                100,
+            )
+
+            // coverageEnd is between msg-2 and msg-3; budget=200 fits only 2 of 3 uncovered messages
+            val result =
+                repo.getWindowUncoveredMessages(
+                    chatId = "chat1",
+                    segmentStart = "2024-01-01T00:00:00Z",
+                    coverageEnd = "2024-01-01T00:02:30Z",
+                    budgetTokens = 200,
+                )
+
+            assertEquals(2, result.size)
+            val ids = result.map { it.id }
+            assertTrue(ids.contains("msg-4"), "Expected msg-4 in result")
+            assertTrue(ids.contains("msg-5"), "Expected msg-5 in result")
+            assertTrue(!ids.contains("msg-1"), "Expected msg-1 NOT in result (covered)")
+            assertTrue(!ids.contains("msg-2"), "Expected msg-2 NOT in result (covered)")
+            assertTrue(!ids.contains("msg-3"), "Expected msg-3 NOT in result (oldest uncovered, trimmed by budget)")
+            // Messages should be in chronological order (ASC)
+            assertEquals("msg-4", result[0].id)
+            assertEquals("msg-5", result[1].id)
+        }
 }

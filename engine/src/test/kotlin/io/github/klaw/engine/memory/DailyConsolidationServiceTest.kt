@@ -85,7 +85,7 @@ class DailyConsolidationServiceTest {
                             minMessages = minMessages,
                         ),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
+            context = ContextConfig(tokenBudget = 4096, subagentHistory = 5),
             processing =
                 ProcessingConfig(
                     debounceMs = 100,

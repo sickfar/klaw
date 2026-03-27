@@ -71,6 +71,12 @@ FROM messages
 WHERE chat_id = :chatId AND created_at >= :segmentStart
 ORDER BY created_at ASC, rowid ASC;
 
+getWindowUncoveredMessages:
+SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
+FROM messages
+WHERE chat_id = :chatId AND created_at > :coverageEnd AND created_at >= :segmentStart
+ORDER BY created_at DESC, rowid DESC;
+
 getMessagesByTimeRange:
 SELECT rowid AS row_id, id, channel, chat_id, role, type, content, metadata, created_at, tokens
 FROM messages

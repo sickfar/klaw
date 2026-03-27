@@ -58,7 +58,7 @@ class SubagentSpawnTest {
                     chunking = ChunkingConfig(size = 512, overlap = 64),
                     search = SearchConfig(topK = 10),
                 ),
-            context = ContextConfig(defaultBudgetTokens = 4096, subagentHistory = 5),
+            context = ContextConfig(tokenBudget = 4096, subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             httpRetry =
                 HttpRetryConfig(

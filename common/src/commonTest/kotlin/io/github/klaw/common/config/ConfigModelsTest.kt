@@ -100,7 +100,7 @@ class ConfigModelsTest {
                     ),
                 context =
                     ContextConfig(
-                        defaultBudgetTokens = 8000,
+                        tokenBudget = 8000,
                         subagentHistory = 5,
                     ),
                 processing =
@@ -197,9 +197,9 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `ContextConfig rejects zero defaultBudgetTokens`() {
+    fun `ContextConfig rejects zero tokenBudget`() {
         assertFailsWith<IllegalArgumentException> {
-            ContextConfig(defaultBudgetTokens = 0, subagentHistory = 5)
+            ContextConfig(tokenBudget = 0, subagentHistory = 5)
         }
     }
 
@@ -335,7 +335,7 @@ class ConfigModelsTest {
                                 summaryBudgetFraction = 0.3,
                             ),
                     ),
-                context = ContextConfig(defaultBudgetTokens = 8000, subagentHistory = 5),
+                context = ContextConfig(tokenBudget = 8000, subagentHistory = 5),
                 processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
             )
         val encoded = json.encodeToString(config)

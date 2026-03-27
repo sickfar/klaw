@@ -39,7 +39,7 @@ class ConfigToolsTest {
                 }
             },
             "context": {
-                "defaultBudgetTokens": 4096,
+                "tokenBudget": 4096,
                 "subagentHistory": 5
             },
             "processing": {
@@ -157,7 +157,7 @@ class ConfigToolsTest {
     fun `config_set engine invalid value type returns error and does not write`() =
         runTest {
             val originalContent = File(configDir, "engine.json").readText()
-            val result = configTools.configSet("engine", "context.defaultBudgetTokens", "not-a-number")
+            val result = configTools.configSet("engine", "context.tokenBudget", "not-a-number")
 
             assertTrue(result.contains("Invalid") || result.contains("invalid"), "Expected error: $result")
             val written = File(configDir, "engine.json").readText()
@@ -180,8 +180,8 @@ class ConfigToolsTest {
     fun `config_set engine validation failure returns errors and does not write`() =
         runTest {
             val originalContent = File(configDir, "engine.json").readText()
-            // context.defaultBudgetTokens has exclusiveMinimum: 0, so 0 is invalid
-            val result = configTools.configSet("engine", "context.defaultBudgetTokens", "0")
+            // context.tokenBudget has exclusiveMinimum: 0, so 0 is invalid
+            val result = configTools.configSet("engine", "context.tokenBudget", "0")
 
             assertTrue(
                 result.contains("Validation") || result.contains("validation") || result.contains("failed"),

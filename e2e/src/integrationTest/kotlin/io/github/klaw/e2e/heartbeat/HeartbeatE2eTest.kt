@@ -31,7 +31,7 @@ import java.time.Duration
  * E2E tests for the heartbeat feature — autonomous periodic LLM execution with delivery.
  *
  * Config: heartbeatInterval=PT5S, heartbeatChannel=local_ws, heartbeatInjectInto=local_ws_default,
- * contextBudgetTokens=5000, maxToolCallRounds=3, summarizationEnabled=false, autoRagEnabled=false.
+ * tokenBudget=5000, maxToolCallRounds=3, summarizationEnabled=false, autoRagEnabled=false.
  *
  * Tests cover:
  * 1. Happy path: heartbeat delivers message via WebSocket
@@ -66,7 +66,7 @@ class HeartbeatE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         summarizationEnabled = false,
                         autoRagEnabled = false,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

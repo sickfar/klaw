@@ -176,7 +176,7 @@ Full config with multiple providers and overrides:
     }
   },
   "context": {
-    "defaultBudgetTokens": 100000,
+    "tokenBudget": 100000,
     "subagentHistory": 10
   },
   "processing": {

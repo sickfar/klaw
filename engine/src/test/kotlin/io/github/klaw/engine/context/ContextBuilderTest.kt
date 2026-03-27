@@ -80,7 +80,7 @@ class ContextBuilderTest {
                 ),
             context =
                 ContextConfig(
-                    defaultBudgetTokens = contextBudget,
+                    tokenBudget = contextBudget,
                     subagentHistory = subagentHistory,
                 ),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
@@ -180,7 +180,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `all messages included regardless of budget - zero gap`() =
+    fun `sliding window trims oldest messages when budget exceeded`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
@@ -201,14 +201,313 @@ class ContextBuilderTest {
                 )
             }
 
-            // Budget = 500, but zero-gap means all messages included regardless
+            // Budget = 500: only the most recent messages fitting in budget should be included
             val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 500))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.drop(1)
-            assertEquals(15, historyMessages.size, "All messages should be included (zero gap)")
-            assertEquals("Message 1", historyMessages.first().content)
-            assertEquals("Message 15", historyMessages.last().content)
+            assertFalse(historyMessages.size == 15, "Not all 15 messages should be included — oldest should be trimmed")
+            assertTrue(
+                historyMessages.any { it.content == "Message 15" },
+                "Newest message (Message 15) should be present",
+            )
+            assertFalse(
+                historyMessages.any { it.content == "Message 1" },
+                "Oldest message (Message 1) should be trimmed",
+            )
+            assertTrue(result.messages.first().role == "system", "System message should be present")
+        }
+
+    @Test
+    fun `system prompt contains sliding window text when compaction disabled`() =
+        runTest {
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(buildConfig())
+
+            val result = contextBuilder.buildContext(session, listOf("hi"), isSubagent = false)
+
+            val systemMessage = result.messages.first()
+            assertEquals("system", systemMessage.role)
+            assertTrue(
+                systemMessage.content!!.contains("sliding window"),
+                "System prompt should mention sliding window even when compaction is disabled",
+            )
+        }
+
+    @Test
+    fun `system prompt contains sliding window text when compaction enabled`() =
+        runTest {
+            val config =
+                buildConfig().copy(
+                    memory =
+                        buildConfig().memory.copy(
+                            compaction =
+                                io.github.klaw.common.config
+                                    .CompactionConfig(enabled = true),
+                        ),
+                )
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, false)
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(config)
+
+            val result = contextBuilder.buildContext(session, listOf("hi"), isSubagent = false)
+
+            val systemMessage = result.messages.first()
+            assertEquals("system", systemMessage.role)
+            assertTrue(
+                systemMessage.content!!.contains("sliding window"),
+                "System prompt should mention sliding window when compaction is enabled",
+            )
+            assertTrue(
+                systemMessage.content!!.contains("summarized"),
+                "System prompt should mention summarized messages when compaction is enabled",
+            )
+        }
+
+    @Test
+    fun `sliding window budget accounts for system prompt tokens`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Large system prompt ~2000 chars ≈ ~500 tokens
+            val largeSystemPrompt = "x".repeat(2000)
+            coEvery { workspaceLoader.loadSystemPrompt() } returns largeSystemPrompt
+
+            // Insert 10 messages, each 100 tokens
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    100,
+                )
+            }
+
+            // contextBudget = 1000; system prompt ~500 tokens → only ~500 tokens for messages (~5 messages)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1000))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.drop(1)
+            assertFalse(
+                historyMessages.size == 10,
+                "Not all 10 messages should be present — system prompt consumed budget",
+            )
+            assertTrue(
+                historyMessages.any { it.content == "Message 10" },
+                "Newest message (Message 10) should be present",
+            )
+            assertFalse(
+                historyMessages.any { it.content == "Message 1" },
+                "Oldest message (Message 1) should be trimmed",
+            )
+        }
+
+    @Test
+    fun `sliding window budget accounts for summary tokens when compaction enabled`() =
+        runTest {
+            val coverageEnd = "2024-01-01T00:00:30Z"
+            val config =
+                buildConfig(contextBudget = 800).copy(
+                    memory =
+                        buildConfig().memory.copy(
+                            compaction =
+                                io.github.klaw.common.config
+                                    .CompactionConfig(enabled = true, summaryBudgetFraction = 0.25),
+                        ),
+                )
+
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(
+                    listOf(
+                        SummaryText(
+                            "Summary content",
+                            "msg-0",
+                            "msg-0",
+                            "2024-01-01T00:00:00Z",
+                            "2024-01-01T00:00:00Z",
+                            200,
+                        ),
+                    ),
+                    coverageEnd = coverageEnd,
+                    hasEvictedSummaries = false,
+                )
+
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 10 messages AFTER coverageEnd, each 100 tokens
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${(i + 1).toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "sum-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    100,
+                )
+            }
+
+            // contextBudget = 800; summary tokens (200) + system prompt tokens are subtracted → fewer messages fit
+            val contextBuilder = buildContextBuilder(config)
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
+            assertFalse(historyMessages.size == 10, "Not all 10 messages should be present — summary consumed budget")
+            assertTrue(
+                historyMessages.any { it.content == "Message 10" },
+                "Newest message should be present",
+            )
+        }
+
+    @Test
+    fun `sliding window budget accounts for pending message tokens`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 5 messages, each 100 tokens
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "pm-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    100,
+                )
+            }
+
+            // contextBudget = 700; pending message is large (~125 tokens)
+            val largePendingMessage = "a]".repeat(500)
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 700))
+            val result = contextBuilder.buildContext(session, listOf(largePendingMessage), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
+            assertTrue(
+                historyMessages.size < 5,
+                "Fewer than 5 DB messages should be present — pending message consumed budget",
+            )
+        }
+
+    @Test
+    fun `sliding window budget accounts for tool definition tokens`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Mock tool registry to return 10 tools with large descriptions
+            val bigTools =
+                (1..10).map {
+                    ToolDef(name = "tool_$it", description = "x".repeat(200), parameters = buildJsonObject {})
+                }
+            coEvery { toolRegistry.listTools(any(), any()) } returns bigTools
+
+            // Insert 10 messages, each 100 tokens
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "td-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    100,
+                )
+            }
+
+            // contextBudget = 1200; tool descriptions consume tokens from the budget
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1200))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
+            assertTrue(
+                historyMessages.size < 10,
+                "Fewer than 10 messages should be present — tool definitions consumed budget",
+            )
+        }
+
+    @Test
+    fun `zero-token messages do not bypass sliding window budget`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert interleaved: 5 messages with 0 tokens and 5 messages with 100 tokens
+            for (i in 1..10) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                val tokens: Long = if (i % 2 == 0) 100L else 0L
+                db.messagesQueries.insertMessage(
+                    "zero-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    tokens,
+                )
+            }
+
+            // contextBudget = 300: only 3 non-zero messages fit; zero-token messages should not bypass limit
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 300))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
+            assertFalse(
+                historyMessages.size == 10,
+                "Zero-token messages should not cause unlimited window growth",
+            )
+        }
+
+    @Test
+    fun `warn logged when sliding window is empty but messages exist in segment`() =
+        runTest {
+            val segmentStart = "2024-01-01T00:00:00Z"
+            val session = buildSession(segmentStart = segmentStart)
+
+            // Insert 5 messages, each 1000 tokens
+            for (i in 1..5) {
+                val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
+                db.messagesQueries.insertMessage(
+                    "big-msg-$i",
+                    "telegram",
+                    "chat-1",
+                    "user",
+                    "text",
+                    "Message $i",
+                    null,
+                    ts,
+                    1000,
+                )
+            }
+
+            // contextBudget = 10: no message fits
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 10))
+            val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
+
+            val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
+            assertEquals(0, historyMessages.size, "No history messages should fit in a 10-token budget")
+            assertTrue(result.messages.first().role == "system", "System message should still be present")
         }
 
     @Test
@@ -427,7 +726,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `large messages included without trimming - zero gap`() =
+    fun `sliding window drops large old messages that exceed budget`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
@@ -466,16 +765,17 @@ class ContextBuilderTest {
                 10,
             )
 
-            // Budget = 100, but zero-gap means all messages included
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
+            // Budget must cover system prompt overhead (~300 tokens) + only newest messages.
+            // 600 total budget - ~300 overhead = ~300 for messages. Only sm-3 (10 tokens) fits,
+            // big-2 (500 tokens) won't fit in the remaining ~300.
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 600))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val history = result.messages.drop(1)
             val contents = history.map { it.content }
-            assertEquals(3, history.size, "All messages should be included (zero gap)")
-            assertTrue(contents.contains("Small old message"))
-            assertTrue(contents.contains("Huge middle message"))
-            assertTrue(contents.contains("Small new message"))
+            assertTrue(contents.contains("Small new message"), "Newest message should be present")
+            assertFalse(contents.contains("Huge middle message"), "Large old message should be trimmed")
+            assertFalse(contents.contains("Small old message"), "Oldest message should be trimmed")
         }
 
     @Test
@@ -501,7 +801,8 @@ class ContextBuilderTest {
 
             val pendingMessages = listOf("Pending 1", "Pending 2")
 
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 600))
+            // Budget covers system overhead (~300) + pending (~5) + 5 messages (500) = ~805
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1000))
             val result = contextBuilder.buildContext(session, pendingMessages, isSubagent = false)
 
             // All 5 history + 2 pending
@@ -865,7 +1166,7 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `all messages included even with large system prompt - zero gap`() =
+    fun `sliding window trims messages regardless of system prompt size`() =
         runTest {
             val largeSystemPrompt = "word ".repeat(400)
             coEvery { workspaceLoader.loadSystemPrompt() } returns largeSystemPrompt
@@ -888,12 +1189,21 @@ class ContextBuilderTest {
                 )
             }
 
-            // Budget = 100, but zero-gap means all messages included regardless
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 100))
+            // Large system prompt (~500 tokens) + capabilities/environment (~300 tokens) = ~800 overhead.
+            // Budget 1000 - 800 overhead = ~200 for messages → only 4 of 10 messages (4 × 50 = 200) fit.
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1000))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.drop(1)
-            assertEquals(10, historyMessages.size, "All messages included regardless of system prompt size (zero gap)")
+            assertTrue(historyMessages.size < 10, "Sliding window should trim oldest messages")
+            assertTrue(
+                historyMessages.any { it.content == "Message 10" },
+                "Newest message should be present",
+            )
+            assertFalse(
+                historyMessages.any { it.content == "Message 1" },
+                "Oldest message should be trimmed",
+            )
         }
 
     @Test

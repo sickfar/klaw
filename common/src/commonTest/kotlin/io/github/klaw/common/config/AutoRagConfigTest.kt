@@ -77,7 +77,7 @@ class AutoRagConfigTest {
     }
   },
   "context": {
-    "defaultBudgetTokens": 8000,
+    "tokenBudget": 8000,
     "subagentHistory": 5
   },
   "processing": {
@@ -152,7 +152,7 @@ class AutoRagConfigTest {
     }
   },
   "context": {
-    "defaultBudgetTokens": 8000,
+    "tokenBudget": 8000,
     "subagentHistory": 5
   },
   "processing": {
@@ -227,7 +227,7 @@ class AutoRagConfigTest {
     }
   },
   "context": {
-    "defaultBudgetTokens": 8000,
+    "tokenBudget": 8000,
     "subagentHistory": 7
   },
   "processing": {
@@ -266,7 +266,7 @@ class AutoRagConfigTest {
     @Test
     fun `subagentHistory zero throws IllegalArgumentException`() {
         assertFailsWith<IllegalArgumentException> {
-            ContextConfig(defaultBudgetTokens = 8000, subagentHistory = 0)
+            ContextConfig(tokenBudget = 8000, subagentHistory = 0)
         }
     }
 }

@@ -48,8 +48,8 @@ class DescriptorGeneratorTest {
 
     @Test
     fun generatesContextDefaultBudgetTokens() {
-        val desc = findDescriptor(engineDescriptors, "context.defaultBudgetTokens")
-        assertNotNull(desc, "context.defaultBudgetTokens not found")
+        val desc = findDescriptor(engineDescriptors, "context.tokenBudget")
+        assertNotNull(desc, "context.tokenBudget not found")
         assertEquals(ConfigValueType.INT, desc.type)
     }
 

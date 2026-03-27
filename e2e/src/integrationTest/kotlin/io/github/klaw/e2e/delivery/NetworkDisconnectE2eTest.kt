@@ -45,7 +45,7 @@ class NetworkDisconnectE2eTest {
         containers =
             KlawContainers(
                 wireMockPort = wireMock.port,
-                engineJson = ConfigGenerator.engineJson(wiremockBaseUrl, contextBudgetTokens = CONTEXT_BUDGET_TOKENS),
+                engineJson = ConfigGenerator.engineJson(wiremockBaseUrl, tokenBudget = CONTEXT_BUDGET_TOKENS),
                 gatewayJson = ConfigGenerator.gatewayJson(),
                 workspaceDir = workspaceDir,
             )

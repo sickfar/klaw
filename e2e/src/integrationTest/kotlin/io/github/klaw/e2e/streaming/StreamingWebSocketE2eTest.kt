@@ -39,7 +39,7 @@ class StreamingWebSocketE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         streamingEnabled = true,
                         streamingThrottleMs = STREAMING_THROTTLE_MS,
                     ),

@@ -355,7 +355,7 @@ private fun buildConfigRouting(modelId: String): RoutingConfig =
 
 private fun buildConfigContext(): ContextConfig =
     ContextConfig(
-        defaultBudgetTokens = 100_000,
+        tokenBudget = null,
         subagentHistory = 10,
     )
 

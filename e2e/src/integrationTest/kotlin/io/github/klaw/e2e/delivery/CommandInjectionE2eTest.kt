@@ -45,7 +45,7 @@ class CommandInjectionE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         hostExecutionEnabled = true,
                         hostExecutionAllowList = listOf("echo *"),
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,

@@ -48,7 +48,7 @@ class ApprovalChannelRecoveryE2eTest {
                 engineJson =
                     ConfigGenerator.engineJson(
                         wiremockBaseUrl = wiremockBaseUrl,
-                        contextBudgetTokens = CONTEXT_BUDGET_TOKENS,
+                        tokenBudget = CONTEXT_BUDGET_TOKENS,
                         hostExecutionEnabled = true,
                         askTimeoutMin = ASK_TIMEOUT_MIN,
                         maxToolCallRounds = MAX_TOOL_CALL_ROUNDS,
