@@ -1,6 +1,7 @@
 package io.github.klaw.engine.tools
 
 import io.github.klaw.common.config.CodeExecutionConfig
+import io.github.klaw.engine.BuildConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 import java.util.UUID
@@ -199,7 +200,7 @@ class SandboxManager(
             safeVolumes.add("$volumeSource:$SANDBOX_WORKSPACE_PATH:rw")
         }
         return DockerRunOptions(
-            image = config.dockerImage,
+            image = resolveDockerImage(),
             name = name,
             memoryLimit = config.maxMemory,
             cpuLimit = config.maxCpus,
@@ -216,6 +217,14 @@ class SandboxManager(
             securityOpts = listOf("no-new-privileges"),
             pidsLimit = PIDS_LIMIT,
         )
+    }
+
+    private fun resolveDockerImage(): String {
+        val configured = config.dockerImage
+        if (!configured.endsWith(":latest")) return configured
+        val version = BuildConfig.VERSION
+        if (version.endsWith("-SNAPSHOT")) return configured
+        return configured.replace(":latest", ":$version")
     }
 
     companion object {

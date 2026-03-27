@@ -12,6 +12,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.session.Session
+import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
@@ -129,7 +130,7 @@ class HeartbeatRunner(
 
         val sink = HeartbeatDeliverSink()
 
-        runToolLoop(context, session.model, tools, sink)
+        runToolLoop(context, session.model, tools, sink, chatId, channel)
 
         val deliveryMessage = sink.consumeMessage()
         if (deliveryMessage != null) {
@@ -146,6 +147,8 @@ class HeartbeatRunner(
         modelId: String,
         tools: List<ToolDef>,
         sink: HeartbeatDeliverSink,
+        chatId: String,
+        channel: String,
     ): LlmResponse {
         var rounds = 0
         while (rounds < maxToolCallRounds) {
@@ -166,7 +169,7 @@ class HeartbeatRunner(
                 "Heartbeat LLM requested ${toolCalls.size} tool call(s) at round=$rounds: " +
                     toolCalls.joinToString { it.name }
             }
-            val results = executeToolCalls(toolCalls, sink)
+            val results = executeToolCalls(toolCalls, sink, chatId, channel)
 
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
             results.forEach { result ->
@@ -181,11 +184,13 @@ class HeartbeatRunner(
     private suspend fun executeToolCalls(
         toolCalls: List<ToolCall>,
         sink: HeartbeatDeliverSink,
+        chatId: String,
+        channel: String,
     ): List<ToolResult> =
         try {
             logger.trace { "Heartbeat executing ${toolCalls.size} tool call(s)" }
             val results =
-                withContext(HeartbeatDeliverContext(sink)) {
+                withContext(HeartbeatDeliverContext(sink) + ChatContext(chatId, channel)) {
                     toolExecutor.executeAll(toolCalls)
                 }
             logger.trace { "Heartbeat tool execution completed: ${results.size} result(s)" }

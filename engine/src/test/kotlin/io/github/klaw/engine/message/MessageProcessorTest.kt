@@ -20,6 +20,7 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
+import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
@@ -29,6 +30,7 @@ import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
+import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.ToolExecutor
 import io.mockk.coEvery
@@ -37,6 +39,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
 
@@ -375,5 +379,66 @@ class MessageProcessorTest {
             assert(!includeSendMessageSlot.captured) {
                 "includeSendMessage should be false for scheduled tasks"
             }
+        }
+
+    @Test
+    fun `scheduled message with injectInto passes ChatContext to tool executor`() =
+        runTest {
+            val session = makeSession()
+            val sessionManager = mockk<SessionManager>(relaxed = true)
+            coEvery { sessionManager.getOrCreate(any(), any()) } returns session
+
+            val contextBuilder = mockk<ContextBuilder>(relaxed = true)
+            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
+                makeContextResult("Your task: send reminder")
+
+            val llmRouter = mockk<LlmRouter>(relaxed = true)
+            coEvery { llmRouter.chat(match { req -> req.messages.none { it.role == "tool" } }, any()) } returns
+                makeToolCallResponse("call-1", "some_tool", "{}")
+            coEvery { llmRouter.chat(match { req -> req.messages.any { it.role == "tool" } }, any()) } returns
+                makeLlmResponse("")
+
+            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
+
+            val messageRepository = mockk<MessageRepository>(relaxed = true)
+            coEvery {
+                messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any(), any())
+            } returns 1L
+
+            var capturedChatContext: ChatContext? = null
+            val chatContextCapturingExecutor =
+                object : ToolExecutor {
+                    override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> {
+                        capturedChatContext = kotlin.coroutines.coroutineContext[ChatContext]
+                        return toolCalls.map { ToolResult(callId = it.id, content = "ok") }
+                    }
+                }
+
+            val processor =
+                buildProcessor(
+                    sessionManager = sessionManager,
+                    contextBuilder = contextBuilder,
+                    llmRouter = llmRouter,
+                    toolRegistry = toolRegistry,
+                    toolExecutor = chatContextCapturingExecutor,
+                    messageRepository = messageRepository,
+                    messageEmbeddingService = mockk(relaxed = true),
+                )
+
+            processor
+                .handleScheduledMessage(
+                    ScheduledMessage(
+                        name = "reminder-task",
+                        message = "Your task: send reminder",
+                        model = null,
+                        injectInto = "chat-user-123",
+                        channel = "telegram",
+                    ),
+                ).join()
+
+            assertNotNull(capturedChatContext, "ChatContext should be set in tool executor coroutine context")
+            assertEquals("chat-user-123", capturedChatContext!!.chatId)
+            assertEquals("telegram", capturedChatContext!!.channel)
         }
 }

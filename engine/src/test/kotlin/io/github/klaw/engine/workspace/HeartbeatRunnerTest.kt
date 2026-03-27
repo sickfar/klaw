@@ -12,6 +12,7 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.session.Session
+import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
@@ -308,6 +309,50 @@ class HeartbeatRunnerTest {
         content: String? = null,
         toolCalls: List<ToolCall>? = null,
     ) = LlmResponse(content = content, toolCalls = toolCalls, usage = null, finishReason = FinishReason.STOP)
+
+    @Test
+    fun `tool calls include ChatContext with delivery chatId and channel`() =
+        runBlocking {
+            Files.writeString(workspace.resolve("HEARTBEAT.md"), "Check alerts")
+            val config =
+                buildConfig(
+                    HeartbeatConfig(interval = "PT1H", injectInto = "telegram_123", channel = "telegram"),
+                )
+            var capturedChatContext: ChatContext? = null
+            val chatContextCapturingExecutor =
+                object : ToolExecutor {
+                    override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> {
+                        capturedChatContext = kotlin.coroutines.coroutineContext[ChatContext]
+                        return toolCalls.map { ToolResult(callId = it.id, content = "ok") }
+                    }
+                }
+            val runner =
+                createRunner(
+                    config,
+                    workspace,
+                    llmResponses =
+                        listOf(
+                            response(
+                                toolCalls =
+                                    listOf(
+                                        ToolCall(
+                                            id = "tc1",
+                                            name = "some_tool",
+                                            arguments = "{}",
+                                        ),
+                                    ),
+                            ),
+                            response(content = "Done"),
+                        ),
+                    toolExecutor = chatContextCapturingExecutor,
+                )
+
+            runner.executeHeartbeat()
+
+            assertNotNull(capturedChatContext, "ChatContext should be present in tool call coroutine context")
+            assertEquals("telegram_123", capturedChatContext!!.chatId)
+            assertEquals("telegram", capturedChatContext!!.channel)
+        }
 
     private class HeartbeatAwareToolExecutor : ToolExecutor {
         override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =

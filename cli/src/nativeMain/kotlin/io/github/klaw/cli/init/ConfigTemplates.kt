@@ -41,6 +41,7 @@ internal object ConfigTemplates {
     fun engineJson(
         modelId: String,
         heartbeatChannel: String? = null,
+        heartbeatInjectInto: String? = null,
         webSearchEnabled: Boolean = false,
         webSearchProvider: String? = null,
         webSearchApiKeyEnvVar: String? = null,
@@ -54,6 +55,7 @@ internal object ConfigTemplates {
             buildEngineConfig(
                 modelId,
                 heartbeatChannel,
+                heartbeatInjectInto,
                 webSearchEnabled,
                 webSearchProvider,
                 webSearchApiKeyEnvVar,
@@ -69,6 +71,7 @@ internal object ConfigTemplates {
     private fun buildEngineConfig(
         modelId: String,
         heartbeatChannel: String?,
+        heartbeatInjectInto: String?,
         webSearchEnabled: Boolean,
         webSearchProvider: String?,
         webSearchApiKeyEnvVar: String?,
@@ -121,6 +124,7 @@ internal object ConfigTemplates {
                 HeartbeatConfig(
                     interval = if (heartbeatChannel != null) "PT1H" else "off",
                     channel = heartbeatChannel,
+                    injectInto = heartbeatInjectInto,
                 ),
             web = WebConfig(search = webSearch),
             vision = vision,

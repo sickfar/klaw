@@ -8,6 +8,7 @@ import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
 import io.github.klaw.engine.context.SkillValidationReport
 import io.github.klaw.engine.init.InitCliHandler
+import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.llm.LlmUsageTracker
 import io.github.klaw.engine.maintenance.ReindexService
 import io.github.klaw.engine.memory.DailyConsolidationService
@@ -44,6 +45,7 @@ class CliCommandDispatcherTest {
     private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
     private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
     private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
+    private val llmRouter = mockk<LlmRouter>(relaxed = true)
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
     private val doctorDeepProbe = mockk<DoctorDeepProbe>(relaxed = true)
 
@@ -58,6 +60,7 @@ class CliCommandDispatcherTest {
             consolidationService,
             engineHealthProvider,
             llmUsageTracker,
+            llmRouter,
             engineConfig,
             doctorDeepProbe,
         )

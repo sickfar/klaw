@@ -490,12 +490,17 @@ internal class InitWizard(
         }
         CliLogger.debug { "writing config files to $configDir" }
         // Derive heartbeat channel from first configured channel.
-        // injectInto (chatId) is set later via /use-for-heartbeat command.
+        // injectInto auto-derived from first Telegram chatId, or set later via /use-for-heartbeat.
         val heartbeatChannel =
             when {
                 configureTelegram -> "telegram"
                 configureDiscord -> "discord"
                 enableLocalWs -> "local_ws"
+                else -> null
+            }
+        val heartbeatInjectInto =
+            when {
+                configureTelegram && chatIds.isNotEmpty() -> "telegram_${chatIds.first()}"
                 else -> null
             }
         val attachmentsDirectory = if (visionModelId != null) "$dataDir/attachments" else ""
@@ -504,6 +509,7 @@ internal class InitWizard(
             ConfigTemplates.engineJson(
                 modelId = modelId,
                 heartbeatChannel = heartbeatChannel,
+                heartbeatInjectInto = heartbeatInjectInto,
                 webSearchEnabled = enableWebSearch,
                 webSearchProvider = webSearchProvider?.name,
                 webSearchApiKeyEnvVar = webSearchProvider?.envVar,

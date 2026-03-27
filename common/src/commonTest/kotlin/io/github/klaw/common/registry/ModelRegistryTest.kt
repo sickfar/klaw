@@ -46,7 +46,7 @@ class ModelRegistryTest {
     }
 
     @Test
-    fun `glm-5 has 195k context, glm-4_7 and glm-4_6 have 200k context`() {
+    fun `glm-5 has 195k context and glm-4_7 and glm-4_6 have 200k context`() {
         assertEquals(195000, ModelRegistry.contextLength("glm-5"), "Wrong contextLength for glm-5")
         listOf("glm-4.7", "glm-4.6").forEach { modelId ->
             assertEquals(200000, ModelRegistry.contextLength(modelId), "Wrong contextLength for $modelId")

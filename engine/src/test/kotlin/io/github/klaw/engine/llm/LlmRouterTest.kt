@@ -341,6 +341,54 @@ class LlmRouterTest {
     }
 
     @Test
+    fun `resolve handles shorthand model ID without provider prefix`() {
+        val router = buildRouter()
+        // "glm-5" should resolve to the "zai/glm-5" entry (shorthand match by modelId suffix)
+        val (provider, model) = router.resolve("glm-5")
+        assertEquals("glm-5", model.modelId)
+        assertEquals("https://api.z.ai/api/coding/paas/v4", provider.endpoint)
+    }
+
+    @Test
+    fun `chat routes correctly with shorthand model ID`() =
+        runBlocking {
+            val client = mockk<LlmClient>()
+            coEvery { client.chat(any(), any(), any()) } returns successResponse
+
+            val router = buildRouter(client)
+            val result = router.chat(request, "glm-5")
+
+            assertEquals(successResponse, result)
+        }
+
+    @Test
+    fun `resolve still throws for completely unknown model`() =
+        runBlocking {
+            val router = buildRouter()
+            try {
+                router.resolve("nonexistent")
+                error("Expected ProviderError to be thrown")
+            } catch (e: KlawError.ProviderError) {
+                // expected
+            }
+        }
+
+    @Test
+    fun `resolve prefers exact match over shorthand`() {
+        val modelsWithBothExactAndShorthand =
+            mapOf(
+                "glm-5" to ModelRef("deepseek", "glm-5"),
+                "zai/glm-5" to ModelRef("zai", "glm-5"),
+            )
+        val router = buildRouter(customModels = modelsWithBothExactAndShorthand)
+        // "glm-5" exact match should be preferred over "zai/glm-5" shorthand match
+        val (provider, model) = router.resolve("glm-5")
+        assertEquals("glm-5", model.modelId)
+        // Exact match maps to "deepseek" provider, not "zai"
+        assertEquals("deepseek", model.provider)
+    }
+
+    @Test
     fun `anthropic provider type creates AnthropicClient when no clientFactory`() {
         val anthropicProviders =
             mapOf(

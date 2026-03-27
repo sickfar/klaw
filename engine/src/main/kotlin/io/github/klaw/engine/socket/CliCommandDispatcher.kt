@@ -1,9 +1,11 @@
 package io.github.klaw.engine.socket
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
+import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.llm.LlmUsageTracker
 import io.github.klaw.engine.llm.ModelUsageSnapshot
 import io.github.klaw.engine.maintenance.ReindexService
@@ -40,6 +42,7 @@ class CliCommandDispatcher(
     private val consolidationService: DailyConsolidationService,
     private val engineHealthProvider: EngineHealthProvider,
     private val llmUsageTracker: LlmUsageTracker,
+    private val llmRouter: LlmRouter,
     private val config: EngineConfig,
     private val doctorDeepProbe: DoctorDeepProbe,
 ) {
@@ -460,55 +463,82 @@ class CliCommandDispatcher(
         val content = params["content"] ?: return """{"error":"missing content"}"""
         val includeDisabled = params["all"]?.toBoolean() ?: false
         val jobs =
-            try {
-                io.github.klaw.common.migration.OpenClawCronConverter
-                    .parseJobs(content, includeDisabled)
-            } catch (e: kotlinx.serialization.SerializationException) {
-                return """{"error":"parse failed: ${e::class.simpleName}"}"""
-            } catch (e: IllegalArgumentException) {
-                return """{"error":"parse failed: ${e::class.simpleName}"}"""
-            }
+            parseImportJobs(content, includeDisabled)
+                ?: return """{"error":"parse failed: invalid format"}"""
         if (jobs.isEmpty()) return """{"imported":0,"failed":0,"message":"no jobs to import"}"""
 
         var imported = 0
         var failed = 0
         val errors = mutableListOf<String>()
         for (job in jobs) {
-            val p =
-                try {
-                    io.github.klaw.common.migration.OpenClawCronConverter
-                        .toKlawScheduleParams(job)
-                } catch (e: IllegalArgumentException) {
-                    logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
+            val result = importSingleJob(job)
+            when {
+                result == null -> {
                     failed++
                     errors += "${job.name}: conversion error"
-                    continue
-                } catch (e: IllegalStateException) {
-                    logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
-                    failed++
-                    errors += "${job.name}: conversion error"
-                    continue
                 }
-            val result =
-                klawScheduler.add(
-                    name = p["name"]!!,
-                    cron = p["cron"],
-                    at = p["at"],
-                    message = p["message"]!!,
-                    model = p["model"],
-                    injectInto = p["inject_into"],
-                    channel = p["channel"],
-                )
-            if (result.contains("error", ignoreCase = true)) {
-                failed++
-                errors += "${job.name}: $result"
-            } else {
-                imported++
+
+                result.contains("error", ignoreCase = true) -> {
+                    failed++
+                    errors += "${job.name}: $result"
+                }
+
+                else -> {
+                    imported++
+                }
             }
         }
         val errorsJson = if (errors.isEmpty()) "[]" else errors.joinToString(",", "[", "]") { "\"$it\"" }
         return """{"imported":$imported,"failed":$failed,"errors":$errorsJson}"""
     }
+
+    private fun parseImportJobs(
+        content: String,
+        includeDisabled: Boolean,
+    ): List<io.github.klaw.common.migration.OpenClawJob>? =
+        try {
+            io.github.klaw.common.migration.OpenClawCronConverter
+                .parseJobs(content, includeDisabled)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            logger.warn { "schedule import parse error: ${e::class.simpleName}" }
+            null
+        } catch (e: IllegalArgumentException) {
+            logger.warn { "schedule import parse error: ${e::class.simpleName}" }
+            null
+        }
+
+    private suspend fun importSingleJob(job: io.github.klaw.common.migration.OpenClawJob): String? {
+        val p =
+            try {
+                io.github.klaw.common.migration.OpenClawCronConverter
+                    .toKlawScheduleParams(job)
+            } catch (e: IllegalArgumentException) {
+                logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
+                return null
+            } catch (e: IllegalStateException) {
+                logger.warn { "schedule import conversion error for ${job.name}: ${e::class.simpleName}" }
+                return null
+            }
+        val normalizedModel = p["model"]?.let { resolveModelId(it) }
+        return klawScheduler.add(
+            name = p["name"]!!,
+            cron = p["cron"],
+            at = p["at"],
+            message = p["message"]!!,
+            model = normalizedModel,
+            injectInto = p["inject_into"],
+            channel = p["channel"],
+        )
+    }
+
+    private fun resolveModelId(rawModel: String): String =
+        try {
+            val (_, modelRef) = llmRouter.resolve(rawModel)
+            modelRef.fullId
+        } catch (_: KlawError) {
+            logger.warn { "schedule import: could not resolve model, keeping as-is" }
+            rawModel
+        }
 
     private suspend fun handleMemorySearch(params: Map<String, String>): String {
         val query = params["query"] ?: return """{"error":"missing query"}"""

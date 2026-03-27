@@ -436,7 +436,7 @@ data class PreValidationConfig(
     @ConfigDoc("Risk score threshold above which commands are blocked")
     val riskThreshold: Int = 5,
     @ConfigDoc("Timeout in milliseconds for the pre-validation LLM call")
-    val timeoutMs: Long = 5000,
+    val timeoutMs: Long = 60000,
 ) {
     init {
         require(riskThreshold > 0) { "riskThreshold must be > 0, got $riskThreshold" }

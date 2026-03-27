@@ -11,15 +11,51 @@ plugins {
 
 apply(plugin = "org.jetbrains.kotlin.kapt")
 
+val generateBuildConfig by tasks.registering {
+    val outputDir = layout.buildDirectory.dir("generated/buildconfig/main/io/github/klaw/engine")
+    inputs.property("version", rootProject.version.toString())
+    outputs.dir(outputDir)
+    doLast {
+        val dir = outputDir.get().asFile
+        dir.mkdirs()
+        val version = rootProject.version.toString()
+        dir.resolve("BuildConfig.kt").writeText(
+            """
+            |package io.github.klaw.engine
+            |
+            |object BuildConfig {
+            |    const val VERSION: String = "$version"
+            |}
+            """.trimMargin() + "\n",
+        )
+    }
+}
+
 val micronautVersion =
     libs.versions.micronaut.platform
         .get()
 
 sourceSets {
+    main {
+        kotlin.srcDir(layout.buildDirectory.dir("generated/buildconfig/main"))
+    }
     create("integrationTest") {
         compileClasspath += sourceSets["main"].output + sourceSets["test"].output
         runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
     }
+}
+
+tasks.named("compileKotlin") {
+    dependsOn(generateBuildConfig)
+}
+
+tasks.matching { it.name == "kaptGenerateStubsKotlin" }.configureEach {
+    dependsOn(generateBuildConfig)
+}
+
+// Ensure ktlint sees generated sources
+tasks.matching { it.name.contains("runKtlintCheck") || it.name.contains("runKtlintFormat") }.configureEach {
+    dependsOn(generateBuildConfig)
 }
 
 val integrationTestImplementation by configurations.getting {

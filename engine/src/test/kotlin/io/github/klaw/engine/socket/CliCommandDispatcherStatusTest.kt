@@ -72,6 +72,7 @@ class CliCommandDispatcherStatusTest {
             consolidationService,
             engineHealthProvider,
             llmUsageTracker,
+            mockk(relaxed = true),
             engineConfig,
             mockk(relaxed = true),
         )

@@ -25,13 +25,19 @@ class LlmRouter(
     private val clientCache = ConcurrentHashMap<String, LlmClient>()
 
     fun resolve(fullModelId: String): Pair<ResolvedProviderConfig, ModelRef> {
-        val model =
-            models[fullModelId]
+        val (_, model) =
+            findModel(fullModelId)
                 ?: throw KlawError.ProviderError(null, "Unknown model: $fullModelId")
         val provider =
             providers[model.provider]
                 ?: throw KlawError.ProviderError(null, "Unknown provider: ${model.provider}")
         return provider to model
+    }
+
+    private fun findModel(id: String): Pair<String, ModelRef>? {
+        val direct = models[id]
+        if (direct != null) return id to direct
+        return models.entries.firstOrNull { it.value.modelId == id }?.let { it.key to it.value }
     }
 
     @Suppress("LoopWithTooManyJumpStatements", "TooGenericExceptionCaught")
@@ -43,8 +49,8 @@ class LlmRouter(
         logger.debug { "LLM routing: modelId=$modelId chain=${chain.joinToString(",")}" }
         var lastError: Throwable? = null
 
-        for (fullId in chain) {
-            val model = models[fullId] ?: continue
+        for (candidateId in chain) {
+            val (_, model) = findModel(candidateId) ?: continue
             val provider = providers[model.provider] ?: continue
             val client = clientFor(provider)
             val effectiveRequest =
@@ -53,18 +59,18 @@ class LlmRouter(
                 } else {
                     request
                 }
-            logger.trace { "LLM trying: provider=$fullId" }
+            logger.trace { "LLM trying: provider=$candidateId" }
             try {
                 val response = client.chat(effectiveRequest, provider, model)
-                usageTracker?.record(fullId, response.usage)
+                usageTracker?.record(candidateId, response.usage)
                 return response
             } catch (e: KlawError.ContextLengthExceededError) {
-                logger.warn { "LLM context length exceeded: model=$fullId" }
+                logger.warn { "LLM context length exceeded: model=$candidateId" }
                 throw e
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                logger.debug { "LLM provider $fullId failed: ${e::class.simpleName}, trying next" }
+                logger.debug { "LLM provider $candidateId failed: ${e::class.simpleName}, trying next" }
                 lastError = e
             }
         }

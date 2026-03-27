@@ -576,4 +576,38 @@ class HostExecToolTest {
             assertFalse(result.contains("shell operators"), "Safe command should execute: $result")
             assertFalse(result.contains("rejected"), "Safe command should not be rejected: $result")
         }
+
+    @Test
+    fun `LLM risk assessment succeeds with slow response within timeout`() =
+        runTest {
+            val router = mockk<LlmRouter>()
+            coEvery { router.chat(any<LlmRequest>(), any()) } coAnswers {
+                delay(10_000)
+                LlmResponse(
+                    content = "1",
+                    toolCalls = null,
+                    usage = null,
+                    finishReason = io.github.klaw.common.llm.FinishReason.STOP,
+                )
+            }
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation =
+                            PreValidationConfig(
+                                enabled = true,
+                                model = "test/haiku",
+                                riskThreshold = 5,
+                                timeoutMs = 60_000,
+                            ),
+                    ),
+                    router,
+                    ApprovalService(sender),
+                    fakeCommandRunner,
+                )
+            val result = t.execute("df -h", "chat_1")
+            // Risk score 1 < threshold 5 — should auto-execute, not require approval
+            assertFalse(result.contains("rejected"), "Low-risk command should be auto-executed: $result")
+            assertTrue(sentMessages.isEmpty(), "Should not ask user when risk is below threshold")
+        }
 }

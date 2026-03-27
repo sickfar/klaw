@@ -40,6 +40,7 @@ class CliRequestDispatchTest {
             consolidationService = consolidationService,
             engineHealthProvider = mockk(relaxed = true),
             llmUsageTracker = mockk(relaxed = true),
+            llmRouter = mockk(relaxed = true),
             config = mockk(relaxed = true),
             doctorDeepProbe = mockk(relaxed = true),
         )

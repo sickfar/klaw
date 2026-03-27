@@ -200,6 +200,8 @@ class MessageProcessor(
                                     llmRouter,
                                     toolExecutor,
                                     config.processing.maxToolCallRounds,
+                                    channel = message.channel,
+                                    chatId = message.injectInto,
                                     maxToolOutputChars = config.processing.maxToolOutputChars,
                                     modelContextLimit = scheduledModelContextLimit,
                                 )
