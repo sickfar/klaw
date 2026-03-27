@@ -14,6 +14,7 @@ class NativeSqliteVecLoader(
 ) : SqliteVecLoader {
     @Inject
     constructor() : this(KlawPaths.cache)
+
     private val logger = KotlinLogging.logger {}
 
     internal val suffix: String =
