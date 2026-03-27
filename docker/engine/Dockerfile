@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # === Build stage ===
-FROM eclipse-temurin:21-jdk-jammy AS builder
+FROM --platform=linux/amd64 eclipse-temurin:21-jdk-jammy AS builder
 WORKDIR /build
 
 # 1. Copy Gradle infrastructure only (cached layer - changes rarely)
