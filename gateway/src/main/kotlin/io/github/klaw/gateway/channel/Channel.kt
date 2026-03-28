@@ -26,6 +26,10 @@ interface Channel {
         send(chatId, OutgoingMessage("Approve command: ${request.command}? (approval not supported on this channel)"))
     }
 
+    suspend fun dismissApproval(approvalId: String) {
+        // Default: no-op. Channels with approval UI override this.
+    }
+
     suspend fun sendStreamDelta(
         chatId: String,
         delta: String,

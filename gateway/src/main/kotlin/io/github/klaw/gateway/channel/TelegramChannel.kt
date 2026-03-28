@@ -465,6 +465,13 @@ class TelegramChannel(
         logger.debug { "Approval callback processed: id=$approvalId approved=$approved" }
     }
 
+    override suspend fun dismissApproval(approvalId: String) {
+        val callback = pendingApprovals.remove(approvalId) ?: return
+        editApprovalMessage(approvalId)
+        callback(false)
+        logger.debug { "Approval dismissed: id=$approvalId" }
+    }
+
     private suspend fun answerApprovalCallbackQuery(
         callbackQueryId: String,
         text: String,

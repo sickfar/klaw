@@ -1,6 +1,7 @@
 package io.github.klaw.gateway.socket
 
 import io.github.klaw.common.config.GatewayConfig
+import io.github.klaw.common.protocol.ApprovalDismissMessage
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
@@ -113,6 +114,12 @@ class GatewayOutboundHandler(
         }
         drainApprovalBuffer(channel)
         sendApprovalWithCallback(channel, chatId, message)
+    }
+
+    override suspend fun handleApprovalDismiss(message: ApprovalDismissMessage) {
+        for (channel in channels) {
+            channel.dismissApproval(message.id)
+        }
     }
 
     override suspend fun handleShutdown() {

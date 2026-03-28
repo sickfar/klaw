@@ -290,6 +290,9 @@ class CommandHandlerTest {
                             persistDelivered = { _, _, _ -> },
                             pushToGateway = {},
                         ),
+                    scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO),
+                    denyPendingApprovals = { emptyList() },
+                    sendDismiss = {},
                 )
             every { heartbeatRunnerFactory.runner } returns runner
             val handler = makeHandler()

@@ -108,4 +108,51 @@ class ApprovalServiceTest {
             // Should not throw
             service.handleResponse(ApprovalResponseMessage("unknown_id", approved = true))
         }
+
+    @Test
+    fun `denyPendingForChatId completes pending with false and returns denied ids`() =
+        runTest {
+            val service = ApprovalService(sender)
+
+            val result =
+                async {
+                    service.requestApproval("chat_1", "apt upgrade", 8, timeoutMin = 0)
+                }
+
+            delay(10)
+            assertEquals(1, sentMessages.size)
+            val sent = sentMessages[0] as ApprovalRequestMessage
+
+            val deniedIds = service.denyPendingForChatId("chat_1")
+            assertEquals(1, deniedIds.size)
+            assertEquals(sent.id, deniedIds[0])
+            assertFalse(result.await())
+        }
+
+    @Test
+    fun `denyPendingForChatId ignores other chatIds`() =
+        runTest {
+            val service = ApprovalService(sender)
+
+            val result1 =
+                async {
+                    service.requestApproval("chat_1", "cmd1", 5, timeoutMin = 0)
+                }
+            val result2 =
+                async {
+                    service.requestApproval("chat_2", "cmd2", 5, timeoutMin = 0)
+                }
+
+            delay(10)
+            assertEquals(2, sentMessages.size)
+
+            val deniedIds = service.denyPendingForChatId("chat_1")
+            assertEquals(1, deniedIds.size)
+            assertFalse(result1.await())
+
+            // chat_2 should still be pending — complete it manually
+            val sent2 = sentMessages[1] as ApprovalRequestMessage
+            service.handleResponse(ApprovalResponseMessage(sent2.id, approved = true))
+            assertTrue(result2.await())
+        }
 }

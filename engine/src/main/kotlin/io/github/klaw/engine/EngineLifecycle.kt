@@ -85,6 +85,12 @@ class EngineLifecycle(
         }
 
         try {
+            heartbeatRunnerFactory.shutdown()
+        } catch (_: Exception) {
+            // Best-effort
+        }
+
+        try {
             messageProcessor.close()
         } catch (_: Exception) {
             // Best-effort: continue shutdown even if processor close fails

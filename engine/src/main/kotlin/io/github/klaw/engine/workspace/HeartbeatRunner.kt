@@ -15,13 +15,14 @@ import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
-import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
@@ -35,10 +36,14 @@ class HeartbeatRunner(
     private val workspacePath: Path,
     private val maxToolCallRounds: Int,
     private val persistence: HeartbeatPersistence,
+    private val scope: CoroutineScope,
+    private val denyPendingApprovals: () -> List<String>,
+    private val sendDismiss: suspend (String) -> Unit,
 ) {
-    private val running = AtomicBoolean(false)
+    @Volatile
+    private var currentJob: Job? = null
 
-    val isRunning: Boolean get() = running.get()
+    val isRunning: Boolean get() = currentJob?.isActive == true
 
     @Volatile
     var deliveryChannel: String? = config.heartbeat.channel
@@ -46,41 +51,36 @@ class HeartbeatRunner(
     @Volatile
     var deliveryChatId: String? = config.heartbeat.injectInto
 
-    internal fun acquireRunLock(): Boolean = running.compareAndSet(false, true)
-
-    internal fun releaseRunLock() {
-        running.set(false)
-    }
-
     @Suppress("TooGenericExceptionCaught")
-    fun runHeartbeat() {
-        if (!running.compareAndSet(false, true)) {
-            logger.debug { "Heartbeat run skipped — previous still running" }
-            return
-        }
-        logger.trace { "Heartbeat run starting" }
-        try {
-            runBlocking { doExecute() }
-            logger.trace { "Heartbeat run finished" }
-        } catch (e: Exception) {
-            logger.error(e) { "Heartbeat execution failed" }
-        } finally {
-            running.set(false)
-        }
+    fun triggerHeartbeat() {
+        val deniedIds = denyPendingApprovals()
+        val prev = currentJob
+        currentJob =
+            scope.launch {
+                for (id in deniedIds) {
+                    try {
+                        sendDismiss(id)
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to send approval dismiss" }
+                    }
+                }
+                prev?.join()
+                logger.trace { "Heartbeat run starting" }
+                try {
+                    doExecute()
+                    logger.trace { "Heartbeat run finished" }
+                } catch (e: Exception) {
+                    logger.error(e) { "Heartbeat execution failed" }
+                }
+            }
     }
 
     @Suppress("TooGenericExceptionCaught")
     suspend fun executeHeartbeat() {
-        if (!running.compareAndSet(false, true)) {
-            logger.debug { "Heartbeat run skipped — previous still running" }
-            return
-        }
         try {
             doExecute()
         } catch (e: Exception) {
             logger.error(e) { "Heartbeat execution failed" }
-        } finally {
-            running.set(false)
         }
     }
 
