@@ -24,7 +24,7 @@ class MessageRepositoryTest {
     }
 
     @Test
-    fun `save returns Unit — backward compatible`() =
+    fun `save returns Unit - backward compatible`() =
         runBlocking {
             repo.save("id1", "telegram", "chat1", "user", "text", "hello")
             val count = database.messagesQueries.countMessages().executeAsOne()

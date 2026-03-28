@@ -83,7 +83,7 @@ class EngineOutboundBufferTest {
     }
 
     @Test
-    fun `max lines cap enforced — oldest messages dropped`() {
+    fun `max lines cap enforced - oldest messages dropped`() {
         val path = bufferPath()
         val buffer = EngineOutboundBuffer(path, maxLines = 3)
 

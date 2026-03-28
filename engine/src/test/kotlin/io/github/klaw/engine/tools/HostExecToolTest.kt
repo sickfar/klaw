@@ -90,7 +90,7 @@ class HostExecToolTest {
         runTest {
             val t = tool(config(allowList = listOf("df -h", "free -m")))
             val result = t.execute("df -h", "chat_1")
-            // Should execute without asking — result should not contain rejection
+            // Should execute without asking - result should not contain rejection
             assertFalse(result.contains("rejected"), "Should not be rejected: $result")
             assertFalse(result.contains("disabled"), "Should not be disabled: $result")
         }
@@ -188,7 +188,7 @@ class HostExecToolTest {
         }
 
     @Test
-    fun `user approves command — executes`() =
+    fun `user approves command - executes`() =
         runTest {
             val approval = ApprovalService(sender)
             val t =
@@ -209,7 +209,7 @@ class HostExecToolTest {
         }
 
     @Test
-    fun `user denies command — returns rejection`() =
+    fun `user denies command - returns rejection`() =
         runTest {
             val approval = ApprovalService(sender)
             val t =
@@ -230,7 +230,7 @@ class HostExecToolTest {
         }
 
     @Test
-    fun `approval timeout — returns timeout error`() =
+    fun `approval timeout - returns timeout error`() =
         runTest {
             val t =
                 tool(
@@ -245,7 +245,7 @@ class HostExecToolTest {
         }
 
     @Test
-    fun `preValidation disabled — skips LLM goes to ask`() =
+    fun `preValidation disabled - skips LLM goes to ask`() =
         runTest {
             val approval = ApprovalService(sender)
             val t =
@@ -316,7 +316,7 @@ class HostExecToolTest {
         }
 
     @Test
-    fun `host_exec disabled — returns error`() =
+    fun `host_exec disabled - returns error`() =
         runTest {
             val t = tool(config(enabled = false))
             val result = t.execute("any-command", "chat_1")
@@ -606,7 +606,7 @@ class HostExecToolTest {
                     fakeCommandRunner,
                 )
             val result = t.execute("df -h", "chat_1")
-            // Risk score 1 < threshold 5 — should auto-execute, not require approval
+            // Risk score 1 < threshold 5 - should auto-execute, not require approval
             assertFalse(result.contains("rejected"), "Low-risk command should be auto-executed: $result")
             assertTrue(sentMessages.isEmpty(), "Should not ask user when risk is below threshold")
         }

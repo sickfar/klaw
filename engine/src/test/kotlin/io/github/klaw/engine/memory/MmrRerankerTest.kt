@@ -33,7 +33,7 @@ class MmrRerankerTest {
     }
 
     @Test
-    fun `identical embeddings penalized — diverse result promoted`() {
+    fun `identical embeddings penalized - diverse result promoted`() {
         // A and B have identical embeddings, C is orthogonal
         val sameEmb = floatArrayOf(1f, 0f, 0f)
         val orthEmb = floatArrayOf(0f, 1f, 0f)
