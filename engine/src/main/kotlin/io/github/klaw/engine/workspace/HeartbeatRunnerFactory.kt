@@ -58,7 +58,7 @@ class HeartbeatRunnerFactory(
             )
         runner = r
 
-        taskScheduler.scheduleAtFixedRate(interval, interval) { r.runHeartbeat() }
+        taskScheduler.scheduleWithFixedDelay(interval, interval) { r.runHeartbeat() }
         logger.info { "Heartbeat scheduled — first run in $interval" }
     }
 }
