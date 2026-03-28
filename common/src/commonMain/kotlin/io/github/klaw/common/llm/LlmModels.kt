@@ -51,6 +51,8 @@ data class LlmResponse(
     val toolCalls: List<ToolCall>?,
     val usage: TokenUsage?,
     val finishReason: FinishReason,
+    val rawFinishReason: String? = null,
+    val stopReason: String? = null,
 )
 
 @Serializable
