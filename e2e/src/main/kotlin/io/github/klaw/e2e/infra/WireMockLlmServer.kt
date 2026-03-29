@@ -656,6 +656,52 @@ class WireMockLlmServer {
                 """.trimIndent()
         }
 
+        fun buildChatResponseJsonWithFinishReason(
+            content: String,
+            finishReason: String,
+            stopReason: String? = null,
+            promptTokens: Int = DEFAULT_PROMPT_TOKENS,
+            completionTokens: Int = DEFAULT_COMPLETION_TOKENS,
+        ): String {
+            val escapedContent =
+                content
+                    .replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+            val stopReasonField =
+                if (stopReason != null) {
+                    val escapedStopReason =
+                        stopReason
+                            .replace("\\", "\\\\")
+                            .replace("\"", "\\\"")
+                            .replace("\n", "\\n")
+                    ""","stop_reason": "$escapedStopReason""""
+                } else {
+                    ""
+                }
+            return """
+                {
+                    "id": "chatcmpl-e2e",
+                    "object": "chat.completion",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "$escapedContent"
+                            },
+                            "finish_reason": "$finishReason"$stopReasonField
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": $promptTokens,
+                        "completion_tokens": $completionTokens,
+                        "total_tokens": ${promptTokens + completionTokens}
+                    }
+                }
+                """.trimIndent()
+        }
+
         fun buildToolCallResponseJson(
             toolCalls: List<StubToolCall>,
             promptTokens: Int = DEFAULT_PROMPT_TOKENS,

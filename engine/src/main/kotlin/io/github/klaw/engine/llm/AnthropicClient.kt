@@ -187,6 +187,7 @@ private fun processStreamEvent(
         event.isMessageDelta() -> {
             val msgDelta = event.asMessageDelta()
             accumulator.stopReason = msgDelta.delta().stopReason().orElse(null)
+            accumulator.stopSequence = msgDelta.delta().stopSequence().orElse(null)
             accumulator.outputTokens = msgDelta.usage().outputTokens().toInt()
         }
     }
@@ -197,6 +198,7 @@ private class AnthropicStreamAccumulator {
     var inputTokens: Int = 0
     var outputTokens: Int = 0
     var stopReason: StopReason? = null
+    var stopSequence: String? = null
     private val textContent = StringBuilder()
     private val toolCalls = mutableListOf<ToolCallBuilder>()
     private val toolCallByIndex = mutableMapOf<Int, ToolCallBuilder>()
@@ -246,6 +248,8 @@ private class AnthropicStreamAccumulator {
                     totalTokens = inputTokens + outputTokens,
                 ),
             finishReason = mapStopReason(stopReason ?: StopReason.END_TURN),
+            rawFinishReason = stopReason?.value()?.toString()?.lowercase(),
+            stopReason = stopSequence,
         )
     }
 
@@ -407,6 +411,9 @@ internal fun Message.toKlawResponse(): LlmResponse {
     val inputTokens = usage.inputTokens().toInt()
     val outputTokens = usage.outputTokens().toInt()
 
+    val rawStop = stopReason().orElse(null)
+    val stopSeq = stopSequence().orElse(null)
+
     return LlmResponse(
         content = textParts.joinToString("").ifBlank { null },
         toolCalls = toolCalls.ifEmpty { null },
@@ -416,7 +423,9 @@ internal fun Message.toKlawResponse(): LlmResponse {
                 completionTokens = outputTokens,
                 totalTokens = inputTokens + outputTokens,
             ),
-        finishReason = mapStopReason(stopReason().orElse(StopReason.END_TURN)),
+        finishReason = mapStopReason(rawStop ?: StopReason.END_TURN),
+        rawFinishReason = rawStop?.value()?.toString()?.lowercase(),
+        stopReason = stopSeq,
     )
 }
 

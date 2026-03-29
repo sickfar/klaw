@@ -348,6 +348,13 @@ internal fun ChatCompletion.toKlawResponse(): LlmResponse {
             )
         }
 
+    val rawFinishReason =
+        choice
+            .finishReason()
+            .value()
+            .toString()
+            .lowercase()
+
     val finishReason =
         when (choice.finishReason().value()) {
             ChatCompletion.Choice.FinishReason.Value.STOP -> FinishReason.STOP
@@ -356,11 +363,15 @@ internal fun ChatCompletion.toKlawResponse(): LlmResponse {
             else -> FinishReason.STOP
         }
 
+    val stopReason = choice._additionalProperties()["stop_reason"]?.asString()?.orElse(null)
+
     return LlmResponse(
         content = textContent,
         toolCalls = toolCallList?.ifEmpty { null },
         usage = tokenUsage,
         finishReason = finishReason,
+        rawFinishReason = rawFinishReason,
+        stopReason = stopReason,
     )
 }
 
@@ -377,6 +388,7 @@ private class SdkStreamAccumulator {
     private val contentBuilder = StringBuilder()
     private val toolCallMap = mutableMapOf<Int, ToolCallAccumulator>()
     private var finishReason: String? = null
+    private var stopReason: String? = null
     private var promptTokens: Int = 0
     private var completionTokens: Int = 0
     private var totalTokens: Int = 0
@@ -391,6 +403,12 @@ private class SdkStreamAccumulator {
 
         choice.finishReason().ifPresent { fr ->
             finishReason = fr.value().toString().lowercase()
+        }
+
+        if (stopReason == null) {
+            choice._additionalProperties()["stop_reason"]?.asString()?.ifPresent { sr ->
+                stopReason = sr
+            }
         }
 
         delta.toolCalls().ifPresent { toolCalls ->
@@ -463,6 +481,8 @@ private class SdkStreamAccumulator {
             toolCalls = tools,
             usage = usage,
             finishReason = fr,
+            rawFinishReason = finishReason,
+            stopReason = stopReason,
         )
     }
 }

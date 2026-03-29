@@ -442,8 +442,9 @@ class MessageProcessor(
                     correctUserMessageTokens(runner.firstPromptTokens, contextResult.messages, messages)
 
                     val content = persistAssistantResponse(response, channel, chatId)
+                    val deliveryContent = appendStopNoticeIfNeeded(content, response)
 
-                    deliverResponse(content, channel, chatId, streamCtx)
+                    deliverResponse(deliveryContent, channel, chatId, streamCtx)
 
                     // Fire-and-forget background compaction
                     processingScope.launch {
