@@ -259,6 +259,30 @@ class WebSocketChatClient(
             }
         }
 
+    fun waitForApprovalDismiss(timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS): ChatFrame =
+        runBlocking {
+            val buffered = mutableListOf<ChatFrame>()
+            try {
+                withTimeout(timeoutMs) {
+                    var result: ChatFrame? = null
+                    while (result == null) {
+                        val frame = incomingFrames.receive()
+                        if (frame.type == "approval_dismiss") {
+                            result = frame
+                        } else {
+                            buffered.add(frame)
+                            logger.debug { "Buffered non-dismiss frame: type=${frame.type}" }
+                        }
+                    }
+                    result
+                }
+            } finally {
+                for (frame in buffered) {
+                    incomingFrames.send(frame)
+                }
+            }
+        }
+
     fun collectFrames(timeoutMs: Long): List<ChatFrame> =
         runBlocking {
             val collected = mutableListOf<ChatFrame>()

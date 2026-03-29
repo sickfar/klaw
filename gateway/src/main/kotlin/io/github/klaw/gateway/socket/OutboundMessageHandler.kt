@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.protocol.ApprovalDismissMessage
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
@@ -9,6 +10,8 @@ interface OutboundMessageHandler {
     suspend fun handleOutbound(message: OutboundSocketMessage)
 
     suspend fun handleApprovalRequest(message: ApprovalRequestMessage)
+
+    suspend fun handleApprovalDismiss(message: ApprovalDismissMessage) {}
 
     suspend fun handleShutdown()
 

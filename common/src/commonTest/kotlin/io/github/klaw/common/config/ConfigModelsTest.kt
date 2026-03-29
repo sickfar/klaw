@@ -453,9 +453,13 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `HeartbeatConfig accepts Kotlin duration format`() {
-        HeartbeatConfig(interval = "1h")
-        HeartbeatConfig(interval = "30m")
+    fun `HeartbeatConfig rejects Kotlin duration format — only ISO-8601 allowed`() {
+        assertFailsWith<IllegalArgumentException> {
+            HeartbeatConfig(interval = "1h")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            HeartbeatConfig(interval = "30m")
+        }
     }
 
     @Test

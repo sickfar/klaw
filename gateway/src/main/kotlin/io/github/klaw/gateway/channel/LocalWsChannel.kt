@@ -170,6 +170,17 @@ class LocalWsChannel(
             }
     }
 
+    override suspend fun dismissApproval(approvalId: String) {
+        val callback = pendingApprovals.remove(approvalId) ?: return
+        val session = activeSession
+        if (session != null) {
+            val frame = Json.encodeToString(ChatFrame(type = "approval_dismiss", approvalId = approvalId))
+            runCatching { session.sendSync(frame) }
+        }
+        callback(false)
+        logger.debug { "Approval dismissed: id=$approvalId" }
+    }
+
     private fun sendStatusFrame(
         session: WebSocketSession,
         status: String,

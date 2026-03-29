@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.socket
 
+import io.github.klaw.common.protocol.ApprovalDismissMessage
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.PingMessage
@@ -199,6 +200,12 @@ class EngineSocketClient(
                 is ApprovalRequestMessage -> {
                     logger.debug { "Received approval request from engine" }
                     outboundHandler.handleApprovalRequest(msg)
+                    false
+                }
+
+                is ApprovalDismissMessage -> {
+                    logger.debug { "Received approval dismiss from engine" }
+                    outboundHandler.handleApprovalDismiss(msg)
                     false
                 }
 

@@ -456,7 +456,7 @@ data class HeartbeatConfig(
     val channel: String? = null,
 ) {
     init {
-        require(interval == "off" || runCatching { kotlin.time.Duration.parse(interval) }.isSuccess) {
+        require(interval == "off" || runCatching { kotlin.time.Duration.parseIsoString(interval) }.isSuccess) {
             "interval must be 'off' or a valid ISO-8601 duration, got $interval"
         }
     }

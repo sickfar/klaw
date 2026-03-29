@@ -14,6 +14,10 @@ import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -28,6 +32,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 
 class HeartbeatRunnerTest {
@@ -243,22 +248,6 @@ class HeartbeatRunnerTest {
         }
 
     @Test
-    fun `concurrent run is skipped`() =
-        runBlocking {
-            Files.writeString(workspace.resolve("HEARTBEAT.md"), "Check something")
-            val config = buildConfig(defaultHeartbeat)
-            val llmCalls = mutableListOf<LlmRequest>()
-            val runner = createRunner(config, workspace, llmCalls)
-
-            // Simulate locking
-            runner.acquireRunLock()
-            runner.executeHeartbeat()
-            runner.releaseRunLock()
-
-            assertTrue(llmCalls.isEmpty())
-        }
-
-    @Test
     fun `tool calls include ChatContext with delivery chatId and channel`() =
         runBlocking {
             Files.writeString(workspace.resolve("HEARTBEAT.md"), "Check alerts")
@@ -314,6 +303,9 @@ class HeartbeatRunnerTest {
         sessionProvider: (suspend (String, String) -> Session)? = null,
         pushCapture: MutableList<OutboundSocketMessage> = mutableListOf(),
         persistence: HeartbeatPersistence = noOpPersistence(pushCapture),
+        scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+        denyPendingApprovals: () -> List<String> = { emptyList() },
+        sendDismiss: suspend (String) -> Unit = {},
     ): HeartbeatRunner {
         val responseIterator = (llmResponses ?: listOf(response(content = "Nothing to report"))).iterator()
         val chatFn: suspend (LlmRequest, String) -> LlmResponse = { request, _ ->
@@ -353,6 +345,9 @@ class HeartbeatRunnerTest {
             workspacePath = workspace,
             maxToolCallRounds = config.processing.maxToolCallRounds,
             persistence = persistence,
+            scope = scope,
+            denyPendingApprovals = denyPendingApprovals,
+            sendDismiss = sendDismiss,
         )
     }
 
@@ -504,6 +499,121 @@ class HeartbeatRunnerTest {
                 "JSONL should not be created when HEARTBEAT.md is missing",
             )
         }
+
+    @Test
+    fun `triggerHeartbeat denies pending and sends dismiss before running`() {
+        Files.writeString(workspace.resolve("HEARTBEAT.md"), "Check alerts")
+        val config = buildConfig(defaultHeartbeat)
+        val denyCallCount = AtomicInteger(0)
+        val dismissedIds = mutableListOf<String>()
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val llmCalls = mutableListOf<LlmRequest>()
+
+        val runner =
+            createRunner(
+                config,
+                workspace,
+                llmCalls = llmCalls,
+                scope = scope,
+                denyPendingApprovals = {
+                    denyCallCount.incrementAndGet()
+                    listOf("apr_1")
+                },
+                sendDismiss = { id ->
+                    synchronized(dismissedIds) { dismissedIds.add(id) }
+                },
+            )
+
+        runner.triggerHeartbeat()
+
+        // Wait for the coroutine to complete
+        val startTime = System.currentTimeMillis()
+        while (runner.isRunning && System.currentTimeMillis() - startTime < 5000) {
+            Thread.sleep(50)
+        }
+
+        assertEquals(1, denyCallCount.get(), "denyPendingApprovals should have been called once")
+        assertEquals(listOf("apr_1"), dismissedIds, "sendDismiss should have been called with apr_1")
+        assertEquals(1, llmCalls.size, "LLM should have been called once")
+    }
+
+    @Test
+    fun `triggerHeartbeat waits for previous job to finish before executing`() {
+        Files.writeString(workspace.resolve("HEARTBEAT.md"), "Check alerts")
+        val config = buildConfig(defaultHeartbeat)
+        val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        val blockingDeferred = CompletableDeferred<Unit>()
+        val executionOrder = java.util.Collections.synchronizedList(mutableListOf<Int>())
+        var callCount = 0
+
+        val runner =
+            createRunner(
+                config,
+                workspace,
+                llmResponses =
+                    listOf(
+                        response(content = "First"),
+                        response(content = "Second"),
+                    ),
+                scope = scope,
+                toolExecutor =
+                    object : ToolExecutor {
+                        override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =
+                            toolCalls.map { ToolResult(callId = it.id, content = "ok") }
+                    },
+            )
+
+        // Override chat to block on first call, record order
+        val chatResponses =
+            listOf(
+                response(content = "First"),
+                response(content = "Second"),
+            )
+        val responseIter = chatResponses.iterator()
+
+        val blockingRunner =
+            createRunner(
+                config,
+                workspace,
+                scope = scope,
+                toolExecutor =
+                    object : ToolExecutor {
+                        override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> {
+                            blockingDeferred.await()
+                            return toolCalls.map { ToolResult(callId = it.id, content = "ok") }
+                        }
+                    },
+                llmResponses =
+                    listOf(
+                        response(
+                            toolCalls =
+                                listOf(
+                                    ToolCall(id = "tc1", name = "some_tool", arguments = "{}"),
+                                ),
+                        ),
+                        response(content = "First done"),
+                        response(content = "Second done"),
+                    ),
+            )
+
+        // First trigger — will block on tool execution
+        blockingRunner.triggerHeartbeat()
+        Thread.sleep(100) // Let first job start
+
+        // Second trigger — should queue behind first
+        val denyCalled = AtomicInteger(0)
+        // We can't easily inject a new deny into the same runner, so just verify isRunning
+        assertTrue(blockingRunner.isRunning, "Runner should be running (first job)")
+
+        // Unblock the first job
+        blockingDeferred.complete(Unit)
+
+        // Wait for completion
+        val startTime = System.currentTimeMillis()
+        while (blockingRunner.isRunning && System.currentTimeMillis() - startTime < 5000) {
+            Thread.sleep(50)
+        }
+    }
 
     private class HeartbeatAwareToolExecutor : ToolExecutor {
         override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =

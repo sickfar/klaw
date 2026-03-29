@@ -569,6 +569,12 @@ class DiscordChannel(
         }
     }
 
+    override suspend fun dismissApproval(approvalId: String) {
+        val callback = pendingApprovals.remove(approvalId) ?: return
+        callback(false)
+        logger.debug { "Approval dismissed: id=$approvalId" }
+    }
+
     internal suspend fun handleApprovalResponse(
         approvalId: String,
         approved: Boolean,

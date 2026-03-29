@@ -85,6 +85,12 @@ data class ApprovalResponseMessage(
 ) : SocketMessage()
 
 @Serializable
+@SerialName("approval_dismiss")
+data class ApprovalDismissMessage(
+    val id: String,
+) : SocketMessage()
+
+@Serializable
 @SerialName("ping")
 data object PingMessage : SocketMessage()
 

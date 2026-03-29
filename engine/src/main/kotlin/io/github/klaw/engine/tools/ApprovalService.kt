@@ -17,7 +17,12 @@ private val logger = KotlinLogging.logger {}
 class ApprovalService(
     private val sendMessage: suspend (SocketMessage) -> Unit,
 ) {
-    private val pending = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
+    private data class PendingEntry(
+        val chatId: String,
+        val deferred: CompletableDeferred<Boolean>,
+    )
+
+    private val pending = ConcurrentHashMap<String, PendingEntry>()
 
     suspend fun requestApproval(
         chatId: String,
@@ -27,7 +32,7 @@ class ApprovalService(
     ): Boolean {
         val id = "apr_${UUID.randomUUID()}"
         val deferred = CompletableDeferred<Boolean>()
-        pending[id] = deferred
+        pending[id] = PendingEntry(chatId, deferred)
 
         val request =
             ApprovalRequestMessage(
@@ -55,13 +60,25 @@ class ApprovalService(
     }
 
     fun handleResponse(response: ApprovalResponseMessage) {
-        val deferred = pending[response.id]
-        if (deferred != null) {
-            deferred.complete(response.approved)
+        val entry = pending[response.id]
+        if (entry != null) {
+            entry.deferred.complete(response.approved)
             logger.debug { "Approval response handled: id=${response.id}, approved=${response.approved}" }
         } else {
             logger.trace { "Ignoring approval response for unknown id=${response.id}" }
         }
+    }
+
+    fun denyPendingForChatId(chatId: String): List<String> {
+        val deniedIds = mutableListOf<String>()
+        for ((id, entry) in pending) {
+            if (entry.chatId == chatId) {
+                logger.debug { "Auto-denying pending approval for chatId=$chatId" }
+                entry.deferred.complete(false)
+                deniedIds.add(id)
+            }
+        }
+        return deniedIds
     }
 
     suspend fun notify(
