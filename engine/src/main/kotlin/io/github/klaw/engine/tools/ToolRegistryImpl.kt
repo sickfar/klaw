@@ -110,6 +110,7 @@ class ToolRegistryImpl(
                         path,
                         args.intOrNull("startLine"),
                         args.intOrNull("maxLines"),
+                        args.intOrNull("tail"),
                     )
                 }
             }
@@ -129,6 +130,10 @@ class ToolRegistryImpl(
                     args.str("new_string"),
                     args.boolOrNull("force_first") ?: false,
                 )
+            }
+
+            "file_glob" -> {
+                fileTools.glob(args.str("pattern"), args.strOrNull("path"))
             }
 
             "memory_search" -> {
@@ -414,7 +419,8 @@ class ToolRegistryImpl(
                     "Read a file. Accessible dirs: workspace (\$WORKSPACE), state (\$STATE — has logs/), " +
                         "data (\$DATA), config (\$CONFIG), cache (\$CACHE). " +
                         "Relative paths resolve to workspace only. " +
-                        "For other dirs use absolute paths (e.g. \$STATE/logs/engine.log).",
+                        "For other dirs use absolute paths (e.g. \$STATE/logs/engine.log). " +
+                        "Use startLine+maxLines for head/range, or tail for last N lines.",
                     toolParams(
                         listOf("path"),
                         mapOf(
@@ -425,6 +431,7 @@ class ToolRegistryImpl(
                                 ),
                             "startLine" to intProp("Start line (1-based)"),
                             "maxLines" to intProp("Maximum number of lines"),
+                            "tail" to intProp("Read last N lines (mutually exclusive with startLine/maxLines)"),
                         ),
                     ),
                 ),
@@ -466,6 +473,23 @@ class ToolRegistryImpl(
                             "old_string" to stringProp("Text to replace (exact match)"),
                             "new_string" to stringProp("New text"),
                             "force_first" to boolProp("Replace first occurrence on multiple matches"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "file_glob",
+                    "Search for files by glob pattern. Same accessible dirs as file_read. " +
+                        "Pattern syntax: * (any name), ** (any path), *.kt (by extension), " +
+                        "src/**/*.kt (recursive in dir). Returns up to 1000 matching file paths.",
+                    toolParams(
+                        listOf("pattern"),
+                        mapOf(
+                            "pattern" to stringProp("Glob pattern (e.g. **/*.kt, src/*.json, *.md)"),
+                            "path" to
+                                stringProp(
+                                    "Base directory to search in — relative (workspace only) or absolute. " +
+                                        "Defaults to workspace root",
+                                ),
                         ),
                     ),
                 ),

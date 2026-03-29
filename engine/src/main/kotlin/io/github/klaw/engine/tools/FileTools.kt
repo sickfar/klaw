@@ -4,11 +4,14 @@ import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
 private val logger = KotlinLogging.logger {}
+
+private const val MAX_GLOB_RESULTS = 1000
 
 @Suppress("TooGenericExceptionCaught", "ReturnCount", "NestedBlockDepth", "LoopWithTooManyJumpStatements")
 class FileTools(
@@ -81,17 +84,22 @@ class FileTools(
         path: String,
         startLine: Int? = null,
         maxLines: Int? = null,
+        tail: Int? = null,
     ): String {
-        logger.trace { "file_read: startLine=$startLine, maxLines=$maxLines" }
+        logger.trace { "file_read: startLine=$startLine, maxLines=$maxLines, tail=$tail" }
         val safePath = safePath(path).getOrElse { return it.message ?: "Access denied" }
         return withContext(Dispatchers.VT) {
             try {
                 if (!Files.exists(safePath)) return@withContext "Error: file not found: $path"
                 val lines = Files.readAllLines(safePath)
-                val start = (startLine ?: 1).coerceAtLeast(1) - 1
-                val end = if (maxLines != null) (start + maxLines).coerceAtMost(lines.size) else lines.size
-                if (start >= lines.size) return@withContext ""
-                lines.subList(start, end).joinToString("\n")
+                if (tail != null) {
+                    lines.takeLast(tail.coerceAtLeast(0)).joinToString("\n")
+                } else {
+                    val start = (startLine ?: 1).coerceAtLeast(1) - 1
+                    val end = if (maxLines != null) (start + maxLines).coerceAtMost(lines.size) else lines.size
+                    if (start >= lines.size) return@withContext ""
+                    lines.subList(start, end).joinToString("\n")
+                }
             } catch (e: Exception) {
                 logger.warn(e) { "file_read failed" }
                 "Error reading file: ${e::class.simpleName}"
@@ -190,6 +198,49 @@ class FileTools(
             idx += substring.length
         }
         return count
+    }
+
+    suspend fun glob(
+        pattern: String,
+        path: String? = null,
+    ): String {
+        logger.trace { "file_glob: pattern length=${pattern.length}" }
+        val basePath = path ?: "."
+        val safePath = safePath(basePath).getOrElse { return it.message ?: "Access denied" }
+        return withContext(Dispatchers.VT) {
+            try {
+                if (!Files.exists(safePath) || !Files.isDirectory(safePath)) {
+                    return@withContext "Error: directory not found: $basePath"
+                }
+                val fs = FileSystems.getDefault()
+                val matcher = fs.getPathMatcher("glob:$pattern")
+                // **/*.ext doesn't match root-level files in Java glob — add a fallback matcher
+                val rootMatcher =
+                    if (pattern.startsWith("**/")) {
+                        fs.getPathMatcher("glob:${pattern.removePrefix("**/")}")
+                    } else {
+                        null
+                    }
+                val matchedBase = allowedPaths.firstOrNull { safePath.startsWith(it) } ?: workspace
+                val results =
+                    Files.walk(safePath).use { stream ->
+                        stream
+                            .filter { Files.isRegularFile(it) }
+                            .filter { f ->
+                                val rel = safePath.relativize(f)
+                                matcher.matches(rel) || (rootMatcher != null && rootMatcher.matches(rel))
+                            }.limit(MAX_GLOB_RESULTS.toLong())
+                            .map { matchedBase.relativize(it).toString() }
+                            .sorted()
+                            .toList()
+                            .joinToString("\n")
+                    }
+                results.ifEmpty { "No matches found" }
+            } catch (e: Exception) {
+                logger.warn(e) { "file_glob failed" }
+                "Error searching files: ${e::class.simpleName}"
+            }
+        }
     }
 
     suspend fun list(

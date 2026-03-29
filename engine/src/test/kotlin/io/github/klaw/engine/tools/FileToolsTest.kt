@@ -408,4 +408,90 @@ class FileToolsTest {
             val result = tools().read("plain.txt")
             assertEquals("plain content", result)
         }
+
+    // --- file_read tail tests ---
+
+    @Test
+    fun `file_read tail returns last N lines`() =
+        runTest {
+            Files.writeString(workspace.resolve("lines.txt"), "line1\nline2\nline3\nline4\nline5")
+            val result = tools().read("lines.txt", tail = 2)
+            assertEquals("line4\nline5", result)
+        }
+
+    @Test
+    fun `file_read tail larger than file returns all lines`() =
+        runTest {
+            Files.writeString(workspace.resolve("short.txt"), "a\nb")
+            val result = tools().read("short.txt", tail = 100)
+            assertEquals("a\nb", result)
+        }
+
+    @Test
+    fun `file_read tail on empty file returns empty`() =
+        runTest {
+            Files.writeString(workspace.resolve("empty.txt"), "")
+            val result = tools().read("empty.txt", tail = 5)
+            assertEquals("", result)
+        }
+
+    @Test
+    fun `file_read tail overrides startLine and maxLines`() =
+        runTest {
+            Files.writeString(workspace.resolve("lines.txt"), "line1\nline2\nline3\nline4\nline5")
+            val result = tools().read("lines.txt", startLine = 1, maxLines = 1, tail = 2)
+            assertEquals("line4\nline5", result)
+        }
+
+    // --- file_glob tests ---
+
+    @Test
+    fun `file_glob matches files by extension`() =
+        runTest {
+            Files.writeString(workspace.resolve("a.txt"), "a")
+            Files.writeString(workspace.resolve("b.txt"), "b")
+            Files.writeString(workspace.resolve("c.md"), "c")
+            val result = tools().glob("*.txt")
+            assertTrue(result.contains("a.txt"), "Expected a.txt in: $result")
+            assertTrue(result.contains("b.txt"), "Expected b.txt in: $result")
+            assertFalse(result.contains("c.md"), "Unexpected c.md in: $result")
+        }
+
+    @Test
+    fun `file_glob recursive pattern finds nested files`() =
+        runTest {
+            val sub = workspace.resolve("sub/deep")
+            Files.createDirectories(sub)
+            Files.writeString(sub.resolve("nested.kt"), "code")
+            Files.writeString(workspace.resolve("top.kt"), "code")
+            val result = tools().glob("**/*.kt")
+            assertTrue(result.contains("nested.kt"), "Expected nested.kt in: $result")
+            assertTrue(result.contains("top.kt"), "Expected top.kt in: $result")
+        }
+
+    @Test
+    fun `file_glob no matches returns message`() =
+        runTest {
+            val result = tools().glob("*.nonexistent")
+            assertEquals("No matches found", result)
+        }
+
+    @Test
+    fun `file_glob with path traversal is rejected`() =
+        runTest {
+            val result = tools().glob("*.txt", "../../etc")
+            assertTrue(result.contains("Access denied"), "Expected 'Access denied' but got: $result")
+        }
+
+    @Test
+    fun `file_glob with base path restricts search`() =
+        runTest {
+            val sub = workspace.resolve("src")
+            Files.createDirectories(sub)
+            Files.writeString(sub.resolve("app.kt"), "code")
+            Files.writeString(workspace.resolve("root.kt"), "code")
+            val result = tools().glob("*.kt", "src")
+            assertTrue(result.contains("app.kt"), "Expected app.kt in: $result")
+            assertFalse(result.contains("root.kt"), "Unexpected root.kt in: $result")
+        }
 }
