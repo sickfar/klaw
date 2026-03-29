@@ -111,8 +111,10 @@ class OpenAiCompatibleClient(
                     client.chat().completions().createStreaming(params).use { streamResponse ->
                         val accumulator = SdkStreamAccumulator()
                         var toolCallEmitted = false
+                        var chunkCount = 0
 
                         streamResponse.stream().forEach { chunk ->
+                            chunkCount++
                             accumulator.accept(chunk)
                             val choice = chunk.choices().firstOrNull() ?: return@forEach
                             val delta = choice.delta()
@@ -133,7 +135,12 @@ class OpenAiCompatibleClient(
                             }
                         }
 
-                        channel.send(StreamEvent.End(accumulator.build()))
+                        val result = accumulator.build()
+                        logger.trace {
+                            "LLM stream finished: chunks=$chunkCount contentLen=${result.content?.length ?: 0}" +
+                                " finishReason=${result.finishReason} toolCalls=${result.toolCalls?.size ?: 0}"
+                        }
+                        channel.send(StreamEvent.End(result))
                     }
                 }
             } catch (e: OpenAIServiceException) {
