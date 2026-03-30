@@ -378,6 +378,9 @@ class MockTelegramServer(
     fun getReceivedMessages(): List<LoggedRequest> =
         wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/sendMessage")))
 
+    fun getSetMyCommandsRequests(): List<LoggedRequest> =
+        wireMock.findAll(postRequestedFor(urlEqualTo("/bot$token/setMyCommands")))
+
     fun getReceivedMessageCount(): Int = getReceivedMessages().size
 
     fun getReceivedDrafts(): List<LoggedRequest> =
