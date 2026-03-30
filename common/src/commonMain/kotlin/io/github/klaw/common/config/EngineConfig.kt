@@ -1,5 +1,6 @@
 package io.github.klaw.common.config
 
+import io.github.klaw.common.command.SlashCommand
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -367,10 +368,10 @@ data class FilesConfig(
 @Serializable
 data class CommandConfig(
     @ConfigDoc("Slash command name without the leading /")
-    val name: String,
+    override val name: String,
     @ConfigDoc("Human-readable description shown in command help")
-    val description: String,
-)
+    override val description: String,
+) : SlashCommand
 
 @Serializable
 data class DocsConfig(
