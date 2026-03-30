@@ -12,11 +12,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 @Singleton
-class MemoryCommand(
-    internal val workspacePath: Path = Path.of(KlawPaths.workspace),
-) : EngineSlashCommand {
+class MemoryCommand : EngineSlashCommand {
     override val name = "memory"
     override val description = "Show MEMORY.md from workspace"
+
+    internal var workspacePath: Path = Path.of(KlawPaths.workspace)
 
     override suspend fun handle(
         msg: CommandSocketMessage,

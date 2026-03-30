@@ -174,12 +174,7 @@ class MessageProcessorEmbeddingTest {
         val toolExecutor = mockk<ToolExecutor> { coEvery { executeAll(any()) } returns emptyList() }
         val commandHandler =
             CommandHandler(
-                sessionManager = sessionManager,
-                messageRepository = messageRepository,
-                summaryRepository = mockk(relaxed = true),
-                config = config,
-                heartbeatRunnerFactory = jakarta.inject.Provider { mockk(relaxed = true) },
-                skillRegistry = mockk(relaxed = true),
+                registry = mockk(relaxed = true),
             )
 
         val healthProvider =
