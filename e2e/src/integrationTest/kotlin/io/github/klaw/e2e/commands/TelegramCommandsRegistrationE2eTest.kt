@@ -5,11 +5,13 @@ import io.github.klaw.e2e.infra.KlawContainers
 import io.github.klaw.e2e.infra.MockTelegramServer
 import io.github.klaw.e2e.infra.WireMockLlmServer
 import io.github.klaw.e2e.infra.WorkspaceGenerator
+import org.awaitility.kotlin.await
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.time.Duration
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TelegramCommandsRegistrationE2eTest {
@@ -39,7 +41,9 @@ class TelegramCommandsRegistrationE2eTest {
             additionalHostPorts = listOf(mockTelegram.port),
         )
         containers.start()
-        Thread.sleep(STARTUP_SETTLE_MS)
+        await().atMost(Duration.ofSeconds(10)).until {
+            mockTelegram.getSetMyCommandsRequests().isNotEmpty()
+        }
     }
 
     @AfterAll
@@ -67,7 +71,4 @@ class TelegramCommandsRegistrationE2eTest {
         assertTrue(body.contains("\"start\""), "Expected 'start' gateway command in setMyCommands body: $body")
     }
 
-    companion object {
-        private const val STARTUP_SETTLE_MS = 3000L
-    }
 }
