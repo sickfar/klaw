@@ -2,6 +2,7 @@ package io.github.klaw.engine.socket
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.command.EngineCommandRegistry
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
@@ -43,6 +44,7 @@ class CliRequestDispatchTest {
             llmRouter = mockk(relaxed = true),
             config = mockk(relaxed = true),
             doctorDeepProbe = mockk(relaxed = true),
+            engineCommandRegistry = mockk(relaxed = true),
         )
 
     @Test

@@ -3,6 +3,7 @@ package io.github.klaw.engine.socket
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.command.EngineCommandRegistry
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmRouter
@@ -45,6 +46,7 @@ class CliCommandDispatcher(
     private val llmRouter: LlmRouter,
     private val config: EngineConfig,
     private val doctorDeepProbe: DoctorDeepProbe,
+    private val engineCommandRegistry: EngineCommandRegistry,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String {
         logger.debug { "CLI command: ${request.command}" }
@@ -147,6 +149,10 @@ class CliCommandDispatcher(
 
                 "models_list" -> {
                     handleModelsList()
+                }
+
+                "commands_list" -> {
+                    handleCommandsList()
                 }
 
                 "doctor_deep" -> {
@@ -617,6 +623,17 @@ class CliCommandDispatcher(
     private fun handleModelsList(): String {
         val items = config.models.keys.joinToString(",") { "\"${escapeJson(it)}\"" }
         return """{"models":[$items]}"""
+    }
+
+    private fun handleCommandsList(): String {
+        val commands = engineCommandRegistry.allCommands()
+        val items =
+            commands.joinToString(",") {
+                val name = escapeJson(it.name)
+                val desc = escapeJson(it.description)
+                """{"name":"$name","description":"$desc"}"""
+            }
+        return """{"commands":[$items]}"""
     }
 
     private suspend fun handleMemoryConsolidate(params: Map<String, String>): String {

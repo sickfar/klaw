@@ -1,8 +1,10 @@
 package io.github.klaw.engine.socket
 
+import io.github.klaw.common.config.CommandConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.command.EngineCommandRegistry
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
@@ -21,6 +23,7 @@ import io.github.klaw.engine.tools.DoctorDeepProbe
 import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -48,6 +51,7 @@ class CliCommandDispatcherTest {
     private val llmRouter = mockk<LlmRouter>(relaxed = true)
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
     private val doctorDeepProbe = mockk<DoctorDeepProbe>(relaxed = true)
+    private val engineCommandRegistry = mockk<EngineCommandRegistry>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -63,6 +67,7 @@ class CliCommandDispatcherTest {
             llmRouter,
             engineConfig,
             doctorDeepProbe,
+            engineCommandRegistry,
         )
 
     @Test
@@ -590,5 +595,29 @@ class CliCommandDispatcherTest {
 
             assertEquals(probeResponse, result)
             coVerify { doctorDeepProbe.probe() }
+        }
+
+    @Test
+    fun `commands_list returns JSON with all commands`() =
+        runTest {
+            val commands =
+                listOf(
+                    CommandConfig("new", "Start new conversation"),
+                    CommandConfig("help", "Show help"),
+                )
+            every { engineCommandRegistry.allCommands() } returns commands
+
+            val dispatcher = createDispatcher()
+            val result = dispatcher.dispatch(CliRequestMessage("commands_list"))
+
+            val json = Json.parseToJsonElement(result).jsonObject
+            val cmds = json["commands"]?.jsonArray
+            assertEquals(2, cmds?.size)
+
+            val newCmd = cmds?.first { it.jsonObject["name"]?.jsonPrimitive?.content == "new" }?.jsonObject
+            assertEquals("Start new conversation", newCmd?.get("description")?.jsonPrimitive?.content)
+
+            val helpCmd = cmds?.first { it.jsonObject["name"]?.jsonPrimitive?.content == "help" }?.jsonObject
+            assertEquals("Show help", helpCmd?.get("description")?.jsonPrimitive?.content)
         }
 }

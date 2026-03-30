@@ -2,6 +2,7 @@ package io.github.klaw.engine.socket
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.command.EngineCommandRegistry
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmUsageTracker
@@ -41,6 +42,7 @@ class CliCommandDispatcherStatusTest {
     private val engineHealthProvider = mockk<EngineHealthProvider>(relaxed = true)
     private val llmUsageTracker = mockk<LlmUsageTracker>(relaxed = true)
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
+    private val engineCommandRegistry = mockk<EngineCommandRegistry>(relaxed = true)
 
     private val testHealth =
         EngineHealth(
@@ -75,6 +77,7 @@ class CliCommandDispatcherStatusTest {
             mockk(relaxed = true),
             engineConfig,
             mockk(relaxed = true),
+            engineCommandRegistry,
         )
 
     private fun stubSessions(count: Int = 2) {
