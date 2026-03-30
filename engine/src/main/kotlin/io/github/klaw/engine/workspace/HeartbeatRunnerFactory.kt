@@ -2,13 +2,11 @@ package io.github.klaw.engine.workspace
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.paths.KlawPaths
-import io.github.klaw.common.protocol.ApprovalDismissMessage
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
-import io.github.klaw.engine.socket.EngineSocketServer
-import io.github.klaw.engine.tools.ApprovalService
+import io.github.klaw.engine.tools.ToolExecutor
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.scheduling.TaskScheduler
@@ -26,14 +24,13 @@ private val logger = KotlinLogging.logger {}
 class HeartbeatRunnerFactory(
     private val config: EngineConfig,
     private val llmRouter: LlmRouter,
-    private val toolExecutor: io.github.klaw.engine.tools.ToolExecutor,
+    private val toolExecutor: ToolExecutor,
     private val sessionManager: SessionManager,
     private val workspaceLoader: WorkspaceLoader,
     private val toolRegistry: ToolRegistry,
     private val taskScheduler: TaskScheduler,
     private val persistenceProvider: HeartbeatPersistenceProvider,
-    private val approvalService: ApprovalService,
-    private val socketServer: EngineSocketServer,
+    private val approvalBridge: HeartbeatApprovalBridge,
 ) {
     var runner: HeartbeatRunner? = null
         private set
@@ -59,22 +56,27 @@ class HeartbeatRunnerFactory(
         val scope = CoroutineScope(Dispatchers.VT + SupervisorJob())
         heartbeatScope = scope
 
+        val callbacks =
+            HeartbeatCallbacks(
+                chat = llmRouter::chat,
+                getOrCreateSession = sessionManager::getOrCreate,
+                denyPendingApprovals = {
+                    if (injectInto != null) approvalBridge.denyPendingForChatId(injectInto) else emptyList()
+                },
+                sendDismiss = { id -> approvalBridge.sendDismiss(id) },
+            )
+
         val r =
             HeartbeatRunner(
                 config = config,
-                chat = llmRouter::chat,
+                callbacks = callbacks,
                 toolExecutor = toolExecutor,
-                getOrCreateSession = sessionManager::getOrCreate,
                 workspaceLoader = workspaceLoader,
                 toolRegistry = toolRegistry,
                 workspacePath = Path.of(KlawPaths.workspace),
                 maxToolCallRounds = config.processing.maxToolCallRounds,
                 persistence = persistenceProvider.create(),
                 scope = scope,
-                denyPendingApprovals = {
-                    if (injectInto != null) approvalService.denyPendingForChatId(injectInto) else emptyList()
-                },
-                sendDismiss = { id -> socketServer.pushMessage(ApprovalDismissMessage(id)) },
             )
         runner = r
 

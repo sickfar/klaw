@@ -49,11 +49,13 @@ class LocalWsChannel(
     }
 
     suspend fun registerSession(session: WebSocketSession) {
-        val wasAlive = activeSession != null
+        val previousSession = activeSession
         activeSession = session
-        if (!wasAlive) {
+        if (previousSession !== session) {
+            // New or different session — always drain buffer so buffered messages
+            // are not lost when client reconnects before the old session is cleared
             onBecameAlive?.invoke()
-            logger.debug { "Local WS session registered, channel became alive" }
+            logger.debug { "Local WS session registered, draining buffer" }
         }
     }
 

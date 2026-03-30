@@ -66,7 +66,6 @@ class ContextBuilder(
     private val messageRepository: MessageRepository,
     private val summaryService: SummaryService,
     private val skillRegistry: SkillRegistry,
-    private val toolRegistry: ToolRegistry,
     private val config: EngineConfig,
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
@@ -113,17 +112,6 @@ class ContextBuilder(
         val includeSkillList = skillCount > config.skills.maxInlineSkills
         val includeSkillLoad = skillCount > 0
 
-        val tools =
-            toolRegistry.listTools(
-                includeSkillList = includeSkillList,
-                includeSkillLoad = includeSkillLoad,
-            )
-
-        val toolDescriptions =
-            buildString {
-                if (tools.isNotEmpty()) append(tools.joinToString("\n") { it.description })
-            }
-
         val inlineSkillSection =
             if (inlineSkills) {
                 allSkills.joinToString("\n") { "- ${it.name}: ${it.description}" }
@@ -133,7 +121,7 @@ class ContextBuilder(
 
         // Subagent early-return: uses SubagentHistoryLoader, no DB sliding window, no auto-RAG
         if (isSubagent && taskName != null) {
-            val systemContent = buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, null)
+            val systemContent = buildSystemContent(systemPrompt, inlineSkillSection, skillCount, null)
             val scheduledSystemContent =
                 buildString {
                     append(systemContent)
@@ -155,7 +143,7 @@ class ContextBuilder(
         }
 
         val systemContent =
-            buildSystemContent(systemPrompt, toolDescriptions, inlineSkillSection, skillCount, senderContext)
+            buildSystemContent(systemPrompt, inlineSkillSection, skillCount, senderContext)
 
         val budgetTokens =
             config.context.tokenBudget
@@ -173,12 +161,12 @@ class ContextBuilder(
             "Summaries: count=${summaryResult.summaries.size} hasEvicted=${summaryResult.hasEvictedSummaries}"
         }
 
-        // Calculate overhead to subtract from budget before loading messages
+        // Calculate overhead to subtract from budget before loading messages.
+        // Tools are sent as the OpenAI `tools` parameter, not in the system message, so no toolTokens in overhead.
         val systemPromptTokens = approximateTokenCount(systemContent)
-        val toolTokens = approximateTokenCount(toolDescriptions)
         val summaryTokens = summaryResult.summaries.sumOf { it.tokens }
         val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
-        val overhead = systemPromptTokens + toolTokens + summaryTokens + pendingTokens
+        val overhead = systemPromptTokens + summaryTokens + pendingTokens
         val messageBudget = (budgetTokens - overhead).coerceAtLeast(0)
 
         // Sliding window: load messages within remaining budget, keeping the most recent
@@ -194,7 +182,15 @@ class ContextBuilder(
                 messageRepository.getWindowMessages(session.chatId, session.segmentStart, messageBudget)
             }
 
-        val uncoveredMessageTokens = dbMessages.sumOf { it.tokens.toLong() }
+        // Compute total uncovered tokens from DB (not window-limited) for accurate compaction trigger.
+        // The window may be smaller than the compaction threshold due to overhead, so we need
+        // the actual total to decide whether compaction is needed.
+        val uncoveredMessageTokens =
+            if (summaryResult.coverageEnd != null) {
+                messageRepository.sumUncoveredTokens(session.chatId, session.segmentStart, summaryResult.coverageEnd)
+            } else {
+                messageRepository.sumTokensInSegment(session.chatId, session.segmentStart)
+            }
         logger.trace { "DB messages: count=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens" }
         if (dbMessages.isNotEmpty()) {
             logger.trace {
@@ -537,7 +533,6 @@ class ContextBuilder(
 
     private suspend fun buildSystemContent(
         systemPrompt: String,
-        toolDescriptions: String,
         inlineSkillSection: String = "",
         skillCount: Int = 0,
         senderContext: SenderContext? = null,
@@ -588,7 +583,6 @@ class ContextBuilder(
                 parts.add(memorySummary)
             }
         }
-        if (toolDescriptions.isNotBlank()) parts.add("## Available Tools\n" + toolDescriptions)
         if (inlineSkillSection.isNotBlank()) parts.add("## Available Skills\n" + inlineSkillSection)
         return parts.joinToString("\n\n")
     }

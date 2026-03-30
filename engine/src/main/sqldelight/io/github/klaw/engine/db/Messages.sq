@@ -53,6 +53,9 @@ ORDER BY rowid ASC;
 sumTokensInSegment:
 SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND created_at >= :segmentStart;
 
+sumUncoveredTokens:
+SELECT COALESCE(SUM(tokens), 0) FROM messages WHERE chat_id = :chatId AND created_at > :coverageEnd AND created_at >= :segmentStart;
+
 updateTokensById:
 UPDATE messages SET tokens = :tokens WHERE id = :id;
 

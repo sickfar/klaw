@@ -72,6 +72,27 @@ class LocalWsChannelLivenessTest {
         }
 
     @Test
+    fun `onBecameAlive fired when different session replaces existing session before clearSession`() =
+        runBlocking {
+            val channel = makeChannel()
+            val session1 = mockSession()
+            val session2 = mockSession()
+
+            // Register first session (no callback yet)
+            channel.registerSession(session1)
+
+            var callbackCount = 0
+            channel.onBecameAlive = { callbackCount++ }
+
+            // Register a DIFFERENT session while old one is still active (race condition scenario)
+            // clearSession may not have been called yet when reconnect happens quickly
+            channel.registerSession(session2)
+
+            assertTrue(callbackCount == 1, "onBecameAlive should fire when a different session replaces the old one")
+            channel.stop()
+        }
+
+    @Test
     fun `clearSession makes channel not alive`() =
         runBlocking {
             val channel = makeChannel()

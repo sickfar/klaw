@@ -59,7 +59,6 @@ class ContextBuilderVisionTest {
     private val workspaceLoader = mockk<WorkspaceLoader>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
-    private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
     private val healthProvider = mockk<EngineHealthProvider>()
@@ -121,7 +120,6 @@ class ContextBuilderVisionTest {
                 messageRepository = messageRepository,
                 summaryService = summaryService,
                 skillRegistry = skillRegistry,
-                toolRegistry = toolRegistry,
                 config = config,
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,
@@ -145,7 +143,6 @@ class ContextBuilderVisionTest {
             SummaryContextResult(emptyList(), null, false)
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit
-        coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
         coEvery { healthProvider.getContextStatus() } returns
@@ -164,7 +161,6 @@ class ContextBuilderVisionTest {
     fun `message with attachments and vision-capable model produces contentParts`() =
         runTest {
             // gpt-4o is registered with image=true in model-registry.json
-            val session = buildSession(model = "test/model")
             val config = buildConfig()
             val contextBuilder = buildContextBuilder(config)
 

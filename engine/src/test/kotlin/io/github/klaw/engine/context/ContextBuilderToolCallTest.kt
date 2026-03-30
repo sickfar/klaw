@@ -48,7 +48,6 @@ class ContextBuilderToolCallTest {
     private val workspaceLoader = mockk<WorkspaceLoader>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
-    private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
     private val healthProvider = mockk<EngineHealthProvider>()
@@ -115,7 +114,6 @@ class ContextBuilderToolCallTest {
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
-            toolRegistry = toolRegistry,
             config = buildConfig(),
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
@@ -136,7 +134,6 @@ class ContextBuilderToolCallTest {
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         every { skillRegistry.discover() } returns Unit
-        coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
         coEvery { healthProvider.getContextStatus() } returns

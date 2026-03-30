@@ -202,7 +202,6 @@ class MessageProcessorEmbeddingTest {
                 messageRepository = messageRepository,
                 summaryService = summaryService,
                 skillRegistry = skillRegistry,
-                toolRegistry = toolRegistry,
                 config = config,
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,

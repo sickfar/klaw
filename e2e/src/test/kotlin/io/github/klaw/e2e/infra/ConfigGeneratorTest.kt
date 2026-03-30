@@ -20,7 +20,7 @@ class ConfigGeneratorTest {
         val engineJson =
             ConfigGenerator.engineJson(
                 wiremockBaseUrl = "http://host.testcontainers.internal:9999",
-                contextBudgetTokens = 500,
+                tokenBudget = 500,
                 summarizationEnabled = false,
                 compactionThresholdFraction = 0.5,
             )

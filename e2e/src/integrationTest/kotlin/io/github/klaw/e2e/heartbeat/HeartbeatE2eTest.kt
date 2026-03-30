@@ -93,7 +93,7 @@ class HeartbeatE2eTest {
     @BeforeEach
     fun resetWireMock() {
         wireMock.reset()
-        client.drainFrames()
+        client.drainFramesWithSettle()
     }
 
     @Test
@@ -399,8 +399,8 @@ class HeartbeatE2eTest {
         // Default response for normal chat
         wireMock.stubChatResponse("NORMAL-CHAT-RESPONSE: hello user")
 
-        // Drain any pending heartbeat frames from previous tests
-        client.drainFrames()
+        // Drain any pending heartbeat frames from previous tests (including in-flight deliveries)
+        client.drainFramesWithSettle()
 
         // Send normal chat message
         val response = client.sendAndReceive("Hello from user", timeoutMs = RESPONSE_TIMEOUT_MS)

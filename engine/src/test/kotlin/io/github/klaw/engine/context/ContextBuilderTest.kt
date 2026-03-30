@@ -21,7 +21,6 @@ import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.SkillsConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.LlmMessage
-import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.message.MessageRepository
@@ -32,7 +31,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.buildJsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -47,7 +45,6 @@ class ContextBuilderTest {
     private val workspaceLoader = mockk<WorkspaceLoader>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
-    private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
     private val healthProvider = mockk<EngineHealthProvider>()
@@ -127,7 +124,6 @@ class ContextBuilderTest {
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
-            toolRegistry = toolRegistry,
             config = config,
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
@@ -148,7 +144,6 @@ class ContextBuilderTest {
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit
-        coEvery { toolRegistry.listTools(any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
         io.mockk.coEvery { healthProvider.getContextStatus() } returns
@@ -406,19 +401,12 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `sliding window budget accounts for tool definition tokens`() =
+    fun `tool definitions do not consume message budget - sent via tools parameter only`() =
         runTest {
             val segmentStart = "2024-01-01T00:00:00Z"
             val session = buildSession(segmentStart = segmentStart)
 
-            // Mock tool registry to return 10 tools with large descriptions
-            val bigTools =
-                (1..10).map {
-                    ToolDef(name = "tool_$it", description = "x".repeat(200), parameters = buildJsonObject {})
-                }
-            coEvery { toolRegistry.listTools(any(), any()) } returns bigTools
-
-            // Insert 10 messages, each 100 tokens
+            // Insert 10 messages, each 100 tokens (total 1000 tokens)
             for (i in 1..10) {
                 val ts = "2024-01-01T00:${i.toString().padStart(2, '0')}:00Z"
                 db.messagesQueries.insertMessage(
@@ -434,14 +422,17 @@ class ContextBuilderTest {
                 )
             }
 
-            // contextBudget = 1200; tool descriptions consume tokens from the budget
-            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 1200))
+            // contextBudget = 2000; tool descriptions should NOT consume the budget
+            // (they are sent via the tools parameter, not in the system message)
+            // With budget=2000, overhead is ~250 tokens (capabilities+env+history), leaving 1750 for messages.
+            // All 10 messages (1000 tokens total) should fit.
+            val contextBuilder = buildContextBuilder(buildConfig(contextBudget = 2000))
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
             val historyMessages = result.messages.filter { it.role == "user" || it.role == "assistant" }
             assertTrue(
-                historyMessages.size < 10,
-                "Fewer than 10 messages should be present — tool definitions consumed budget",
+                historyMessages.size == 10,
+                "All 10 messages (1000 tokens) fit in 2000 budget — tools don't reduce message budget",
             )
         }
 
@@ -878,16 +869,8 @@ class ContextBuilderTest {
         }
 
     @Test
-    fun `tool descriptions included in system message`() =
+    fun `tool descriptions not duplicated in system message - sent via tools parameter only`() =
         runTest {
-            val toolDef =
-                ToolDef(
-                    name = "read_file",
-                    description = "Read a file from the workspace",
-                    parameters = buildJsonObject {},
-                )
-            coEvery { toolRegistry.listTools(any(), any()) } returns listOf(toolDef)
-
             val session = buildSession()
             val contextBuilder = buildContextBuilder(buildConfig())
 
@@ -895,8 +878,10 @@ class ContextBuilderTest {
 
             assertEquals(1, result.messages.size)
             val systemContent = result.messages[0].content!!
-            assertTrue(systemContent.contains("Available Tools"), "System message should contain tools section")
-            assertTrue(systemContent.contains("Read a file from the workspace"))
+            assertFalse(
+                systemContent.contains("Available Tools"),
+                "Tool descriptions should NOT be in system message (sent via tools parameter)",
+            )
         }
 
     @Test

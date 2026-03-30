@@ -337,17 +337,20 @@ class HeartbeatRunnerTest {
 
         return HeartbeatRunner(
             config = config,
-            chat = chatFn,
+            callbacks =
+                HeartbeatCallbacks(
+                    chat = chatFn,
+                    getOrCreateSession = provider,
+                    denyPendingApprovals = denyPendingApprovals,
+                    sendDismiss = sendDismiss,
+                ),
             toolExecutor = executor,
-            getOrCreateSession = provider,
             workspaceLoader = workspaceLoader,
             toolRegistry = toolRegistry,
             workspacePath = workspace,
             maxToolCallRounds = config.processing.maxToolCallRounds,
             persistence = persistence,
             scope = scope,
-            denyPendingApprovals = denyPendingApprovals,
-            sendDismiss = sendDismiss,
         )
     }
 
@@ -543,33 +546,6 @@ class HeartbeatRunnerTest {
         val config = buildConfig(defaultHeartbeat)
         val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val blockingDeferred = CompletableDeferred<Unit>()
-        val executionOrder = java.util.Collections.synchronizedList(mutableListOf<Int>())
-        var callCount = 0
-
-        val runner =
-            createRunner(
-                config,
-                workspace,
-                llmResponses =
-                    listOf(
-                        response(content = "First"),
-                        response(content = "Second"),
-                    ),
-                scope = scope,
-                toolExecutor =
-                    object : ToolExecutor {
-                        override suspend fun executeAll(toolCalls: List<ToolCall>): List<ToolResult> =
-                            toolCalls.map { ToolResult(callId = it.id, content = "ok") }
-                    },
-            )
-
-        // Override chat to block on first call, record order
-        val chatResponses =
-            listOf(
-                response(content = "First"),
-                response(content = "Second"),
-            )
-        val responseIter = chatResponses.iterator()
 
         val blockingRunner =
             createRunner(
@@ -600,9 +576,7 @@ class HeartbeatRunnerTest {
         blockingRunner.triggerHeartbeat()
         Thread.sleep(100) // Let first job start
 
-        // Second trigger — should queue behind first
-        val denyCalled = AtomicInteger(0)
-        // We can't easily inject a new deny into the same runner, so just verify isRunning
+        // Second trigger — should queue behind first; verify isRunning
         assertTrue(blockingRunner.isRunning, "Runner should be running (first job)")
 
         // Unblock the first job

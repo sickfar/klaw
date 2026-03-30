@@ -11,7 +11,6 @@ import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
-import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.tools.ChatContext
 import io.github.klaw.engine.tools.ToolExecutor
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -28,17 +27,14 @@ private val logger = KotlinLogging.logger {}
 
 class HeartbeatRunner(
     private val config: EngineConfig,
-    private val chat: suspend (LlmRequest, String) -> LlmResponse,
+    private val callbacks: HeartbeatCallbacks,
     private val toolExecutor: ToolExecutor,
-    private val getOrCreateSession: suspend (chatId: String, defaultModel: String) -> Session,
     private val workspaceLoader: WorkspaceLoader,
     private val toolRegistry: ToolRegistry,
     private val workspacePath: Path,
     private val maxToolCallRounds: Int,
     private val persistence: HeartbeatPersistence,
     private val scope: CoroutineScope,
-    private val denyPendingApprovals: () -> List<String>,
-    private val sendDismiss: suspend (String) -> Unit,
 ) {
     @Volatile
     private var currentJob: Job? = null
@@ -53,13 +49,13 @@ class HeartbeatRunner(
 
     @Suppress("TooGenericExceptionCaught")
     fun triggerHeartbeat() {
-        val deniedIds = denyPendingApprovals()
+        val deniedIds = callbacks.denyPendingApprovals()
         val prev = currentJob
         currentJob =
             scope.launch {
                 for (id in deniedIds) {
                     try {
-                        sendDismiss(id)
+                        callbacks.sendDismiss(id)
                     } catch (e: Exception) {
                         logger.warn(e) { "Failed to send approval dismiss" }
                     }
@@ -107,7 +103,7 @@ class HeartbeatRunner(
 
         val model = config.heartbeat.model ?: config.routing.default
         logger.debug { "Heartbeat executing: model=$model, target=$channel/$chatId" }
-        val session = getOrCreateSession("heartbeat", model)
+        val session = callbacks.getOrCreateSession("heartbeat", model)
 
         val systemPrompt = workspaceLoader.loadSystemPrompt()
         val tools =
@@ -161,7 +157,7 @@ class HeartbeatRunner(
         while (rounds < maxToolCallRounds) {
             logger.trace { "Heartbeat LLM call round=${rounds + 1}/$maxToolCallRounds, messages=${context.size}" }
             val response =
-                chat(
+                callbacks.chat(
                     LlmRequest(messages = context, tools = tools.ifEmpty { null }),
                     modelId,
                 )

@@ -22,8 +22,11 @@ import java.time.Duration
  * in quick succession while compaction is running with a 10s delay.
  * Each LLM request during this window should contain ALL pre-compaction messages.
  *
- * Config: budget=2000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.5
- * Trigger: uncoveredMessageTokens > 2000 * 0.75 = 1500
+ * Config: budget=6000, summaryBudgetFraction=0.1, compactionThresholdFraction=0.2
+ * Trigger: uncoveredMessageTokens > 6000 * 0.3 = 1800
+ *
+ * With 5 trigger messages: 5*210 + 4*200 = 1850 > 1800 (TRIGGER)
+ * messageBudget ≈ 5300 >> 1850, so all pre-compaction messages fit in sliding window.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RapidFireCompactionE2eTest {
@@ -131,9 +134,9 @@ class RapidFireCompactionE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
-        private const val SUMMARY_BUDGET_FRACTION = 0.25
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val CONTEXT_BUDGET_TOKENS = 6000
+        private const val SUMMARY_BUDGET_FRACTION = 0.1
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val TRIGGER_MESSAGES = 5
         private const val RAPID_FIRE_MESSAGES = 3
 

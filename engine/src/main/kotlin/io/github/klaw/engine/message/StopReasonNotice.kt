@@ -16,7 +16,7 @@ internal fun stopReasonNotice(response: LlmResponse): String? {
     val raw = response.rawFinishReason
     val stopReason = response.stopReason
 
-    if (stopReason != null && raw != "end_turn") {
+    if (stopReason != null && raw != "end_turn" && raw != "stop_sequence") {
         return "[Response stopped: stop_reason=$stopReason]"
     }
 

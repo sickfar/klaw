@@ -206,6 +206,36 @@ class WebSocketChatClient(
         }
     }
 
+    /**
+     * Drains all frames including any that may still be in-flight from the server.
+     * Polls until no new frames arrive within [settleMs] milliseconds.
+     * Useful before test assertions to ensure all server-side messages have been received.
+     */
+    fun drainFramesWithSettle(settleMs: Long = DRAIN_SETTLE_MS) {
+        var totalDrained = 0
+        val deadline = System.currentTimeMillis() + settleMs * 2
+        while (System.currentTimeMillis() < deadline) {
+            val countBefore = totalDrained
+            val idleDeadline = System.currentTimeMillis() + settleMs
+            while (System.currentTimeMillis() < idleDeadline) {
+                val frame = incomingFrames.tryReceive().getOrNull()
+                if (frame != null) {
+                    totalDrained++
+                    logger.debug { "Drained (settle) frame: type=${frame.type}" }
+                    // Reset idle timer on each new frame
+                    break
+                }
+                Thread.sleep(POLL_INTERVAL_MS)
+            }
+            // If no new frames arrived during the settle window, we're done
+            if (totalDrained == countBefore) break
+        }
+        assistantFrameCount.set(0)
+        if (totalDrained > 0) {
+            logger.debug { "Drained $totalDrained frames with settle" }
+        }
+    }
+
     fun pendingFrameCount(): Int = assistantFrameCount.get()
 
     fun waitForAssistantResponse(timeoutMs: Long = DEFAULT_RESPONSE_TIMEOUT_MS): String =
@@ -354,5 +384,6 @@ class WebSocketChatClient(
         private const val DEFAULT_RESPONSE_TIMEOUT_MS = 30_000L
         private const val CONNECT_TIMEOUT_MS = 10_000L
         private const val POLL_INTERVAL_MS = 100L
+        private const val DRAIN_SETTLE_MS = 1500L
     }
 }

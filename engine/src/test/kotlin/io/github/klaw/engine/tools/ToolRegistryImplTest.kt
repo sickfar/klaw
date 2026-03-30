@@ -120,10 +120,10 @@ class ToolRegistryImplTest {
         )
 
     @Test
-    fun `listTools returns all 36 tool definitions`() =
+    fun `listTools returns all 37 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(36, tools.size)
+            assertEquals(37, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
@@ -277,7 +277,7 @@ class ToolRegistryImplTest {
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(33, tools.size)
+            assertEquals(34, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -335,7 +335,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(34, tools.size, "Should have 36 - 2 = 34 tools")
+            assertEquals(35, tools.size, "Should have 37 - 2 = 35 tools")
         }
 
     @Test
@@ -367,7 +367,7 @@ class ToolRegistryImplTest {
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(35, tools.size, "Should have 36 - 1 = 35 tools")
+            assertEquals(36, tools.size, "Should have 37 - 1 = 36 tools")
         }
 
     @Test
@@ -415,7 +415,7 @@ class ToolRegistryImplTest {
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(36, tools.size)
+            assertEquals(37, tools.size)
         }
 
     @Test
@@ -547,7 +547,7 @@ class ToolRegistryImplTest {
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(37, tools.size)
+            assertEquals(38, tools.size)
         }
 
     @Test

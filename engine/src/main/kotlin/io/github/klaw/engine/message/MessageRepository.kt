@@ -189,6 +189,15 @@ class MessageRepository(
             db.messagesQueries.sumTokensInSegment(chatId, segmentStart).executeAsOne()
         }
 
+    suspend fun sumUncoveredTokens(
+        chatId: String,
+        segmentStart: String,
+        coverageEnd: String,
+    ): Long =
+        withContext(Dispatchers.VT) {
+            db.messagesQueries.sumUncoveredTokens(chatId, coverageEnd, segmentStart).executeAsOne()
+        }
+
     suspend fun updateTokens(
         id: String,
         tokens: Int,

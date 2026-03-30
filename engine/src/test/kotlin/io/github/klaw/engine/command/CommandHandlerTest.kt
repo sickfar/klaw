@@ -275,9 +275,14 @@ class CommandHandlerTest {
             val runner =
                 io.github.klaw.engine.workspace.HeartbeatRunner(
                     config = makeConfig(),
-                    chat = { _, _ -> error("not called") },
+                    callbacks =
+                        io.github.klaw.engine.workspace.HeartbeatCallbacks(
+                            chat = { _, _ -> error("not called") },
+                            getOrCreateSession = { _, _ -> error("not called") },
+                            denyPendingApprovals = { emptyList() },
+                            sendDismiss = {},
+                        ),
                     toolExecutor = mockk(),
-                    getOrCreateSession = { _, _ -> error("not called") },
                     workspaceLoader = mockk(),
                     toolRegistry = mockk(),
                     workspacePath = workspace,
@@ -291,8 +296,6 @@ class CommandHandlerTest {
                             pushToGateway = {},
                         ),
                     scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO),
-                    denyPendingApprovals = { emptyList() },
-                    sendDismiss = {},
                 )
             every { heartbeatRunnerFactory.runner } returns runner
             val handler = makeHandler()

@@ -105,6 +105,48 @@ class MessageRepositoryTest {
         }
 
     @Test
+    fun `sumUncoveredTokens returns sum of tokens after coverageEnd`() =
+        runBlocking {
+            // id1 is before coverage, id2 and id3 are after coverage
+            database.messagesQueries.insertMessage(
+                "id1",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "old",
+                null,
+                "2024-01-01T00:01:00Z",
+                10,
+            )
+            database.messagesQueries.insertMessage(
+                "id2",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "new1",
+                null,
+                "2024-01-01T00:02:00Z",
+                30,
+            )
+            database.messagesQueries.insertMessage(
+                "id3",
+                "telegram",
+                "chat1",
+                "user",
+                "text",
+                "new2",
+                null,
+                "2024-01-01T00:03:00Z",
+                40,
+            )
+
+            val total = repo.sumUncoveredTokens("chat1", "2024-01-01T00:00:00Z", "2024-01-01T00:01:00Z")
+            assertEquals(70L, total, "Should sum only tokens after coverageEnd")
+        }
+
+    @Test
     fun `getWindowStats without coverageEnd returns stats for all messages in window`() =
         runBlocking {
             database.messagesQueries.insertMessage(

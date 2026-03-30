@@ -26,8 +26,9 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
+import java.io.BufferedWriter
 import java.io.InputStreamReader
-import java.io.PrintWriter
+import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
@@ -64,7 +65,7 @@ class EngineSocketClient(
 
     private val writerLock = ReentrantLock()
 
-    @Volatile private var writer: PrintWriter? = null
+    @Volatile private var writer: BufferedWriter? = null
     private var channel: SocketChannel? = null
 
     fun start() {
@@ -95,9 +96,19 @@ class EngineSocketClient(
                     buffer.append(message)
                     return@withLock false
                 }
-                w.println(json.encodeToString<SocketMessage>(message))
-                logger.trace { "Message sent to engine: ${message::class.simpleName}" }
-                true
+                try {
+                    w.write(json.encodeToString<SocketMessage>(message))
+                    w.newLine()
+                    w.flush()
+                    logger.trace { "Message sent to engine: ${message::class.simpleName}" }
+                    true
+                } catch (_: Exception) {
+                    // Write failed (e.g., ENETUNREACH on Docker network partition) — buffer and force reconnect
+                    buffer.append(message)
+                    connected = false
+                    channel?.close()
+                    false
+                }
             }
         } catch (_: Exception) {
             buffer.append(message)
@@ -140,11 +151,13 @@ class EngineSocketClient(
             }
         channel = ch
         val reader = BufferedReader(InputStreamReader(Channels.newInputStream(ch)))
-        val w = PrintWriter(Channels.newOutputStream(ch), true)
+        val w = BufferedWriter(OutputStreamWriter(Channels.newOutputStream(ch), Charsets.UTF_8))
         writer = w
 
-        // Send registration first
-        w.println(json.encodeToString<SocketMessage>(RegisterMessage(client = "gateway")))
+        // Send registration first (propagates IOException unlike PrintWriter)
+        w.write(json.encodeToString<SocketMessage>(RegisterMessage(client = "gateway")))
+        w.newLine()
+        w.flush()
         connected = true
         logger.info { "Engine socket connected" }
 
@@ -169,7 +182,10 @@ class EngineSocketClient(
                 if (!connected) break
                 try {
                     writerLock.withLock {
-                        writer?.println(json.encodeToString<SocketMessage>(PingMessage))
+                        val w = writer ?: return@withLock
+                        w.write(json.encodeToString<SocketMessage>(PingMessage))
+                        w.newLine()
+                        w.flush()
                     }
                     logger.trace { "Ping sent to engine" }
                 } catch (_: Exception) {
@@ -283,7 +299,14 @@ class EngineSocketClient(
     private fun sendBufferedMessage(msg: SocketMessage): Boolean =
         try {
             writerLock.withLock {
-                writer?.println(json.encodeToString<SocketMessage>(msg))
+                val w =
+                    writer ?: run {
+                        buffer.append(msg)
+                        return false
+                    }
+                w.write(json.encodeToString<SocketMessage>(msg))
+                w.newLine()
+                w.flush()
                 logger.trace { "Drained buffered message: ${msg::class.simpleName}" }
             }
             true

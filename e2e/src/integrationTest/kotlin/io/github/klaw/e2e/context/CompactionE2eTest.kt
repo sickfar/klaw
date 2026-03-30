@@ -13,15 +13,19 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.MethodOrderer
+import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.TestMethodOrder
 import java.io.File
 
 /**
  * E2E test for zero-gap background compaction.
  *
- * Config: budget=2000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.5
- * Trigger: uncoveredMessageTokens > 2000 * (0.25 + 0.5) = 1500
+ * Config: budget=6000, summaryBudgetFraction=0.1, compactionThresholdFraction=0.2
+ * Trigger: uncoveredMessageTokens > 6000 * (0.1 + 0.2) = 1800
  *
  * Token strategy: STUB_PROMPT_TOKENS is kept low (100) so that correctUserMessageTokens
  * never inflates messages (actualPendingTotal <= 0 → correction skipped). Messages use
@@ -31,10 +35,15 @@ import java.io.File
  * Per round: 210 tok user (JTokkit) + 200 tok assistant (stub) = 410 tok
  * uncoveredMessageTokens is computed AFTER persisting user but BEFORE assistant response.
  * Round N context: N*210 + (N-1)*200 tokens
- * Round 4 check: 4*210 + 3*200 = 1440 < 1500 (no trigger)
- * Round 5 check: 5*210 + 4*200 = 1850 > 1500 (TRIGGER)
+ * Round 4 check: 4*210 + 3*200 = 1440 < 1800 (no trigger)
+ * Round 5 check: 5*210 + 4*200 = 1850 > 1800 (TRIGGER)
+ *
+ * Budget=6000 ensures all pre-threshold messages fit within the sliding window
+ * (messageBudget ≈ 5300 >> 1440 message tokens), so sliding window does not interfere
+ * with zero-gap compaction behavior under test.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class CompactionE2eTest {
     private val wireMock = WireMockLlmServer()
     private lateinit var containers: KlawContainers
@@ -68,6 +77,17 @@ class CompactionE2eTest {
         client.connectAsync(containers.gatewayHost, containers.gatewayMappedPort)
     }
 
+    @BeforeEach
+    fun resetState() {
+        wireMock.reset()
+        Thread.sleep(RESET_DELAY_MS)
+        // /new is a built-in command — engine responds directly without LLM call
+        client.sendCommandAndReceive("new", timeoutMs = RESPONSE_TIMEOUT_MS)
+        Thread.sleep(RESET_DELAY_MS)
+        client.drainFrames()
+        wireMock.reset()
+    }
+
     @AfterAll
     fun stopInfrastructure() {
         client.close()
@@ -76,6 +96,7 @@ class CompactionE2eTest {
     }
 
     @Test
+    @Order(1)
     fun `zero-gap compaction lifecycle`() {
         val responses =
             (1..TOTAL_MESSAGES).map { n ->
@@ -90,7 +111,7 @@ class CompactionE2eTest {
             "Summary: topics alpha and beta were discussed. Key decisions were made about the architecture.",
         )
 
-        // Step 1: Send 4 messages (below threshold: 4*210+3*200=1440 < 1500) — all should be present
+        // Step 1: Send 4 messages (below threshold: 4*210+3*200=1440 < 1800) — all should be present
         for (i in 1..PRE_TRIGGER_MESSAGES) {
             client.sendAndReceive(
                 "Message $i $USER_MSG_PADDING",
@@ -117,7 +138,7 @@ class CompactionE2eTest {
             )
         }
 
-        // Step 2: Send 1 more message (total 5: 5*210+4*200=1850 > 1500) — ALL 5 STILL present (zero gap)
+        // Step 2: Send 1 more message (total 5: 5*210+4*200=1850 > 1800) — ALL 5 STILL present (zero gap)
         client.sendAndReceive(
             "Message ${PRE_TRIGGER_MESSAGES + 1} $USER_MSG_PADDING",
             timeoutMs = RESPONSE_TIMEOUT_MS,
@@ -192,9 +213,9 @@ class CompactionE2eTest {
     }
 
     @Test
+    @Order(2)
     fun `messages stay during compaction - explicit zero-gap check`() {
         // Use delayed summarization response to verify messages persist during compaction
-        wireMock.reset()
 
         // Stub with a long delay for summarization
         wireMock.stubSummarizationResponseWithDelay(
@@ -267,9 +288,9 @@ class CompactionE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
-        private const val SUMMARY_BUDGET_FRACTION = 0.25
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val CONTEXT_BUDGET_TOKENS = 6000
+        private const val SUMMARY_BUDGET_FRACTION = 0.1
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val PRE_TRIGGER_MESSAGES = 4
         private const val TOTAL_MESSAGES = 7
 
@@ -282,6 +303,7 @@ class CompactionE2eTest {
         private const val SUMMARY_PERSIST_TIMEOUT_MS = 10_000L
         private const val SUMMARIZATION_DELAY_MS = 5_000L
         private const val POLL_INTERVAL_MS = 500L
+        private const val RESET_DELAY_MS = 300L
 
         // ~1674 chars = 210 tokens via JTokkit BPE (cl100k_base)
         private const val USER_MSG_PADDING =
