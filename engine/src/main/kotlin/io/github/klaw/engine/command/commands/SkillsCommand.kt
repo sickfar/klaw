@@ -52,6 +52,7 @@ class SkillsCommand(
             }
         val skillSuffix = if (report.total != 1) "s" else ""
         val suffix = if (report.errors != 1) "s" else ""
-        return (lines + "" + "${report.total} skill$skillSuffix checked, ${report.errors} error$suffix").joinToString("\n")
+        val summary = "${report.total} skill$skillSuffix checked, ${report.errors} error$suffix"
+        return (lines + "" + summary).joinToString("\n")
     }
 }
