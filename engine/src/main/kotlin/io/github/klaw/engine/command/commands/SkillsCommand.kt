@@ -45,12 +45,13 @@ class SkillsCommand(
         val lines =
             report.skills.map { e ->
                 if (e.valid) {
-                    "\u2713 ${e.name}: valid (${e.source})"
+                    "✓ ${e.name}: valid (${e.source})"
                 } else {
-                    "\u2717 ${e.directory}: ${e.error} (${e.source})"
+                    "✗ ${e.directory}: ${e.error} (${e.source})"
                 }
             }
+        val skillSuffix = if (report.total != 1) "s" else ""
         val suffix = if (report.errors != 1) "s" else ""
-        return (lines + "" + "${report.total} skills checked, ${report.errors} error$suffix").joinToString("\n")
+        return (lines + "" + "${report.total} skill$skillSuffix checked, ${report.errors} error$suffix").joinToString("\n")
     }
 }

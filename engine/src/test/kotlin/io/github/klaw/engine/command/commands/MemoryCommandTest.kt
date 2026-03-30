@@ -30,14 +30,14 @@ class MemoryCommandTest {
         runTest {
             val dir = createTempDirectory()
             dir.resolve("MEMORY.md").writeText("# Memory")
-            val cmd = MemoryCommand().apply { workspacePath = dir }
+            val cmd = MemoryCommand(workspacePath = dir)
             assertEquals("# Memory", cmd.handle(commandMsg("memory"), session()))
         }
 
     @Test
     fun `returns not-found when no MEMORY_md`() =
         runTest {
-            val cmd = MemoryCommand().apply { workspacePath = Path.of("/nonexistent") }
+            val cmd = MemoryCommand(workspacePath = Path.of("/nonexistent"))
             assertEquals("No MEMORY.md found in workspace.", cmd.handle(commandMsg("memory"), session()))
         }
 }

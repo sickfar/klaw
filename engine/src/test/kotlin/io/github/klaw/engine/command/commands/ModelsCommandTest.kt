@@ -18,6 +18,7 @@ import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.session.Session
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
@@ -84,5 +85,14 @@ class ModelsCommandTest {
             val result = ModelsCommand(config).handle(commandMsg("models"), session())
             assertTrue(result.contains("gpt-4"))
             assertTrue(result.contains("glm-5"))
+        }
+
+    @Test
+    fun `shows context length for known model`() =
+        runTest {
+            val config = makeConfig(mapOf("gpt-4o" to ModelConfig()))
+            val result = ModelsCommand(config).handle(commandMsg("models"), session())
+            assertFalse(result.contains("default"), "Expected numeric context budget, got: $result")
+            assertTrue(result.contains("gpt-4o"))
         }
 }

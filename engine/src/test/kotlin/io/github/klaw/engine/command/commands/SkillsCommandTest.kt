@@ -44,7 +44,7 @@ class SkillsCommandTest {
                         )
                 }
             val result = SkillsCommand(registry).handle(commandMsg("skills", args = "validate"), session())
-            assertTrue(result.contains("1 skills checked"))
+            assertTrue(result.contains("1 skill checked"))
         }
 
     @Test
