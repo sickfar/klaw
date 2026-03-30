@@ -162,7 +162,8 @@ class ContextBuilder(
         }
 
         // Calculate overhead to subtract from budget before loading messages.
-        // Tools are sent via the LLM API tools parameter (OpenAI tools[] / Anthropic tools[]), not in the system message, so no toolTokens in overhead.
+        // Tools are sent via the LLM API tools parameter (OpenAI tools[] / Anthropic tools[]),
+        // not in the system message, so no toolTokens in overhead.
         val systemPromptTokens = approximateTokenCount(systemContent)
         val summaryTokens = summaryResult.summaries.sumOf { it.tokens }
         val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
