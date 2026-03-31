@@ -11,7 +11,10 @@ import io.github.klaw.gateway.pairing.PairingService
 import io.github.klaw.gateway.pairing.PairingStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -23,6 +26,7 @@ class StartGatewayCommand(
     private val inboundAllowlistService: InboundAllowlistService,
     private val configFileWatcher: ConfigFileWatcher,
 ) : GatewaySlashCommand {
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     override val name = "start"
     override val description = "Pair this chat with Klaw"
 
@@ -85,7 +89,7 @@ class StartGatewayCommand(
                 confirmationSent.compareAndSet(false, true)
             ) {
                 configFileWatcher.removeListener(listener)
-                runBlocking {
+                scope.launch {
                     channel.send(msg.chatId, OutgoingMessage("Pairing successful! You can now send me messages."))
                 }
             } else {

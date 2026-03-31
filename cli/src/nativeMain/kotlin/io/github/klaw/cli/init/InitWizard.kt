@@ -490,7 +490,7 @@ internal class InitWizard(
         }
         CliLogger.debug { "writing config files to $configDir" }
         // Derive heartbeat channel from first configured channel.
-        // injectInto auto-derived from first Telegram chatId, or set later via /use-for-heartbeat.
+        // injectInto auto-derived from first Telegram chatId, or set later via /heartbeat.
         val heartbeatChannel =
             when {
                 configureTelegram -> "telegram"

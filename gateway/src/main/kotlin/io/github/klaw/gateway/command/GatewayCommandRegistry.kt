@@ -34,6 +34,9 @@ class GatewayCommandRegistry(
     private var cachedEngineCommands: List<CommandDto> = emptyList()
 
     @Volatile
+    private var cachedAllSlashCommands: List<SlashCommand> = emptyList()
+
+    @Volatile
     private var lastRefreshMs: Long = 0
 
     private val refreshIntervalMs: Long = REFRESH_INTERVAL_MS
@@ -56,14 +59,15 @@ class GatewayCommandRegistry(
                     emptyList()
                 }
             cachedEngineCommands = engineCommands
+            cachedAllSlashCommands = engineCommands.map { it.toSlashCommand() } + gatewayCommands
             lastRefreshMs = System.currentTimeMillis()
             logger.debug { "Refreshed commands: ${engineCommands.size} from engine, ${gatewayCommands.size} gateway" }
-            allCommands()
+            cachedAllSlashCommands
         } catch (e: Exception) {
             logger.warn { "Failed to fetch commands from engine: ${e::class.simpleName}" }
             cachedEngineCommands = emptyList()
-            lastRefreshMs = System.currentTimeMillis()
-            allCommands()
+            cachedAllSlashCommands = gatewayCommands
+            cachedAllSlashCommands
         }
 
     suspend fun allCommands(): List<SlashCommand> {
@@ -75,10 +79,10 @@ class GatewayCommandRegistry(
                     doRefresh()
                 }
                 // Return inside lock to ensure consistency
-                return cachedEngineCommands.map { it.toSlashCommand() } + gatewayCommands
+                return cachedAllSlashCommands
             }
         }
-        return cachedEngineCommands.map { it.toSlashCommand() } + gatewayCommands
+        return cachedAllSlashCommands
     }
 
     suspend fun findCommand(name: String): SlashCommand? {

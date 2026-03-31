@@ -14,11 +14,11 @@ import io.github.klaw.gateway.pairing.PairingService
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -134,8 +134,8 @@ class StartGatewayCommandTest {
 
             coVerify { channel.send("new_chat", any()) }
             assertEquals(1, capturedMessages.size)
-            assert(capturedMessages[0].content.contains("Pairing code:"))
-            assert(capturedMessages[0].content.contains("klaw channels pair"))
+            assertTrue(capturedMessages[0].content.contains("Pairing code:"))
+            assertTrue(capturedMessages[0].content.contains("klaw channels pair"))
         }
 
     @Test

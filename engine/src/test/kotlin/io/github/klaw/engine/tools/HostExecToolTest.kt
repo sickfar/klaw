@@ -13,6 +13,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -609,5 +610,55 @@ class HostExecToolTest {
             // Risk score 1 < threshold 5 - should auto-execute, not require approval
             assertFalse(result.contains("rejected"), "Low-risk command should be auto-executed: $result")
             assertTrue(sentMessages.isEmpty(), "Should not ask user when risk is below threshold")
+        }
+
+    // --- Risk score in approval request tests ---
+
+    @Test
+    fun `approval request includes evaluated risk score when preValidation enabled`() =
+        runTest {
+            val approval = ApprovalService(sender)
+            val t =
+                HostExecTool(
+                    config(
+                        preValidation = PreValidationConfig(enabled = true, model = "test/haiku", riskThreshold = 5),
+                    ),
+                    fakeLlmRouter(riskScore = 8),
+                    approval,
+                    fakeCommandRunner,
+                )
+
+            val result = async { t.execute("apt upgrade -y", "chat_1") }
+            delay(50)
+
+            // Check that approval request contains the evaluated risk score
+            val reqMsg = sentMessages.filterIsInstance<io.github.klaw.common.protocol.ApprovalRequestMessage>().first()
+            assertEquals(8, reqMsg.riskScore, "Risk score should be passed to approval request")
+
+            approval.handleResponse(ApprovalResponseMessage(reqMsg.id, approved = true))
+            result.await()
+        }
+
+    @Test
+    fun `approval request has risk score -1 when preValidation disabled`() =
+        runTest {
+            val approval = ApprovalService(sender)
+            val t =
+                HostExecTool(
+                    config(preValidation = PreValidationConfig(enabled = false)),
+                    fakeLlmRouter(),
+                    approval,
+                    fakeCommandRunner,
+                )
+
+            val result = async { t.execute("some-command", "chat_1") }
+            delay(50)
+
+            // Check that approval request has -1 risk score
+            val reqMsg = sentMessages.filterIsInstance<io.github.klaw.common.protocol.ApprovalRequestMessage>().first()
+            assertEquals(-1, reqMsg.riskScore, "Risk score should be -1 when preValidation disabled")
+
+            approval.handleResponse(ApprovalResponseMessage(reqMsg.id, approved = true))
+            result.await()
         }
 }

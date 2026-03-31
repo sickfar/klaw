@@ -18,7 +18,9 @@ class EngineCommandRegistry(
         map
     }
 
+    private val allCommandsCached: List<SlashCommand> = commands + config.commands
+
     fun find(name: String): EngineSlashCommand? = commandMap[name]
 
-    fun allCommands(): List<SlashCommand> = commands + config.commands
+    fun allCommands(): List<SlashCommand> = allCommandsCached
 }

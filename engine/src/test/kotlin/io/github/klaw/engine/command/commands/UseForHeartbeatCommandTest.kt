@@ -37,7 +37,7 @@ class UseForHeartbeatCommandTest {
             val factory = mockk<HeartbeatRunnerFactory> { every { runner } returns null }
             val provider = Provider { factory }
             val cmd = UseForHeartbeatCommand(provider)
-            val result = cmd.handle(commandMsg("use-for-heartbeat", channel = "telegram"), session())
+            val result = cmd.handle(commandMsg("heartbeat", channel = "telegram"), session())
             assertTrue(result.contains("disabled"))
         }
 
@@ -49,7 +49,7 @@ class UseForHeartbeatCommandTest {
             val provider = Provider { factory }
             val cmd = UseForHeartbeatCommand(provider)
             cmd.configPath = createTempDirectory()
-            val result = cmd.handle(commandMsg("use-for-heartbeat", channel = "telegram", chatId = "c1"), session())
+            val result = cmd.handle(commandMsg("heartbeat", channel = "telegram", chatId = "c1"), session())
             assertTrue(result.contains("telegram"))
             assertTrue(result.contains("c1"))
         }
@@ -60,7 +60,7 @@ class UseForHeartbeatCommandTest {
             val factory = mockk<HeartbeatRunnerFactory> { every { runner } throws RuntimeException("fail") }
             val provider = Provider { factory }
             val cmd = UseForHeartbeatCommand(provider)
-            val result = cmd.handle(commandMsg("use-for-heartbeat", channel = "telegram"), session())
+            val result = cmd.handle(commandMsg("heartbeat", channel = "telegram"), session())
             assertTrue(result.contains("Failed"))
         }
 }

@@ -1,7 +1,9 @@
 package io.github.klaw.gateway.channel
 
 import dev.kord.common.entity.Snowflake
+import dev.kord.common.entity.optional.OptionalSnowflake
 import dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior
+import dev.kord.core.cache.data.InteractionData
 import dev.kord.core.entity.User
 import dev.kord.core.entity.interaction.ChatInputCommandInteraction
 import io.github.klaw.common.config.AllowedGuild
@@ -10,12 +12,14 @@ import io.github.klaw.common.config.DiscordConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -71,7 +75,7 @@ class DiscordChannelSlashCommandsTest {
             // Deferred response was used, so sendAction should not be called for first chunk
             // The deferred.respond is called instead
             assertTrue(sendCalls.isEmpty(), "Should not use regular send when deferred exists")
-            // pendingInteractions should be cleared after use
+            // pendingInteractions should be cleared after use — proves deferred.respond path was taken
             assertTrue(channel.pendingInteractions.isEmpty())
         }
 
@@ -114,12 +118,15 @@ class DiscordChannelSlashCommandsTest {
             val channel = makeChannel()
             startChannel(channel)
 
-            // Create a mock interaction
+            // Create a mock interaction — userId "100" is in the DM allowlist (guildId=null → DM)
             val interaction = mockk<ChatInputCommandInteraction>(relaxed = true)
             every { interaction.invokedCommandName } returns "new"
             every { interaction.channelId } returns Snowflake(123456789)
+            val mockData = mockk<InteractionData>(relaxed = true)
+            every { mockData.guildId } returns OptionalSnowflake.Missing
+            every { interaction.data } returns mockData
             val mockUser = mockk<User>(relaxed = true)
-            every { mockUser.id } returns Snowflake(987654321)
+            every { mockUser.id } returns Snowflake(100)
             every { mockUser.username } returns "testuser"
             every { interaction.user } returns mockUser
 
@@ -147,9 +154,38 @@ class DiscordChannelSlashCommandsTest {
             assertEquals("new", msg.commandName)
             assertEquals("discord_123456789", msg.chatId)
             assertTrue(msg.isCommand)
-            assertEquals("987654321", msg.userId)
+            assertEquals("100", msg.userId)
             assertEquals("testuser", msg.senderName)
             assertEquals("/new", msg.content)
+        }
+
+    @Test
+    fun `handleSlashCommandInteraction removes deferred from pendingInteractions when onMessage throws`() =
+        runTest {
+            val channel = makeChannel()
+            startChannel(channel)
+
+            val interaction = mockk<ChatInputCommandInteraction>(relaxed = true)
+            every { interaction.invokedCommandName } returns "new"
+            every { interaction.channelId } returns Snowflake(123456789)
+            // guildId=null → DM, userId "100" is in the DM allowlist so the command passes auth
+            val mockData = mockk<InteractionData>(relaxed = true)
+            every { mockData.guildId } returns OptionalSnowflake.Missing
+            every { interaction.data } returns mockData
+            val mockUser = mockk<User>(relaxed = true)
+            every { mockUser.id } returns Snowflake(100)
+            every { mockUser.username } returns "testuser"
+            every { interaction.user } returns mockUser
+
+            channel.handleSlashCommandInteraction(interaction) {
+                throw java.io.IOException("simulated dispatch failure")
+            }
+
+            // Deferred must be removed from pendingInteractions on exception
+            assertFalse(
+                channel.pendingInteractions.containsKey("discord_123456789"),
+                "pendingInteractions must not leak on dispatch failure",
+            )
         }
 
     @Test
@@ -158,12 +194,15 @@ class DiscordChannelSlashCommandsTest {
             val channel = makeChannel()
             startChannel(channel)
 
-            // Create a mock interaction with options
+            // Create a mock interaction with options — userId "100" is in the DM allowlist (guildId=null → DM)
             val interaction = mockk<ChatInputCommandInteraction>(relaxed = true)
             every { interaction.invokedCommandName } returns "model"
             every { interaction.channelId } returns Snowflake(123456789)
+            val mockData = mockk<InteractionData>(relaxed = true)
+            every { mockData.guildId } returns OptionalSnowflake.Missing
+            every { interaction.data } returns mockData
             val mockUser = mockk<User>(relaxed = true)
-            every { mockUser.id } returns Snowflake(987654321)
+            every { mockUser.id } returns Snowflake(100)
             every { mockUser.username } returns "testuser"
             every { interaction.user } returns mockUser
 
@@ -182,5 +221,39 @@ class DiscordChannelSlashCommandsTest {
             assertEquals("model", msg.commandName)
             // Content should include command name with prefix
             assertEquals("/model", msg.content)
+        }
+
+    @Test
+    fun `slash command from unauthorized user is rejected with not authorized response`() =
+        runTest {
+            val channel = makeChannel()
+            startChannel(channel)
+
+            // userId "999" is NOT in any allowlist — should be rejected
+            val interaction = mockk<ChatInputCommandInteraction>(relaxed = true)
+            every { interaction.invokedCommandName } returns "status"
+            every { interaction.channelId } returns Snowflake(123456789)
+            val mockUser = mockk<User>(relaxed = true)
+            every { mockUser.id } returns Snowflake(999)
+            every { mockUser.username } returns "attacker"
+            every { interaction.user } returns mockUser
+
+            val onMessageCalls = CopyOnWriteArrayList<IncomingMessage>()
+
+            channel.handleSlashCommandInteraction(interaction) { msg ->
+                onMessageCalls.add(msg)
+            }
+
+            // onMessage must NOT be called for unauthorized users
+            assertTrue(onMessageCalls.isEmpty(), "onMessage must not be called for unauthorized slash command")
+
+            // No pending interaction should be registered for the authorized flow
+            assertFalse(
+                channel.pendingInteractions.containsKey("discord_123456789"),
+                "pendingInteractions must not be populated for unauthorized user",
+            )
+
+            // The deferred response must have been sent (for the "Not authorized." reply)
+            coVerify { interaction.deferPublicResponse() }
         }
 }

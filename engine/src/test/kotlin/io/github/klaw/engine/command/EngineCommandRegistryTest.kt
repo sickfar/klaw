@@ -1,13 +1,11 @@
 package io.github.klaw.engine.command
 
-import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.common.config.CommandConfig
 import io.github.klaw.common.config.EngineConfig
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class EngineCommandRegistryTest {
@@ -62,8 +60,8 @@ class EngineCommandRegistryTest {
         val all = registry.allCommands()
 
         assertEquals(2, all.size)
-        assertTrue(all.any { it.name == "new" })
-        assertTrue(all.any { it.name == "custom" })
+        assertEquals("new", all[0].name)
+        assertEquals("custom", all[1].name)
     }
 
     @Test

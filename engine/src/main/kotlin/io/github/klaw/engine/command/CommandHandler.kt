@@ -4,6 +4,7 @@ import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.session.Session
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
@@ -21,6 +22,8 @@ class CommandHandler(
         return if (command != null) {
             try {
                 command.handle(message, session)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(e) { "Command ${message.command} failed" }
                 "Command failed: ${e::class.simpleName}"

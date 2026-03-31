@@ -48,6 +48,8 @@ import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 private typealias DeferredResponse = DeferredPublicMessageInteractionResponseBehavior
 
@@ -417,7 +419,12 @@ class DiscordChannel(
         private const val OP_IDENTIFY = 2
         private const val OP_HELLO = 10
         private const val OP_HEARTBEAT_ACK = 11
+        private const val INTERACTION_EXPIRY_MS = 10L * 60 * 1000
         private val customJson = Json { ignoreUnknownKeys = true }
+        private val INTERACTION_CLEANUP_EXECUTOR =
+            Executors.newSingleThreadScheduledExecutor { r ->
+                Thread(r, "discord-interaction-cleanup").apply { isDaemon = true }
+            }
 
         internal fun buildCustomHttpClient(): HttpClient =
             HttpClient(CIO) {
@@ -559,39 +566,7 @@ class DiscordChannel(
         // Check if we have a pending interaction (from slash command)
         val deferred = pendingInteractions.remove(chatId)
         if (deferred != null) {
-            // Use deferred response for slash command replies
-            val chunks = splitMessage(response.content, DiscordNormalizer.DISCORD_MAX_MESSAGE_LENGTH)
-            logger.trace { "discord slash response channelId=$channelId chunks=${chunks.size}" }
-
-            try {
-                // Send first chunk via deferred response
-                deferred.respond { this.content = chunks.first() }
-                setAlive(true)
-
-                // Send remaining chunks as follow-up messages
-                for (chunk in chunks.drop(1)) {
-                    runCatching {
-                        withSendRetry {
-                            sendAction(channelId, chunk)
-                        }
-                    }.onFailure { e ->
-                        logger.error(e) { "Failed to send Discord follow-up message to chatId=$chatId" }
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: RestRequestException) {
-                alive = false
-                logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
-                return
-            } catch (e: IOException) {
-                alive = false
-                logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
-                return
-            }
-
-            jsonlWriter.writeOutbound(chatId, response.content)
-            logger.debug { "discord slash response sent channelId=$channelId" }
+            sendSlashResponse(deferred, chatId, channelId, response)
             return
         }
 
@@ -617,6 +592,55 @@ class DiscordChannel(
         logger.debug { "discord message sent channelId=$channelId chunks=${chunks.size}" }
     }
 
+    private suspend fun sendSlashResponse(
+        deferred: DeferredResponse,
+        chatId: String,
+        channelId: String,
+        response: OutgoingMessage,
+    ) {
+        val chunks = splitMessage(response.content, DiscordNormalizer.DISCORD_MAX_MESSAGE_LENGTH)
+        logger.trace { "discord slash response channelId=$channelId chunks=${chunks.size}" }
+
+        try {
+            deferred.respond { this.content = chunks.first() }
+            setAlive(true)
+            sendFollowUpChunks(chunks.drop(1), channelId, chatId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RestRequestException) {
+            alive = false
+            logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
+            return
+        } catch (e: IOException) {
+            alive = false
+            logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
+            return
+        }
+
+        jsonlWriter.writeOutbound(chatId, response.content)
+        logger.debug { "discord slash response sent channelId=$channelId" }
+    }
+
+    private suspend fun sendFollowUpChunks(
+        chunks: List<String>,
+        channelId: String,
+        chatId: String,
+    ) {
+        for (chunk in chunks) {
+            try {
+                withSendRetry {
+                    sendAction(channelId, chunk)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RestRequestException) {
+                logger.error(e) { "Failed to send Discord follow-up message to chatId=$chatId" }
+            } catch (e: IOException) {
+                logger.error(e) { "Failed to send Discord follow-up message to chatId=$chatId" }
+            }
+        }
+    }
+
     override suspend fun sendApproval(
         chatId: String,
         request: ApprovalRequestMessage,
@@ -633,10 +657,11 @@ class DiscordChannel(
         logger.trace { "discord approval button sent approvalId=${request.id} channelId=$channelId" }
 
         runCatching {
+            val riskLine = if (request.riskScore >= 0) "\n\nRisk score: ${request.riskScore}/10" else ""
             withSendRetry {
                 sendApprovalAction(
                     channelId,
-                    "Command approval requested:\n\n${request.command}\n\nRisk score: ${request.riskScore}/10",
+                    "Command approval requested:\n\n${request.command}$riskLine",
                     request.id,
                 )
             }
@@ -678,6 +703,15 @@ class DiscordChannel(
 
         logger.trace { "discord slash command received command=$commandName channelId=$channelId userId=${user.id}" }
 
+        if (!isGuildAllowed(guildId, channelId, user.id.toString())) {
+            val errorDeferred = interaction.deferPublicResponse()
+            errorDeferred.respond { content = "Not authorized." }
+            logger.trace {
+                "Unauthorized slash command attempt: command=$commandName channelId=$channelId userId=${user.id}"
+            }
+            return
+        }
+
         // Stop typing since we're about to respond
         stopTyping(channelId)
 
@@ -686,36 +720,66 @@ class DiscordChannel(
         val chatId = "discord_$channelId"
         pendingInteractions[chatId] = deferred
 
-        // Build args from command options
+        val incoming = buildSlashIncomingMessage(interaction, chatId, commandName, guildId)
+
+        INTERACTION_CLEANUP_EXECUTOR.schedule(
+            { pendingInteractions.remove(chatId) },
+            INTERACTION_EXPIRY_MS,
+            TimeUnit.MILLISECONDS,
+        )
+
+        jsonlWriter.writeInbound(incoming)
+        logger.debug { "discord slash command forwarded chatId=$chatId command=$commandName" }
+        dispatchSlashCommand(onMessage, incoming, chatId)
+    }
+
+    private fun buildSlashIncomingMessage(
+        interaction: dev.kord.core.entity.interaction.ChatInputCommandInteraction,
+        chatId: String,
+        commandName: String,
+        guildId: String?,
+    ): IncomingMessage {
         val args =
             interaction.command.options.values
                 .mapNotNull { it.value?.toString() }
                 .joinToString(" ")
                 .ifBlank { null }
-
         val chatType = if (guildId != null) "guild_text" else "dm"
+        return IncomingMessage(
+            id = "",
+            channel = name,
+            chatId = chatId,
+            content = "/$commandName${if (args != null) " $args" else ""}",
+            ts =
+                kotlin.time.Clock.System
+                    .now(),
+            userId = interaction.user.id.toString(),
+            senderName = interaction.user.username,
+            isCommand = true,
+            commandName = commandName,
+            commandArgs = args,
+            chatType = chatType,
+            guildId = guildId,
+        )
+    }
 
-        val incoming =
-            IncomingMessage(
-                id = "",
-                channel = name,
-                chatId = chatId,
-                content = "/$commandName${if (args != null) " $args" else ""}",
-                ts =
-                    kotlin.time.Clock.System
-                        .now(),
-                userId = user.id.toString(),
-                senderName = user.username,
-                isCommand = true,
-                commandName = commandName,
-                commandArgs = args,
-                chatType = chatType,
-                guildId = guildId,
-            )
-
-        jsonlWriter.writeInbound(incoming)
-        logger.debug { "discord slash command forwarded chatId=$chatId command=$commandName" }
-        onMessage(incoming)
+    private suspend fun dispatchSlashCommand(
+        onMessage: suspend (IncomingMessage) -> Unit,
+        incoming: IncomingMessage,
+        chatId: String,
+    ) {
+        try {
+            onMessage(incoming)
+        } catch (e: CancellationException) {
+            pendingInteractions.remove(chatId)
+            throw e
+        } catch (e: RestRequestException) {
+            pendingInteractions.remove(chatId)
+            logger.warn { "Slash command dispatch failed: ${e::class.simpleName}" }
+        } catch (e: IOException) {
+            pendingInteractions.remove(chatId)
+            logger.warn { "Slash command dispatch failed: ${e::class.simpleName}" }
+        }
     }
 
     internal fun startTyping(channelId: String) {
@@ -751,6 +815,7 @@ class DiscordChannel(
         alive = false
         typingJobs.values.forEach { it.cancel() }
         typingJobs.clear()
+        pendingInteractions.clear()
         customHttpClient?.close()
         customHttpClient = null
         logger.info { "DiscordChannel stopped" }

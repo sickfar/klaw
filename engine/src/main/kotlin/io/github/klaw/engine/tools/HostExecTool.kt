@@ -143,8 +143,9 @@ class HostExecTool(
         }
 
         // 3. LLM pre-validation
+        var risk = -1
         if (config.preValidation.enabled && config.preValidation.model.isNotEmpty()) {
-            val risk = evaluateRisk(command)
+            risk = evaluateRisk(command)
             if (risk < config.preValidation.riskThreshold) {
                 if (containsShellOperators(command)) {
                     logger.warn { "host_exec: LLM pre-validation auto-execute rejected — shell operators detected" }
@@ -157,7 +158,7 @@ class HostExecTool(
         }
 
         // 4. Ask user
-        return requestApprovalAndExecute(chatId, command)
+        return requestApprovalAndExecute(chatId, command, risk)
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -191,12 +192,13 @@ class HostExecTool(
     private suspend fun requestApprovalAndExecute(
         chatId: String,
         command: String,
+        riskScore: Int = -1,
     ): String {
         val approved =
             approvalService.requestApproval(
                 chatId = chatId,
                 command = command,
-                riskScore = -1,
+                riskScore = riskScore,
                 timeoutMin = config.askTimeoutMin,
             )
         if (!approved) {

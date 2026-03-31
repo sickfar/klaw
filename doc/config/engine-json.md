@@ -325,7 +325,7 @@ Configures periodic autonomous LLM monitoring. The engine reads `HEARTBEAT.md` f
 
 Both `injectInto` and `channel` must be set for delivery to work. If either is missing, heartbeat runs are skipped entirely (no LLM tokens consumed).
 
-`channel` is set automatically by `klaw init` based on the first configured messaging channel. `injectInto` is set at runtime via the `/use-for-heartbeat` command — send it in any chat to pair that chat for heartbeat delivery. The command persists the change to `engine.json`.
+`channel` is set automatically by `klaw init` based on the first configured messaging channel. `injectInto` is set at runtime via the `/heartbeat` command — send it in any chat to pair that chat for heartbeat delivery. The command persists the change to `engine.json`.
 
 See `doc/scheduling/heartbeat.md` for details.
 

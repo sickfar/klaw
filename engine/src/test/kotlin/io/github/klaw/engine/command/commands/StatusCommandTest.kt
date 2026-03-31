@@ -1,22 +1,8 @@
 package io.github.klaw.engine.command.commands
 
-import io.github.klaw.common.config.ChunkingConfig
-import io.github.klaw.common.config.CodeExecutionConfig
-import io.github.klaw.common.config.ContextConfig
-import io.github.klaw.common.config.EmbeddingConfig
-import io.github.klaw.common.config.EngineConfig
-import io.github.klaw.common.config.FilesConfig
-import io.github.klaw.common.config.HttpRetryConfig
-import io.github.klaw.common.config.LoggingConfig
-import io.github.klaw.common.config.MemoryConfig
-import io.github.klaw.common.config.ModelConfig
-import io.github.klaw.common.config.ProcessingConfig
-import io.github.klaw.common.config.ProviderConfig
-import io.github.klaw.common.config.RoutingConfig
-import io.github.klaw.common.config.SearchConfig
-import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.context.SummaryRepository
+import io.github.klaw.engine.fixtures.testEngineConfig
 import io.github.klaw.engine.message.MessageRepository
 import io.github.klaw.engine.session.Session
 import io.mockk.coEvery
@@ -44,46 +30,6 @@ class StatusCommandTest {
         createdAt = Clock.System.now(),
     )
 
-    private fun makeConfig(tokenBudget: Int = 4096) =
-        EngineConfig(
-            providers = mapOf("test" to ProviderConfig(type = "openai-compatible", endpoint = "http://localhost")),
-            models = mapOf("test/model" to ModelConfig()),
-            routing =
-                RoutingConfig(
-                    default = "test/model",
-                    fallback = emptyList(),
-                    tasks = TaskRoutingConfig(summarization = "test/model", subagent = "test/model"),
-                ),
-            memory =
-                MemoryConfig(
-                    embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
-                    chunking = ChunkingConfig(size = 512, overlap = 64),
-                    search = SearchConfig(topK = 10),
-                ),
-            context = ContextConfig(tokenBudget = tokenBudget, subagentHistory = 5),
-            processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
-            httpRetry =
-                HttpRetryConfig(
-                    maxRetries = 1,
-                    requestTimeoutMs = 5000,
-                    initialBackoffMs = 100,
-                    backoffMultiplier = 2.0,
-                ),
-            logging = LoggingConfig(subagentConversations = false),
-            codeExecution =
-                CodeExecutionConfig(
-                    dockerImage = "python:3.12-slim",
-                    timeout = 30,
-                    allowNetwork = false,
-                    maxMemory = "256m",
-                    maxCpus = "1.0",
-                    keepAlive = false,
-                    keepAliveIdleTimeoutMin = 5,
-                    keepAliveMaxExecutions = 100,
-                ),
-            files = FilesConfig(maxFileSizeBytes = 10485760L),
-        )
-
     @Test
     fun `shows chat, model, and segment in output`() =
         runTest {
@@ -102,7 +48,7 @@ class StatusCommandTest {
                     coEvery { maxCoverageEnd(any(), any()) } returns null
                 }
             val result =
-                StatusCommand(makeConfig(), msgRepo, summaryRepo).handle(
+                StatusCommand(testEngineConfig(), msgRepo, summaryRepo).handle(
                     commandMsg("status"),
                     session(chatId = "chat1", model = "glm-5"),
                 )
@@ -130,7 +76,7 @@ class StatusCommandTest {
                     coEvery { maxCoverageEnd(any(), any()) } returns "2024-01-01T10:30:00.000Z"
                 }
             val result =
-                StatusCommand(makeConfig(), msgRepo, summaryRepo).handle(
+                StatusCommand(testEngineConfig(), msgRepo, summaryRepo).handle(
                     commandMsg("status"),
                     session(),
                 )
@@ -155,7 +101,7 @@ class StatusCommandTest {
                     coEvery { maxCoverageEnd(any(), any()) } returns null
                 }
             val result =
-                StatusCommand(makeConfig(tokenBudget = 4096), msgRepo, summaryRepo).handle(
+                StatusCommand(testEngineConfig(tokenBudget = 4096), msgRepo, summaryRepo).handle(
                     commandMsg("status"),
                     session(),
                 )

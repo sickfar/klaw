@@ -23,7 +23,7 @@ class ModelCommand(
         session: Session,
     ): String {
         if (msg.args.isNullOrBlank()) return "Current model: ${session.model}"
-        val model = msg.args?.trim() ?: return "Current model: ${session.model}"
+        val model = msg.args!!.trim()
         return if (model !in config.models) {
             "Unknown model '$model'. Available: ${config.models.keys.joinToString(", ")}"
         } else {

@@ -18,13 +18,13 @@ import org.junit.jupiter.api.TestMethodOrder
 import java.time.Duration
 
 /**
- * E2E test for /use-for-heartbeat command — dynamically enables heartbeat delivery.
+ * E2E test for /heartbeat command — dynamically enables heartbeat delivery.
  *
  * Config: heartbeatInterval=PT5S, NO channel/injectInto configured. HEARTBEAT.md exists.
- * Heartbeat runs but does not deliver until /use-for-heartbeat sets the target.
+ * Heartbeat runs but does not deliver until /heartbeat sets the target.
  *
  * Tests cover:
- * 1. /use-for-heartbeat enables delivery to current chat
+ * 1. /heartbeat enables delivery to current chat
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -74,7 +74,7 @@ class HeartbeatUseForCommandE2eTest {
     @Test
     @Order(1)
     @Suppress("LongMethod")
-    fun `use-for-heartbeat command enables delivery to current chat`() {
+    fun `heartbeat command enables delivery to current chat`() {
         // Stub heartbeat to deliver — but delivery won't happen yet (no target configured)
         wireMock.stubHeartbeatResponseSequenceRaw(
             listOf(
@@ -109,8 +109,8 @@ class HeartbeatUseForCommandE2eTest {
         // Drain any frames
         client.drainFrames()
 
-        // Send /use-for-heartbeat command
-        val commandResponse = client.sendCommandAndReceive("use-for-heartbeat", timeoutMs = RESPONSE_TIMEOUT_MS)
+        // Send /heartbeat command
+        val commandResponse = client.sendCommandAndReceive("heartbeat", timeoutMs = RESPONSE_TIMEOUT_MS)
         assertTrue(
             commandResponse.contains("Heartbeat delivery set to"),
             "Command response should confirm delivery setup, got: $commandResponse",
@@ -147,7 +147,7 @@ class HeartbeatUseForCommandE2eTest {
 
         // Wait for heartbeat delivery
         awaitCondition(
-            description = "heartbeat delivers after /use-for-heartbeat command",
+            description = "heartbeat delivers after /heartbeat command",
             timeout = Duration.ofSeconds(POST_COMMAND_WAIT_SECONDS),
         ) {
             val frames = client.collectFrames(timeoutMs = FRAME_COLLECT_MS)

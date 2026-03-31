@@ -10,6 +10,7 @@ import io.github.klaw.engine.util.VT
 import io.github.klaw.engine.workspace.HeartbeatRunnerFactory
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
@@ -20,7 +21,7 @@ import java.nio.file.StandardCopyOption
 class UseForHeartbeatCommand(
     private val heartbeatRunnerFactory: Provider<HeartbeatRunnerFactory>,
 ) : EngineSlashCommand {
-    override val name = "use_for_heartbeat"
+    override val name = "heartbeat"
     override val description = "Deliver heartbeat reports to this chat"
 
     internal var configPath: Path = Path.of(KlawPaths.config)
@@ -39,6 +40,8 @@ class UseForHeartbeatCommand(
                 runner.deliveryChatId = msg.chatId
                 persistHeartbeatTarget(msg.channel, msg.chatId)
                 "Heartbeat delivery set to ${msg.channel}/${msg.chatId}. Takes effect on next heartbeat run."
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 "Failed to update heartbeat config: ${e::class.simpleName}"
             }

@@ -19,6 +19,9 @@ import io.micronaut.http.annotation.PathVariable
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.Put
 import io.micronaut.http.annotation.QueryValue
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
 
 private val logger = KotlinLogging.logger {}
@@ -220,11 +223,11 @@ class ApiController(
     @Get("/commands")
     suspend fun getCommands(): HttpResponse<String> {
         val commands = commandRegistry.allCommands()
-        val json =
-            commands.joinToString(",", "[", "]") { cmd ->
-                """{"name":"${escapeJson(cmd.name)}","description":"${escapeJson(cmd.description)}"}"""
-            }
-        return HttpResponse.ok(json).contentType(MediaType.APPLICATION_JSON_TYPE)
+        val response =
+            CommandsResponse(
+                commands = commands.map { CommandItemDto(it.name, it.description) },
+            )
+        return HttpResponse.ok(commandsJson.encodeToString(response)).contentType(MediaType.APPLICATION_JSON_TYPE)
     }
 
     // ── Skills ──
@@ -344,14 +347,18 @@ class ApiController(
             } catch (_: Exception) {
                 emptyMap()
             }
-
-        private fun escapeJson(s: String): String =
-            s
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\b", "\\b")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t")
     }
 }
+
+@Serializable
+private data class CommandItemDto(
+    val name: String,
+    val description: String,
+)
+
+@Serializable
+private data class CommandsResponse(
+    val commands: List<CommandItemDto>,
+)
+
+private val commandsJson = Json { encodeDefaults = true }

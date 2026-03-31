@@ -1,12 +1,12 @@
 package io.github.klaw.gateway.command
 
-import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.gateway.api.EngineApiProxy
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.IncomingMessage
 import io.github.klaw.gateway.channel.OutgoingMessage
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -129,6 +129,24 @@ class GatewayCommandRegistryTest {
             val commands = registry.refresh()
 
             assertEquals(0, commands.size)
+        }
+
+    @Test
+    fun `refresh returns gateway commands when engine throws IOException`() =
+        runTest {
+            val engineApi =
+                mockk<EngineApiProxy> {
+                    coEvery { send(any()) } throws java.io.IOException("connection refused")
+                }
+            val gatewayCmd =
+                mockk<GatewaySlashCommand> {
+                    every { name } returns "start"
+                    every { description } returns "Start"
+                }
+            val registry = GatewayCommandRegistry(engineApi, listOf(gatewayCmd))
+            val result = registry.refresh()
+            assertEquals(1, result.size)
+            assertEquals("start", result[0].name)
         }
 
     @Test

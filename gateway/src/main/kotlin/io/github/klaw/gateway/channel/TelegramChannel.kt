@@ -345,12 +345,13 @@ class TelegramChannel(
                     if (action != null) {
                         action(platformId, request.command, keyboard)
                     } else {
+                        val riskLine = if (request.riskScore >= 0) "\n\nRisk score: ${request.riskScore}/10" else ""
                         val sent =
                             bot!!.sendTextMessage(
                                 chatId = ChatId(RawChatId(platformId)),
                                 text =
                                     "Command approval requested:\n\n${request.command}" +
-                                        "\n\nRisk score: ${request.riskScore}/10",
+                                        riskLine,
                                 replyMarkup = keyboard,
                             )
                         sent.messageId.long

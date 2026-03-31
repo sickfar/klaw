@@ -65,7 +65,7 @@ Output example:
 4 skills checked, 2 errors
 ```
 
-## /use-for-heartbeat
+## /heartbeat
 
 Sets the current chat as the delivery target for heartbeat results. The command persists the `channel` and `injectInto` fields to `engine.json` so the setting survives restarts.
 

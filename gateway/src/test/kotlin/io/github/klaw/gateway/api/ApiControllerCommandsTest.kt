@@ -7,9 +7,12 @@ import io.github.klaw.common.paths.KlawPathsSnapshot
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.mockk.coEvery
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -46,7 +49,7 @@ class ApiControllerCommandsTest {
         }
 
     @Test
-    fun `getCommands returns combined command list as JSON array`() =
+    fun `getCommands returns wrapped JSON with commands array`() =
         runTest {
             val controller = createController()
 
@@ -54,14 +57,18 @@ class ApiControllerCommandsTest {
 
             assertEquals(200, response.status.code)
             val body = response.body.get()
-            assertTrue(body.startsWith("["))
-            assertTrue(body.endsWith("]"))
-            assertTrue(body.contains("\"new\""))
-            assertTrue(body.contains("\"model\""))
-            assertTrue(body.contains("\"start\""))
-            assertTrue(body.contains("\"Start new conversation\""))
-            assertTrue(body.contains("\"Switch model\""))
-            assertTrue(body.contains("\"Pair gateway\""))
+            val json = Json.parseToJsonElement(body).jsonObject
+            val cmds = json["commands"]?.jsonArray
+            assertEquals(3, cmds?.size)
+
+            val names = cmds?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
+            assertTrue(names?.contains("new") == true)
+            assertTrue(names?.contains("model") == true)
+            assertTrue(names?.contains("start") == true)
+
+            val descs = cmds?.map { it.jsonObject["description"]?.jsonPrimitive?.content }
+            assertTrue(descs?.contains("Start new conversation") == true)
+            assertTrue(descs?.contains("Switch model") == true)
         }
 
     @Test
@@ -81,8 +88,9 @@ class ApiControllerCommandsTest {
 
             assertEquals(200, response.status.code)
             val body = response.body.get()
-            assertTrue(body.contains("\\\"quotes\\\""))
-            assertTrue(body.contains("\\\\ backslash"))
+            val json = Json.parseToJsonElement(body).jsonObject
+            val cmd = json["commands"]?.jsonArray?.first()?.jsonObject
+            assertEquals("Test with \"quotes\" and \\ backslash", cmd?.get("description")?.jsonPrimitive?.content)
         }
 
     @Test
@@ -95,7 +103,10 @@ class ApiControllerCommandsTest {
             val response = controller.getCommands()
 
             assertEquals(200, response.status.code)
-            assertEquals("[]", response.body.get())
+            val body = response.body.get()
+            val json = Json.parseToJsonElement(body).jsonObject
+            val cmds = json["commands"]?.jsonArray
+            assertEquals(0, cmds?.size)
         }
 
     @Test
@@ -115,6 +126,8 @@ class ApiControllerCommandsTest {
 
             assertEquals(200, response.status.code)
             val body = response.body.get()
-            assertTrue(body.contains("Line 1\\nLine 2"))
+            val json = Json.parseToJsonElement(body).jsonObject
+            val cmd = json["commands"]?.jsonArray?.first()?.jsonObject
+            assertEquals("Line 1\nLine 2", cmd?.get("description")?.jsonPrimitive?.content)
         }
 }

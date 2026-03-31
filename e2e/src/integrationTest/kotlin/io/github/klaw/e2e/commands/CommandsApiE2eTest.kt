@@ -60,7 +60,7 @@ class CommandsApiE2eTest {
         assertTrue(body.contains("\"status\""), "Expected 'status' in: $body")
         assertTrue(body.contains("\"help\""), "Expected 'help' in: $body")
         assertTrue(body.contains("\"skills\""), "Expected 'skills' in: $body")
-        assertTrue(body.contains("\"use_for_heartbeat\""), "Expected 'use_for_heartbeat' in: $body")
+        assertTrue(body.contains("\"heartbeat\""), "Expected 'heartbeat' in: $body")
     }
 
     @Test
@@ -71,11 +71,12 @@ class CommandsApiE2eTest {
     }
 
     @Test
-    fun `GET commands returns valid JSON array`() {
+    fun `GET commands returns valid JSON object with commands array`() {
         val response = apiClient.get("/api/v1/commands")
         assertEquals(HttpStatusCode.OK, response.status)
-        assertTrue(response.body.trimStart().startsWith("["), "Expected JSON array, got: ${response.body}")
-        val parsed = Json.parseToJsonElement(response.body).jsonArray
+        val root = Json.parseToJsonElement(response.body).jsonObject
+        val parsed = root["commands"]?.jsonArray
+        assertNotNull(parsed, "Expected 'commands' array in: ${response.body}")
         assertTrue(parsed.isNotEmpty())
         parsed.forEach { element ->
             val obj = element.jsonObject

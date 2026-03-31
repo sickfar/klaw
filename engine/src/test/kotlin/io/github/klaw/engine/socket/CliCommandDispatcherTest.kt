@@ -1,6 +1,5 @@
 package io.github.klaw.engine.socket
 
-import io.github.klaw.common.config.CommandConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.protocol.CliRequestMessage

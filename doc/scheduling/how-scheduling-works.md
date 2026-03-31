@@ -86,7 +86,7 @@ Key differences from Quartz-scheduled tasks:
 - The LLM autonomously decides whether to deliver results
 - Configured in `engine.json` (`heartbeat` section), not `scheduler.db`
 - Skipped entirely if `HEARTBEAT.md` is missing/blank or no delivery target is configured
-- Delivery target is set via `/use-for-heartbeat` command (pairs current chat for delivery)
+- Delivery target is set via `/heartbeat` command (pairs current chat for delivery)
 
 ---
 
@@ -100,7 +100,7 @@ Key differences from Quartz-scheduled tasks:
 | `klaw schedule add` CLI | Add a task from the command line |
 | `engine.json` `heartbeat` | Configure periodic autonomous monitoring |
 
-Changes via `schedule_add`/`schedule_remove` take effect immediately. Changes to `engine.json` `heartbeat.interval` and `heartbeat.model` take effect on next engine restart. The `/use-for-heartbeat` command updates the delivery target at runtime (no restart needed).
+Changes via `schedule_add`/`schedule_remove` take effect immediately. Changes to `engine.json` `heartbeat.interval` and `heartbeat.model` take effect on next engine restart. The `/heartbeat` command updates the delivery target at runtime (no restart needed).
 
 ---
 

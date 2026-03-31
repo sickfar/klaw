@@ -7,6 +7,7 @@ import io.github.klaw.engine.session.Session
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 private val logger = KotlinLogging.logger {}
 
@@ -24,6 +25,8 @@ class HelpCommand(
     ): String =
         try {
             registryProvider.get().allCommands().joinToString("\n") { "/${it.name} — ${it.description}" }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.warn { "Failed to retrieve commands: ${e::class.simpleName}" }
             "Unable to retrieve command list. Please try again later."

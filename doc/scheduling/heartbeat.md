@@ -49,9 +49,9 @@ When you run `klaw init`, the wizard automatically sets `channel` based on the f
 
 However, `injectInto` (the chatId) is **not** set during init — it is unknown until the first message arrives from a user. See the pairing section below.
 
-### Pairing: `/use-for-heartbeat`
+### Pairing: `/heartbeat`
 
-To complete heartbeat setup, send `/use-for-heartbeat` in any chat channel. This command:
+To complete heartbeat setup, send `/heartbeat` in any chat channel. This command:
 
 1. Sets the current channel and chatId as the heartbeat delivery target.
 2. Persists the change to `engine.json` on disk.
