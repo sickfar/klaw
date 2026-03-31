@@ -11,6 +11,7 @@ private val logger = KotlinLogging.logger {}
 class CommandHandler(
     private val registry: EngineCommandRegistry,
 ) {
+    @Suppress("TooGenericExceptionCaught")
     suspend fun handle(
         message: CommandSocketMessage,
         session: Session,
@@ -18,7 +19,12 @@ class CommandHandler(
         logger.debug { "Chat command: ${message.command} chatId=${message.chatId}" }
         val command = registry.find(message.command)
         return if (command != null) {
-            command.handle(message, session)
+            try {
+                command.handle(message, session)
+            } catch (e: Exception) {
+                logger.error(e) { "Command ${message.command} failed" }
+                "Command failed: ${e::class.simpleName}"
+            }
         } else {
             "Unknown command: /${message.command}"
         }

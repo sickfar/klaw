@@ -2,7 +2,9 @@ package io.github.klaw.gateway.channel
 
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -16,7 +18,9 @@ class TelegramStreamingTest {
     private fun makeChannel(): TelegramChannel {
         val config = GatewayConfig(channels = ChannelsConfig())
         val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
-        return TelegramChannel(config, jsonlWriter)
+        val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
+        coEvery { commandRegistry.allCommands() } returns emptyList()
+        return TelegramChannel(config, jsonlWriter, commandRegistry)
     }
 
     @Test

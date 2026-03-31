@@ -6,8 +6,6 @@ import kotlinx.serialization.Serializable
 data class GatewayConfig(
     @ConfigDoc("Channel transport configurations")
     val channels: ChannelsConfig,
-    @ConfigDoc("Custom slash commands available to gateway users")
-    val commands: List<CommandConfig> = emptyList(),
     @ConfigDoc("Delivery reliability settings")
     val delivery: DeliveryConfig = DeliveryConfig(),
     @ConfigDoc("Attachment handling settings")

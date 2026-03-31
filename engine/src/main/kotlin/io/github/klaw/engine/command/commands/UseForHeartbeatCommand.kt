@@ -14,12 +14,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 @Singleton
 class UseForHeartbeatCommand(
     private val heartbeatRunnerFactory: Provider<HeartbeatRunnerFactory>,
 ) : EngineSlashCommand {
-    override val name = "use-for-heartbeat"
+    override val name = "use_for_heartbeat"
     override val description = "Deliver heartbeat reports to this chat"
 
     internal var configPath: Path = Path.of(KlawPaths.config)
@@ -51,6 +52,8 @@ class UseForHeartbeatCommand(
         if (!Files.exists(configFile)) return
         val current = parseEngineConfig(Files.readString(configFile))
         val updated = current.copy(heartbeat = current.heartbeat.copy(channel = channel, injectInto = chatId))
-        Files.writeString(configFile, encodeEngineConfig(updated))
+        val tempFile = configPath.resolve("engine.json.tmp")
+        Files.writeString(tempFile, encodeEngineConfig(updated))
+        Files.move(tempFile, configFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
     }
 }

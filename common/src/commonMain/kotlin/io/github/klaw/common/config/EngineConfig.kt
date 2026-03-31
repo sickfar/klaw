@@ -371,7 +371,12 @@ data class CommandConfig(
     override val name: String,
     @ConfigDoc("Human-readable description shown in command help")
     override val description: String,
-) : SlashCommand
+) : SlashCommand {
+    init {
+        require(name.isNotBlank()) { "Command name must not be blank" }
+        require(description.isNotBlank()) { "Command description must not be blank" }
+    }
+}
 
 @Serializable
 data class DocsConfig(

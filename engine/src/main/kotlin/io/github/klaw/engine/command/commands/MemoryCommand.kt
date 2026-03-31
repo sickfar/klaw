@@ -5,11 +5,15 @@ import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.command.EngineSlashCommand
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.util.VT
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+
+private val logger = KotlinLogging.logger {}
 
 @Singleton
 class MemoryCommand : EngineSlashCommand {
@@ -23,7 +27,16 @@ class MemoryCommand : EngineSlashCommand {
         session: Session,
     ): String =
         withContext(Dispatchers.VT) {
-            val f = workspacePath.resolve("MEMORY.md")
-            if (Files.exists(f)) Files.readString(f).trim() else "No MEMORY.md found in workspace."
+            val f = workspacePath.resolve("MEMORY.md").normalize()
+            if (!f.startsWith(workspacePath.normalize())) {
+                return@withContext "Invalid path: outside workspace"
+            }
+            if (!Files.exists(f)) return@withContext "No MEMORY.md found in workspace."
+            try {
+                Files.readString(f).trim()
+            } catch (e: IOException) {
+                logger.warn { "Failed to read MEMORY.md: ${e::class.simpleName}" }
+                "Failed to read MEMORY.md"
+            }
         }
 }

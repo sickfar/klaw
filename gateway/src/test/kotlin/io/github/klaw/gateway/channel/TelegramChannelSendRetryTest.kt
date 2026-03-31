@@ -4,7 +4,9 @@ import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.TelegramConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -21,7 +23,9 @@ class TelegramChannelSendRetryTest {
                 channels = ChannelsConfig(telegram = TelegramConfig(token = "test-token")),
             )
         val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
-        return TelegramChannel(config, jsonlWriter)
+        val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
+        coEvery { commandRegistry.allCommands() } returns emptyList()
+        return TelegramChannel(config, jsonlWriter, commandRegistry)
     }
 
     @Test
@@ -109,7 +113,9 @@ class TelegramChannelSendRetryTest {
         runTest {
             val config = GatewayConfig(channels = ChannelsConfig())
             val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
-            val channel = TelegramChannel(config, jsonlWriter)
+            val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
+            coEvery { commandRegistry.allCommands() } returns emptyList()
+            val channel = TelegramChannel(config, jsonlWriter, commandRegistry)
             // bot is null, sendAction is null — no start() called
 
             channel.send("telegram_123", OutgoingMessage("hello"))

@@ -5,6 +5,7 @@ import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.DiscordConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -23,6 +24,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiscordChannelTest {
     private val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
+    private val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
 
     private fun makeChannel(
         discordConfig: DiscordConfig? =
@@ -43,7 +45,7 @@ class DiscordChannelTest {
             GatewayConfig(
                 channels = ChannelsConfig(discord = discordConfig),
             )
-        return DiscordChannel(config, jsonlWriter)
+        return DiscordChannel(config, jsonlWriter, commandRegistry)
     }
 
     private suspend fun startChannel(

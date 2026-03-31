@@ -27,14 +27,16 @@ class CommandsApiE2eTest {
     fun start() {
         wireMock.start()
         val workspaceDir = WorkspaceGenerator.createWorkspace()
-        containers = KlawContainers(
-            wireMockPort = wireMock.port,
-            engineJson = ConfigGenerator.engineJson(
-                wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
-            ),
-            gatewayJson = ConfigGenerator.gatewayJson(),
-            workspaceDir = workspaceDir,
-        )
+        containers =
+            KlawContainers(
+                wireMockPort = wireMock.port,
+                engineJson =
+                    ConfigGenerator.engineJson(
+                        wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
+                    ),
+                gatewayJson = ConfigGenerator.gatewayJson(),
+                workspaceDir = workspaceDir,
+            )
         containers.start()
         apiClient = RestApiClient(containers.gatewayHost, containers.gatewayMappedPort)
     }
@@ -58,7 +60,7 @@ class CommandsApiE2eTest {
         assertTrue(body.contains("\"status\""), "Expected 'status' in: $body")
         assertTrue(body.contains("\"help\""), "Expected 'help' in: $body")
         assertTrue(body.contains("\"skills\""), "Expected 'skills' in: $body")
-        assertTrue(body.contains("\"use-for-heartbeat\""), "Expected 'use-for-heartbeat' in: $body")
+        assertTrue(body.contains("\"use_for_heartbeat\""), "Expected 'use_for_heartbeat' in: $body")
     }
 
     @Test

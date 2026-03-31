@@ -2,12 +2,14 @@ package io.github.klaw.gateway
 
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.gateway.channel.Channel
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.pairing.ConfigFileWatcher
 import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.github.klaw.gateway.pairing.PairingService
 import io.github.klaw.gateway.socket.EngineSocketClient
 import io.github.klaw.gateway.socket.GatewayOutboundHandler
 import io.micronaut.context.event.StartupEvent
+import io.mockk.coJustRun
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -22,6 +24,8 @@ class GatewayLifecycleStartupTest {
         val outboundHandler = mockk<GatewayOutboundHandler>(relaxed = true)
         val allowlistService = mockk<InboundAllowlistService>(relaxed = true)
         val pairingService = mockk<PairingService>(relaxed = true)
+        val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
+        coJustRun { commandRegistry.refresh() }
         return GatewayLifecycle(
             channels = emptyList(),
             engineClient = engineClient,
@@ -29,6 +33,7 @@ class GatewayLifecycleStartupTest {
             allowlistService = allowlistService,
             pairingService = pairingService,
             configFileWatcher = configFileWatcher,
+            commandRegistry = commandRegistry,
         )
     }
 
@@ -54,6 +59,8 @@ class GatewayLifecycleStartupTest {
         val engineClient = mockk<EngineSocketClient>(relaxed = true)
         val outboundHandler = mockk<GatewayOutboundHandler>(relaxed = true)
         val pairingService = mockk<PairingService>(relaxed = true)
+        val commandRegistry = mockk<GatewayCommandRegistry>(relaxed = true)
+        coJustRun { commandRegistry.refresh() }
 
         val lifecycle =
             GatewayLifecycle(
@@ -63,6 +70,7 @@ class GatewayLifecycleStartupTest {
                 allowlistService = allowlistService,
                 pairingService = pairingService,
                 configFileWatcher = configFileWatcher,
+                commandRegistry = commandRegistry,
             )
         lifecycle.onApplicationEvent(mockk<StartupEvent>(relaxed = true))
         lifecycle.stop()

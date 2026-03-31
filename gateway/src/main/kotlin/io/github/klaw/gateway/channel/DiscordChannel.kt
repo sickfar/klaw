@@ -2,6 +2,9 @@ package io.github.klaw.gateway.channel
 
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
+import dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior
+import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.event.interaction.ChatInputCommandInteractionCreateEvent
 import dev.kord.core.event.message.MessageCreateEvent
 import dev.kord.core.on
 import dev.kord.gateway.Intent
@@ -9,6 +12,7 @@ import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.request.RestRequestException
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
@@ -34,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -44,12 +49,15 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
+private typealias DeferredResponse = DeferredPublicMessageInteractionResponseBehavior
+
 private val logger = KotlinLogging.logger {}
 
 @Singleton
 class DiscordChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
+    private val commandRegistry: GatewayCommandRegistry,
 ) : Channel {
     override val name = "discord"
 
@@ -61,6 +69,7 @@ class DiscordChannel(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
     internal val typingJobs = ConcurrentHashMap<String, Job>()
+    internal val pendingInteractions = ConcurrentHashMap<String, DeferredResponse>()
 
     internal var buildKordAction: (suspend (token: String, apiBaseUrl: String?) -> Unit)? = null
     internal var selfBotId: String? = null
@@ -125,6 +134,29 @@ class DiscordChannel(
     private suspend fun initKordDefault(token: String) {
         val kord = Kord(token)
         selfBotId = kord.selfId.toString()
+
+        registerSlashCommands(kord)
+        setupKordActions(kord)
+        setupKordListeners(kord)
+    }
+
+    private suspend fun registerSlashCommands(kord: Kord) {
+        runCatching {
+            val commands = commandRegistry.allCommands()
+            if (commands.isNotEmpty()) {
+                kord.createGlobalApplicationCommands {
+                    commands.forEach { cmd ->
+                        input(cmd.name, cmd.description)
+                    }
+                }
+                logger.debug { "Registered ${commands.size} Discord slash commands" }
+            }
+        }.onFailure { e ->
+            logger.warn(e) { "Failed to register Discord slash commands" }
+        }
+    }
+
+    private fun setupKordActions(kord: Kord) {
         sendAction = { channelId, content ->
             kord.rest.channel.createMessage(Snowflake(channelId)) {
                 this.content = content
@@ -134,6 +166,9 @@ class DiscordChannel(
         typingAction = { channelId ->
             kord.rest.channel.triggerTypingIndicator(Snowflake(channelId))
         }
+    }
+
+    private fun setupKordListeners(kord: Kord) {
         listenAction = { onMessage ->
             kord.on<MessageCreateEvent> {
                 val message = this.message
@@ -158,6 +193,9 @@ class DiscordChannel(
                     imageAttachments = imageAtts,
                     onMessage = onMessage,
                 )
+            }
+            kord.on<ChatInputCommandInteractionCreateEvent> {
+                handleSlashCommandInteraction(interaction, onMessage)
             }
             @OptIn(PrivilegedIntent::class)
             kord.login {
@@ -517,8 +555,48 @@ class DiscordChannel(
             logger.warn { "DiscordChannel.send called but channel not alive" }
             return
         }
-        val chunks = splitMessage(response.content, DiscordNormalizer.DISCORD_MAX_MESSAGE_LENGTH)
 
+        // Check if we have a pending interaction (from slash command)
+        val deferred = pendingInteractions.remove(chatId)
+        if (deferred != null) {
+            // Use deferred response for slash command replies
+            val chunks = splitMessage(response.content, DiscordNormalizer.DISCORD_MAX_MESSAGE_LENGTH)
+            logger.trace { "discord slash response channelId=$channelId chunks=${chunks.size}" }
+
+            try {
+                // Send first chunk via deferred response
+                deferred.respond { this.content = chunks.first() }
+                setAlive(true)
+
+                // Send remaining chunks as follow-up messages
+                for (chunk in chunks.drop(1)) {
+                    runCatching {
+                        withSendRetry {
+                            sendAction(channelId, chunk)
+                        }
+                    }.onFailure { e ->
+                        logger.error(e) { "Failed to send Discord follow-up message to chatId=$chatId" }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RestRequestException) {
+                alive = false
+                logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
+                return
+            } catch (e: IOException) {
+                alive = false
+                logger.error(e) { "Failed to send Discord slash response to chatId=$chatId" }
+                return
+            }
+
+            jsonlWriter.writeOutbound(chatId, response.content)
+            logger.debug { "discord slash response sent channelId=$channelId" }
+            return
+        }
+
+        // Regular message flow
+        val chunks = splitMessage(response.content, DiscordNormalizer.DISCORD_MAX_MESSAGE_LENGTH)
         logger.trace { "discord send attempt channelId=$channelId len=${response.content.length}" }
 
         for (chunk in chunks) {
@@ -536,7 +614,6 @@ class DiscordChannel(
         }
 
         jsonlWriter.writeOutbound(chatId, response.content)
-
         logger.debug { "discord message sent channelId=$channelId chunks=${chunks.size}" }
     }
 
@@ -586,6 +663,59 @@ class DiscordChannel(
         } else {
             logger.debug { "No pending approval for id=$approvalId" }
         }
+    }
+
+    internal suspend fun handleSlashCommandInteraction(
+        interaction: dev.kord.core.entity.interaction.ChatInputCommandInteraction,
+        onMessage: suspend (IncomingMessage) -> Unit,
+    ) {
+        val channelId = interaction.channelId.toString()
+        val user = interaction.user
+        val guildId =
+            interaction.data.guildId.value
+                ?.toString()
+        val commandName = interaction.invokedCommandName
+
+        logger.trace { "discord slash command received command=$commandName channelId=$channelId userId=${user.id}" }
+
+        // Stop typing since we're about to respond
+        stopTyping(channelId)
+
+        // Defer the response so we can reply asynchronously
+        val deferred = interaction.deferPublicResponse()
+        val chatId = "discord_$channelId"
+        pendingInteractions[chatId] = deferred
+
+        // Build args from command options
+        val args =
+            interaction.command.options.values
+                .mapNotNull { it.value?.toString() }
+                .joinToString(" ")
+                .ifBlank { null }
+
+        val chatType = if (guildId != null) "guild_text" else "dm"
+
+        val incoming =
+            IncomingMessage(
+                id = "",
+                channel = name,
+                chatId = chatId,
+                content = "/$commandName${if (args != null) " $args" else ""}",
+                ts =
+                    kotlin.time.Clock.System
+                        .now(),
+                userId = user.id.toString(),
+                senderName = user.username,
+                isCommand = true,
+                commandName = commandName,
+                commandArgs = args,
+                chatType = chatType,
+                guildId = guildId,
+            )
+
+        jsonlWriter.writeInbound(incoming)
+        logger.debug { "discord slash command forwarded chatId=$chatId command=$commandName" }
+        onMessage(incoming)
     }
 
     internal fun startTyping(channelId: String) {

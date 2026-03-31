@@ -830,27 +830,6 @@ object GeneratedSchemas {
                     },
                     "additionalProperties": false
                 },
-                "commands": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Slash command name without the leading /"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Human-readable description shown in command help"
-                            }
-                        },
-                        "required": [
-                            "name",
-                            "description"
-                        ],
-                        "additionalProperties": false
-                    }
-                },
                 "delivery": {
                     "type": "object",
                     "properties": {

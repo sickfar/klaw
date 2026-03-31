@@ -4,7 +4,6 @@ import io.github.klaw.common.config.CommandConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.protocol.CliRequestMessage
-import io.github.klaw.engine.command.EngineCommandRegistry
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
@@ -51,7 +50,7 @@ class CliCommandDispatcherTest {
     private val llmRouter = mockk<LlmRouter>(relaxed = true)
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
     private val doctorDeepProbe = mockk<DoctorDeepProbe>(relaxed = true)
-    private val engineCommandRegistry = mockk<EngineCommandRegistry>(relaxed = true)
+    private val commandsCliHandler = mockk<CommandsCliHandler>(relaxed = true)
 
     private fun createDispatcher() =
         CliCommandDispatcher(
@@ -67,7 +66,7 @@ class CliCommandDispatcherTest {
             llmRouter,
             engineConfig,
             doctorDeepProbe,
-            engineCommandRegistry,
+            commandsCliHandler,
         )
 
     @Test
@@ -600,12 +599,9 @@ class CliCommandDispatcherTest {
     @Test
     fun `commands_list returns JSON with all commands`() =
         runTest {
-            val commands =
-                listOf(
-                    CommandConfig("new", "Start new conversation"),
-                    CommandConfig("help", "Show help"),
-                )
-            every { engineCommandRegistry.allCommands() } returns commands
+            val commandsJson =
+                """{"commands":[{"name":"new","description":"Start new conversation"},{"name":"help","description":"Show help"}]}"""
+            every { commandsCliHandler.handleCommandsList() } returns commandsJson
 
             val dispatcher = createDispatcher()
             val result = dispatcher.dispatch(CliRequestMessage("commands_list"))

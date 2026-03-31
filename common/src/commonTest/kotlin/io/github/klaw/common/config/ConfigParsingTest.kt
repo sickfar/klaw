@@ -219,36 +219,6 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `gateway config with commands parses correctly`() {
-        val json =
-            """
-            {
-              "channels": {
-                "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": [{"chatId": "telegram_123"}]
-                }
-              },
-              "commands": [
-                {"name": "start", "description": "Start the bot"},
-                {"name": "new", "description": "New conversation"}
-              ]
-            }
-            """.trimIndent()
-        val config = parseGatewayConfig(json)
-        assertEquals(2, config.commands.size)
-        assertEquals("start", config.commands[0].name)
-        assertEquals("New conversation", config.commands[1].description)
-    }
-
-    @Test
-    fun `gateway config without commands defaults to empty`() {
-        val json = """{"channels": {}}"""
-        val config = parseGatewayConfig(json)
-        assertTrue(config.commands.isEmpty())
-    }
-
-    @Test
     fun `GatewayConfig with localWs section enabled=true and port=9090 parses correctly`() {
         val json =
             """

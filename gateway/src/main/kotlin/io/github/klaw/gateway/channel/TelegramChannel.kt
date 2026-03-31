@@ -26,6 +26,7 @@ import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineK
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -49,6 +50,7 @@ private val logger = KotlinLogging.logger {}
 class TelegramChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
+    private val commandRegistry: GatewayCommandRegistry,
 ) : Channel {
     override val name = "telegram"
 
@@ -116,13 +118,23 @@ class TelegramChannel(
             }
         }
         setAlive(true)
-        if (config.commands.isNotEmpty()) {
-            runCatching {
-                b.setMyCommands(config.commands.map { BotCommand(it.name, it.description) })
-                logger.debug { "Registered ${config.commands.size} bot commands with Telegram" }
-            }.onFailure { e ->
-                logger.warn(e) { "Failed to register bot commands" }
+        // Register commands from GatewayCommandRegistry
+        registerCommands(b)
+    }
+
+    private suspend fun registerCommands(bot: TelegramBot) {
+        try {
+            val commands = commandRegistry.allCommands()
+            if (commands.isNotEmpty()) {
+                bot.setMyCommands(commands.map { BotCommand(it.name, it.description) })
+                logger.debug { "Registered ${commands.size} bot commands with Telegram" }
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: CommonBotException) {
+            logger.warn(e) { "Failed to register bot commands" }
+        } catch (e: IOException) {
+            logger.warn(e) { "Failed to register bot commands" }
         }
     }
 

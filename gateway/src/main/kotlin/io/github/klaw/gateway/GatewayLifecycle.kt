@@ -6,6 +6,7 @@ import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.CommandParser
 import io.github.klaw.gateway.channel.IncomingMessage
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.pairing.ConfigFileWatcher
 import io.github.klaw.gateway.pairing.InboundAllowlistService
 import io.github.klaw.gateway.pairing.PairingCodeResult
@@ -36,6 +37,7 @@ class GatewayLifecycle(
     private val allowlistService: InboundAllowlistService,
     private val pairingService: PairingService,
     private val configFileWatcher: ConfigFileWatcher,
+    private val commandRegistry: GatewayCommandRegistry,
 ) : ApplicationEventListener<StartupEvent> {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -46,6 +48,20 @@ class GatewayLifecycle(
         }
         outboundHandler.approvalCallback = { msg -> engineClient.send(msg) }
         engineClient.start()
+
+        // Refresh command registry from engine before starting channels
+        @Suppress("TooGenericExceptionCaught")
+        runBlocking {
+            try {
+                commandRegistry.refresh()
+                logger.debug { "Command registry refreshed from engine" }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Failed to refresh command registry from engine, using gateway commands only" }
+            }
+        }
+
         if (channels.isEmpty()) {
             logger.warn { "GatewayLifecycle starting with no channels — gateway will not process any messages" }
         }

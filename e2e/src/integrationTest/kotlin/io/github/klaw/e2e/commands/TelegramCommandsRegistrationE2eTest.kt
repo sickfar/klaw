@@ -26,24 +26,28 @@ class TelegramCommandsRegistrationE2eTest {
         wireMock.start()
         mockTelegram.start()
         val workspaceDir = WorkspaceGenerator.createWorkspace()
-        containers = KlawContainers(
-            wireMockPort = wireMock.port,
-            engineJson = ConfigGenerator.engineJson(
-                wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
-            ),
-            gatewayJson = ConfigGenerator.gatewayJson(
-                telegramEnabled = true,
-                telegramToken = MockTelegramServer.TEST_TOKEN,
-                telegramApiBaseUrl = mockTelegram.baseUrl,
-                telegramAllowedChats = listOf(
-                    Pair("telegram_${MockTelegramServer.TEST_CHAT_ID}", listOf("999")),
-                ),
-            ),
-            workspaceDir = workspaceDir,
-            additionalHostPorts = listOf(mockTelegram.port),
-        )
+        containers =
+            KlawContainers(
+                wireMockPort = wireMock.port,
+                engineJson =
+                    ConfigGenerator.engineJson(
+                        wiremockBaseUrl = "http://host.testcontainers.internal:${wireMock.port}",
+                    ),
+                gatewayJson =
+                    ConfigGenerator.gatewayJson(
+                        telegramEnabled = true,
+                        telegramToken = MockTelegramServer.TEST_TOKEN,
+                        telegramApiBaseUrl = mockTelegram.baseUrl,
+                        telegramAllowedChats =
+                            listOf(
+                                Pair("telegram_${MockTelegramServer.TEST_CHAT_ID}", listOf("999")),
+                            ),
+                    ),
+                workspaceDir = workspaceDir,
+                additionalHostPorts = listOf(mockTelegram.port),
+            )
         containers.start()
-        awaitCondition("setMyCommands called on startup", Duration.ofSeconds(10)) {
+        awaitCondition("setMyCommands called on startup", Duration.ofSeconds(30)) {
             mockTelegram.getSetMyCommandsRequests().isNotEmpty()
         }
         setMyCommandsRequests = mockTelegram.getSetMyCommandsRequests()

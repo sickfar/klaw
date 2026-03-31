@@ -4,6 +4,7 @@ import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.schema.GeneratedSchemas
 import io.github.klaw.common.paths.KlawPathsSnapshot
 import io.github.klaw.gateway.channel.Channel
+import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.config.WebuiEnabledCondition
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micronaut.context.annotation.Requires
@@ -29,6 +30,7 @@ class ApiController(
     private val config: GatewayConfig,
     private val paths: KlawPathsSnapshot,
     private val channels: List<Channel>,
+    private val commandRegistry: GatewayCommandRegistry,
 ) {
     // ── Status ──
 
@@ -213,6 +215,18 @@ class ApiController(
     @Get("/schedule/status")
     suspend fun scheduleStatus(): HttpResponse<String> = respondJson(engineProxy.send("schedule_status"))
 
+    // ── Commands ──
+
+    @Get("/commands")
+    suspend fun getCommands(): HttpResponse<String> {
+        val commands = commandRegistry.allCommands()
+        val json =
+            commands.joinToString(",", "[", "]") { cmd ->
+                """{"name":"${escapeJson(cmd.name)}","description":"${escapeJson(cmd.description)}"}"""
+            }
+        return HttpResponse.ok(json).contentType(MediaType.APPLICATION_JSON_TYPE)
+    }
+
     // ── Skills ──
 
     @Get("/skills")
@@ -330,5 +344,14 @@ class ApiController(
             } catch (_: Exception) {
                 emptyMap()
             }
+
+        private fun escapeJson(s: String): String =
+            s
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\b", "\\b")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
     }
 }
