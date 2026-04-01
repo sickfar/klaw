@@ -39,4 +39,11 @@ interface MemoryService {
     suspend fun deleteBySourcePrefix(prefix: String): Int
 
     suspend fun listFactsByCategory(categoryName: String): String
+
+    suspend fun deleteFact(id: Long): Int
+
+    suspend fun deleteFactByContent(
+        category: String,
+        content: String,
+    ): Int
 }

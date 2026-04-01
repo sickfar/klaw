@@ -44,4 +44,11 @@ class StubMemoryService : MemoryService {
     override suspend fun deleteBySourcePrefix(prefix: String): Int = 0
 
     override suspend fun listFactsByCategory(categoryName: String): String = "[]"
+
+    override suspend fun deleteFact(id: Long): Int = 0
+
+    override suspend fun deleteFactByContent(
+        category: String,
+        content: String,
+    ): Int = 0
 }

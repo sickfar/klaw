@@ -230,6 +230,59 @@ class MemoryServiceImpl(
             }
         }
 
+    override suspend fun deleteFact(id: Long): Int =
+        withContext(Dispatchers.VT) {
+            val existing = database.memoryFactsQueries.getById(id).executeAsOneOrNull()
+            if (existing == null) return@withContext 0
+
+            database.memoryFactsQueries.transaction {
+                if (sqliteVecLoader.isAvailable()) {
+                    driver.execute(null, "DELETE FROM vec_memory WHERE rowid = ?", 1) {
+                        bindLong(0, id)
+                    }
+                }
+                database.memoryFactsQueries.deleteById(id)
+            }
+            onSaveCallback?.invoke()
+            1
+        }
+
+    override suspend fun deleteFactByContent(
+        category: String,
+        content: String,
+    ): Int =
+        withContext(Dispatchers.VT) {
+            val cat = database.memoryCategoriesQueries.getByName(category).executeAsOneOrNull()
+                ?: return@withContext 0
+
+            val count =
+                database.memoryFactsQueries
+                    .countByCategoryIdAndContent(cat.id, content)
+                    .executeAsOne()
+                    .toInt()
+
+            if (count == 0) return@withContext 0
+
+            database.memoryFactsQueries.transaction {
+                if (sqliteVecLoader.isAvailable()) {
+                    driver.execute(
+                        null,
+                        """
+                        DELETE FROM vec_memory
+                        WHERE rowid IN (SELECT id FROM memory_facts WHERE category_id = ? AND content = ?)
+                        """.trimIndent(),
+                        2,
+                    ) {
+                        bindLong(0, cat.id)
+                        bindString(1, content)
+                    }
+                }
+                database.memoryFactsQueries.deleteByCategoryIdAndContent(cat.id, content)
+            }
+            onSaveCallback?.invoke()
+            count
+        }
+
     private fun String.escapeJsonValue(): String =
         replace("\\", "\\\\")
             .replace("\"", "\\\"")

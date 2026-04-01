@@ -120,17 +120,20 @@ class ToolRegistryImplTest {
         )
 
     @Test
-    fun `listTools returns all 37 tool definitions`() =
+    fun `listTools returns all 40 tool definitions`() =
         runTest {
             val tools = registry.listTools()
-            assertEquals(37, tools.size)
+            assertEquals(40, tools.size)
             val names = tools.map { it.name }.toSet()
             assertTrue(names.contains("file_read"))
             assertTrue(names.contains("file_write"))
             assertTrue(names.contains("file_list"))
             assertTrue(names.contains("file_patch"))
             assertTrue(names.contains("memory_search"))
-            assertTrue(names.contains("memory_save"))
+            assertTrue(names.contains("memory_fact_add"))
+            assertTrue(names.contains("memory_categories_list"))
+            assertTrue(names.contains("memory_facts_list"))
+            assertTrue(names.contains("memory_fact_delete"))
             assertTrue(names.contains("memory_rename_category"))
             assertTrue(names.contains("memory_merge_categories"))
             assertTrue(names.contains("memory_delete_category"))
@@ -277,7 +280,7 @@ class ToolRegistryImplTest {
                 )
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
-            assertEquals(34, tools.size)
+            assertEquals(37, tools.size)
             assertFalse("docs_search" in names)
             assertFalse("docs_read" in names)
             assertFalse("docs_list" in names)
@@ -335,7 +338,7 @@ class ToolRegistryImplTest {
             val names = tools.map { it.name }.toSet()
             assertFalse("skill_list" in names, "skill_list should be excluded")
             assertFalse("skill_load" in names, "skill_load should be excluded")
-            assertEquals(35, tools.size, "Should have 37 - 2 = 35 tools")
+            assertEquals(38, tools.size, "Should have 40 - 2 = 38 tools")
         }
 
     @Test
@@ -367,7 +370,7 @@ class ToolRegistryImplTest {
             val tools = disabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertFalse("host_exec" in names, "host_exec should be excluded when disabled")
-            assertEquals(36, tools.size, "Should have 37 - 1 = 36 tools")
+            assertEquals(39, tools.size, "Should have 40 - 1 = 39 tools")
         }
 
     @Test
@@ -415,7 +418,7 @@ class ToolRegistryImplTest {
             val tools = enabledRegistry.listTools()
             val names = tools.map { it.name }.toSet()
             assertTrue("host_exec" in names, "host_exec should be included when enabled")
-            assertEquals(37, tools.size)
+            assertEquals(40, tools.size)
         }
 
     @Test
@@ -547,7 +550,7 @@ class ToolRegistryImplTest {
                 )
             val tools = reg.listTools()
             assertTrue(tools.any { it.name == "mcp__srv__remote_read" })
-            assertEquals(38, tools.size)
+            assertEquals(41, tools.size)
         }
 
     @Test

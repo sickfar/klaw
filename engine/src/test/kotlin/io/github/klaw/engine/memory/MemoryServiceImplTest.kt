@@ -394,6 +394,79 @@ class MemoryServiceImplTest {
             assertEquals(accessBefore, catAfter!!.access_count)
         }
 
+    // --- deleteFact tests ---
+
+    @Test
+    fun `deleteFact by id removes specific fact`() =
+        runBlocking {
+            val (db, driver) = createDb()
+            val service = createService(db, driver)
+            service.save("fact to keep", "test-cat", "src")
+            service.save("fact to delete", "test-cat", "src")
+
+            val factsBefore = db.memoryFactsQueries.allFacts().executeAsList()
+            assertEquals(2, factsBefore.size)
+            val factToDelete = factsBefore.find { it.content == "fact to delete" }!!
+
+            val deletedCount = service.deleteFact(factToDelete.id)
+
+            assertEquals(1, deletedCount)
+            val factsAfter = db.memoryFactsQueries.allFacts().executeAsList()
+            assertEquals(1, factsAfter.size)
+            assertEquals("fact to keep", factsAfter[0].content)
+        }
+
+    @Test
+    fun `deleteFact by id returns 0 if not found`() =
+        runBlocking {
+            val (db, driver) = createDb()
+            val service = createService(db, driver)
+
+            val deletedCount = service.deleteFact(99999L)
+
+            assertEquals(0, deletedCount)
+        }
+
+    @Test
+    fun `deleteFactByContent removes matching facts`() =
+        runBlocking {
+            val (db, driver) = createDb()
+            val service = createService(db, driver)
+            service.save("duplicate content", "cat-a", "src")
+            service.save("duplicate content", "cat-a", "src")
+            service.save("unique content", "cat-a", "src")
+
+            val deletedCount = service.deleteFactByContent("cat-a", "duplicate content")
+
+            assertEquals(2, deletedCount)
+            val factsAfter = db.memoryFactsQueries.allFacts().executeAsList()
+            assertEquals(1, factsAfter.size)
+            assertEquals("unique content", factsAfter[0].content)
+        }
+
+    @Test
+    fun `deleteFactByContent returns 0 if category not found`() =
+        runBlocking {
+            val (db, driver) = createDb()
+            val service = createService(db, driver)
+
+            val deletedCount = service.deleteFactByContent("nonexistent-cat", "some content")
+
+            assertEquals(0, deletedCount)
+        }
+
+    @Test
+    fun `deleteFactByContent returns 0 if content not found`() =
+        runBlocking {
+            val (db, driver) = createDb()
+            val service = createService(db, driver)
+            service.save("actual content", "test-cat", "src")
+
+            val deletedCount = service.deleteFactByContent("test-cat", "different content")
+
+            assertEquals(0, deletedCount)
+        }
+
     // --- case insensitive category matching ---
 
     @Test

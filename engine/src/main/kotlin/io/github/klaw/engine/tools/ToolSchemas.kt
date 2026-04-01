@@ -33,6 +33,12 @@ fun boolProp(description: String): JsonObject =
         put("description", description)
     }
 
+fun longProp(description: String): JsonObject =
+    buildJsonObject {
+        put("type", "integer")
+        put("description", description)
+    }
+
 fun toolParams(
     required: List<String>,
     props: Map<String, JsonObject>,

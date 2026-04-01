@@ -140,11 +140,32 @@ class ToolRegistryImpl(
                 memoryTools.search(args.str("query"), args.intOrNull("topK") ?: DEFAULT_MEMORY_TOP_K)
             }
 
-            "memory_save" -> {
-                memoryTools.save(
+            "memory_fact_add" -> {
+                memoryTools.factAdd(
                     args.str("content"),
                     args.str("category"),
                     args.strOrNull("source") ?: "manual",
+                )
+            }
+
+            "memory_categories_list" -> {
+                memoryTools.categoriesList(
+                    args.intOrNull("limit") ?: DEFAULT_CATEGORIES_LIST_LIMIT,
+                )
+            }
+
+            "memory_facts_list" -> {
+                memoryTools.factsList(
+                    args.str("category"),
+                    args.intOrNull("limit") ?: DEFAULT_FACTS_LIST_LIMIT,
+                )
+            }
+
+            "memory_fact_delete" -> {
+                memoryTools.factDelete(
+                    args.longOrNull("id"),
+                    args.strOrNull("category"),
+                    args.strOrNull("content"),
                 )
             }
 
@@ -347,6 +368,9 @@ class ToolRegistryImpl(
 
     private fun JsonObject.intOrNull(key: String): Int? = this[key]?.jsonPrimitive?.intOrNull
 
+    private fun JsonObject.longOrNull(key: String): Long? =
+        this[key]?.jsonPrimitive?.content?.toLongOrNull()
+
     private fun JsonObject.boolOrNull(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
 
     private fun JsonObject.strList(key: String): List<String> =
@@ -382,6 +406,8 @@ class ToolRegistryImpl(
         private const val DEFAULT_MEMORY_TOP_K = 10
         private const val DEFAULT_HISTORY_TOP_K = 10
         private const val DEFAULT_DOCS_TOP_K = 5
+        private const val DEFAULT_CATEGORIES_LIST_LIMIT = 50
+        private const val DEFAULT_FACTS_LIST_LIMIT = 100
         private val DOCS_TOOL_NAMES = setOf("docs_search", "docs_read", "docs_list")
         private const val HOST_EXEC_TOOL_NAME = "host_exec"
         private const val SKILL_LIST_TOOL_NAME = "skill_list"
@@ -507,17 +533,46 @@ class ToolRegistryImpl(
                     ),
                 ),
                 ToolDef(
-                    "memory_save",
-                    "Save information to long-term memory that persists across conversations. " +
-                        "Use when the user asks you to remember something " +
-                        "or when you learn important facts worth retaining. " +
-                        "Specify a category to organize facts — use an existing category or create a new one.",
+                    "memory_fact_add",
+                    "Add a fact to long-term memory. Use when the user asks to remember something " +
+                        "or when you learn important facts worth retaining.",
                     toolParams(
                         listOf("content", "category"),
                         mapOf(
-                            "content" to stringProp("Text to save"),
-                            "category" to stringProp("Memory category (e.g. 'User preferences', 'Project notes')"),
-                            "source" to stringProp("Information source (default: manual)"),
+                            "content" to stringProp("Fact content"),
+                            "category" to stringProp("Category (e.g. 'User preferences', 'Project notes')"),
+                            "source" to stringProp("Source (default: manual)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "memory_categories_list",
+                    "List all memory categories with fact counts",
+                    toolParams(
+                        emptyList(),
+                        mapOf("limit" to intProp("Maximum categories to return (default 50)")),
+                    ),
+                ),
+                ToolDef(
+                    "memory_facts_list",
+                    "List facts in a category",
+                    toolParams(
+                        listOf("category"),
+                        mapOf(
+                            "category" to stringProp("Category name"),
+                            "limit" to intProp("Maximum facts to return (default 100)"),
+                        ),
+                    ),
+                ),
+                ToolDef(
+                    "memory_fact_delete",
+                    "Delete a fact from memory by ID or by category+content",
+                    toolParams(
+                        emptyList(),
+                        mapOf(
+                            "id" to longProp("Fact ID (exact match)"),
+                            "category" to stringProp("Category name (used with content)"),
+                            "content" to stringProp("Fact content (used with category)"),
                         ),
                     ),
                 ),
