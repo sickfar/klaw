@@ -15,15 +15,16 @@ Klaw Engine provides standard tools plus 2 contextual delivery tools that are in
 
 See [memory.md](memory.md) for details.
 
-### File Tools (4)
+### File Tools (5)
 | Tool | Description |
 |------|-------------|
 | `file_read` | Read a file from the workspace (supports inline vision for images) |
 | `file_write` | Write content to a file |
 | `file_list` | List directory contents |
 | `file_patch` | Replace a text fragment in a file by exact match |
+| `file_glob` | Search for files by glob pattern |
 
-All paths are restricted to `$KLAW_WORKSPACE`. Path traversal attempts are rejected. See [files.md](files.md).
+All paths are restricted to accessible directories (workspace, state, data, config, cache). Path traversal attempts are rejected. See [files.md](files.md).
 
 ### Vision Tools (1)
 | Tool | Description |

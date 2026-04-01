@@ -412,6 +412,21 @@ klaw schedule runs daily --limit 5
 Options:
 - `--limit N` — maximum number of runs to show (default: 20)
 
+### `klaw schedule import`
+
+Imports scheduled jobs from an OpenClaw `jobs.json` file. Automatically converts 5-field standard cron expressions to 6-field Quartz format (prepends `0` seconds field).
+
+```
+klaw schedule import --from-openclaw /path/to/jobs.json
+klaw schedule import --from-openclaw /path/to/jobs.json --all
+```
+
+Options:
+- `--from-openclaw PATH` — path to the OpenClaw `jobs.json` file (required)
+- `--all` — include disabled jobs (by default only enabled jobs are imported)
+
+Output shows each job's import status (`OK` or `FAIL`/`SKIP`) and a final summary.
+
 ### `klaw schedule status`
 
 Shows scheduler health: whether it's running, job count, and currently executing jobs.
@@ -543,6 +558,35 @@ Options:
 
 ---
 
+## Context
+
+### `klaw context`
+
+Shows context window diagnostics for a session. Useful for debugging token budget exhaustion, memory coverage, and auto-RAG behavior.
+
+```
+klaw context
+klaw context --chat-id telegram_123456
+klaw context --json
+```
+
+Options:
+- `--chat-id ID` — diagnose a specific session (default: most recent session)
+- `--json` — output as JSON format
+
+**Output includes:**
+- System prompt tokens and character count
+- Summary tokens and character count
+- Pending message tokens and character count
+- Tool tokens, character count, and tool count
+- Memory window stats (message count, tokens, character ratio)
+- Message timing (first and last message timestamps)
+- Summary count and eviction status
+- Coverage end timestamp
+- Auto-RAG status
+
+---
+
 ## Diagnostics
 
 ### `klaw doctor`
@@ -616,7 +660,7 @@ klaw reindex
 
 ## Notes
 
-- Commands requiring the Engine (`status`, `channels status --probe`, `schedule`, `memory search`, `memory categories`, `memory facts`, `memory consolidate`, `reindex`) print a
+- Commands requiring the Engine (`status`, `channels status --probe`, `schedule`, `memory search`, `memory categories`, `memory facts`, `memory consolidate`, `context`, `reindex`) print a
   helpful error if the Engine is not running.
 - All config files are in `~/.config/klaw/` (XDG-compliant, overridable via `XDG_CONFIG_HOME`).
 - The `.env` file is created with `0600` permissions — never world-readable.

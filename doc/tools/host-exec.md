@@ -43,7 +43,7 @@ In `engine.json` under `hostExecution`:
       "enabled": true,
       "model": "deepseek/chat",
       "riskThreshold": 5,
-      "timeoutMs": 5000
+      "timeoutMs": 60000
     },
     "askTimeoutMin": 0
   }

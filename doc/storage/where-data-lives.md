@@ -25,6 +25,7 @@ Configuration files are read-only from the agent's perspective. The user must ed
 - Append-only; never modified after writing
 - Written exclusively by the Gateway process
 - Example: `conversations/telegram_123456/2026-02-24.jsonl`
+- Heartbeat logs: `conversations/heartbeat/YYYY-MM-DD.jsonl` — one file per UTC day, written by the Engine (not Gateway)
 - Each line is a JSON object with `id`, `ts`, `role`, `content` fields
 - Role is `"user"` for incoming messages, `"assistant"` for engine replies
 
@@ -138,7 +139,7 @@ The agent has read/write access here via file tools. Standard workspace files:
 | `IDENTITY.md` | Working identity for the current context |
 | `AGENTS.md` | Subagent definitions |
 | `MEMORY.md` | Active working memory |
-| `HEARTBEAT.md` | Heartbeat log |
+| `HEARTBEAT.md` | Heartbeat instructions (read-only, never modified by Klaw) |
 | `skills/` | Workspace-local skills |
 | `memory/` | Additional memory files |
 

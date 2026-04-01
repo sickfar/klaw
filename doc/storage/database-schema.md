@@ -25,28 +25,30 @@ Index: `idx_messages_chat_id(chat_id)`.
 | Column | Type | Description |
 |--------|------|-------------|
 | chat_id | TEXT PK | Conversation identifier |
-| model | TEXT | Current LLM model ID |
-| segment_start | TEXT | ISO-8601 start of current context window |
-| created_at | TEXT | Session creation timestamp |
+| model | TEXT NOT NULL | Current LLM model ID |
+| segment_start | TEXT NOT NULL | ISO-8601 start of current context window |
+| created_at | TEXT NOT NULL | Session creation timestamp |
+| updated_at | TEXT NOT NULL | Last activity timestamp |
 
 ### memory_facts
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | INTEGER PK AUTO | Fact row ID |
-| source | TEXT | Origin label (manual, reindex, etc.) |
-| chat_id | TEXT | Associated conversation (nullable) |
-| content | TEXT | Fact text |
-| created_at | TEXT | ISO-8601 |
-| updated_at | TEXT | ISO-8601 |
+| category_id | INTEGER NOT NULL FK | FK to `memory_categories.id` |
+| source | TEXT NOT NULL | Origin label (manual, reindex, consolidation, etc.) |
+| content | TEXT NOT NULL | Fact text |
+| created_at | TEXT NOT NULL | ISO-8601 |
+| updated_at | TEXT NOT NULL | ISO-8601 |
 
 ### memory_categories
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | INTEGER PK AUTO | Category row ID |
-| name | TEXT | Category name |
-| fact_count | INTEGER | Number of facts in this category |
+| name | TEXT NOT NULL UNIQUE | Category name (case-insensitive) |
+| access_count | INTEGER NOT NULL | Access count (incremented each time category is retrieved) |
+| created_at | TEXT NOT NULL | ISO-8601 |
 
 ### doc_chunks
 
@@ -63,9 +65,11 @@ Index: `idx_messages_chat_id(chat_id)`.
 | Column | Type | Description |
 |--------|------|-------------|
 | id | INTEGER PK AUTO | Summary row ID |
-| chat_id | TEXT | Conversation identifier |
+| chat_id | TEXT NOT NULL | Conversation identifier |
 | from_message_id | TEXT NOT NULL | First message in summarised range |
 | to_message_id | TEXT NOT NULL | Last message in summarised range |
+| from_created_at | TEXT NOT NULL | Timestamp of first message in range |
+| to_created_at | TEXT NOT NULL | Timestamp of last message in range |
 | file_path | TEXT NOT NULL | Path to summary JSONL |
 | created_at | TEXT NOT NULL | ISO-8601 |
 

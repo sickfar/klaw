@@ -106,11 +106,11 @@ New users pair with the bot using the `/start` command:
 
 1. User sends `/start` to the bot in Telegram
 2. Bot replies with a 6-character pairing code and instructions
-3. Operator runs `klaw pair telegram <code>` on the server
+3. Operator runs `klaw channels pair telegram <code>` on the server
 4. The chat and user are added to `allowedChats` in `gateway.json`
 5. Gateway detects the config change and reloads the allowlist
 
-To unpair a chat: `klaw unpair telegram <chatId>`
+To unpair a chat: `klaw channels unpair telegram <chatId>`
 
 ### chatId Format
 
@@ -219,11 +219,11 @@ New users pair with the bot using the `/start` command:
 
 1. User sends `/start` in a Discord channel where the bot is present
 2. Bot replies with a 6-character pairing code and instructions
-3. Operator runs `klaw pair discord <code>` on the server
+3. Operator runs `klaw channels pair discord <code>` on the server
 4. The guild, channel, and user are added to `allowedGuilds` in `gateway.json`
 5. Gateway detects the config change and reloads the allowlist
 
-To unpair a guild: `klaw unpair discord <guildId>`
+To unpair a guild: `klaw channels unpair discord <guildId>`
 
 ### chatId Format
 

@@ -110,7 +110,28 @@ If the LLM does not call `heartbeat_deliver`, no message is sent — the heartbe
 
 ## Concurrency
 
-Only one heartbeat run executes at a time. If a heartbeat is still running when the next interval fires, the new run is skipped.
+Only one heartbeat run executes at a time. When the next interval fires while a previous run is still active:
+
+- If the previous run is **blocked on tool approval** (waiting for user confirmation of a `host_exec` call), the pending approval is automatically denied. The Engine sends an `ApprovalDismissMessage` to the Gateway, which removes the approval UI (inline keyboard in Telegram, callback in Discord). The old heartbeat completes gracefully — the LLM receives a "rejected" response for the tool call. The new heartbeat then starts.
+- If the previous run is **actively executing** (not blocked on approval), the new run waits for it to finish before starting.
+
+This auto-deny behavior prevents stale approval prompts from blocking future heartbeat runs indefinitely.
+
+---
+
+## Heartbeat JSONL Logs
+
+The full LLM dialog from each heartbeat run is persisted to daily JSONL files:
+
+**Path:** `$XDG_DATA_HOME/klaw/conversations/heartbeat/YYYY-MM-DD.jsonl`
+(typically `~/.local/share/klaw/conversations/heartbeat/`)
+
+- One file per UTC day, append-only
+- Contains all messages except the system prompt (user instructions, assistant responses, tool calls, tool results)
+- Each line is a JSON object with `id`, `ts`, `role`, and content/tool_call fields
+- I/O errors during persistence do not block gateway delivery — heartbeat results are always queued for the user
+
+This provides an audit trail of what each heartbeat run examined and decided.
 
 ---
 

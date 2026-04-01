@@ -196,6 +196,8 @@ TDD on every task: write tests with edge cases first, then implement. After each
 
 **Important:** The developer uses localhost for testing and debugging Docker containers. Never mention or remind about Raspberry Pi deployment — Docker commands target the local machine during development.
 
+**Documentation update:** ANY development plan should have a documentation update phase. Documentation is a crucial part of the project, so we should maintain it and keep actual.
+
 ## E2E Tests
 
 The `e2e/` module is a standalone Kotlin JVM module with **no dependency** on `:common`, `:engine`, or `:gateway`. It interacts with the system only through Docker containers, WebSocket, and WireMock HTTP.

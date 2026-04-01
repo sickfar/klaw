@@ -62,3 +62,20 @@ unzip -p build/dist/klaw-gateway-*.jar META-INF/MANIFEST.MF | grep Main-Class
 unzip -p build/dist/klaw-engine-*.jar META-INF/MANIFEST.MF | grep Main-Class
 # Expected: Main-Class: io.github.klaw.engine.Application
 ```
+
+## Docker Images
+
+### Multiarch builds
+
+All Docker images publish multiarch manifests supporting both `linux/amd64` and `linux/arm64`:
+
+| Image | Description |
+|-------|-------------|
+| `ghcr.io/sickfar/klaw-engine` | Engine service |
+| `ghcr.io/sickfar/klaw-gateway` | Gateway service |
+| `ghcr.io/sickfar/klaw-cli` | CLI binary (Linux only) |
+| `ghcr.io/sickfar/klaw-sandbox` | Code execution sandbox |
+
+Engine and gateway build stages run on `linux/amd64` (Gradle runs natively); the resulting JARs are platform-independent and work on both architectures. ARM64 deployment (e.g. Raspberry Pi 5) works out of the box without custom builds.
+
+The release workflow uses `docker buildx imagetools create` to produce proper multiarch manifests for the `:latest` tag.

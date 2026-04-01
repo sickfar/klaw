@@ -59,9 +59,11 @@ The `anthropic` type uses the official Anthropic Java SDK. It handles the differ
 
 ## Top-Level Structure
 
-The config has 19 top-level fields organized into logical groups:
+The config has 20 top-level fields organized into logical groups:
 
 **LLM providers & routing:** `providers`, `models`, `routing`
+
+**Workspace:** `workspace`
 
 **Memory system:** `memory` (embedding, chunking, search, autoRag, compaction, consolidation)
 
@@ -96,6 +98,7 @@ Full config with multiple providers and overrides:
 
 ```json
 {
+  "workspace": null,
   "providers": {
     "anthropic": {
       "apiKey": "${ANTHROPIC_API_KEY}"
@@ -184,7 +187,11 @@ Full config with multiple providers and overrides:
     "maxConcurrentLlm": 2,
     "maxToolCallRounds": 50,
     "maxToolOutputChars": 8000,
-    "maxDebounceEntries": 1000
+    "maxDebounceEntries": 1000,
+    "streaming": {
+      "enabled": false,
+      "throttleMs": 50
+    }
   },
   "logging": {
     "subagentConversations": false
@@ -266,6 +273,20 @@ Example: if `routing.tasks.summarization = "zai/glm-5"` and `routing.fallback = 
 - **`ContextLengthExceededError`** — skips the fallback chain entirely and is thrown immediately. Retrying with a different model would not help since the context is too large.
 - **`AllProvidersFailedError`** — thrown when all models in the chain fail. The user sees "All LLM providers are unreachable. Please try again later."
 
+### Stop reason notices
+
+When an LLM response finishes with an abnormal stop reason, a notice is automatically appended to the delivered message. This is always-on and requires no configuration.
+
+| Stop reason | Notice shown to user |
+|-------------|---------------------|
+| `content_filter` | `[Response stopped: content filter triggered]` |
+| `length` / `max_tokens` | `[Response stopped: output token limit reached]` |
+| `stop_sequence` | `[Response stopped: stop sequence]` (with stop reason value if available) |
+| Anthropic `stop_reason` | `[Response stopped: stop_reason=<value>]` (when `stop_reason` is present and raw reason is not `end_turn`/`stop_sequence`) |
+| Other (custom/vLLM) | `[Response stopped: <raw_value>]` |
+
+Normal stop reasons (`stop`, `end_turn`, `tool_use`, `tool_calls`) produce no notice. The notice is appended to the delivered content only — the database content is not modified.
+
 ### Consolidation model cascade
 
 The consolidation task resolves its model via a cascade:
@@ -329,6 +350,25 @@ Both `injectInto` and `channel` must be set for delivery to work. If either is m
 
 See `doc/scheduling/heartbeat.md` for details.
 
+## workspace
+
+Optional path to the workspace directory. Overrides the default `$KLAW_WORKSPACE` location.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `workspace` | string | `null` | Absolute path to workspace directory. When set, overrides `$KLAW_WORKSPACE` env var. Used for OpenClaw migration to point to an existing workspace. |
+
+## processing.streaming
+
+Configures real-time token-by-token streaming of LLM responses to channels.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `streaming.enabled` | bool | `false` | Enable streaming for interactive responses. When enabled, tokens are sent progressively to the user instead of waiting for the full response. |
+| `streaming.throttleMs` | long | `50` | Minimum interval in milliseconds between stream deltas sent to the gateway. Lower values give smoother output but higher message frequency. |
+
+Streaming works across all channels: WebSocket (local chat), Telegram (via message drafts), and Discord. The engine uses SSE (Server-Sent Events) for OpenAI-compatible providers and native streaming for Anthropic.
+
 ## docs
 
 Controls the built-in documentation service. Documentation is embedded in the engine JAR and indexed at startup.
@@ -360,7 +400,7 @@ Controls the `host_exec` tool — running shell commands directly on the host ou
 | `preValidation.enabled` | bool | `true` | Enable LLM-based pre-validation of host commands. |
 | `preValidation.model` | string | `""` | Model used for pre-validation checks. |
 | `preValidation.riskThreshold` | int | `5` | Risk score threshold above which commands are blocked. |
-| `preValidation.timeoutMs` | long | `5000` | Timeout in milliseconds for the pre-validation LLM call. |
+| `preValidation.timeoutMs` | long | `60000` | Timeout in milliseconds for the pre-validation LLM call. |
 | `askTimeoutMin` | int | `0` | Timeout in minutes for user confirmation prompts (0 = no timeout). |
 
 ## skills
@@ -481,6 +521,7 @@ Image analysis and inline vision support. Enables the `image_analyze` tool and a
 | `maxImageSizeBytes` | long | `10485760` (10MB) | Maximum image file size. |
 | `maxImagesPerMessage` | int | `5` | Maximum images per message for inline vision. |
 | `supportedFormats` | string[] | `["image/jpeg", "image/png", "image/gif", "image/webp"]` | Allowed image MIME types. |
+| `attachmentsDirectory` | string | `""` | Path to gateway attachments directory. Must match `attachments.directory` in `gateway.json`. Required for Telegram/Discord image support. |
 
 **How it works:**
 - **Vision-capable models** (as indicated in `model-registry.json`) receive images inline as multimodal content.

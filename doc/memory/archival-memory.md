@@ -30,7 +30,7 @@ All data in SQLite is cache/index only and can be rebuilt via `klaw reindex`.
 `memory_search` runs two parallel searches and merges results:
 
 1. **Semantic (KNN):** Query embedding matched against `vec_memory` using sqlite-vec cosine distance. Skipped if sqlite-vec is unavailable.
-2. **Full-text (FTS5):** Query matched against `messages_fts` using SQLite FTS5 ranking.
+2. **Full-text (FTS5):** Query matched against `memory_facts_fts` using SQLite FTS5 ranking.
 3. **Fusion:** Results merged via Reciprocal Rank Fusion (RRF, k=60). Each result's score = sum of `1/(k + rank + 1)` across both lists.
 
 Top-K results (default 10) are returned, formatted as `[source] (timestamp)\ncontent`.

@@ -2,7 +2,35 @@
 
 ## How commands work
 
-Slash commands arrive as `type: "command"` messages from the Gateway. The Engine handles them directly — the LLM is not invoked. The agent only sees the resulting state change (e.g. a new session segment after `/new`), not the command itself.
+Slash commands are handled entirely by the Engine — the LLM is not invoked. The agent only sees the resulting state change (e.g. a new session segment after `/new`), not the command itself.
+
+### Architecture
+
+The Engine is the single source of truth for all slash commands. Each built-in command is a Micronaut bean implementing `EngineSlashCommand`. Commands are collected into `EngineCommandRegistry`, which provides lookup by name and introspection of all available commands.
+
+Commands arrive as `type: "command"` messages from the Gateway. The `CommandHandler` dispatches them to the appropriate `EngineSlashCommand` bean via the registry.
+
+### Command registration in channels
+
+The Gateway periodically syncs the command list from the Engine (every 60 seconds) and registers them natively in each channel:
+- **Telegram** — `setMyCommands` API call (commands appear in the bot menu)
+- **Discord** — application commands registration
+
+Sync uses change detection by command name — commands are only re-registered when the list changes. This ensures commands are available even if the Engine starts after the Gateway.
+
+### Custom commands
+
+Additional commands can be defined in `engine.json` under `commands[]`:
+
+```json
+{
+  "commands": [
+    { "name": "mycommand", "description": "My custom command" }
+  ]
+}
+```
+
+Custom commands are forwarded to the LLM as user messages (unlike built-in commands which are handled directly). They appear in channel menus alongside built-in commands.
 
 ## /new
 

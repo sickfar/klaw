@@ -34,6 +34,7 @@ Read a file from any accessible directory. For images, behavior depends on model
 | `path` | string | yes | Path — relative (workspace) or with placeholder |
 | `startLine` | integer | no | Starting line number (1-based, text files only) |
 | `maxLines` | integer | no | Maximum number of lines to return (text files only) |
+| `tail` | integer | no | Read the last N lines (mutually exclusive with `startLine`/`maxLines`) |
 
 **Returns:** File contents as text (text files) or multimodal content (images). For images on text-only models, returns a text description. Use `startLine`/`maxLines` for large text files.
 
@@ -75,6 +76,26 @@ Replace a text fragment in a file by exact match (workspace-only).
 | `old_string` | string | yes | Text to replace (exact match) |
 | `new_string` | string | yes | Replacement text |
 | `force_first` | boolean | no | Replace first occurrence when multiple matches exist |
+
+## file_glob
+
+Search for files matching a glob pattern within accessible directories.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `pattern` | string | yes | Glob pattern (e.g. `**/*.kt`, `src/*.json`, `*.md`) |
+| `path` | string | no | Base directory to search in — relative (workspace only) or absolute within accessible dirs. Defaults to workspace root |
+
+**Returns:** Newline-separated list of matching file paths (up to 1000 results).
+
+**Pattern syntax:**
+- `*` — matches any file name in a single directory
+- `**` — matches any path depth (including root-level files)
+- `*.kt` — match by extension
+- `src/**/*.kt` — recursive match within a specific directory
+
+Same directory access rules as `file_read` — workspace, state, data, config, and cache directories are accessible.
 
 ## Security
 
