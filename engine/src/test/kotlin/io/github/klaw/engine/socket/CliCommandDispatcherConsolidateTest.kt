@@ -48,6 +48,7 @@ class CliCommandDispatcherConsolidateTest {
             engineConfig,
             mockk(relaxed = true),
             commandsCliHandler,
+            ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
         )
 
     @Test

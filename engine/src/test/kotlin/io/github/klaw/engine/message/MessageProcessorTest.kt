@@ -25,7 +25,6 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -123,8 +122,7 @@ class MessageProcessorTest {
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = userContent),
                 ),
-            includeSkillList = false,
-            includeSkillLoad = false,
+            tools = emptyList(),
         )
 
     @Suppress("LongParameterList")
@@ -133,7 +131,6 @@ class MessageProcessorTest {
         sessionManager: SessionManager = mockk(relaxed = true),
         messageRepository: MessageRepository = mockk(relaxed = true),
         contextBuilder: ContextBuilder = mockk(relaxed = true),
-        toolRegistry: ToolRegistry = mockk(relaxed = true),
         llmRouter: LlmRouter = mockk(relaxed = true),
         toolExecutor: ToolExecutor = mockk(relaxed = true),
         socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
@@ -145,7 +142,6 @@ class MessageProcessorTest {
             sessionManager = sessionManager,
             messageRepository = messageRepository,
             contextBuilder = contextBuilder,
-            toolRegistry = toolRegistry,
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
             socketServerProvider = socketServerProvider,
@@ -181,8 +177,6 @@ class MessageProcessorTest {
                 makeLlmResponse("")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
             val toolExecutor = ScheduleDeliverAwareToolExecutor()
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
@@ -195,7 +189,6 @@ class MessageProcessorTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     toolExecutor = toolExecutor,
                     messageRepository = messageRepository,
                     messageEmbeddingService = mockk(relaxed = true),
@@ -251,8 +244,6 @@ class MessageProcessorTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Background task done")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
@@ -263,7 +254,6 @@ class MessageProcessorTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -307,9 +297,6 @@ class MessageProcessorTest {
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Background task done")
 
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
-
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
 
@@ -318,7 +305,6 @@ class MessageProcessorTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -338,32 +324,29 @@ class MessageProcessorTest {
             val sessionManager = mockk<SessionManager>(relaxed = true)
             coEvery { sessionManager.getOrCreate(any(), any()) } returns session
 
+            val includeScheduleDeliverSlot = slot<Boolean>()
+            val includeSendMessageSlot = slot<Boolean>()
             val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-            coEvery { contextBuilder.buildContext(any(), any(), isSubagent = true, taskName = any()) } returns
-                makeContextResult("background task")
+            coEvery {
+                contextBuilder.buildContext(
+                    any(),
+                    any(),
+                    isSubagent = any(),
+                    taskName = any(),
+                    senderContext = any(),
+                    includeScheduleDeliver = capture(includeScheduleDeliverSlot),
+                    includeSendMessage = capture(includeSendMessageSlot),
+                )
+            } returns makeContextResult("background task")
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
-
-            val includeScheduleDeliverSlot = slot<Boolean>()
-            val includeSendMessageSlot = slot<Boolean>()
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery {
-                toolRegistry.listTools(
-                    any(),
-                    any(),
-                    any(),
-                    capture(includeScheduleDeliverSlot),
-                    capture(includeSendMessageSlot),
-                )
-            } returns emptyList()
 
             val processor =
                 buildProcessor(
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    toolRegistry = toolRegistry,
                 )
 
             processor
@@ -398,9 +381,6 @@ class MessageProcessorTest {
             coEvery { llmRouter.chat(match { req -> req.messages.any { it.role == "tool" } }, any()) } returns
                 makeLlmResponse("")
 
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
-
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
                 messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any(), any())
@@ -420,7 +400,6 @@ class MessageProcessorTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    toolRegistry = toolRegistry,
                     toolExecutor = chatContextCapturingExecutor,
                     messageRepository = messageRepository,
                     messageEmbeddingService = mockk(relaxed = true),

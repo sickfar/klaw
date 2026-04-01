@@ -30,7 +30,6 @@ import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SummaryService
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.context.WorkspaceLoader
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.llm.LlmRouter
@@ -165,7 +164,6 @@ class MessageProcessorEmbeddingTest {
                 coEvery { listAll() } returns emptyList()
                 every { discover() } returns Unit
             }
-        val toolRegistry = mockk<ToolRegistry> { coEvery { listTools(any(), any()) } returns emptyList() }
         val autoRagService =
             mockk<AutoRagService> { coEvery { search(any(), any(), any(), any(), any()) } returns emptyList() }
         val subagentHistoryLoader =
@@ -197,6 +195,9 @@ class MessageProcessorEmbeddingTest {
                 messageRepository = messageRepository,
                 summaryService = summaryService,
                 skillRegistry = skillRegistry,
+                toolRegistry =
+                    io.github.klaw.engine.context.stubs
+                        .StubToolRegistry(),
                 config = config,
                 autoRagService = autoRagService,
                 subagentHistoryLoader = subagentHistoryLoader,
@@ -210,7 +211,6 @@ class MessageProcessorEmbeddingTest {
             sessionManager = sessionManager,
             messageRepository = messageRepository,
             contextBuilder = builder,
-            toolRegistry = toolRegistry,
             llmRouter = buildLlmRouter(config),
             toolExecutor = toolExecutor,
             socketServerProvider = { socketServer },
@@ -374,12 +374,11 @@ class MessageProcessorEmbeddingTest {
         val taskNameSlot = slot<String?>()
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
-            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any())
+            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any(), any(), any())
         } returns
             io.github.klaw.engine.context.ContextResult(
                 messages = listOf(LlmMessage(role = "system", content = "test")),
-                includeSkillList = false,
-                includeSkillLoad = false,
+                tools = emptyList(),
             )
 
         val config = buildTestConfig(loggingEnabled = false)
@@ -414,12 +413,11 @@ class MessageProcessorEmbeddingTest {
         val taskNameSlot = slot<String?>()
         val contextBuilder = mockk<ContextBuilder>()
         coEvery {
-            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any())
+            contextBuilder.buildContext(any(), any(), any(), captureNullable(taskNameSlot), any(), any(), any())
         } returns
             io.github.klaw.engine.context.ContextResult(
                 messages = listOf(LlmMessage(role = "system", content = "test")),
-                includeSkillList = false,
-                includeSkillLoad = false,
+                tools = emptyList(),
             )
 
         val config = buildTestConfig()

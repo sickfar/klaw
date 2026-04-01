@@ -45,6 +45,7 @@ class ContextBuilderTest {
     private val workspaceLoader = mockk<WorkspaceLoader>()
     private val summaryService = mockk<SummaryService>()
     private val skillRegistry = mockk<SkillRegistry>()
+    private val toolRegistry = mockk<ToolRegistry>()
     private val autoRagService = mockk<AutoRagService>()
     private val subagentHistoryLoader = mockk<SubagentHistoryLoader>()
     private val healthProvider = mockk<EngineHealthProvider>()
@@ -124,6 +125,7 @@ class ContextBuilderTest {
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
+            toolRegistry = toolRegistry,
             config = config,
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,
@@ -144,6 +146,7 @@ class ContextBuilderTest {
         coEvery { skillRegistry.listSkillDescriptions() } returns emptyList()
         coEvery { skillRegistry.listAll() } returns emptyList()
         io.mockk.every { skillRegistry.discover() } returns Unit
+        coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { autoRagService.search(any(), any(), any(), any(), any()) } returns emptyList()
         coEvery { subagentHistoryLoader.loadHistory(any(), any()) } returns emptyList()
         io.mockk.coEvery { healthProvider.getContextStatus() } returns
@@ -900,8 +903,15 @@ class ContextBuilderTest {
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertFalse(result.includeSkillList, "skill_list should not be included when skills are inlined")
-            assertTrue(result.includeSkillLoad, "skill_load should be available when skills exist")
+            coVerify {
+                toolRegistry.listTools(
+                    includeSkillList = false,
+                    includeSkillLoad = true,
+                    includeHeartbeatDeliver = any(),
+                    includeScheduleDeliver = any(),
+                    includeSendMessage = any(),
+                )
+            }
 
             val systemContent = result.messages[0].content!!
             assertTrue(systemContent.contains("## Available Skills"), "System prompt should have inline skills section")
@@ -921,8 +931,15 @@ class ContextBuilderTest {
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertTrue(result.includeSkillList, "skill_list should be included when skills exceed threshold")
-            assertTrue(result.includeSkillLoad, "skill_load should be available when skills exist")
+            coVerify {
+                toolRegistry.listTools(
+                    includeSkillList = true,
+                    includeSkillLoad = true,
+                    includeHeartbeatDeliver = any(),
+                    includeScheduleDeliver = any(),
+                    includeSendMessage = any(),
+                )
+            }
 
             val systemContent = result.messages[0].content!!
             assertFalse(
@@ -942,8 +959,15 @@ class ContextBuilderTest {
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertFalse(result.includeSkillList, "skill_list should not be included at exactly threshold")
-            assertTrue(result.includeSkillLoad, "skill_load should be available")
+            coVerify {
+                toolRegistry.listTools(
+                    includeSkillList = false,
+                    includeSkillLoad = true,
+                    includeHeartbeatDeliver = any(),
+                    includeScheduleDeliver = any(),
+                    includeSendMessage = any(),
+                )
+            }
 
             val systemContent = result.messages[0].content!!
             assertTrue(systemContent.contains("## Available Skills"), "Skills should be inlined at exactly threshold")
@@ -959,8 +983,15 @@ class ContextBuilderTest {
 
             val result = contextBuilder.buildContext(session, emptyList(), isSubagent = false)
 
-            assertFalse(result.includeSkillList, "skill_list should not be included with zero skills")
-            assertFalse(result.includeSkillLoad, "skill_load should not be included with zero skills")
+            coVerify {
+                toolRegistry.listTools(
+                    includeSkillList = false,
+                    includeSkillLoad = false,
+                    includeHeartbeatDeliver = any(),
+                    includeScheduleDeliver = any(),
+                    includeSendMessage = any(),
+                )
+            }
 
             val systemContent = result.messages[0].content!!
             assertFalse(
@@ -1442,5 +1473,59 @@ class ContextBuilderTest {
             assertFalse(systemContent.contains("\"id\""), "Should NOT contain id when null")
             assertFalse(systemContent.contains("\"chat_title\""), "Should NOT contain chat_title when null")
             assertFalse(systemContent.contains("\"message_id\""), "Should NOT contain message_id when null")
+        }
+
+    @Test
+    fun `diagnostics is null when includeDiagnostics is false`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns "System prompt"
+            val contextBuilder = buildContextBuilder(buildConfig())
+            val result = contextBuilder.buildContext(buildSession(), listOf("hello"), isSubagent = false)
+            assertEquals(null, result.diagnostics)
+        }
+
+    @Test
+    fun `diagnostics populated when includeDiagnostics is true`() =
+        runTest {
+            coEvery { workspaceLoader.loadSystemPrompt() } returns "System prompt for diagnostics test"
+            val config = buildConfig(contextBudget = 10000)
+            val contextBuilder = buildContextBuilder(config)
+            val session = buildSession()
+
+            // Insert a few messages
+            messageRepository.save("m1", "test", session.chatId, "user", "text", "Hello world", null, 10)
+            messageRepository.save("m2", "test", session.chatId, "assistant", "text", "Hi there!", null, 8)
+
+            val result =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("pending question"),
+                    isSubagent = false,
+                    includeDiagnostics = true,
+                )
+
+            val diag = result.diagnostics!!
+            assertEquals(10000, result.budget)
+            assertTrue(diag.systemPromptTokens > 0)
+            assertTrue(diag.systemPromptChars > 0)
+            assertEquals(0, diag.summaryTokens)
+            assertEquals(0, diag.summaryChars)
+            assertTrue(diag.pendingTokens > 0)
+            assertTrue(diag.pendingChars > 0)
+            assertEquals(
+                diag.systemPromptTokens + diag.summaryTokens + diag.pendingTokens + diag.toolTokens,
+                diag.overhead,
+            )
+            assertEquals(10000 - diag.overhead, diag.messageBudget)
+            assertEquals(2, diag.windowMessageCount)
+            assertTrue(diag.windowMessageTokens > 0)
+            assertTrue(diag.windowMessageChars > 0)
+            assertTrue(diag.windowTokenCharRatio > 0.0)
+            assertEquals(session.chatId, session.chatId)
+            assertEquals(0, diag.summaryCount)
+            assertFalse(diag.hasEvictedSummaries)
+            assertFalse(diag.autoRagEnabled)
+            assertFalse(diag.autoRagTriggered)
+            assertFalse(diag.compactionEnabled)
         }
 }

@@ -66,6 +66,7 @@ class CliCommandDispatcherTest {
             engineConfig,
             doctorDeepProbe,
             commandsCliHandler,
+            ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
         )
 
     @Test

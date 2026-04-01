@@ -97,6 +97,9 @@ class ContextBuilderMemorySummaryTest {
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
+            toolRegistry =
+                io.github.klaw.engine.context.stubs
+                    .StubToolRegistry(),
             config = config,
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,

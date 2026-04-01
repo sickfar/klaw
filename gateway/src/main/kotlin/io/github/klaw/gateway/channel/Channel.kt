@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import kotlin.time.Instant
 
@@ -11,6 +12,10 @@ interface Channel {
     var onBecameAlive: (suspend () -> Unit)?
 
     suspend fun listen(onMessage: suspend (IncomingMessage) -> Unit)
+
+    suspend fun updateCommands(commands: List<SlashCommand>) {
+        // Default: no-op. Channels that support command menus override this.
+    }
 
     suspend fun send(
         chatId: String,

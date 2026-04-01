@@ -114,6 +114,9 @@ class ContextBuilderToolCallTest {
             messageRepository = messageRepository,
             summaryService = summaryService,
             skillRegistry = skillRegistry,
+            toolRegistry =
+                io.github.klaw.engine.context.stubs
+                    .StubToolRegistry(),
             config = buildConfig(),
             autoRagService = autoRagService,
             subagentHistoryLoader = subagentHistoryLoader,

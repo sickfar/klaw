@@ -46,6 +46,7 @@ class CliCommandDispatcher(
     private val config: EngineConfig,
     private val doctorDeepProbe: DoctorDeepProbe,
     private val commandsCliHandler: CommandsCliHandler,
+    private val contextDiagnoseHandler: ContextDiagnoseHandler,
 ) {
     suspend fun dispatch(request: CliRequestMessage): String {
         logger.debug { "CLI command: ${request.command}" }
@@ -156,6 +157,10 @@ class CliCommandDispatcher(
 
                 "doctor_deep" -> {
                     doctorDeepProbe.probe()
+                }
+
+                "context_diagnose" -> {
+                    contextDiagnoseHandler.handle(request.params)
                 }
 
                 else -> {

@@ -18,7 +18,6 @@ import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.SenderContext
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.CliCommandDispatcher
@@ -59,7 +58,6 @@ class MessageProcessor(
     private val sessionManager: SessionManager,
     private val messageRepository: MessageRepository,
     private val contextBuilder: ContextBuilder,
-    private val toolRegistry: ToolRegistry,
     private val llmRouter: LlmRouter,
     private val toolExecutor: ToolExecutor,
     private val socketServerProvider: Provider<EngineSocketServer>,
@@ -153,24 +151,20 @@ class MessageProcessor(
                                 sessionManager.updateModel(chatId, message.model)
                             }
 
+                            val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
                             val contextResult =
                                 contextBuilder.buildContext(
                                     session,
                                     listOf(message.message),
                                     isSubagent = true,
                                     taskName = message.name,
+                                    includeScheduleDeliver = sink != null,
+                                    includeSendMessage = false,
                                 )
                             logger.debug {
                                 "Subagent context built: name=${message.name}, contextMsgCount=${contextResult.messages.size}"
                             }
-                            val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
-                            val tools =
-                                toolRegistry.listTools(
-                                    includeSkillList = contextResult.includeSkillList,
-                                    includeSkillLoad = contextResult.includeSkillLoad,
-                                    includeScheduleDeliver = sink != null,
-                                    includeSendMessage = false,
-                                )
+                            val tools = contextResult.tools
 
                             // Persist scheduled user message before LLM call
                             if (config.logging.subagentConversations) {
@@ -405,11 +399,7 @@ class MessageProcessor(
                         "Context built: chatId=$chatId contextMsgs=${contextResult.messages.size}" +
                             " uncoveredTokens=${contextResult.uncoveredMessageTokens}"
                     }
-                    val tools: List<ToolDef> =
-                        toolRegistry.listTools(
-                            includeSkillList = contextResult.includeSkillList,
-                            includeSkillLoad = contextResult.includeSkillLoad,
-                        )
+                    val tools = contextResult.tools
 
                     val registryContextLength = ModelRegistry.contextLength(session.model)
                     val rawBudget =

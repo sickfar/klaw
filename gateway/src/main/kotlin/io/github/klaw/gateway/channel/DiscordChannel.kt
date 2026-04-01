@@ -10,9 +10,9 @@ import dev.kord.core.on
 import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.request.RestRequestException
+import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
-import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
@@ -59,7 +59,6 @@ private val logger = KotlinLogging.logger {}
 class DiscordChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
-    private val commandRegistry: GatewayCommandRegistry,
 ) : Channel {
     override val name = "discord"
 
@@ -69,6 +68,7 @@ class DiscordChannel(
     @Volatile
     override var onBecameAlive: (suspend () -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var kord: Kord? = null
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
     internal val typingJobs = ConcurrentHashMap<String, Job>()
     internal val pendingInteractions = ConcurrentHashMap<String, DeferredResponse>()
@@ -77,6 +77,7 @@ class DiscordChannel(
     internal var selfBotId: String? = null
     internal var typingScope: CoroutineScope = scope
     internal var sendAction: suspend (channelId: String, content: String) -> Unit = { _, _ -> }
+    internal var registerCommandsAction: (suspend (List<SlashCommand>) -> Unit)? = null
     internal var typingAction: suspend (channelId: String) -> Unit = { _ -> }
     internal var sendApprovalAction: suspend (channelId: String, content: String, approvalId: String) -> Unit =
         { _, _, _ -> }
@@ -134,27 +135,41 @@ class DiscordChannel(
     }
 
     private suspend fun initKordDefault(token: String) {
-        val kord = Kord(token)
-        selfBotId = kord.selfId.toString()
+        val k = Kord(token)
+        kord = k
+        selfBotId = k.selfId.toString()
 
-        registerSlashCommands(kord)
-        setupKordActions(kord)
-        setupKordListeners(kord)
+        setupKordActions(k)
+        setupKordListeners(k)
     }
 
-    private suspend fun registerSlashCommands(kord: Kord) {
-        runCatching {
-            val commands = commandRegistry.allCommands()
-            if (commands.isNotEmpty()) {
-                kord.createGlobalApplicationCommands {
-                    commands.forEach { cmd ->
-                        input(cmd.name, cmd.description)
-                    }
-                }
-                logger.debug { "Registered ${commands.size} Discord slash commands" }
+    override suspend fun updateCommands(commands: List<SlashCommand>) {
+        try {
+            val action = registerCommandsAction
+            if (action != null) {
+                action(commands)
+            } else {
+                val k = kord ?: return
+                doRegisterCommands(k, commands)
             }
-        }.onFailure { e ->
+            logger.debug { "Registered ${commands.size} Discord slash commands" }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RestRequestException) {
             logger.warn(e) { "Failed to register Discord slash commands" }
+        } catch (e: IOException) {
+            logger.warn(e) { "Failed to register Discord slash commands" }
+        }
+    }
+
+    private suspend fun doRegisterCommands(
+        k: Kord,
+        commands: List<SlashCommand>,
+    ) {
+        k.createGlobalApplicationCommands {
+            commands.forEach { cmd ->
+                input(cmd.name, cmd.description)
+            }
         }
     }
 

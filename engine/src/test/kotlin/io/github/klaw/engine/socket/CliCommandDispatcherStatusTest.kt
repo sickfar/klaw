@@ -77,6 +77,7 @@ class CliCommandDispatcherStatusTest {
             engineConfig,
             mockk(relaxed = true),
             commandsCliHandler,
+            ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
         )
 
     private fun stubSessions(count: Int = 2) {

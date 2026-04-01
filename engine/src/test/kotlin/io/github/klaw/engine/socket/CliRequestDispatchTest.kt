@@ -44,6 +44,7 @@ class CliRequestDispatchTest {
             config = mockk(relaxed = true),
             doctorDeepProbe = mockk(relaxed = true),
             commandsCliHandler = mockk(relaxed = true),
+            contextDiagnoseHandler = ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
         )
 
     @Test

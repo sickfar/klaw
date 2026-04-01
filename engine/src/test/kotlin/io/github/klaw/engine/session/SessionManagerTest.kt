@@ -214,4 +214,66 @@ class SessionManagerTest {
             val totalTokens = sessionManager.getTokenCount("chat-no-msgs")
             assertEquals(0L, totalTokens, "Should return 0 when no messages exist")
         }
+
+    @Test
+    fun `getSession returns null for unknown chatId`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            val result = sessionManager.getSession("chat-unknown-xyz")
+
+            assertTrue(result == null, "Should return null for unknown chatId")
+        }
+
+    @Test
+    fun `getSession returns session without updating updatedAt`() =
+        runTest {
+            val (sessionManager, db) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-readonly", "glm-5")
+            val originalRow = db.sessionsQueries.getSession("chat-readonly").executeAsOneOrNull()
+            assertNotNull(originalRow)
+            checkNotNull(originalRow)
+            val originalUpdatedAt = originalRow.updated_at
+
+            val result = sessionManager.getSession("chat-readonly")
+
+            assertNotNull(result)
+            checkNotNull(result)
+            assertEquals("chat-readonly", result.chatId)
+            assertEquals("glm-5", result.model)
+
+            // updatedAt in DB must NOT have changed
+            val rowAfter = db.sessionsQueries.getSession("chat-readonly").executeAsOneOrNull()
+            assertNotNull(rowAfter)
+            checkNotNull(rowAfter)
+            assertEquals(originalUpdatedAt, rowAfter.updated_at, "getSession must not update updated_at in DB")
+        }
+
+    @Test
+    fun `getMostRecentSession returns null when no sessions`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            val result = sessionManager.getMostRecentSession()
+
+            assertTrue(result == null, "Should return null when there are no sessions")
+        }
+
+    @Test
+    fun `getMostRecentSession returns session with latest updatedAt`() =
+        runTest {
+            val (sessionManager, _) = createSessionManager()
+
+            sessionManager.getOrCreate("chat-older", "glm-5")
+            // Touch chat-newer a second time so its updatedAt is more recent
+            sessionManager.getOrCreate("chat-newer", "deepseek")
+            sessionManager.getOrCreate("chat-newer", "deepseek")
+
+            val result = sessionManager.getMostRecentSession()
+
+            assertNotNull(result)
+            checkNotNull(result)
+            assertEquals("chat-newer", result.chatId, "Should return the session with the latest updatedAt")
+        }
 }

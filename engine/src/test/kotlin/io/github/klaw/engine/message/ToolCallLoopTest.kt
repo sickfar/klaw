@@ -12,6 +12,7 @@ import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolResult
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.llm.LlmClient
 import io.github.klaw.engine.llm.LlmRouter
@@ -22,9 +23,12 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -362,7 +366,7 @@ class ToolCallLoopTest {
             val mockToolExecutor = mockk<ToolExecutor>()
 
             val toolCall = ToolCall(id = "call-1", name = "verbose_tool", arguments = "{}")
-            val hugeOutput = "x".repeat(10000) // 10000 chars — exceeds both 100 and 8000 defaults
+            val hugeOutput = "x".repeat(10000) // 10000 chars — exceeds the 100 limit set below
 
             coEvery {
                 mockClient.chat(any(), any(), any())
@@ -484,7 +488,14 @@ class ToolCallLoopTest {
             assertEquals("assistant", toolCallMsgs[0].role)
             assertEquals(1, toolResultMsgs.size, "Should have 1 tool_result message in DB")
             assertEquals("tool", toolResultMsgs[0].role)
-            assertEquals("tool output", toolResultMsgs[0].content)
+            assertTrue(
+                toolResultMsgs[0].content.startsWith("<tool_result"),
+                "Persisted content must be XML-wrapped",
+            )
+            assertTrue(
+                toolResultMsgs[0].content.contains("tool output"),
+                "Persisted content must contain raw tool output",
+            )
             assertEquals("call-1", toolResultMsgs[0].metadata)
         }
 
@@ -841,5 +852,196 @@ class ToolCallLoopTest {
 
             // Should remain as approximateTokenCount("tool output here") — not zero, not corrected
             assertTrue(toolResultMsg.tokens > 0, "Should have approximate tokens, not zero")
+        }
+
+    // ---- Task 2: enforceOutputLimit (cache spill) tests ----
+
+    @Test
+    fun `tool result exceeding limit is truncated and spilled to cache`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "verbose_tool", arguments = "{}")
+            val fullContent = "A".repeat(5000) // 5000 chars > 500 limit
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = fullContent))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    maxToolOutputChars = 500, // large enough for the marker + cache path to fit
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Go"))
+            runner.run(context, testSession)
+
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg)
+            val content = toolMsg!!.content!!
+            // Content in context is XML-wrapped, the raw part inside should reflect the truncation
+            assertTrue(content.contains("truncated at 5000 chars"), "Must contain truncation marker with original size")
+            assertTrue(content.contains("full output saved to:"), "Must contain path reference")
+            // Extract the file path from the marker
+            val pathStart = content.indexOf("full output saved to: ") + "full output saved to: ".length
+            val pathEnd = content.indexOf("\n", pathStart).let { if (it == -1) content.length else it }
+            // Remove any XML closing tags from path
+            val filePath = content.substring(pathStart, pathEnd).substringBefore("<")
+            val cacheFile = Path.of(filePath.trim())
+            assertTrue(Files.exists(cacheFile), "Cache file must exist at: $filePath")
+            assertEquals(fullContent, Files.readString(cacheFile), "Cache file must contain full content")
+        }
+
+    @Test
+    fun `truncation marker fits within limit`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "verbose_tool", arguments = "{}")
+            val fullContent = "B".repeat(5000) // well over limit
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = fullContent))
+
+            val limit = 500 // large enough for the cache path marker to fit
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    maxToolOutputChars = limit,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Go"))
+            runner.run(context, testSession)
+
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg)
+            val content = toolMsg!!.content!!
+            // Extract inner content (between first > and last </tool_result>)
+            val innerStart = content.indexOf(">") + 1
+            val innerEnd = content.lastIndexOf("</tool_result>")
+            val inner = content.substring(innerStart, innerEnd).trim()
+            // inner = raw ToolResult content after enforceOutputLimit, which must be <= limit
+            assertTrue(
+                inner.length <= limit,
+                "Raw result before XML wrapping must fit within limit, was: ${inner.length}",
+            )
+        }
+
+    @Test
+    fun `tool result within limit passes through unchanged`() =
+        runTest {
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-1", name = "small_tool", arguments = "{}")
+            val smallContent = "Small result"
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-1", content = smallContent))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    maxToolOutputChars = 1000,
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Go"))
+            runner.run(context, testSession)
+
+            val toolMsg = context.find { it.role == "tool" }
+            assertNotNull(toolMsg)
+            val content = toolMsg!!.content!!
+            assertTrue(content.contains(smallContent), "Small content must be preserved unchanged in context")
+            assertFalse(content.contains("truncated"), "No truncation for small content")
+            assertFalse(content.contains("full output saved to:"), "No cache file for small content")
+        }
+
+    // ---- Task 3: persisted tool result content is XML-wrapped ----
+
+    @Test
+    fun `persisted tool result content is XML-wrapped`() =
+        runTest {
+            val driver = JdbcSqliteDriver("jdbc:sqlite:")
+            KlawDatabase.Schema.create(driver)
+            val db = KlawDatabase(driver)
+            val messageRepository = MessageRepository(db)
+
+            val mockClient = mockk<LlmClient>()
+            val mockToolExecutor = mockk<ToolExecutor>()
+
+            val toolCall = ToolCall(id = "call-xml", name = "my_tool", arguments = "{}")
+            val rawContent = "some tool output"
+
+            coEvery {
+                mockClient.chat(any(), any(), any())
+            } returnsMany
+                listOf(
+                    LlmResponse(null, listOf(toolCall), null, FinishReason.TOOL_CALLS),
+                    LlmResponse("Done", null, null, FinishReason.STOP),
+                )
+
+            coEvery { mockToolExecutor.executeAll(any()) } returns
+                listOf(ToolResult(callId = "call-xml", content = rawContent))
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter = buildRouter { mockClient },
+                    toolExecutor = mockToolExecutor,
+                    maxRounds = 5,
+                    messageRepository = messageRepository,
+                    channel = "telegram",
+                    chatId = "chat-xml",
+                )
+
+            val context = mutableListOf(LlmMessage(role = "user", content = "Hello"))
+            runner.run(context, testSession)
+
+            val messages = messageRepository.getWindowMessages("chat-xml", "2000-01-01T00:00:00Z", 100_000)
+            val toolResultMsg = messages.first { it.type == "tool_result" }
+
+            assertTrue(toolResultMsg.content.startsWith("<tool_result"), "DB content must be XML-wrapped")
+            assertTrue(toolResultMsg.content.contains(rawContent), "DB content must contain raw output")
+            assertTrue(toolResultMsg.content.contains("</tool_result>"), "DB content must have closing tag")
+
+            // Tokens must match the XML-wrapped content, not raw
+            val expectedWrapped =
+                "<tool_result tool_call_id=\"call-xml\">\n$rawContent\n</tool_result>"
+            assertEquals(
+                approximateTokenCount(expectedWrapped),
+                toolResultMsg.tokens,
+                "Tokens must be computed from XML-wrapped content",
+            )
         }
 }

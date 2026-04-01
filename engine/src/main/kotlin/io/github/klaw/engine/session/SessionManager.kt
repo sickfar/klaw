@@ -114,6 +114,22 @@ class SessionManager(
             }
         }
 
+    suspend fun getSession(chatId: String): Session? =
+        withContext(Dispatchers.VT) {
+            db.sessionsQueries.getSession(chatId).executeAsOneOrNull()?.let { row ->
+                logger.debug { "Read-only session lookup chatId=$chatId" }
+                Session(
+                    chatId = row.chat_id,
+                    model = row.model,
+                    segmentStart = row.segment_start,
+                    createdAt = Instant.parse(row.created_at),
+                    updatedAt = Instant.parse(row.updated_at),
+                )
+            }
+        }
+
+    suspend fun getMostRecentSession(): Session? = listSessions().maxByOrNull { it.updatedAt }
+
     suspend fun getTokenCount(chatId: String): Long =
         withContext(Dispatchers.VT) {
             db.messagesQueries.sumTokensByChatId(chatId).executeAsOneOrNull() ?: 0L

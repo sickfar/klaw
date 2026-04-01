@@ -19,10 +19,14 @@ import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.context.event.StartupEvent
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
@@ -40,6 +44,11 @@ class GatewayLifecycle(
     private val commandRegistry: GatewayCommandRegistry,
 ) : ApplicationEventListener<StartupEvent> {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    internal var commandSyncScope: CoroutineScope = scope
+    internal var commandSyncJob: Job? = null
+
+    @Volatile
+    private var registeredCommandNames: Set<String> = emptySet()
 
     override fun onApplicationEvent(event: StartupEvent) {
         configFileWatcher.startWatching { newConfig ->
@@ -49,13 +58,13 @@ class GatewayLifecycle(
         outboundHandler.approvalCallback = { msg -> engineClient.send(msg) }
         engineClient.start()
 
-        // Refresh command registry from engine before starting channels
+        // Initial command registry refresh (best-effort; sync loop will retry)
         @Suppress("TooGenericExceptionCaught")
         runBlocking {
             try {
                 commandRegistry.refresh()
                 logger.debug { "Command registry refreshed from engine" }
-            } catch (e: kotlinx.coroutines.CancellationException) {
+            } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to refresh command registry from engine, using gateway commands only" }
@@ -85,6 +94,45 @@ class GatewayLifecycle(
                     ),
                 )
             }
+        }
+
+        // Periodic command sync: pushes updated commands to all channels
+        startCommandSync()
+    }
+
+    internal fun startCommandSync() {
+        commandSyncJob =
+            commandSyncScope.launch {
+                syncCommands()
+                while (isActive) {
+                    delay(COMMAND_SYNC_INTERVAL_MS)
+                    syncCommands()
+                }
+            }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun syncCommands() {
+        try {
+            val commands = commandRegistry.refresh()
+            if (commands.isEmpty()) return
+            val names = commands.map { it.name }.toSet()
+            if (names == registeredCommandNames) return
+            channels.forEach { channel ->
+                try {
+                    channel.updateCommands(commands)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn { "Command sync failed for ${channel.name}: ${e::class.simpleName}" }
+                }
+            }
+            registeredCommandNames = names
+            logger.debug { "Command sync: pushed ${commands.size} commands to ${channels.size} channel(s)" }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn { "Command sync failed: ${e::class.simpleName}" }
         }
     }
 
@@ -233,6 +281,7 @@ class GatewayLifecycle(
             )
         }
 
+        private const val COMMAND_SYNC_INTERVAL_MS = 60_000L
         private const val CONFIRMATION_EXPIRY_MS = 5L * 60 * 1000
         private val CLEANUP_EXECUTOR =
             java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->

@@ -249,7 +249,7 @@ data class ProcessingConfig(
     @ConfigDoc("Maximum number of tool-call rounds per conversation turn")
     val maxToolCallRounds: Int,
     @ConfigDoc("Maximum characters in tool output before truncation")
-    val maxToolOutputChars: Int = 8000,
+    val maxToolOutputChars: Int = 50_000,
     @ConfigDoc("Maximum messages in the debounce buffer before force-flush")
     val maxDebounceEntries: Int = 1000,
     @ConfigDoc("Subagent execution timeout in milliseconds (default 5 minutes)")

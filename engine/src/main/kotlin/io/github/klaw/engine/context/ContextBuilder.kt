@@ -9,6 +9,7 @@ import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.llm.LlmRequest
 import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.ToolCall
+import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
@@ -47,12 +48,44 @@ data class SenderContext(
     val messageId: String?,
 )
 
+data class ContextDiagnosticsBreakdown(
+    val systemPromptTokens: Int,
+    val systemPromptChars: Int,
+    val summaryTokens: Int,
+    val summaryChars: Int,
+    val pendingTokens: Int,
+    val pendingChars: Int,
+    val toolTokens: Int,
+    val toolChars: Int,
+    val toolCount: Int,
+    val overhead: Int,
+    val messageBudget: Int,
+    val windowMessageCount: Int,
+    val windowMessageTokens: Long,
+    val windowMessageChars: Long,
+    val firstMessageTime: String?,
+    val lastMessageTime: String?,
+    val summaryCount: Int,
+    val hasEvictedSummaries: Boolean,
+    val coverageEnd: String?,
+    val autoRagEnabled: Boolean,
+    val autoRagTriggered: Boolean,
+    val autoRagResultCount: Int,
+    val compactionEnabled: Boolean,
+    val compactionThreshold: Int,
+    val compactionWouldTrigger: Boolean,
+    val skillCount: Int,
+    val inlineSkills: Boolean,
+    val toolNames: List<String>,
+    val windowTokenCharRatio: Double,
+)
+
 data class ContextResult(
     val messages: List<LlmMessage>,
-    val includeSkillList: Boolean,
-    val includeSkillLoad: Boolean,
+    val tools: List<ToolDef>,
     val uncoveredMessageTokens: Long = 0,
     val budget: Int = 0,
+    val diagnostics: ContextDiagnosticsBreakdown? = null,
 )
 
 private val logger = KotlinLogging.logger {}
@@ -66,6 +99,7 @@ class ContextBuilder(
     private val messageRepository: MessageRepository,
     private val summaryService: SummaryService,
     private val skillRegistry: SkillRegistry,
+    private val toolRegistry: ToolRegistry,
     private val config: EngineConfig,
     private val autoRagService: AutoRagService,
     private val subagentHistoryLoader: SubagentHistoryLoader,
@@ -97,6 +131,9 @@ class ContextBuilder(
         isSubagent: Boolean,
         taskName: String? = null,
         senderContext: SenderContext? = null,
+        includeScheduleDeliver: Boolean = false,
+        includeSendMessage: Boolean = true,
+        includeDiagnostics: Boolean = false,
     ): ContextResult {
         skillRegistry.discover()
         val systemPrompt = workspaceLoader.loadSystemPrompt()
@@ -135,10 +172,16 @@ class ContextBuilder(
                 }
             val historyMessages = subagentHistoryLoader.loadHistory(taskName, config.context.subagentHistory)
             logger.debug { "Subagent context: taskName=$taskName historyMsgs=${historyMessages.size}" }
+            val tools =
+                toolRegistry.listTools(
+                    includeSkillList = includeSkillList,
+                    includeSkillLoad = includeSkillLoad,
+                    includeScheduleDeliver = includeScheduleDeliver,
+                    includeSendMessage = includeSendMessage,
+                )
             return ContextResult(
-                buildSubagentContext(scheduledSystemContent, historyMessages, pendingMessages),
-                includeSkillList = includeSkillList,
-                includeSkillLoad = includeSkillLoad,
+                messages = buildSubagentContext(scheduledSystemContent, historyMessages, pendingMessages),
+                tools = tools,
             )
         }
 
@@ -161,13 +204,26 @@ class ContextBuilder(
             "Summaries: count=${summaryResult.summaries.size} hasEvicted=${summaryResult.hasEvictedSummaries}"
         }
 
+        // Resolve tools and count their tokens — providers count tools as part of context window
+        val tools =
+            toolRegistry.listTools(
+                includeSkillList = includeSkillList,
+                includeSkillLoad = includeSkillLoad,
+                includeScheduleDeliver = includeScheduleDeliver,
+                includeSendMessage = includeSendMessage,
+            )
+        val toolTokens =
+            tools.sumOf { t ->
+                approximateTokenCount(t.name) +
+                    approximateTokenCount(t.description) +
+                    approximateTokenCount(t.parameters.toString())
+            }
+
         // Calculate overhead to subtract from budget before loading messages.
-        // Tools are sent via the LLM API tools parameter (OpenAI tools[] / Anthropic tools[]),
-        // not in the system message, so no toolTokens in overhead.
         val systemPromptTokens = approximateTokenCount(systemContent)
         val summaryTokens = summaryResult.summaries.sumOf { it.tokens }
         val pendingTokens = pendingMessages.sumOf { approximateTokenCount(it) }
-        val overhead = systemPromptTokens + summaryTokens + pendingTokens
+        val overhead = systemPromptTokens + summaryTokens + pendingTokens + toolTokens
         val messageBudget = (budgetTokens - overhead).coerceAtLeast(0)
 
         // Sliding window: load messages within remaining budget, keeping the most recent
@@ -200,8 +256,11 @@ class ContextBuilder(
             }
         }
         logger.debug {
-            "Sliding window: budget=$budgetTokens overhead=$overhead messageBudget=$messageBudget " +
-                "dbMessages=${dbMessages.size} uncoveredTokens=$uncoveredMessageTokens " +
+            "Sliding window: budget=$budgetTokens overhead=$overhead " +
+                "(system=$systemPromptTokens summary=$summaryTokens pending=$pendingTokens " +
+                "tools=$toolTokens toolCount=${tools.size}) " +
+                "messageBudget=$messageBudget dbMessages=${dbMessages.size} " +
+                "uncoveredTokens=$uncoveredMessageTokens " +
                 "compactionEnabled=${config.memory.compaction.enabled} " +
                 "coverageEnd=${summaryResult.coverageEnd}"
         }
@@ -297,12 +356,61 @@ class ContextBuilder(
         }
 
         logger.debug { "Context ready: totalMsgs=${messages.size} budget=$budgetTokens" }
+
+        val diagnostics =
+            if (includeDiagnostics) {
+                val summaryChars = summaryResult.summaries.sumOf { it.content.length }
+                val windowTokens = dbMessages.sumOf { it.tokens.toLong() }
+                val windowChars = dbMessages.sumOf { it.content.length.toLong() }
+                val toolChars =
+                    tools.sumOf { t ->
+                        t.name.length + t.description.length + t.parameters.toString().length
+                    }
+                val compactionThreshold =
+                    (budgetTokens * config.memory.compaction.compactionThresholdFraction).toInt()
+                ContextDiagnosticsBreakdown(
+                    systemPromptTokens = systemPromptTokens,
+                    systemPromptChars = systemContent.length,
+                    summaryTokens = summaryTokens,
+                    summaryChars = summaryChars,
+                    pendingTokens = pendingTokens,
+                    pendingChars = pendingMessages.sumOf { it.length },
+                    toolTokens = toolTokens,
+                    toolChars = toolChars,
+                    toolCount = tools.size,
+                    overhead = overhead,
+                    messageBudget = messageBudget,
+                    windowMessageCount = dbMessages.size,
+                    windowMessageTokens = windowTokens,
+                    windowMessageChars = windowChars,
+                    firstMessageTime = dbMessages.firstOrNull()?.createdAt,
+                    lastMessageTime = dbMessages.lastOrNull()?.createdAt,
+                    summaryCount = summaryResult.summaries.size,
+                    hasEvictedSummaries = summaryResult.hasEvictedSummaries,
+                    coverageEnd = summaryResult.coverageEnd,
+                    autoRagEnabled = config.memory.autoRag.enabled,
+                    autoRagTriggered = autoRagResults.isNotEmpty(),
+                    autoRagResultCount = autoRagResults.size,
+                    compactionEnabled = config.memory.compaction.enabled,
+                    compactionThreshold = compactionThreshold,
+                    compactionWouldTrigger =
+                        config.memory.compaction.enabled &&
+                            uncoveredMessageTokens > compactionThreshold,
+                    skillCount = skillCount,
+                    inlineSkills = inlineSkills,
+                    toolNames = tools.map { it.name },
+                    windowTokenCharRatio = windowChars.toDouble() / windowTokens.coerceAtLeast(1),
+                )
+            } else {
+                null
+            }
+
         return ContextResult(
             messages = messages,
-            includeSkillList = includeSkillList,
-            includeSkillLoad = includeSkillLoad,
+            tools = tools,
             uncoveredMessageTokens = uncoveredMessageTokens,
             budget = budgetTokens,
+            diagnostics = diagnostics,
         )
     }
 

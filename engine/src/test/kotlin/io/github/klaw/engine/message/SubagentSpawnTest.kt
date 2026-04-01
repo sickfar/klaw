@@ -23,7 +23,6 @@ import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -116,7 +115,6 @@ class SubagentSpawnTest {
         sessionManager: SessionManager = mockk(relaxed = true),
         messageRepository: MessageRepository = mockk(relaxed = true),
         contextBuilder: ContextBuilder = mockk(relaxed = true),
-        toolRegistry: ToolRegistry = mockk(relaxed = true),
         llmRouter: LlmRouter = mockk(relaxed = true),
         toolExecutor: ToolExecutor = mockk(relaxed = true),
         socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
@@ -127,7 +125,6 @@ class SubagentSpawnTest {
             sessionManager = sessionManager,
             messageRepository = messageRepository,
             contextBuilder = contextBuilder,
-            toolRegistry = toolRegistry,
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
             socketServerProvider = socketServerProvider,
@@ -160,8 +157,7 @@ class SubagentSpawnTest {
                             LlmMessage(role = "system", content = "system prompt"),
                             LlmMessage(role = "user", content = "do the task"),
                         ),
-                    includeSkillList = false,
-                    includeSkillLoad = false,
+                    tools = emptyList(),
                 )
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
@@ -172,8 +168,6 @@ class SubagentSpawnTest {
                 makeLlmResponse("")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -182,7 +176,6 @@ class SubagentSpawnTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     toolExecutor = ScheduleDeliverAwareToolExecutor(),
                 )
 
@@ -198,7 +191,15 @@ class SubagentSpawnTest {
 
             coVerify { sessionManager.getOrCreate("subagent:test-task", "test/model") }
             coVerify {
-                contextBuilder.buildContext(session, listOf("do the task"), isSubagent = true, taskName = "test-task")
+                contextBuilder.buildContext(
+                    session = session,
+                    pendingMessages = listOf("do the task"),
+                    isSubagent = true,
+                    taskName = "test-task",
+                    senderContext = any(),
+                    includeScheduleDeliver = any(),
+                    includeSendMessage = any(),
+                )
             }
             coVerify { llmRouter.chat(any(), "test/model") }
 
@@ -225,8 +226,7 @@ class SubagentSpawnTest {
                             LlmMessage(role = "system", content = "system prompt"),
                             LlmMessage(role = "user", content = "check something"),
                         ),
-                    includeSkillList = false,
-                    includeSkillLoad = false,
+                    tools = emptyList(),
                 )
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
@@ -234,8 +234,6 @@ class SubagentSpawnTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Task complete, nothing to report.")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -243,7 +241,6 @@ class SubagentSpawnTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                 )
 
             processor
@@ -274,16 +271,13 @@ class SubagentSpawnTest {
                             LlmMessage(role = "system", content = "system prompt"),
                             LlmMessage(role = "user", content = "background task"),
                         ),
-                    includeSkillList = false,
-                    includeSkillLoad = false,
+                    tools = emptyList(),
                 )
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Non-silent result")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -291,7 +285,6 @@ class SubagentSpawnTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                 )
 
             processor
@@ -317,16 +310,13 @@ class SubagentSpawnTest {
                             LlmMessage(role = "system", content = "system prompt"),
                             LlmMessage(role = "user", content = "task with custom model"),
                         ),
-                    includeSkillList = false,
-                    includeSkillLoad = false,
+                    tools = emptyList(),
                 )
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
 
             val socketServer = mockk<EngineSocketServer>(relaxed = true)
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
@@ -334,7 +324,6 @@ class SubagentSpawnTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                 )
 
             processor
@@ -365,22 +354,17 @@ class SubagentSpawnTest {
                             LlmMessage(role = "system", content = "system prompt"),
                             LlmMessage(role = "user", content = "fallback task"),
                         ),
-                    includeSkillList = false,
-                    includeSkillLoad = false,
+                    tools = emptyList(),
                 )
 
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
-
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val processor =
                 buildProcessor(
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    toolRegistry = toolRegistry,
                 )
 
             processor

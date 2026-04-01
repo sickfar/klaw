@@ -77,7 +77,7 @@ class CommandsApiE2eTest {
         val root = Json.parseToJsonElement(response.body).jsonObject
         val parsed = root["commands"]?.jsonArray
         assertNotNull(parsed, "Expected 'commands' array in: ${response.body}")
-        assertTrue(parsed.isNotEmpty())
+        assertTrue(parsed!!.isNotEmpty())
         parsed.forEach { element ->
             val obj = element.jsonObject
             assertNotNull(obj["name"])

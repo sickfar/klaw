@@ -21,7 +21,6 @@ import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -82,8 +81,7 @@ class MessageProcessorErrorMessageTest {
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = "hello"),
                 ),
-            includeSkillList = false,
-            includeSkillLoad = false,
+            tools = emptyList(),
         )
 
     private fun buildProcessorWithLlmError(
@@ -102,9 +100,6 @@ class MessageProcessorErrorMessageTest {
         val llmRouter = mockk<LlmRouter>(relaxed = true)
         coEvery { llmRouter.chat(any(), any()) } throws error
 
-        val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-        coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
-
         val pushed = CompletableDeferred<OutboundSocketMessage>()
         val socketServer = mockk<EngineSocketServer>(relaxed = true)
         coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
@@ -114,7 +109,6 @@ class MessageProcessorErrorMessageTest {
                 sessionManager = sessionManager,
                 messageRepository = mockk(relaxed = true),
                 contextBuilder = contextBuilder,
-                toolRegistry = toolRegistry,
                 llmRouter = llmRouter,
                 toolExecutor = mockk(relaxed = true),
                 socketServerProvider = Provider { socketServer },

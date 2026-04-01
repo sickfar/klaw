@@ -346,7 +346,7 @@ class SlidingWindowE2eTest {
         private const val MIN_MESSAGES_WITH_NO_TRIM = 4
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val RESET_DELAY_MS = 1_000L
-        private const val CONTEXT_BUDGET_TOKENS = 2000
+        private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200
         private const val SMALL_PROMPT_TOKENS = 30

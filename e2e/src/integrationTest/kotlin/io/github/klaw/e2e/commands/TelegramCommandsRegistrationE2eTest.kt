@@ -46,9 +46,12 @@ class TelegramCommandsRegistrationE2eTest {
                 workspaceDir = workspaceDir,
                 additionalHostPorts = listOf(mockTelegram.port),
             )
-        containers.start()
-        awaitCondition("setMyCommands called on startup", Duration.ofSeconds(30)) {
-            mockTelegram.getSetMyCommandsRequests().isNotEmpty()
+        // Start gateway FIRST (before engine) to test periodic command sync:
+        // gateway registers only /start initially, then sync loop picks up engine commands
+        containers.startGatewayFirst()
+        awaitCondition("setMyCommands called with engine commands", Duration.ofSeconds(90)) {
+            val requests = mockTelegram.getSetMyCommandsRequests()
+            requests.isNotEmpty() && requests.last().bodyAsString.contains("\"new\"")
         }
         setMyCommandsRequests = mockTelegram.getSetMyCommandsRequests()
     }

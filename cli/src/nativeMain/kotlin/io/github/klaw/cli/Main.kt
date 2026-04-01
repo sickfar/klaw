@@ -10,6 +10,7 @@ import io.github.klaw.cli.command.ChannelsCommand
 import io.github.klaw.cli.command.ChatCommand
 import io.github.klaw.cli.command.ConfigCommand
 import io.github.klaw.cli.command.ConfigureCommand
+import io.github.klaw.cli.command.ContextCommand
 import io.github.klaw.cli.command.DoctorCommand
 import io.github.klaw.cli.command.InitCommand
 import io.github.klaw.cli.command.LogsCommand
@@ -82,6 +83,7 @@ internal class KlawCli(
                 commandRunner,
                 requestFn,
             ),
+            ContextCommand(requestFn),
             ConfigCommand(configDir),
             ConfigureCommand(configDir, commandRunner, doctorCommandOutput),
             ServiceCommand(commandRunner, configDir),

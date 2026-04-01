@@ -19,7 +19,6 @@ import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
@@ -87,7 +86,6 @@ class MessageProcessorNewCommandTest {
             }
         val messageRepository = mockk<MessageRepository>(relaxed = true)
         val contextBuilder = mockk<ContextBuilder>(relaxed = true)
-        val toolRegistry = mockk<ToolRegistry>(relaxed = true)
         val llmRouter = mockk<LlmRouter>(relaxed = true)
         val toolExecutor = mockk<ToolExecutor>(relaxed = true)
         val socketServer =
@@ -107,7 +105,6 @@ class MessageProcessorNewCommandTest {
             sessionManager,
             messageRepository,
             contextBuilder,
-            toolRegistry,
             llmRouter,
             toolExecutor,
             socketServerProvider,

@@ -30,7 +30,6 @@ import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
-import io.github.klaw.engine.context.ToolRegistry
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.llm.StreamEvent
 import io.github.klaw.engine.session.Session
@@ -132,8 +131,7 @@ class MessageProcessorStreamingTest {
                     LlmMessage(role = "system", content = "system prompt"),
                     LlmMessage(role = "user", content = userContent),
                 ),
-            includeSkillList = false,
-            includeSkillLoad = false,
+            tools = emptyList(),
         )
 
     private fun makeInbound(
@@ -170,7 +168,6 @@ class MessageProcessorStreamingTest {
         sessionManager: SessionManager = mockk(relaxed = true),
         messageRepository: MessageRepository = mockk(relaxed = true),
         contextBuilder: ContextBuilder = mockk(relaxed = true),
-        toolRegistry: ToolRegistry = mockk(relaxed = true),
         llmRouter: LlmRouter = mockk(relaxed = true),
         toolExecutor: ToolExecutor = mockk(relaxed = true),
         socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
@@ -183,7 +180,6 @@ class MessageProcessorStreamingTest {
             sessionManager = sessionManager,
             messageRepository = messageRepository,
             contextBuilder = contextBuilder,
-            toolRegistry = toolRegistry,
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
             socketServerProvider = socketServerProvider,
@@ -240,8 +236,6 @@ class MessageProcessorStreamingTest {
                 )
 
             val (socketServer, captured) = capturingSocketServer()
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
@@ -256,7 +250,6 @@ class MessageProcessorStreamingTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -299,8 +292,6 @@ class MessageProcessorStreamingTest {
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("Hello world")
 
             val (socketServer, captured) = capturingSocketServer()
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
@@ -315,7 +306,6 @@ class MessageProcessorStreamingTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -346,8 +336,6 @@ class MessageProcessorStreamingTest {
             coEvery { llmRouter.chatStream(any(), any()) } throws KlawError.AllProvidersFailedError
 
             val (socketServer, captured) = capturingSocketServer()
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
@@ -362,7 +350,6 @@ class MessageProcessorStreamingTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -398,8 +385,6 @@ class MessageProcessorStreamingTest {
                 )
 
             val (socketServer, captured) = capturingSocketServer()
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
 
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery {
@@ -414,7 +399,6 @@ class MessageProcessorStreamingTest {
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
                     socketServerProvider = { socketServer },
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 
@@ -443,9 +427,6 @@ class MessageProcessorStreamingTest {
             val llmRouter = mockk<LlmRouter>(relaxed = true)
             coEvery { llmRouter.chat(any(), any()) } returns makeLlmResponse("done")
 
-            val toolRegistry = mockk<ToolRegistry>(relaxed = true)
-            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns emptyList()
-
             val messageRepository = mockk<MessageRepository>(relaxed = true)
             coEvery { messageRepository.saveAndGetRowId(any(), any(), any(), any(), any(), any(), any()) } returns 1L
 
@@ -456,7 +437,6 @@ class MessageProcessorStreamingTest {
                     sessionManager = sessionManager,
                     contextBuilder = contextBuilder,
                     llmRouter = llmRouter,
-                    toolRegistry = toolRegistry,
                     messageRepository = messageRepository,
                 )
 

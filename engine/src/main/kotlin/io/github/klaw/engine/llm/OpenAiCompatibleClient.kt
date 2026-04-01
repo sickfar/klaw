@@ -323,48 +323,48 @@ internal fun ChatCompletion.toKlawResponse(): LlmResponse {
         choices().firstOrNull()
             ?: throw KlawError.ProviderError(null, "Provider returned empty choices array")
     val message = choice.message()
-
     val textContent = message.content().orElse(null)
-    val sdkToolCalls = message.toolCalls().orElse(null)
-
     val toolCallList =
-        sdkToolCalls?.map { tc ->
+        message.toolCalls().orElse(null)?.map { tc ->
             val fnCall = tc.asFunction()
-            val fn = fnCall.function()
-            ToolCall(
-                id = fnCall.id(),
-                name = fn.name(),
-                arguments = fn.arguments(),
-            )
+            ToolCall(id = fnCall.id(), name = fnCall.function().name(), arguments = fnCall.function().arguments())
         }
-
     val sdkUsage = usage().orElse(null)
     val tokenUsage =
-        sdkUsage?.let { u ->
+        sdkUsage?.let {
             TokenUsage(
-                promptTokens = u.promptTokens().toInt(),
-                completionTokens = u.completionTokens().toInt(),
-                totalTokens = u.totalTokens().toInt(),
+                promptTokens = it.promptTokens().toInt(),
+                completionTokens = it.completionTokens().toInt(),
+                totalTokens = it.totalTokens().toInt(),
             )
         }
-
-    val rawFinishReason =
-        choice
-            .finishReason()
-            .value()
-            .toString()
-            .lowercase()
-
+    val rawFinishReason = choice.finishReason().asString().lowercase()
+    val choiceExtra = choice._additionalProperties()
+    val stopReason = choiceExtra["stop_reason"]?.asString()?.orElse(null)
     val finishReason =
         when (choice.finishReason().value()) {
-            ChatCompletion.Choice.FinishReason.Value.STOP -> FinishReason.STOP
-            ChatCompletion.Choice.FinishReason.Value.LENGTH -> FinishReason.LENGTH
-            ChatCompletion.Choice.FinishReason.Value.TOOL_CALLS -> FinishReason.TOOL_CALLS
-            else -> FinishReason.STOP
+            ChatCompletion.Choice.FinishReason.Value.STOP -> {
+                FinishReason.STOP
+            }
+
+            ChatCompletion.Choice.FinishReason.Value.LENGTH -> {
+                FinishReason.LENGTH
+            }
+
+            ChatCompletion.Choice.FinishReason.Value.TOOL_CALLS -> {
+                FinishReason.TOOL_CALLS
+            }
+
+            else -> {
+                logger.warn {
+                    "Unknown finish_reason=$rawFinishReason model=${model()} " +
+                        "contentLen=${textContent?.length ?: 0} toolCalls=${toolCallList?.size ?: 0} " +
+                        "stopReason=$stopReason choiceExtra=[${choiceExtra.keys.joinToString()}] " +
+                        "responseExtra=[${_additionalProperties().keys.joinToString()}]"
+                }
+                FinishReason.STOP
+            }
         }
-
-    val stopReason = choice._additionalProperties()["stop_reason"]?.asString()?.orElse(null)
-
     return LlmResponse(
         content = textContent,
         toolCalls = toolCallList?.ifEmpty { null },
@@ -402,7 +402,7 @@ private class SdkStreamAccumulator {
         }
 
         choice.finishReason().ifPresent { fr ->
-            finishReason = fr.value().toString().lowercase()
+            finishReason = fr.asString().lowercase()
         }
 
         if (stopReason == null) {
@@ -470,10 +470,26 @@ private class SdkStreamAccumulator {
 
         val fr =
             when (finishReason) {
-                "stop" -> FinishReason.STOP
-                "length" -> FinishReason.LENGTH
-                "tool_calls" -> FinishReason.TOOL_CALLS
-                else -> FinishReason.STOP
+                "stop" -> {
+                    FinishReason.STOP
+                }
+
+                "length" -> {
+                    FinishReason.LENGTH
+                }
+
+                "tool_calls" -> {
+                    FinishReason.TOOL_CALLS
+                }
+
+                else -> {
+                    logger.warn {
+                        "Unknown finish_reason=$finishReason " +
+                            "contentLen=${content?.length ?: 0} toolCalls=${tools?.size ?: 0} " +
+                            "stopReason=$stopReason"
+                    }
+                    FinishReason.STOP
+                }
             }
 
         return LlmResponse(

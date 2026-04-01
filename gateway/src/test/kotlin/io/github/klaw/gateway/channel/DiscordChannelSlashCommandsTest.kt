@@ -10,7 +10,6 @@ import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.DiscordConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.mockk.coVerify
 import io.mockk.every
@@ -44,10 +43,9 @@ class DiscordChannelSlashCommandsTest {
                             ),
                     ),
             ),
-        registry: GatewayCommandRegistry = mockk(relaxed = true),
     ): DiscordChannel {
         val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
-        return DiscordChannel(config, jsonlWriter, registry)
+        return DiscordChannel(config, jsonlWriter)
     }
 
     private suspend fun startChannel(channel: DiscordChannel) {

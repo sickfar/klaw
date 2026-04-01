@@ -9,6 +9,7 @@ import io.github.klaw.common.llm.TextContentPart
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolDef
 import io.github.klaw.common.llm.ToolResult
+import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.llm.StreamEvent
@@ -56,7 +57,7 @@ internal class ToolCallLoopRunner(
     private val channel: String? = null,
     private val chatId: String? = null,
     private val contextBudgetTokens: Int = 0,
-    private val maxToolOutputChars: Int = 8000,
+    private val maxToolOutputChars: Int = 50_000,
     private val modelContextLimit: Int = 0,
     private val streamingEnabled: Boolean = false,
     private val onDelta: (suspend (String) -> Unit)? = null,
@@ -101,11 +102,12 @@ internal class ToolCallLoopRunner(
             val toolCalls = response.toolCalls!!
             logger.debug { "Executing ${toolCalls.size} tool(s) round $rounds: ${toolCalls.map { it.name }}" }
             val results = executeToolCalls(toolCalls, session.model)
+            val limitedResults = enforceOutputLimit(results)
             context.add(LlmMessage(role = "assistant", content = null, toolCalls = toolCalls))
-            results.forEach { result ->
+            limitedResults.forEach { result ->
                 context.add(buildToolResultMessage(result))
             }
-            val savedIds = persistToolCallResults(toolCalls, results, response)
+            val savedIds = persistToolCallResults(toolCalls, limitedResults, response)
 
             if (checkContextBudget(context, rounds)) {
                 val summaryResponse =
@@ -295,20 +297,46 @@ internal class ToolCallLoopRunner(
         val savedIds = mutableListOf<String>()
         results.forEach { result ->
             val id = UUID.randomUUID().toString()
+            val savedContent = buildSafeToolContent(result.callId, result.content, maxToolOutputChars)
             messageRepository.save(
                 id = id,
                 channel = channel,
                 chatId = chatId,
                 role = "tool",
                 type = "tool_result",
-                content = result.content,
+                content = savedContent,
                 metadata = result.callId,
-                tokens = approximateTokenCount(result.content),
+                tokens = approximateTokenCount(savedContent),
             )
             savedIds.add(id)
         }
         return savedIds
     }
+
+    /**
+     * Intercepts tool results after execution and before they are used for LLM context or DB save.
+     * If a result exceeds [maxToolOutputChars], writes the full content to a cache file under
+     * [KlawPaths.cache]/tool-output/ and replaces the content with a truncated version plus a
+     * marker pointing to the spill file.
+     *
+     * The marker always fits within [maxToolOutputChars]: the raw content is truncated to
+     * `maxToolOutputChars - marker.length` so the total never exceeds the limit.
+     */
+    private fun enforceOutputLimit(results: List<ToolResult>): List<ToolResult> =
+        results.map { result ->
+            if (result.content.length <= maxToolOutputChars) return@map result
+            val cacheDir = Path.of(KlawPaths.cache, "tool-output")
+            Files.createDirectories(cacheDir)
+            val fileName = "${UUID.randomUUID()}.txt"
+            val filePath = cacheDir.resolve(fileName)
+            Files.writeString(filePath, result.content)
+            logger.warn {
+                "Tool output spilled to file: chars=${result.content.length} path=$filePath callId=${result.callId}"
+            }
+            val marker = "\n... truncated at ${result.content.length} chars, full output saved to: $filePath"
+            val truncatedContent = result.content.take(maxOf(0, maxToolOutputChars - marker.length)) + marker
+            ToolResult(callId = result.callId, content = truncatedContent)
+        }
 
     /**
      * Builds an [LlmMessage] for a tool result. If the result contains an inline image marker

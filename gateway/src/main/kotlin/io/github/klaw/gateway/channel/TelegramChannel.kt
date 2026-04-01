@@ -24,9 +24,9 @@ import dev.inmo.tgbotapi.types.MessageId
 import dev.inmo.tgbotapi.types.RawChatId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
+import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
-import io.github.klaw.gateway.command.GatewayCommandRegistry
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -50,7 +50,6 @@ private val logger = KotlinLogging.logger {}
 class TelegramChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
-    private val commandRegistry: GatewayCommandRegistry,
 ) : Channel {
     override val name = "telegram"
 
@@ -70,6 +69,7 @@ class TelegramChannel(
     internal var typingScope: CoroutineScope = scope
     internal var listenScope: CoroutineScope = scope
     internal var pollOnce: (suspend (suspend (IncomingMessage) -> Unit) -> Unit)? = null
+    internal var setCommandsAction: (suspend (List<SlashCommand>) -> Unit)? = null
     internal var sendAction: (suspend (Long, String) -> Unit)? = null
     internal var sendApprovalAction: (suspend (Long, String, InlineKeyboardMarkup) -> Long)? = null
     internal var answerCallbackAction: (suspend (String, String?) -> Unit)? = null
@@ -118,17 +118,17 @@ class TelegramChannel(
             }
         }
         setAlive(true)
-        // Register commands from GatewayCommandRegistry
-        registerCommands(b)
     }
 
-    private suspend fun registerCommands(bot: TelegramBot) {
+    override suspend fun updateCommands(commands: List<SlashCommand>) {
         try {
-            val commands = commandRegistry.allCommands()
-            if (commands.isNotEmpty()) {
-                bot.setMyCommands(commands.map { BotCommand(it.name, it.description) })
-                logger.debug { "Registered ${commands.size} bot commands with Telegram" }
+            val action = setCommandsAction
+            if (action != null) {
+                action(commands)
+            } else {
+                bot?.setMyCommands(commands.map { BotCommand(it.name, it.description) })
             }
+            logger.debug { "Registered ${commands.size} bot commands with Telegram" }
         } catch (e: CancellationException) {
             throw e
         } catch (e: CommonBotException) {

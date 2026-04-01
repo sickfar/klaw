@@ -56,6 +56,18 @@ class KlawContainers(
         startGateway()
     }
 
+    fun startGatewayFirst() {
+        exposeAllHostPorts()
+
+        setupDirectories()
+
+        buildImages()
+
+        startGateway()
+
+        startEngine()
+    }
+
     fun stopGateway() {
         if (::gatewayContainer.isInitialized) {
             logger.info { "Stopping gateway container..." }
