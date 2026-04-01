@@ -30,6 +30,7 @@ class ConfigTemplatesTest {
         assertTrue(ConfigTemplates.apiKeyEnvVar("zai") == "ZAI_API_KEY")
         assertTrue(ConfigTemplates.apiKeyEnvVar("anthropic") == "ANTHROPIC_API_KEY")
         assertTrue(ConfigTemplates.apiKeyEnvVar("openai") == "OPENAI_API_KEY")
+        assertTrue(ConfigTemplates.apiKeyEnvVar("kimi-code") == "KIMI_CODE_API_KEY")
     }
 
     @Test

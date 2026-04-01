@@ -20,22 +20,6 @@ class ConfigFileWatcherTest {
     @TempDir
     lateinit var tempDir: File
 
-    /**
-     * Writes content to file ensuring the modification timestamp actually changes.
-     * Some filesystems (especially on Linux CI) have second-level mtime granularity,
-     * so WatchService may miss a write that lands within the same second.
-     */
-    private fun writeAndEnsureModified(
-        file: File,
-        content: String,
-    ) {
-        val oldLastModified = file.lastModified()
-        file.writeText(content)
-        // If mtime didn't change (same-second write), bump it explicitly
-        if (file.lastModified() == oldLastModified) {
-            file.setLastModified(oldLastModified + 1000)
-        }
-    }
 
     @Test
     fun `detects gateway json change and invokes callback with parsed config`() {
@@ -65,10 +49,10 @@ class ConfigFileWatcherTest {
                                 ),
                         ),
                 )
-            writeAndEnsureModified(configFile, encodeGatewayConfig(updatedConfig))
+            configFile.writeText(encodeGatewayConfig(updatedConfig))
 
             val received = latch.await(10, TimeUnit.SECONDS)
-            assert(received) { "Callback was not invoked within timeout" }
+            assertTrue(received, "Callback was not invoked within timeout")
             val parsed = receivedConfig.get()
             assertNotNull(parsed)
             assertEquals("new-token", parsed.channels.telegram?.token)
@@ -134,7 +118,7 @@ class ConfigFileWatcherTest {
                             telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
                         ),
                 )
-            writeAndEnsureModified(configFile, encodeGatewayConfig(updatedConfig))
+            configFile.writeText(encodeGatewayConfig(updatedConfig))
 
             val received = latch.await(10, TimeUnit.SECONDS)
             assertTrue(received, "Both listeners should be invoked within timeout")

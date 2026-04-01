@@ -54,9 +54,18 @@ class ProviderRegistryTest {
     }
 
     @Test
+    fun kimiCodeReturnsCorrectDefaults() {
+        val defaults = ProviderRegistry.get("kimi-code")
+        assertNotNull(defaults)
+        assertEquals("openai-compatible", defaults.type)
+        assertEquals("https://api.kimi.com/coding/v1", defaults.endpoint)
+    }
+
+    @Test
     fun isKnownReturnsTrueForRegisteredAlias() {
         assertTrue(ProviderRegistry.isKnown("anthropic"))
         assertTrue(ProviderRegistry.isKnown("zai"))
+        assertTrue(ProviderRegistry.isKnown("kimi-code"))
         assertTrue(ProviderRegistry.isKnown("openai"))
         assertTrue(ProviderRegistry.isKnown("deepseek"))
         assertTrue(ProviderRegistry.isKnown("ollama"))
@@ -70,7 +79,7 @@ class ProviderRegistryTest {
 
     @Test
     fun allAliasesContainsAllProviders() {
-        val expected = setOf("anthropic", "zai", "openai", "deepseek", "ollama")
+        val expected = setOf("anthropic", "zai", "kimi-code", "openai", "deepseek", "ollama")
         assertEquals(expected, ProviderRegistry.allAliases())
     }
 }

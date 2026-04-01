@@ -68,6 +68,7 @@ internal val LLM_PROVIDERS =
     listOf(
         LlmProvider("Anthropic Claude", "anthropic"),
         LlmProvider("z.ai GLM", "zai"),
+        LlmProvider("Kimi Code", "kimi-code"),
     )
 
 internal data class WebSearchProvider(

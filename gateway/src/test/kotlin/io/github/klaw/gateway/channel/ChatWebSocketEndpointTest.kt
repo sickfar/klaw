@@ -9,8 +9,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 
 class ChatWebSocketEndpointTest {
-    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-
     @Test
     fun `valid user frame is forwarded to LocalWsChannel`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)

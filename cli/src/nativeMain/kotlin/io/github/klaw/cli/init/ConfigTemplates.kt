@@ -34,8 +34,8 @@ import io.github.klaw.common.config.encodeGatewayConfigMinimal
 import io.github.klaw.common.registry.ProviderRegistry
 
 internal object ConfigTemplates {
-    /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`. */
-    fun apiKeyEnvVar(providerAlias: String): String = "${providerAlias.uppercase()}_API_KEY"
+    /** Derives the env var name for a provider's API key: `zai` → `ZAI_API_KEY`, `kimi-code` → `KIMI_CODE_API_KEY`. */
+    fun apiKeyEnvVar(providerAlias: String): String = "${providerAlias.replace('-', '_').uppercase()}_API_KEY"
 
     @Suppress("LongParameterList")
     fun engineJson(

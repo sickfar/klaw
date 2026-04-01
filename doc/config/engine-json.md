@@ -38,13 +38,14 @@ The engine resolves placeholders via `EnvVarResolver` at startup.
 
 Known providers have their `type` and `endpoint` built into the engine. For these providers, you only need to specify `apiKey`:
 
-| Alias      | Type                | Default Endpoint                            |
-|------------|---------------------|---------------------------------------------|
-| `anthropic`| `anthropic`         | `https://api.anthropic.com`                 |
-| `zai`      | `openai-compatible` | `https://api.z.ai/api/coding/paas/v4`       |
-| `openai`   | `openai-compatible` | `https://api.openai.com/v1`                 |
-| `deepseek` | `openai-compatible` | `https://api.deepseek.com/v1`               |
-| `ollama`   | `openai-compatible` | `http://localhost:11434/v1`                  |
+| Alias        | Type                | Default Endpoint                            |
+|--------------|---------------------|---------------------------------------------|
+| `anthropic`  | `anthropic`         | `https://api.anthropic.com`                 |
+| `zai`        | `openai-compatible` | `https://api.z.ai/api/coding/paas/v4`       |
+| `kimi-code`  | `openai-compatible` | `https://api.kimi.com/coding/v1`            |
+| `openai`     | `openai-compatible` | `https://api.openai.com/v1`                 |
+| `deepseek`   | `openai-compatible` | `https://api.deepseek.com/v1`               |
+| `ollama`     | `openai-compatible` | `http://localhost:11434/v1`                 |
 
 You can override `type` or `endpoint` for any known provider. For providers not in the registry, both `type` and `endpoint` are required.
 
@@ -52,7 +53,7 @@ You can override `type` or `endpoint` for any known provider. For providers not 
 
 | Type                | Providers                                  |
 |---------------------|--------------------------------------------|
-| `openai-compatible` | Z.ai (GLM-5), DeepSeek, Qwen, Ollama, OpenAI |
+| `openai-compatible` | Z.ai (GLM-5), Kimi Code (k2.5), DeepSeek, Qwen, Ollama, OpenAI |
 | `anthropic`         | Anthropic Claude (api.anthropic.com)       |
 
 The `anthropic` type uses the official Anthropic Java SDK. It handles the differences in auth headers (`x-api-key`), request format (top-level `system` param), and response format (content blocks) automatically.

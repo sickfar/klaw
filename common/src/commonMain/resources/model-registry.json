@@ -28,6 +28,10 @@
     "deepseek-chat":     { "contextLength": 64000,  "maxOutput": 8192, "image": false, "video": false, "audio": false },
     "deepseek-reasoner": { "contextLength": 64000,  "maxOutput": 8192, "image": false, "video": false, "audio": false },
 
+    "kimi-for-coding":        { "contextLength": 262144, "maxOutput": 32768, "image": true,  "video": false, "audio": false },
+    "kimi-k2-thinking":       { "contextLength": 262144, "maxOutput": 32768, "image": false, "video": false, "audio": false },
+    "kimi-k2-thinking-turbo": { "contextLength": 262144, "maxOutput": 32768, "image": false, "video": false, "audio": false },
+
     "qwen-max":     { "contextLength":  32768, "maxOutput":  8192, "image": false, "video": false, "audio": false },
     "qwen-plus":    { "contextLength": 131072, "maxOutput":  8192, "image": false, "video": false, "audio": false },
     "qwen-turbo":   { "contextLength": 131072, "maxOutput":  8192, "image": false, "video": false, "audio": false },

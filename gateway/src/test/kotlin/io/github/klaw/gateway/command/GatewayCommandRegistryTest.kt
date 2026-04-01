@@ -13,26 +13,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import kotlin.time.Instant
 
 class GatewayCommandRegistryTest {
-    private fun createTestMessage(
-        chatId: String = "chat1",
-        channel: String = "telegram",
-        userId: String = "user1",
-    ): IncomingMessage =
-        IncomingMessage(
-            id = "msg1",
-            channel = channel,
-            chatId = chatId,
-            content = "/start",
-            ts = Instant.parse("2024-01-01T00:00:00Z"),
-            userId = userId,
-            isCommand = true,
-            commandName = "start",
-            senderName = "Test User",
-        )
-
     @Test
     fun `refresh fetches commands from engine`() =
         runTest {

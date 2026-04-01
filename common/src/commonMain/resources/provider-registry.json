@@ -1,7 +1,8 @@
 {
-  "anthropic": { "type": "anthropic", "endpoint": "https://api.anthropic.com" },
-  "zai": { "type": "openai-compatible", "endpoint": "https://api.z.ai/api/coding/paas/v4" },
-  "openai": { "type": "openai-compatible", "endpoint": "https://api.openai.com/v1" },
-  "deepseek": { "type": "openai-compatible", "endpoint": "https://api.deepseek.com/v1" },
-  "ollama": { "type": "openai-compatible", "endpoint": "http://localhost:11434/v1" }
+  "anthropic":  { "type": "anthropic",         "endpoint": "https://api.anthropic.com" },
+  "zai":        { "type": "openai-compatible", "endpoint": "https://api.z.ai/api/coding/paas/v4" },
+  "kimi-code":  { "type": "openai-compatible", "endpoint": "https://api.kimi.com/coding/v1" },
+  "openai":     { "type": "openai-compatible", "endpoint": "https://api.openai.com/v1" },
+  "deepseek":   { "type": "openai-compatible", "endpoint": "https://api.deepseek.com/v1" },
+  "ollama":     { "type": "openai-compatible", "endpoint": "http://localhost:11434/v1" }
 }

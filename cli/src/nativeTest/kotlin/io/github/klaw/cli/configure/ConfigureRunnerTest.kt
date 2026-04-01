@@ -101,8 +101,6 @@ class ConfigureRunnerTest {
     @Test
     fun `skips write when no changes`() {
         writeDefaultConfigs()
-        val originalEngine = readFileText("$configDir/engine.json")!!
-        val originalGateway = readFileText("$configDir/gateway.json")!!
         val output = mutableListOf<String>()
         val runner =
             ConfigureRunner(
