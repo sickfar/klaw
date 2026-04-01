@@ -52,7 +52,7 @@ Lists all models configured in `engine.json` with their context length from the 
 
 ## /memory
 
-Displays the contents of `MEMORY.md` from the workspace.
+Shows the Memory Map — top categories from long-term memory with entry counts. Use this to see what topics are stored in memory, then use `memory_search` to retrieve details.
 
 ## /status
 

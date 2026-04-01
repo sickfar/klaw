@@ -1,42 +1,44 @@
 package io.github.klaw.engine.command.commands
 
-import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.engine.command.EngineSlashCommand
+import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.session.Session
-import io.github.klaw.engine.util.VT
-import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
-
-private val logger = KotlinLogging.logger {}
 
 @Singleton
-class MemoryCommand : EngineSlashCommand {
+class MemoryCommand(
+    private val memoryService: MemoryService,
+) : EngineSlashCommand {
     override val name = "memory"
-    override val description = "Show MEMORY.md from workspace"
+    override val description = "Show memory categories from database"
 
-    internal var workspacePath: Path = Path.of(KlawPaths.workspace)
+    companion object {
+        private const val MAX_CATEGORIES = 10
+    }
 
     override suspend fun handle(
         msg: CommandSocketMessage,
         session: Session,
-    ): String =
-        withContext(Dispatchers.VT) {
-            val f = workspacePath.resolve("MEMORY.md").normalize()
-            if (!f.startsWith(workspacePath.normalize())) {
-                return@withContext "Invalid path: outside workspace"
+    ): String {
+        val categories = memoryService.getTopCategories(MAX_CATEGORIES)
+        if (categories.isEmpty()) {
+            return "No memories stored yet."
+        }
+
+        val totalCount = memoryService.getTotalCategoryCount()
+        val remaining = totalCount - categories.size
+
+        return buildString {
+            append("## Memory Map\n")
+            append("Your long-term memory contains:\n")
+            categories.forEachIndexed { index, cat ->
+                if (index > 0) append("\n")
+                append("- ${cat.name} (${cat.entryCount} entries)")
             }
-            if (!Files.exists(f)) return@withContext "No MEMORY.md found in workspace."
-            try {
-                Files.readString(f).trim()
-            } catch (e: IOException) {
-                logger.warn { "Failed to read MEMORY.md: ${e::class.simpleName}" }
-                "Failed to read MEMORY.md"
+            if (remaining > 0) {
+                append("\n...and $remaining more categories")
             }
         }
+    }
 }
