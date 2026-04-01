@@ -6,6 +6,7 @@ import io.github.klaw.engine.db.NativeSqliteVecLoader
 import io.github.klaw.engine.db.VirtualTableSetup
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -40,7 +41,7 @@ class MemoryServiceVectorSearchIntegrationTest {
         val loader = NativeSqliteVecLoader(tempDir.toFile().absolutePath)
         val driver = createDriver()
         val db = createDb(driver, loader)
-        org.junit.jupiter.api.Assumptions.assumeTrue(loader.isAvailable(), "sqlite-vec not available")
+        assumeTrue(loader.isAvailable(), "sqlite-vec not available")
 
         val service = MemoryServiceImpl(db, driver, MockEmbeddingService(), loader)
         service.save("Kotlin coroutines are great for async programming", "programming", "test")
@@ -61,7 +62,7 @@ class MemoryServiceVectorSearchIntegrationTest {
         val loader = NativeSqliteVecLoader(tempDir.toFile().absolutePath)
         val driver = createDriver()
         val db = createDb(driver, loader)
-        org.junit.jupiter.api.Assumptions.assumeTrue(loader.isAvailable(), "sqlite-vec not available")
+        assumeTrue(loader.isAvailable(), "sqlite-vec not available")
 
         val service = MemoryServiceImpl(db, driver, MockEmbeddingService(), loader)
 
@@ -77,7 +78,7 @@ class MemoryServiceVectorSearchIntegrationTest {
         val loader = NativeSqliteVecLoader(tempDir.toFile().absolutePath)
         val driver = createDriver()
         val db = createDb(driver, loader)
-        org.junit.jupiter.api.Assumptions.assumeTrue(loader.isAvailable(), "sqlite-vec not available")
+        assumeTrue(loader.isAvailable(), "sqlite-vec not available")
 
         val service = MemoryServiceImpl(db, driver, MockEmbeddingService(), loader)
         service.save("machine learning fundamentals and neural networks", "ml", "test")
@@ -96,7 +97,7 @@ class MemoryServiceVectorSearchIntegrationTest {
         val loader = NativeSqliteVecLoader(tempDir.toFile().absolutePath)
         val driver = createDriver()
         val db = createDb(driver, loader)
-        org.junit.jupiter.api.Assumptions.assumeTrue(loader.isAvailable(), "sqlite-vec not available")
+        assumeTrue(loader.isAvailable(), "sqlite-vec not available")
 
         val service = MemoryServiceImpl(db, driver, MockEmbeddingService(), loader)
         repeat(10) { i ->

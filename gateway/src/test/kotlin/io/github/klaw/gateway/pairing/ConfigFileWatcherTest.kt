@@ -20,7 +20,6 @@ class ConfigFileWatcherTest {
     @TempDir
     lateinit var tempDir: File
 
-
     @Test
     fun `detects gateway json change and invokes callback with parsed config`() {
         val configFile = File(tempDir, "gateway.json")
