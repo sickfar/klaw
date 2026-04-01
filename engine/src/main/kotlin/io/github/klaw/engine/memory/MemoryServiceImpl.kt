@@ -445,8 +445,8 @@ class MemoryServiceImpl(
             JOIN memory_facts mf ON mf.id = v.rowid
             JOIN memory_categories mc ON mc.id = mf.category_id
             WHERE v.embedding MATCH ?
+              AND v.k = ?
             ORDER BY v.distance
-            LIMIT ?
             """.trimIndent()
     }
 }
