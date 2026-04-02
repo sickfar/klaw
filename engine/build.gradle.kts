@@ -150,7 +150,7 @@ ktlint {
 val sqliteVecVersion = "0.1.7-alpha.10"
 
 val downloadSqliteVec by tasks.registering {
-    description = "Downloads sqlite-vec loadable extension for the current platform and linux-aarch64 (Docker)"
+    description = "Downloads sqlite-vec for linux-aarch64, linux-x86_64, and host macOS platform (if applicable)"
 
     val nativeDir = file("src/main/resources/native")
     outputs.dir(nativeDir)
@@ -164,23 +164,26 @@ val downloadSqliteVec by tasks.registering {
                 "linux" in osName -> "linux"
                 else -> error("Unsupported OS: $osName")
             }
-        val hostArch =
-            when {
-                archName == "aarch64" || archName == "arm64" -> "aarch64"
-                archName == "amd64" || archName == "x86_64" -> "x86_64"
-                else -> error("Unsupported architecture: $archName")
-            }
-        val hostPlatform = "$hostOs-$hostArch"
 
-        // Download both host platform and linux-aarch64 (Docker target)
-        val platforms = setOf(hostPlatform, "linux-aarch64")
+        // Always include both Linux variants so the JAR works on linux-aarch64 (Pi/Docker)
+        // and linux-x86_64 (CI/dev containers). Add macOS host platform for local dev.
+        val platforms =
+            buildSet {
+                add("linux-aarch64")
+                add("linux-x86_64")
+                if (hostOs == "macos") {
+                    val hostArch = if (archName == "aarch64" || archName == "arm64") "aarch64" else "x86_64"
+                    add("macos-$hostArch")
+                }
+            }
         nativeDir.mkdirs()
 
         for (platform in platforms) {
             val suffix = if (platform.startsWith("macos")) ".dylib" else ".so"
-            val outputFile = File(nativeDir, "vec0$suffix")
+            val platformDir = File(nativeDir, platform)
+            val outputFile = File(platformDir, "vec0$suffix")
             if (outputFile.exists()) {
-                logger.lifecycle("sqlite-vec $platform already present: ${outputFile.name}")
+                logger.lifecycle("sqlite-vec $platform already present: ${outputFile.path}")
                 continue
             }
 
@@ -204,9 +207,10 @@ val downloadSqliteVec by tasks.registering {
             val extracted =
                 tempDir.listFiles()?.firstOrNull { it.name.startsWith("vec0.") }
                     ?: error("vec0 binary not found after extracting $archiveName")
+            platformDir.mkdirs()
             extracted.copyTo(outputFile, overwrite = true)
             outputFile.setExecutable(true)
-            logger.lifecycle("Extracted ${extracted.name} -> ${outputFile.name}")
+            logger.lifecycle("Extracted ${extracted.name} -> ${outputFile.path}")
         }
     }
 }

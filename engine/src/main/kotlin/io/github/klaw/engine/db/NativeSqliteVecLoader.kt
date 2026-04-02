@@ -17,10 +17,21 @@ class NativeSqliteVecLoader(
 
     private val logger = KotlinLogging.logger {}
 
-    internal val suffix: String =
-        if (System.getProperty("os.name").lowercase().contains("mac")) ".dylib" else ".so"
+    internal val platform: String by lazy {
+        val osName = System.getProperty("os.name").lowercase()
+        val archName = System.getProperty("os.arch").lowercase()
+        val os = if ("mac" in osName || "darwin" in osName) "macos" else "linux"
+        val arch = if (archName == "aarch64" || archName == "arm64") "aarch64" else "x86_64"
+        "$os-$arch"
+    }
 
-    private val resourceName: String = "/native/vec0$suffix"
+    internal val suffix: String by lazy {
+        if (platform.startsWith("macos")) ".dylib" else ".so"
+    }
+
+    private val resourceName: String by lazy {
+        "/native/$platform/vec0$suffix"
+    }
 
     init {
         require(!cacheDir.contains("'")) { "cacheDir must not contain single quotes" }
@@ -45,7 +56,7 @@ class NativeSqliteVecLoader(
         if (!isAvailable()) return
         try {
             val resource = javaClass.getResourceAsStream(resourceName) ?: return
-            val nativeDir = File("$cacheDir/native")
+            val nativeDir = File("$cacheDir/native/$platform")
             if (!nativeDir.exists() && !nativeDir.mkdirs()) {
                 logger.warn { "Failed to create native lib dir: ${nativeDir.absolutePath}" }
                 extensionLoadable.set(false)

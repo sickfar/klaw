@@ -36,7 +36,7 @@ class NativeSqliteVecLoaderTest {
     }
 
     @Test
-    fun `lib file is extracted to cache native dir`(
+    fun `lib file is extracted to platform-specific cache dir`(
         @TempDir tempDir: Path,
     ) {
         val cacheDir = tempDir.toFile().absolutePath
@@ -44,13 +44,13 @@ class NativeSqliteVecLoaderTest {
 
         loader.loadExtension(createDriver())
 
-        val libFile = File("$cacheDir/native/vec0${loader.suffix}")
-        assertTrue(libFile.exists(), "lib file should be extracted to cache/native dir")
+        val libFile = File("$cacheDir/native/${loader.platform}/vec0${loader.suffix}")
+        assertTrue(libFile.exists(), "lib file should be extracted to cache/native/{platform} dir")
         assertTrue(loader.isAvailable(), "extension should be available after successful load")
     }
 
     @Test
-    fun `native dir is created if absent`(
+    fun `native platform dir is created if absent`(
         @TempDir tempDir: Path,
     ) {
         val cacheDir = File(tempDir.toFile(), "nonexistent").absolutePath
@@ -58,9 +58,9 @@ class NativeSqliteVecLoaderTest {
 
         loader.loadExtension(createDriver())
 
-        val nativeDir = File("$cacheDir/native")
-        assertTrue(nativeDir.exists(), "native dir should be created")
-        assertTrue(nativeDir.isDirectory, "native path should be a directory")
+        val nativeDir = File("$cacheDir/native/${loader.platform}")
+        assertTrue(nativeDir.exists(), "native platform dir should be created")
+        assertTrue(nativeDir.isDirectory, "native platform path should be a directory")
         assertTrue(loader.isAvailable(), "extension should be available after successful load")
     }
 
@@ -70,7 +70,7 @@ class NativeSqliteVecLoaderTest {
     ) {
         val cacheDir = tempDir.toFile().absolutePath
         val loader = NativeSqliteVecLoader(cacheDir)
-        val nativeDir = File("$cacheDir/native").also { it.mkdirs() }
+        val nativeDir = File("$cacheDir/native/${loader.platform}").also { it.mkdirs() }
         val libFile = File(nativeDir, "vec0${loader.suffix}")
         libFile.writeText("garbage content")
         val garbageSize = libFile.length()

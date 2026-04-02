@@ -54,9 +54,9 @@ class SqliteVecExtensionLoadTest {
 
     @Test
     fun `extension fails without enable_load_extension property`() {
-        val suffix = if (System.getProperty("os.name").lowercase().contains("mac")) ".dylib" else ".so"
+        val availabilityLoader = NativeSqliteVecLoader()
         assumeTrue(
-            javaClass.getResource("/native/vec0$suffix") != null,
+            availabilityLoader.isAvailable(),
             "Skipping: vec0 native binary not on classpath",
         )
 
