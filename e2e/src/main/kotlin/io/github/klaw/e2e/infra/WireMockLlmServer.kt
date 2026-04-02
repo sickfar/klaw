@@ -40,6 +40,7 @@ private const val DEFAULT_COMPLETION_TOKENS = 5
 private const val DEFAULT_SUMMARIZATION_PROMPT_TOKENS = 50
 private const val DEFAULT_SUMMARIZATION_COMPLETION_TOKENS = 30
 
+@Suppress("TooManyFunctions")
 class WireMockLlmServer {
     private lateinit var server: WireMockServer
     private val json = Json { ignoreUnknownKeys = true }
@@ -296,6 +297,25 @@ class WireMockLlmServer {
                     .willReturn(responseBuilder),
             )
         }
+    }
+
+    /**
+     * Stubs a raw JSON response for chat requests whose body contains `"tools"`.
+     * Useful for returning tool_call responses only when the engine sends tools,
+     * while a lower-priority default stub handles tool-less requests (e.g. graceful summary).
+     */
+    fun stubChatResponseRawWhenToolsPresent(bodyJson: String) {
+        server.stubFor(
+            post(urlEqualTo(CHAT_COMPLETIONS_PATH))
+                .withRequestBody(containing("\"tools\""))
+                .atPriority(PRIORITY_MODEL_SPECIFIC)
+                .willReturn(
+                    aResponse()
+                        .withStatus(HTTP_OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(bodyJson),
+                ),
+        )
     }
 
     fun stubChatError(statusCode: Int) {

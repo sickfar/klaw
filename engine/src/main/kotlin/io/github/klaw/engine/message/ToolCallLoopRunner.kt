@@ -215,7 +215,7 @@ internal class ToolCallLoopRunner(
         context: List<LlmMessage>,
         rounds: Int,
     ): Boolean {
-        val currentTokens = context.sumOf { approximateTokenCount(it.content ?: "") }
+        val currentTokens = context.sumOf { approximateMessageTokens(it) }
         if (modelContextLimit > 0 && currentTokens > (modelContextLimit * MODEL_LIMIT_SAFETY_FRACTION).toInt()) {
             logger.warn {
                 "Context $currentTokens tokens approaching model limit $modelContextLimit at round $rounds"
@@ -396,5 +396,28 @@ internal class ToolCallLoopRunner(
         val truncated = rawContent.take(limit)
         val marker = if (rawContent.length > limit) "\n... output truncated at $limit chars ..." else ""
         return "<tool_result tool_call_id=\"$safeCallId\">\n$truncated$marker\n</tool_result>"
+    }
+
+    companion object {
+        /**
+         * Approximates the token count of an [LlmMessage], accounting for tool call arguments
+         * and toolCallId in addition to message content.
+         *
+         * Plain content-only messages fall back to approximateTokenCount on content.
+         * Tool-call messages (content=null) count id + name + arguments for each ToolCall.
+         * Tool-result messages include toolCallId token cost.
+         */
+        internal fun approximateMessageTokens(msg: LlmMessage): Int {
+            val contentTokens = approximateTokenCount(msg.content ?: "")
+            val toolCallTokens =
+                msg.toolCalls?.sumOf { tc ->
+                    approximateTokenCount(tc.id) +
+                        approximateTokenCount(tc.name) +
+                        approximateTokenCount(tc.arguments)
+                } ?: 0
+            val toolCallIdTokens =
+                if (msg.toolCallId != null) approximateTokenCount(msg.toolCallId!!) else 0
+            return contentTokens + toolCallTokens + toolCallIdTokens
+        }
     }
 }

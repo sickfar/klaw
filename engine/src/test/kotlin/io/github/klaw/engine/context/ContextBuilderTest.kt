@@ -1528,4 +1528,90 @@ class ContextBuilderTest {
             assertFalse(diag.autoRagTriggered)
             assertFalse(diag.compactionEnabled)
         }
+
+    @Test
+    fun `diagnostics compactionThreshold equals budget times sum of compaction and summary fractions`() =
+        runTest {
+            val budgetTokens = 8000
+            val compactionThresholdFraction = 0.6
+            val summaryBudgetFraction = 0.25
+            val config =
+                buildConfig(contextBudget = budgetTokens).copy(
+                    memory =
+                        buildConfig().memory.copy(
+                            compaction =
+                                io.github.klaw.common.config.CompactionConfig(
+                                    enabled = true,
+                                    compactionThresholdFraction = compactionThresholdFraction,
+                                    summaryBudgetFraction = summaryBudgetFraction,
+                                ),
+                        ),
+                )
+            coEvery { summaryService.getSummariesForContext(any(), any(), any()) } returns
+                SummaryContextResult(emptyList(), null, false)
+
+            val session = buildSession()
+            val contextBuilder = buildContextBuilder(config)
+
+            val result =
+                contextBuilder.buildContext(
+                    session,
+                    listOf("hello"),
+                    isSubagent = false,
+                    includeDiagnostics = true,
+                )
+
+            val diag = result.diagnostics!!
+            val expectedThreshold =
+                (budgetTokens * (compactionThresholdFraction + summaryBudgetFraction)).toInt()
+            assertEquals(
+                expectedThreshold,
+                diag.compactionThreshold,
+                "compactionThreshold should equal budget * (compactionThresholdFraction + summaryBudgetFraction)",
+            )
+        }
+
+    @Test
+    fun `tool token counting includes structural overhead per tool`() =
+        runTest {
+            val session = buildSession()
+
+            // Set up a tool registry that returns one tool with known name+desc+params
+            val testTool =
+                io.github.klaw.common.llm.ToolDef(
+                    name = "test_tool",
+                    description = "A test tool",
+                    parameters = kotlinx.serialization.json.buildJsonObject {},
+                )
+            coEvery { toolRegistry.listTools(any(), any(), any(), any(), any()) } returns listOf(testTool)
+
+            val config = buildConfig(contextBudget = 4096)
+            val contextBuilder = buildContextBuilder(config)
+
+            val result =
+                contextBuilder.buildContext(
+                    session,
+                    emptyList(),
+                    isSubagent = false,
+                    includeDiagnostics = true,
+                )
+
+            val diag = result.diagnostics!!
+            // toolTokens must include TOOL_STRUCTURAL_OVERHEAD per tool
+            val nameTokens =
+                io.github.klaw.common.util
+                    .approximateTokenCount(testTool.name)
+            val descTokens =
+                io.github.klaw.common.util
+                    .approximateTokenCount(testTool.description)
+            val paramsTokens =
+                io.github.klaw.common.util
+                    .approximateTokenCount(testTool.parameters.toString())
+            val expectedTokens = ContextBuilder.TOOL_STRUCTURAL_OVERHEAD + nameTokens + descTokens + paramsTokens
+            assertEquals(
+                expectedTokens,
+                diag.toolTokens,
+                "toolTokens should include TOOL_STRUCTURAL_OVERHEAD=${ ContextBuilder.TOOL_STRUCTURAL_OVERHEAD} per tool",
+            )
+        }
 }

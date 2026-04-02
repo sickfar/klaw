@@ -17,8 +17,10 @@ import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
+import io.github.klaw.engine.context.ContextResult
 import io.github.klaw.engine.context.SenderContext
 import io.github.klaw.engine.llm.LlmRouter
+import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.CliCommandDispatcher
 import io.github.klaw.engine.socket.EngineSocketServer
@@ -372,8 +374,10 @@ class MessageProcessor(
         activeProcessingJobs[chatId] = currentJob
         try {
             llmLimiter.withInteractivePermit {
+                var session: Session? = null
+                var contextResult: ContextResult? = null
                 try {
-                    val session = sessionManager.getOrCreate(chatId, config.routing.default)
+                    session = sessionManager.getOrCreate(chatId, config.routing.default)
                     val pendingTexts = messages.map { it.content }
 
                     // Persist user messages before building context so sumTokensInSegment is accurate
@@ -388,7 +392,7 @@ class MessageProcessor(
                             chatTitle = first.chatTitle,
                             messageId = first.messageId,
                         )
-                    val contextResult =
+                    contextResult =
                         contextBuilder.buildContext(
                             session,
                             pendingTexts,
@@ -437,13 +441,16 @@ class MessageProcessor(
                     deliverResponse(deliveryContent, channel, chatId, streamCtx)
 
                     // Fire-and-forget background compaction
+                    val successSegmentStart = session.segmentStart
+                    val successUncoveredTokens = contextResult.uncoveredMessageTokens
+                    val successBudget = contextResult.budget
                     processingScope.launch {
                         try {
                             compactionRunner.runIfNeeded(
                                 chatId = chatId,
-                                segmentStart = session.segmentStart,
-                                uncoveredMessageTokens = contextResult.uncoveredMessageTokens,
-                                budget = contextResult.budget,
+                                segmentStart = successSegmentStart,
+                                uncoveredMessageTokens = successUncoveredTokens,
+                                budget = successBudget,
                             )
                         } catch (
                             @Suppress("TooGenericExceptionCaught") e: Exception,
@@ -460,6 +467,27 @@ class MessageProcessor(
                             content = userFacingMessage(e),
                         ),
                     )
+                    // Trigger compaction on failure — prevents context growth deadlock when LLM returns 500
+                    val errorCr = contextResult
+                    val errorSeg = session?.segmentStart
+                    if (errorCr != null && errorSeg != null) {
+                        val capturedUncoveredTokens = errorCr.uncoveredMessageTokens
+                        val capturedBudget = errorCr.budget
+                        processingScope.launch {
+                            try {
+                                compactionRunner.runIfNeeded(
+                                    chatId = chatId,
+                                    segmentStart = errorSeg,
+                                    uncoveredMessageTokens = capturedUncoveredTokens,
+                                    budget = capturedBudget,
+                                )
+                            } catch (
+                                @Suppress("TooGenericExceptionCaught") ex: Exception,
+                            ) {
+                                logger.error(ex) { "Background compaction failed" }
+                            }
+                        }
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (
@@ -614,7 +642,7 @@ class MessageProcessor(
 
         val pendingCount = userMessages.size
         val nonPendingMessages = contextMessages.dropLast(pendingCount)
-        val nonPendingApproxTokens = nonPendingMessages.sumOf { approximateTokenCount(it.content ?: "") }
+        val nonPendingApproxTokens = nonPendingMessages.sumOf { ToolCallLoopRunner.approximateMessageTokens(it) }
         val actualPendingTotal = firstPromptTokens - nonPendingApproxTokens
 
         if (actualPendingTotal <= 0) return

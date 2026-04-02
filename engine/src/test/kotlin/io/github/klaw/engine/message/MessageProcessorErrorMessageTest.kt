@@ -19,6 +19,7 @@ import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
 import io.github.klaw.engine.llm.LlmRouter
@@ -26,6 +27,7 @@ import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import jakarta.inject.Provider
 import kotlinx.coroutines.CompletableDeferred
@@ -202,6 +204,94 @@ class MessageProcessorErrorMessageTest {
             )
             val result = withTimeout(5000) { pushed.await() }
             assertEquals("Sorry, something went wrong.", result.content)
+        }
+    }
+
+    @Test
+    fun `ProviderError triggers background compaction when contextResult is available`() {
+        val config = makeConfig()
+        val now = Clock.System.now()
+        val segmentStart = now.toString()
+        val testSession =
+            Session(
+                chatId = "chat-err",
+                model = "test/model",
+                segmentStart = segmentStart,
+                createdAt = now,
+            )
+
+        val sessionManager = mockk<SessionManager>(relaxed = true)
+        coEvery { sessionManager.getOrCreate(any(), any()) } returns testSession
+
+        val contextResult =
+            ContextResult(
+                messages =
+                    listOf(
+                        LlmMessage(role = "system", content = "system prompt"),
+                        LlmMessage(role = "user", content = "hello"),
+                    ),
+                tools = emptyList(),
+                uncoveredMessageTokens = 1000L,
+                budget = 4096,
+            )
+
+        val contextBuilder = mockk<ContextBuilder>(relaxed = true)
+        coEvery { contextBuilder.buildContext(any(), any(), any(), any(), any(), any(), any(), any()) } returns
+            contextResult
+
+        val llmRouter = mockk<LlmRouter>(relaxed = true)
+        coEvery { llmRouter.chat(any(), any()) } throws
+            KlawError.ProviderError(statusCode = 500, message = "Server Error")
+
+        val pushed = CompletableDeferred<OutboundSocketMessage>()
+        val socketServer = mockk<EngineSocketServer>(relaxed = true)
+        coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
+
+        // Use CompletableDeferred to detect when compaction is called
+        val compactionCalled = CompletableDeferred<Unit>()
+        val compactionRunner = mockk<CompactionRunner>(relaxed = true)
+        coEvery { compactionRunner.runIfNeeded(any(), any(), any(), any()) } answers {
+            compactionCalled.complete(Unit)
+        }
+
+        val processor =
+            MessageProcessor(
+                sessionManager = sessionManager,
+                messageRepository = mockk(relaxed = true),
+                contextBuilder = contextBuilder,
+                llmRouter = llmRouter,
+                toolExecutor = mockk(relaxed = true),
+                socketServerProvider = Provider { socketServer },
+                commandHandler = mockk(relaxed = true),
+                config = config,
+                messageEmbeddingService = mockk(relaxed = true),
+                cliCommandDispatcher = mockk(relaxed = true),
+                approvalService = mockk(relaxed = true),
+                shutdownController = mockk(relaxed = true),
+                compactionRunner = compactionRunner,
+                subagentRunRepository = mockk(relaxed = true),
+                activeSubagentJobs =
+                    io.github.klaw.engine.tools
+                        .ActiveSubagentJobs(),
+            )
+
+        runBlocking {
+            processor.handleInbound(
+                InboundSocketMessage(id = "e6", channel = "telegram", chatId = "chat-err", content = "hi", ts = "t"),
+            )
+            // Wait for error message to be pushed (confirms processMessages ran)
+            withTimeout(5000) { pushed.await() }
+            // Wait for background compaction to be triggered
+            withTimeout(5000) { compactionCalled.await() }
+        }
+
+        coVerify {
+            compactionRunner.runIfNeeded(
+                chatId = "chat-err",
+                segmentStart = segmentStart,
+                uncoveredMessageTokens = 1000L,
+                budget = 4096,
+            )
         }
     }
 }

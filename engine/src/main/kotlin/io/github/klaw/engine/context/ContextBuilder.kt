@@ -214,7 +214,8 @@ class ContextBuilder(
             )
         val toolTokens =
             tools.sumOf { t ->
-                approximateTokenCount(t.name) +
+                TOOL_STRUCTURAL_OVERHEAD +
+                    approximateTokenCount(t.name) +
                     approximateTokenCount(t.description) +
                     approximateTokenCount(t.parameters.toString())
             }
@@ -367,7 +368,12 @@ class ContextBuilder(
                         t.name.length + t.description.length + t.parameters.toString().length
                     }
                 val compactionThreshold =
-                    (budgetTokens * config.memory.compaction.compactionThresholdFraction).toInt()
+                    (
+                        budgetTokens * (
+                            config.memory.compaction.compactionThresholdFraction +
+                                config.memory.compaction.summaryBudgetFraction
+                        )
+                    ).toInt()
                 ContextDiagnosticsBreakdown(
                     systemPromptTokens = systemPromptTokens,
                     systemPromptChars = systemContent.length,
@@ -725,6 +731,9 @@ class ContextBuilder(
         private const val HOURS_PER_DAY = 24
         private const val MINUTES_PER_HOUR = 60
         private const val DEFAULT_VISION_MAX_TOKENS = 1024
+
+        /** Token overhead per tool definition for JSON structural characters (braces, keys, quotes, commas). */
+        internal const val TOOL_STRUCTURAL_OVERHEAD = 12
     }
 
     private fun buildCapabilitiesSection(skillCount: Int): String =
