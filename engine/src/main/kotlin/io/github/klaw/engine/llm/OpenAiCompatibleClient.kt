@@ -3,6 +3,7 @@ package io.github.klaw.engine.llm
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.core.JsonValue
+import com.openai.core.Timeout
 import com.openai.errors.OpenAIIoException
 import com.openai.errors.OpenAIServiceException
 import com.openai.models.ChatModel
@@ -161,8 +162,12 @@ class OpenAiCompatibleClient(
                 .baseUrl(provider.endpoint)
                 .apiKey(provider.apiKey ?: "")
                 .maxRetries(0) // We handle retries ourselves via withRetry
-                .timeout(Duration.ofMillis(retryConfig.requestTimeoutMs))
-                .build()
+                .timeout(
+                    Timeout
+                        .builder()
+                        .read(Duration.ofMillis(retryConfig.requestTimeoutMs))
+                        .build(),
+                ).build()
         }
     }
 }
