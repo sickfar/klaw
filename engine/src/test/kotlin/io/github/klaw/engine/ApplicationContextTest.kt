@@ -6,7 +6,7 @@ import jakarta.inject.Inject
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-@MicronautTest
+@MicronautTest(transactional = false)
 class ApplicationContextTest {
     @Inject
     lateinit var applicationContext: ApplicationContext

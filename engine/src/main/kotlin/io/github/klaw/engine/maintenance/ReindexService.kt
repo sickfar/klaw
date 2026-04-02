@@ -13,6 +13,7 @@ import io.github.klaw.engine.util.VT
 import io.github.klaw.engine.util.floatArrayToBlob
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -35,9 +36,12 @@ class ReindexService(
             withContext(Dispatchers.VT) {
                 onProgress("Clearing vec_messages...")
                 driver.execute(null, "DELETE FROM vec_messages", 0)
+                onProgress("Clearing vec_memory...")
+                driver.execute(null, "DELETE FROM vec_memory", 0)
             }
         }
         rebuildVecMessages(onProgress)
+        rebuildVecMemory(onProgress)
         onProgress("Reindex complete")
     }
 
@@ -50,6 +54,7 @@ class ReindexService(
             rebuildMessages(conversationsDir, onProgress)
         }
         rebuildVecMessages(onProgress)
+        rebuildVecMemory(onProgress)
         onProgress("Reindex complete")
     }
 
@@ -160,6 +165,8 @@ class ReindexService(
                     }
                 }
                 embedded++
+            } catch (e: CancellationException) {
+                throw e
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
@@ -168,5 +175,42 @@ class ReindexService(
         }
         logger.debug { "vec_messages rebuild: embedded=$embedded" }
         onProgress("Embedded $embedded message(s) into vec_messages")
+    }
+
+    private suspend fun rebuildVecMemory(onProgress: (String) -> Unit) {
+        if (!sqliteVecLoader.isAvailable()) return
+        onProgress("Rebuilding vec_memory embeddings...")
+
+        val rows =
+            withContext(Dispatchers.VT) {
+                database.memoryFactsQueries.allFacts().executeAsList()
+            }
+
+        var embedded = 0
+        for (row in rows) {
+            try {
+                val embedding = embeddingService.embed(row.content)
+                val blob = floatArrayToBlob(embedding)
+                withContext(Dispatchers.VT) {
+                    driver.execute(
+                        null,
+                        "INSERT OR IGNORE INTO vec_memory(rowid, embedding) VALUES (?, ?)",
+                        2,
+                    ) {
+                        bindLong(0, row.id)
+                        bindBytes(1, blob)
+                    }
+                }
+                embedded++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                logger.warn { "Failed to embed memory fact id=${row.id}: ${e::class.simpleName}" }
+            }
+        }
+        logger.debug { "vec_memory rebuild: embedded=$embedded" }
+        onProgress("Embedded $embedded fact(s) into vec_memory")
     }
 }

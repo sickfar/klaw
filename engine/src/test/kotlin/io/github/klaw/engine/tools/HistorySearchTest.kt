@@ -20,6 +20,8 @@ class HistorySearchTest {
         object : EmbeddingService {
             override suspend fun embed(text: String): FloatArray = mockEmbedding
 
+            override suspend fun embedQuery(text: String): FloatArray = mockEmbedding
+
             override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { mockEmbedding }
         }
 

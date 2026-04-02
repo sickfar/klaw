@@ -1,6 +1,7 @@
 package io.github.klaw.engine.memory
 
 import io.github.klaw.common.config.EmbeddingConfig
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
@@ -29,5 +30,17 @@ class EmbeddingServiceFactoryTest {
         // On dev machine with ONNX files -> OnnxEmbeddingService
         // On CI without ONNX files -> OllamaEmbeddingService (fallback)
         assertNotNull(service)
+    }
+
+    @Test
+    fun `default EmbeddingConfig uses multilingual-e5-small model`() {
+        val config = EmbeddingConfig()
+        assertEquals("multilingual-e5-small", config.model)
+    }
+
+    @Test
+    fun `default EmbeddingConfig ollama fallback uses multilingual model`() {
+        val config = EmbeddingConfig()
+        assertEquals("multilingual-e5-small", config.ollamaFallbackModel)
     }
 }

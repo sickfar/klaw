@@ -124,7 +124,7 @@ class AutoRagService(
         topK: Int,
     ): List<RawCandidate> =
         withContext(Dispatchers.VT) {
-            val queryEmbedding = embeddingService.embed(query)
+            val queryEmbedding = embeddingService.embedQuery(query)
             val blob = floatArrayToBlob(queryEmbedding)
             // sqlite-vec requires CTE with k= in the MATCH clause; post-filters applied in outer query
             driver

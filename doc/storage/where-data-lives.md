@@ -120,7 +120,7 @@ tail -f ~/.local/state/klaw/logs/cli.log
 
 **Path:** `$XDG_CACHE_HOME/klaw/models/` (typically `~/.cache/klaw/models/`)
 
-- ONNX model files (~80 MB for all-MiniLM-L6-v2) downloaded from HuggingFace
+- ONNX model files (~120 MB for multilingual-e5-small) downloaded from HuggingFace
 - Auto-downloaded by Engine on first startup if not present
 - Safe to delete; re-downloaded on next Engine start
 - **Docker:** persisted via `klaw-cache` named volume (survives container restarts)

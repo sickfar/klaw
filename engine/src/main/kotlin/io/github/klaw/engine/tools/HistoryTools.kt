@@ -68,7 +68,7 @@ class HistoryTools(
         topK: Int,
     ): List<Candidate> =
         withContext(Dispatchers.VT) {
-            val queryEmbedding = embeddingService.embed(query)
+            val queryEmbedding = embeddingService.embedQuery(query)
             val blob = floatArrayToBlob(queryEmbedding)
             driver
                 .executeQuery(

@@ -372,7 +372,7 @@ private fun buildConfigProcessing(): ProcessingConfig =
 
 private fun buildConfigMemory(): MemoryConfig =
     MemoryConfig(
-        embedding = EmbeddingConfig(type = "onnx", model = "all-MiniLM-L6-v2"),
+        embedding = EmbeddingConfig(type = "onnx"),
         chunking = ChunkingConfig(size = 512, overlap = 64),
         search = SearchConfig(topK = 10),
     )

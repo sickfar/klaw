@@ -8,8 +8,10 @@ import ai.onnxruntime.OrtSession
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.nio.LongBuffer
@@ -85,6 +87,58 @@ class OnnxEmbeddingServiceTest {
             verify { tensor1.close() }
             verify { tensor2.close() }
             verify { tensor3.close() }
+        }
+    }
+
+    @Test
+    fun `embed prepends passage prefix before tokenization`() {
+        val mockEnv = mockk<OrtEnvironment>(relaxed = true)
+        val mockSession = mockk<OrtSession>(relaxed = true)
+        val mockTokenizer = mockk<HuggingFaceTokenizer>(relaxed = true)
+        val mockEncoding = mockk<Encoding>(relaxed = true)
+        val capturedText = slot<String>()
+
+        every { mockTokenizer.encode(capture(capturedText)) } returns mockEncoding
+        every { mockEncoding.ids } returns LongArray(2) { it.toLong() }
+        every { mockEncoding.attentionMask } returns LongArray(2) { 1L }
+        every { mockSession.run(any()) } throws RuntimeException("session not needed for this test")
+
+        mockkStatic(OnnxTensor::class) {
+            every { OnnxTensor.createTensor(any(), any<LongBuffer>(), any()) } returns mockk(relaxed = true)
+
+            val service = OnnxEmbeddingService(mockEnv, mockSession, mockTokenizer)
+
+            assertThrows<RuntimeException> {
+                runBlocking { service.embed("hello world") }
+            }
+
+            assertEquals("passage: hello world", capturedText.captured)
+        }
+    }
+
+    @Test
+    fun `embedQuery prepends query prefix before tokenization`() {
+        val mockEnv = mockk<OrtEnvironment>(relaxed = true)
+        val mockSession = mockk<OrtSession>(relaxed = true)
+        val mockTokenizer = mockk<HuggingFaceTokenizer>(relaxed = true)
+        val mockEncoding = mockk<Encoding>(relaxed = true)
+        val capturedText = slot<String>()
+
+        every { mockTokenizer.encode(capture(capturedText)) } returns mockEncoding
+        every { mockEncoding.ids } returns LongArray(2) { it.toLong() }
+        every { mockEncoding.attentionMask } returns LongArray(2) { 1L }
+        every { mockSession.run(any()) } throws RuntimeException("session not needed for this test")
+
+        mockkStatic(OnnxTensor::class) {
+            every { OnnxTensor.createTensor(any(), any<LongBuffer>(), any()) } returns mockk(relaxed = true)
+
+            val service = OnnxEmbeddingService(mockEnv, mockSession, mockTokenizer)
+
+            assertThrows<RuntimeException> {
+                runBlocking { service.embedQuery("hello world") }
+            }
+
+            assertEquals("query: hello world", capturedText.captured)
         }
     }
 }

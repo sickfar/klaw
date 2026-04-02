@@ -21,7 +21,7 @@ class OnnxEmbeddingService internal constructor(
                 System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache",
                 "klaw",
                 "models",
-                "all-MiniLM-L6-v2",
+                "multilingual-e5-small",
             ),
     ) : this(
         env = ai.onnxruntime.OrtEnvironment.getEnvironment(),
@@ -48,11 +48,18 @@ class OnnxEmbeddingService internal constructor(
         }
     }
 
+    override suspend fun embed(text: String): FloatArray = embedWithPrefix("passage: ", text)
+
+    override suspend fun embedQuery(text: String): FloatArray = embedWithPrefix("query: ", text)
+
     @Suppress("LongMethod")
-    override suspend fun embed(text: String): FloatArray =
+    private suspend fun embedWithPrefix(
+        prefix: String,
+        text: String,
+    ): FloatArray =
         withContext(Dispatchers.VT) {
-            logger.trace { "ONNX embed: inputLen=${text.length}" }
-            val encoding = tokenizer.encode(text)
+            logger.trace { "ONNX embed: prefix=${prefix.trim()} inputLen=${text.length}" }
+            val encoding = tokenizer.encode("$prefix$text")
             val inputIds = encoding.ids
             val attentionMask = encoding.attentionMask
             val tokenTypeIds = LongArray(inputIds.size) { 0L }
@@ -126,7 +133,7 @@ class OnnxEmbeddingService internal constructor(
 
     override suspend fun embedBatch(texts: List<String>): List<FloatArray> {
         logger.debug { "ONNX embedBatch: count=${texts.size}" }
-        return texts.map { embed(it) }
+        return texts.map { embedWithPrefix("passage: ", it) }
     }
 
     private fun normalize(arr: FloatArray) {

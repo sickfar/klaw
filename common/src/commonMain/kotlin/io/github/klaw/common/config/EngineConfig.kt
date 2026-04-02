@@ -146,8 +146,8 @@ data class EmbeddingConfig(
     @ConfigDoc("Embedding backend type", possibleValues = ["onnx", "ollama"])
     val type: String = "onnx",
     @ConfigDoc("Embedding model name (ONNX directory name or Ollama model identifier)")
-    val model: String = "all-MiniLM-L6-v2",
-    @ConfigDoc("Ollama model name used when falling back from ONNX (default: all-minilm:l6-v2)")
+    val model: String = "multilingual-e5-small",
+    @ConfigDoc("Ollama model name used when falling back from ONNX (default: multilingual-e5-small)")
     val ollamaFallbackModel: String = DEFAULT_OLLAMA_MODEL,
 ) {
     init {
@@ -160,7 +160,7 @@ data class EmbeddingConfig(
 
     companion object {
         private val VALID_TYPES = setOf("onnx", "ollama")
-        const val DEFAULT_OLLAMA_MODEL = "all-minilm:l6-v2"
+        const val DEFAULT_OLLAMA_MODEL = "multilingual-e5-small"
     }
 }
 

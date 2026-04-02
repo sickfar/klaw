@@ -368,8 +368,7 @@ class ToolRegistryImpl(
 
     private fun JsonObject.intOrNull(key: String): Int? = this[key]?.jsonPrimitive?.intOrNull
 
-    private fun JsonObject.longOrNull(key: String): Long? =
-        this[key]?.jsonPrimitive?.content?.toLongOrNull()
+    private fun JsonObject.longOrNull(key: String): Long? = this[key]?.jsonPrimitive?.content?.toLongOrNull()
 
     private fun JsonObject.boolOrNull(key: String): Boolean? = this[key]?.jsonPrimitive?.booleanOrNull
 

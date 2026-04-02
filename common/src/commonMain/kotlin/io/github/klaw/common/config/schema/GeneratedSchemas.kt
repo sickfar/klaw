@@ -108,7 +108,7 @@ object GeneratedSchemas {
                                 },
                                 "ollamaFallbackModel": {
                                     "type": "string",
-                                    "description": "Ollama model name used when falling back from ONNX (default: all-minilm:l6-v2)"
+                                    "description": "Ollama model name used when falling back from ONNX (default: multilingual-e5-small)"
                                 }
                             },
                             "additionalProperties": false

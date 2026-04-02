@@ -150,23 +150,28 @@ private fun writeGeneratedDescriptors(
             appendLine("// AUTO-GENERATED — do not edit manually. Run generateSchemas task to regenerate.")
             appendLine()
             appendLine("object GeneratedConfigDescriptors {")
-            appendLine("    val ENGINE: List<ConfigPropertyDescriptor> = listOf(")
+            appendLine("    val ENGINE: List<ConfigPropertyDescriptor> =")
+            appendLine("        listOf(")
             for (desc in engineDescriptors) {
-                appendLine("        ${formatDescriptorLiteral(desc)},")
+                appendLine("            ${formatDescriptorLiteral(desc, "            ")},")
             }
-            appendLine("    )")
+            appendLine("        )")
             appendLine()
-            appendLine("    val GATEWAY: List<ConfigPropertyDescriptor> = listOf(")
+            appendLine("    val GATEWAY: List<ConfigPropertyDescriptor> =")
+            appendLine("        listOf(")
             for (desc in gatewayDescriptors) {
-                appendLine("        ${formatDescriptorLiteral(desc)},")
+                appendLine("            ${formatDescriptorLiteral(desc, "            ")},")
             }
-            appendLine("    )")
+            appendLine("        )")
             appendLine("}")
         },
     )
 }
 
-private fun formatDescriptorLiteral(desc: ConfigPropertyDescriptor): String {
+private fun formatDescriptorLiteral(
+    desc: ConfigPropertyDescriptor,
+    outerIndent: String = "        ",
+): String {
     val possibleStr =
         if (desc.possibleValues != null) {
             "listOf(${desc.possibleValues.joinToString(", ") { "\"${it.escapeKotlinString()}\"" }})"
@@ -180,17 +185,17 @@ private fun formatDescriptorLiteral(desc: ConfigPropertyDescriptor): String {
             "null"
         }
     val descStr = desc.description.escapeKotlinString()
-    val indent = "            "
+    val innerIndent = "$outerIndent    "
     return buildString {
         append("ConfigPropertyDescriptor(\n")
-        append("${indent}\"${desc.path}\",\n")
-        append("${indent}ConfigValueType.${desc.type.name},\n")
-        append("${indent}\"$descStr\",\n")
-        append("${indent}$defaultStr,\n")
-        append("${indent}$possibleStr,\n")
-        append("${indent}${desc.sensitive},\n")
-        append("${indent}${desc.required},\n")
-        append("        )")
+        append("$innerIndent\"${desc.path}\",\n")
+        append("${innerIndent}ConfigValueType.${desc.type.name},\n")
+        append("${innerIndent}\"$descStr\",\n")
+        append("${innerIndent}$defaultStr,\n")
+        append("${innerIndent}$possibleStr,\n")
+        append("${innerIndent}${desc.sensitive},\n")
+        append("${innerIndent}${desc.required},\n")
+        append("$outerIndent)")
     }
 }
 

@@ -252,8 +252,9 @@ class MemoryServiceImpl(
         content: String,
     ): Int =
         withContext(Dispatchers.VT) {
-            val cat = database.memoryCategoriesQueries.getByName(category).executeAsOneOrNull()
-                ?: return@withContext 0
+            val cat =
+                database.memoryCategoriesQueries.getByName(category).executeAsOneOrNull()
+                    ?: return@withContext 0
 
             val count =
                 database.memoryFactsQueries
@@ -431,7 +432,7 @@ class MemoryServiceImpl(
         logger.trace { "Vector search: queryLength=${query.length} topK=$topK" }
         if (!sqliteVecLoader.isAvailable()) return emptyList()
 
-        val queryEmbedding = embeddingService.embed(query)
+        val queryEmbedding = embeddingService.embedQuery(query)
         val blob = floatArrayToBlob(queryEmbedding)
 
         return withContext(Dispatchers.VT) {

@@ -137,7 +137,7 @@ object GeneratedConfigDescriptors {
             ConfigPropertyDescriptor(
                 "memory.embedding.ollamaFallbackModel",
                 ConfigValueType.STRING,
-                "Ollama model name used when falling back from ONNX (default: all-minilm:l6-v2)",
+                "Ollama model name used when falling back from ONNX (default: multilingual-e5-small)",
                 null,
                 null,
                 false,
@@ -353,8 +353,7 @@ object GeneratedConfigDescriptors {
             ConfigPropertyDescriptor(
                 "context.tokenBudget",
                 ConfigValueType.INT,
-                "Token budget for context window. " +
-                    "Priority: config > model registry > 100000.",
+                "Token budget for context window. Priority: config > model registry > 100000.",
                 null,
                 null,
                 false,
@@ -1092,24 +1091,6 @@ object GeneratedConfigDescriptors {
                 null,
                 false,
                 false,
-            ),
-            ConfigPropertyDescriptor(
-                "commands[].name",
-                ConfigValueType.STRING,
-                "Slash command name without the leading /",
-                null,
-                null,
-                false,
-                true,
-            ),
-            ConfigPropertyDescriptor(
-                "commands[].description",
-                ConfigValueType.STRING,
-                "Human-readable description shown in command help",
-                null,
-                null,
-                false,
-                true,
             ),
             ConfigPropertyDescriptor(
                 "delivery.maxReconnectAttempts",

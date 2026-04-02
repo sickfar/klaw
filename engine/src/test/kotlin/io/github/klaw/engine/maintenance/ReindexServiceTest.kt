@@ -36,6 +36,8 @@ class ReindexServiceTest {
     companion object {
         private const val VEC_MESSAGES_STUB_DDL =
             "CREATE TABLE IF NOT EXISTS vec_messages(rowid INTEGER PRIMARY KEY, embedding BLOB)"
+        private const val VEC_MEMORY_STUB_DDL =
+            "CREATE TABLE IF NOT EXISTS vec_memory(rowid INTEGER PRIMARY KEY, embedding BLOB)"
     }
 
     @TempDir
@@ -52,6 +54,8 @@ class ReindexServiceTest {
     private val mockEmbeddingService =
         object : EmbeddingService {
             override suspend fun embed(text: String): FloatArray = mockEmbedding
+
+            override suspend fun embedQuery(text: String): FloatArray = mockEmbedding
 
             override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { mockEmbedding }
         }
@@ -167,6 +171,40 @@ class ReindexServiceTest {
                 },
                 0,
             ).value
+
+    private fun countVecMemory(): Long =
+        driver
+            .executeQuery(
+                null,
+                "SELECT COUNT(*) FROM vec_memory",
+                { cursor ->
+                    cursor.next()
+                    app.cash.sqldelight.db.QueryResult
+                        .Value(cursor.getLong(0)!!)
+                },
+                0,
+            ).value
+
+    private fun insertMemoryFact(
+        content: String,
+        source: String = "test",
+        categoryName: String = "general",
+    ): Long {
+        database.memoryCategoriesQueries.insert(categoryName, "2025-01-01T00:00:00Z")
+        val categoryId =
+            database.memoryCategoriesQueries
+                .getByName(categoryName)
+                .executeAsOne()
+                .id
+        database.memoryFactsQueries.insert(
+            category_id = categoryId,
+            source = source,
+            content = content,
+            created_at = "2025-01-01T00:00:00Z",
+            updated_at = "2025-01-01T00:00:00Z",
+        )
+        return database.memoryFactsQueries.lastInsertRowId().executeAsOne()
+    }
 
     @Nested
     inner class ReindexFull {
@@ -523,6 +561,8 @@ class ReindexServiceTest {
                             return FloatArray(384) { 0.1f }
                         }
 
+                        override suspend fun embedQuery(text: String): FloatArray = embed(text)
+
                         override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { embed(it) }
                     }
                 val svc =
@@ -547,6 +587,7 @@ class ReindexServiceTest {
         fun `reindexVec rebuilds vec_messages from existing DB rows`() =
             runBlocking {
                 driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
                 val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
 
                 // Pre-insert messages directly into DB
@@ -572,6 +613,7 @@ class ReindexServiceTest {
         fun `reindexVec clears old vec_messages before rebuild`() =
             runBlocking {
                 driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
                 val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
 
                 // Pre-insert a stale vec_messages row
@@ -609,6 +651,7 @@ class ReindexServiceTest {
         fun `reindexVec does not touch messages table`() =
             runBlocking {
                 driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
                 val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
 
                 insertMessageDirectly("m1", role = "user", content = "hello world test content for embedding here")
@@ -642,6 +685,7 @@ class ReindexServiceTest {
         fun `reindexVec reports progress`() =
             runBlocking {
                 driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
                 val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
 
                 insertMessageDirectly("m1", role = "user", content = "hello world test content for embedding here")
@@ -651,6 +695,143 @@ class ReindexServiceTest {
 
                 assertTrue(progressMessages.isNotEmpty())
                 assertTrue(progressMessages.any { it.contains("complete", ignoreCase = true) })
+            }
+
+        @Test
+        fun `reindexVec rebuilds vec_memory from memory_facts`() =
+            runBlocking {
+                driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
+                val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
+
+                insertMemoryFact("Paris is the capital of France", source = "test/fact1")
+                insertMemoryFact("Kotlin is a modern JVM language", source = "test/fact2")
+
+                svc.reindexVec()
+
+                // Both facts should be embedded into vec_memory
+                assertEquals(2L, countVecMemory())
+            }
+
+        @Test
+        fun `reindexVec clears old vec_memory before rebuild`() =
+            runBlocking {
+                driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
+                val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
+
+                // Pre-populate stale row
+                driver.execute(null, "INSERT INTO vec_memory(rowid, embedding) VALUES (999, X'0000803F')", 0)
+                insertMemoryFact("A fresh fact", source = "test/fresh")
+
+                svc.reindexVec()
+
+                // Stale row should be gone
+                val staleCount =
+                    driver
+                        .executeQuery(
+                            null,
+                            "SELECT COUNT(*) FROM vec_memory WHERE rowid = 999",
+                            { cursor ->
+                                cursor.next()
+                                app.cash.sqldelight.db.QueryResult
+                                    .Value(cursor.getLong(0)!!)
+                            },
+                            0,
+                        ).value
+                assertEquals(0L, staleCount)
+                // Fresh fact should be embedded
+                assertEquals(1L, countVecMemory())
+            }
+
+        @Test
+        fun `reindexVec does not touch memory_facts table`() =
+            runBlocking {
+                driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
+                val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
+
+                insertMemoryFact("Fact content here", source = "test/fact")
+                val countBefore =
+                    database.memoryFactsQueries
+                        .allFacts()
+                        .executeAsList()
+                        .size
+
+                svc.reindexVec()
+
+                val countAfter =
+                    database.memoryFactsQueries
+                        .allFacts()
+                        .executeAsList()
+                        .size
+                assertEquals(countBefore, countAfter)
+            }
+
+        @Test
+        fun `reindexVec uses embed not embedQuery for memory facts`() =
+            runBlocking {
+                driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
+
+                val passageEmbedding = FloatArray(384) { 0.42f }
+                val queryEmbedding = FloatArray(384) { 0.99f }
+                var embedCallCount = 0
+                var embedQueryCallCount = 0
+                val trackingService =
+                    object : EmbeddingService {
+                        override suspend fun embed(text: String): FloatArray {
+                            embedCallCount++
+                            return passageEmbedding
+                        }
+
+                        override suspend fun embedQuery(text: String): FloatArray {
+                            embedQueryCallCount++
+                            return queryEmbedding
+                        }
+
+                        override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { embed(it) }
+                    }
+                val svc = ReindexService(database, driver, trackingService, availableVecLoader, testEngineConfig())
+
+                insertMemoryFact("Some fact content", source = "test/fact")
+
+                svc.reindexVec()
+
+                assertTrue(embedCallCount > 0, "embed() must be called for passage indexing")
+                assertEquals(0, embedQueryCallCount, "embedQuery() must NOT be called during reindex")
+            }
+
+        @Test
+        fun `reindexVec skips vec_memory when sqlite-vec unavailable`() =
+            runBlocking {
+                // service uses unavailableVecLoader - should not throw even without vec_memory table
+                insertMemoryFact("Some fact", source = "test/fact")
+
+                service.reindexVec()
+
+                // memory_facts table should be untouched
+                val factCount =
+                    database.memoryFactsQueries
+                        .allFacts()
+                        .executeAsList()
+                        .size
+                assertEquals(1, factCount)
+            }
+
+        @Test
+        fun `reindexVec reports progress for memory facts`() =
+            runBlocking {
+                driver.execute(null, VEC_MESSAGES_STUB_DDL, 0)
+                driver.execute(null, VEC_MEMORY_STUB_DDL, 0)
+                val svc = ReindexService(database, driver, mockEmbeddingService, availableVecLoader, testEngineConfig())
+
+                insertMemoryFact("A fact to embed", source = "test/fact")
+
+                val progressMessages = mutableListOf<String>()
+                svc.reindexVec(onProgress = { progressMessages += it })
+
+                assertTrue(progressMessages.any { it.contains("vec_memory", ignoreCase = true) })
             }
     }
 }

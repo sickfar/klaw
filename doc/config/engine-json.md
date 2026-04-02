@@ -140,7 +140,7 @@ Full config with multiple providers and overrides:
   "memory": {
     "embedding": {
       "type": "onnx",
-      "model": "all-MiniLM-L6-v2"
+      "model": "multilingual-e5-small"
     },
     "chunking": {
       "size": 512,
@@ -303,7 +303,7 @@ Memory facts are stored in the database with categories. On first start, MEMORY.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `embedding.type` | string | — | Embedding backend: `"onnx"` (local) or `"ollama"`. |
-| `embedding.model` | string | — | Embedding model name (e.g. `"all-MiniLM-L6-v2"`). |
+| `embedding.model` | string | — | Embedding model name. Default: `"multilingual-e5-small"` (50+ languages, cross-lingual retrieval, 384d, ~120 MB). For English-only use: `"all-MiniLM-L6-v2"`. |
 | `chunking.size` | int | — | Maximum chunk size in approximate tokens (used by docs indexing). |
 | `chunking.overlap` | int | — | Overlap between consecutive chunks in approximate tokens. |
 | `search.topK` | int | — | Number of top results from hybrid search. |

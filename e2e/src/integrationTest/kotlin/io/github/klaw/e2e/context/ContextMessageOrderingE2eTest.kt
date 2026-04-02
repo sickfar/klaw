@@ -215,9 +215,9 @@ class ContextMessageOrderingE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
+        private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val SUMMARY_BUDGET_FRACTION = 0.25
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val COMPACTION_TRIGGER_MESSAGES = 5
 
         private const val STUB_PROMPT_TOKENS = 100

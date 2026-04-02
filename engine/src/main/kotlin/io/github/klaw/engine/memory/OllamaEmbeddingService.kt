@@ -1,5 +1,6 @@
 package io.github.klaw.engine.memory
 
+import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.engine.util.VT
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ private val logger = KotlinLogging.logger {}
 @Suppress("MagicNumber")
 class OllamaEmbeddingService(
     private val baseUrl: String = "http://localhost:11434",
-    private val model: String = "all-minilm:l6-v2",
+    private val model: String = EmbeddingConfig.DEFAULT_OLLAMA_MODEL,
 ) : EmbeddingService {
     private val httpClient: HttpClient = HttpClient.newHttpClient()
 
@@ -46,6 +47,8 @@ class OllamaEmbeddingService(
         @SerialName("model") val responseModel: String? = null,
     )
 
+    override suspend fun embedQuery(text: String): FloatArray = embed(text)
+
     override suspend fun embed(text: String): FloatArray =
         withContext(Dispatchers.VT) {
             logger.trace { "Ollama embed: model=$model inputLen=${text.length}" }
@@ -61,7 +64,7 @@ class OllamaEmbeddingService(
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() != 200) {
                 logger.warn { "Ollama embed error: status=${response.statusCode()}" }
-                error("Ollama embed failed: HTTP ${response.statusCode()} — ${response.body()}")
+                error("Ollama embed failed: HTTP ${response.statusCode()}")
             }
 
             val parsed = json.decodeFromString<EmbedResponse>(response.body())
@@ -86,7 +89,7 @@ class OllamaEmbeddingService(
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() != 200) {
                 logger.warn { "Ollama embedBatch error: status=${response.statusCode()}" }
-                error("Ollama embed failed: HTTP ${response.statusCode()} — ${response.body()}")
+                error("Ollama embed failed: HTTP ${response.statusCode()}")
             }
 
             val parsed = json.decodeFromString<EmbedResponse>(response.body())

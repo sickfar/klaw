@@ -39,8 +39,8 @@ class ModelDownloaderTest {
             wireMock.stop()
         }
 
-        private const val MODEL_PATH = "/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx"
-        private const val TOKENIZER_PATH = "/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json"
+        private const val MODEL_PATH = "/intfloat/multilingual-e5-small/resolve/main/onnx/model.onnx"
+        private const val TOKENIZER_PATH = "/intfloat/multilingual-e5-small/resolve/main/tokenizer.json"
     }
 
     @TempDir

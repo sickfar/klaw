@@ -57,13 +57,13 @@ Delete a category and optionally its facts.
 
 `memory_search` combines two retrieval strategies and merges results:
 
-1. **Semantic search (KNN):** The query is embedded via all-MiniLM-L6-v2 (384d, ONNX or Ollama fallback) and matched against `vec_memory` (sqlite-vec virtual table) using cosine distance. Skipped if sqlite-vec is unavailable.
+1. **Semantic search (KNN):** The query is embedded via multilingual-e5-small (384d, ONNX or Ollama fallback) and matched against `vec_memory` (sqlite-vec virtual table) using cosine distance. Supports cross-lingual retrieval (query in one language, results in another). Skipped if sqlite-vec is unavailable.
 2. **Full-text search (FTS5):** The query is matched against `memory_facts_fts` using SQLite FTS5 BM25 ranking.
 3. **Reciprocal Rank Fusion (RRF):** Both result lists are merged with k=60. Each result scores `sum(1/(k + rank + 1))` across lists. Top-K returned.
 
 ### Embedding model
 
-- **all-MiniLM-L6-v2** — 384-dimensional vectors, ONNX Runtime (local).
+- **multilingual-e5-small** — 384-dimensional vectors, 100+ languages, ONNX Runtime (local).
 - Falls back to Ollama API if ONNX is unavailable.
 - If neither works, only FTS search is used (graceful degradation).
 

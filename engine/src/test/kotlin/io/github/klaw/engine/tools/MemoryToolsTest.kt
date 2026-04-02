@@ -3,7 +3,6 @@ package io.github.klaw.engine.tools
 import io.github.klaw.engine.memory.MemoryCategoryInfo
 import io.github.klaw.engine.memory.MemoryService
 import io.mockk.coEvery
-import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals

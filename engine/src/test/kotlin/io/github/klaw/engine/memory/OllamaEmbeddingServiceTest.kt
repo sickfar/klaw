@@ -3,6 +3,7 @@ package io.github.klaw.engine.memory
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import kotlinx.coroutines.runBlocking
@@ -103,4 +104,27 @@ class OllamaEmbeddingServiceTest {
             }
         }
     }
+
+    @Test
+    fun `embedQuery sends same request as embed`() =
+        runBlocking {
+            val embedding = (1..384).map { it * 0.001f }
+            val embeddingJson = embedding.joinToString(",") { it.toString() }
+            wireMock.stubFor(
+                post(urlEqualTo("/api/embed"))
+                    .willReturn(
+                        aResponse()
+                            .withStatus(200)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody("""{"embeddings":[[$embeddingJson]]}"""),
+                    ),
+            )
+
+            val result = service().embedQuery("hello world")
+
+            assertEquals(384, result.size)
+            assertEquals(0.001f, result[0], 0.0001f)
+            // exactly one POST to /api/embed
+            wireMock.verify(1, postRequestedFor(urlEqualTo("/api/embed")))
+        }
 }

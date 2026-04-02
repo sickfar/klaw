@@ -309,7 +309,7 @@ object ConfigGenerator {
         putJsonObject("memory") {
             putJsonObject("embedding") {
                 put("type", "onnx")
-                put("model", "all-MiniLM-L6-v2")
+                put("model", "multilingual-e5-small")
             }
             putJsonObject("chunking") {
                 put("size", CHUNK_SIZE)

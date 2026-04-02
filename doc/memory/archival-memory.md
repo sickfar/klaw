@@ -10,9 +10,9 @@ All data in SQLite is cache/index only and can be rebuilt via `klaw reindex`.
 
 ## Embedding
 
-- **Model:** all-MiniLM-L6-v2 (384 dimensions)
+- **Model:** multilingual-e5-small (384 dimensions, 100+ languages, cross-lingual retrieval)
 - **Primary backend:** ONNX Runtime (local, no network)
-- **Fallback:** Ollama API (`nomic-embed-text` or configured model)
+- **Fallback:** Ollama API (configured model)
 - If neither is available, vector search is skipped and FTS-only mode is used.
 
 ## Chunking

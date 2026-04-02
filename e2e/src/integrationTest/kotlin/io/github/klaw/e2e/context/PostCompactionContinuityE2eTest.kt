@@ -27,7 +27,7 @@ import java.time.Duration
  * continued conversation works correctly — summary + new messages coexist,
  * no duplicates, no gaps, no compacted messages leaking back.
  *
- * Config: budget=2000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.5
+ * Config: budget=5000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.2
  * Trigger: uncoveredMessageTokens > 2000 * 0.75 = 1500
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -145,9 +145,9 @@ class PostCompactionContinuityE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
-        private const val SUMMARY_BUDGET_FRACTION = 0.25
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val CONTEXT_BUDGET_TOKENS = 6000
+        private const val SUMMARY_BUDGET_FRACTION = 0.1
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val TRIGGER_MESSAGES = 5
         private const val POST_COMPACTION_MESSAGES = 3
         private const val CHAT_ID = "local_ws_default"

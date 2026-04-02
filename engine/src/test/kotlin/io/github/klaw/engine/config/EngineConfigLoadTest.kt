@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 
-@MicronautTest
+@MicronautTest(transactional = false)
 class EngineConfigLoadTest {
     @Inject
     lateinit var config: EngineConfig

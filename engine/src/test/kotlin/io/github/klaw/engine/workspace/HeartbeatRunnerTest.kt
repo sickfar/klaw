@@ -31,9 +31,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
+import java.time.Clock as JavaClock
 
 class HeartbeatRunnerTest {
     @TempDir
@@ -41,6 +44,10 @@ class HeartbeatRunnerTest {
 
     @TempDir
     lateinit var conversationsDir: Path
+
+    private val fixedInstant: Instant = Instant.parse("2026-01-15T12:00:00Z")
+    private val fixedClock: JavaClock = JavaClock.fixed(fixedInstant, ZoneOffset.UTC)
+    private val fixedDate: String = LocalDate.now(fixedClock).toString()
 
     private val defaultHeartbeat =
         HeartbeatConfig(interval = "PT1H", channel = "telegram", injectInto = "chat123")
@@ -358,7 +365,7 @@ class HeartbeatRunnerTest {
         pushCapture: MutableList<OutboundSocketMessage> = mutableListOf(),
     ): HeartbeatPersistence =
         HeartbeatPersistence(
-            jsonlWriter = HeartbeatJsonlWriter(conversationsDir),
+            jsonlWriter = HeartbeatJsonlWriter(conversationsDir, fixedClock),
             persistDelivered = { _, _, _ -> },
             pushToGateway = { msg -> pushCapture.add(msg) },
         )
@@ -377,8 +384,7 @@ class HeartbeatRunnerTest {
 
             runner.executeHeartbeat()
 
-            val today = LocalDate.now().toString()
-            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$today.jsonl")
+            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$fixedDate.jsonl")
             assertTrue(
                 java.nio.file.Files
                     .exists(jsonlFile),
@@ -410,8 +416,7 @@ class HeartbeatRunnerTest {
 
             runner.executeHeartbeat()
 
-            val today = LocalDate.now().toString()
-            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$today.jsonl")
+            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$fixedDate.jsonl")
             assertTrue(
                 java.nio.file.Files
                     .exists(jsonlFile),
@@ -494,8 +499,7 @@ class HeartbeatRunnerTest {
 
             runner.executeHeartbeat()
 
-            val today = LocalDate.now().toString()
-            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$today.jsonl")
+            val jsonlFile = conversationsDir.resolve("heartbeat").resolve("$fixedDate.jsonl")
             assertFalse(
                 java.nio.file.Files
                     .exists(jsonlFile),

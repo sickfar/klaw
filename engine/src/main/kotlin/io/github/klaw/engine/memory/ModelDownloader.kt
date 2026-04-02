@@ -99,9 +99,9 @@ class ModelDownloader(
         private const val TOKENIZER_FILENAME = "tokenizer.json"
         private const val DEFAULT_BASE_URL = "https://huggingface.co"
         private const val ONNX_MODEL_PATH =
-            "/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx"
+            "/intfloat/multilingual-e5-small/resolve/main/onnx/model.onnx"
         private const val TOKENIZER_PATH =
-            "/sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer.json"
+            "/intfloat/multilingual-e5-small/resolve/main/tokenizer.json"
         private const val HTTP_OK = 200
         private const val BUFFER_SIZE = 8192
         private val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(30)

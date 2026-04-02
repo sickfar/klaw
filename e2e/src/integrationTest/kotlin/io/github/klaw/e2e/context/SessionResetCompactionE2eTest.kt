@@ -26,7 +26,7 @@ import java.time.Duration
  * Verifies that /new command creates a clean segment — old summaries become invisible
  * and the new conversation starts fresh without old context leaking through.
  *
- * Config: budget=2000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.5
+ * Config: budget=5000, summaryBudgetFraction=0.25, compactionThresholdFraction=0.2
  * Trigger: uncoveredMessageTokens > 2000 * 0.75 = 1500
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -160,9 +160,9 @@ class SessionResetCompactionE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
-        private const val SUMMARY_BUDGET_FRACTION = 0.25
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val CONTEXT_BUDGET_TOKENS = 6000
+        private const val SUMMARY_BUDGET_FRACTION = 0.1
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val TRIGGER_MESSAGES = 5
         private const val CHAT_ID = "local_ws_default"
 

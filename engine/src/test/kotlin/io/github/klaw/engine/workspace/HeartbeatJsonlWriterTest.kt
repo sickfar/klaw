@@ -19,22 +19,28 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 class HeartbeatJsonlWriterTest {
     @TempDir
     lateinit var conversationsDir: Path
 
+    private val fixedInstant: Instant = Instant.parse("2026-01-15T12:00:00Z")
+    private val fixedClock: Clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
+    private val fixedDate: String = LocalDate.now(fixedClock).toString()
+
     @Test
     fun `writeDialog creates heartbeat directory and file`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(listOf(LlmMessage(role = "user", content = "Check weather")), "test/model")
 
             val heartbeatDir = conversationsDir.resolve("heartbeat")
             assertTrue(Files.exists(heartbeatDir))
-            val today = LocalDate.now().toString()
-            val file = heartbeatDir.resolve("$today.jsonl")
+            val file = heartbeatDir.resolve("$fixedDate.jsonl")
             assertTrue(Files.exists(file))
             assertTrue(Files.size(file) > 0)
         }
@@ -42,7 +48,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog skips system messages`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(
                 listOf(
                     LlmMessage(role = "system", content = "You are an AI."),
@@ -60,7 +66,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog writes user message with id and ts`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(listOf(LlmMessage(role = "user", content = "Check alerts")), "test/model")
 
             val lines = readLines()
@@ -75,7 +81,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog writes assistant text message with model`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(
                 listOf(
                     LlmMessage(role = "user", content = "Check"),
@@ -95,7 +101,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog writes assistant tool_calls message`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(
                 listOf(
                     LlmMessage(
@@ -127,7 +133,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog writes tool result message with tool_call_id`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(
                 listOf(LlmMessage(role = "tool", content = "Message queued", toolCallId = "tc1")),
                 "test/model",
@@ -144,7 +150,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog appends to existing file on second call`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(listOf(LlmMessage(role = "user", content = "First run")), "test/model")
             writer.writeDialog(listOf(LlmMessage(role = "user", content = "Second run")), "test/model")
 
@@ -155,13 +161,13 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog writes nothing when all messages are system`() =
         runBlocking {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             writer.writeDialog(
                 listOf(LlmMessage(role = "system", content = "System prompt")),
                 "test/model",
             )
 
-            val today = LocalDate.now().toString()
+            val today = LocalDate.now(ZoneOffset.UTC).toString()
             val file = conversationsDir.resolve("heartbeat").resolve("$today.jsonl")
             assertFalse(Files.exists(file))
         }
@@ -169,7 +175,7 @@ class HeartbeatJsonlWriterTest {
     @Test
     fun `writeDialog is safe for concurrent writes`() =
         runBlocking(Dispatchers.Default) {
-            val writer = HeartbeatJsonlWriter(conversationsDir)
+            val writer = HeartbeatJsonlWriter(conversationsDir, fixedClock)
             val jobs =
                 (1..10).map { i ->
                     launch {
@@ -191,8 +197,7 @@ class HeartbeatJsonlWriterTest {
         }
 
     private fun readLines(): List<String> {
-        val today = LocalDate.now().toString()
-        val file = conversationsDir.resolve("heartbeat").resolve("$today.jsonl")
+        val file = conversationsDir.resolve("heartbeat").resolve("$fixedDate.jsonl")
         return Files.readAllLines(file).filter { it.isNotBlank() }
     }
 }

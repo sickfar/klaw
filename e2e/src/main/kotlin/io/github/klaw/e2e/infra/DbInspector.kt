@@ -291,6 +291,28 @@ class DbInspector(
                 }
         }
 
+    /**
+     * Returns the number of rows currently indexed in vec_messages.
+     * Queries the sqlite-vec shadow table `vec_messages_rowids` which is a regular B-tree table
+     * and can be read without loading the vec0 extension.
+     * Returns 0 if the shadow table does not exist yet (engine not started or extension unavailable).
+     */
+    fun getVecMessagesEmbeddingCount(): Int =
+        try {
+            withRetry("getVecMessagesEmbeddingCount") {
+                connection
+                    .prepareStatement("SELECT COUNT(*) FROM vec_messages_rowids")
+                    .use { ps ->
+                        ps.executeQuery().use { rs ->
+                            rs.next()
+                            rs.getInt(1)
+                        }
+                    }
+            }
+        } catch (_: Exception) {
+            0
+        }
+
     fun getMemoryFactsBySourcePrefix(prefix: String): List<MemoryFactRow> =
         withRetry("getMemoryFactsBySourcePrefix") {
             val results = mutableListOf<MemoryFactRow>()

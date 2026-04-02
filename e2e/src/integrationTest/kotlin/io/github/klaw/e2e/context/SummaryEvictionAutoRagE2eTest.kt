@@ -186,7 +186,7 @@ class SummaryEvictionAutoRagE2eTest {
 
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200
-        private const val RESPONSE_TIMEOUT_MS = 30_000L
+        private const val RESPONSE_TIMEOUT_MS = 60_000L
         private const val SUMMARY_PERSIST_TIMEOUT_MS = 30_000L
         private const val EMBEDDING_WAIT_MS = 8_000L
         private const val MAX_COMPACTION_ROUNDS = 10

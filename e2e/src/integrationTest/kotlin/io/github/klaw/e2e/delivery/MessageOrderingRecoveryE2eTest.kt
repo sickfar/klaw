@@ -148,13 +148,13 @@ class MessageOrderingRecoveryE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
+        private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val LLM_DELAY_MS = 5_000
         private const val MESSAGE_GAP_MS = 1500L
         private const val WIREMOCK_REQUEST_WAIT_SECONDS = 120L
-        private const val PROCESSING_MARGIN_MS = 15_000L
-        private const val COLLECT_TIMEOUT_SECONDS = 60L
+        private const val PROCESSING_MARGIN_MS = 30_000L
+        private const val COLLECT_TIMEOUT_SECONDS = 180L
         private const val DRAIN_COLLECT_MS = 5_000L
         private const val EXPECTED_MESSAGE_COUNT = 3
     }

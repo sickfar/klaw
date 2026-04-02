@@ -79,7 +79,7 @@ class MemorySaveWithCategoryE2eTest {
                     listOf(
                         StubToolCall(
                             id = "call_1",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments = """{"content":"test fact","category":"Test Topic"}""",
                         ),
                     ),

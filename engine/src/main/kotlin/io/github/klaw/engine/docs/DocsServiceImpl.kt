@@ -141,7 +141,7 @@ class DocsServiceImpl(
         }
 
         logger.debug { "Docs search: queryLength=${query.length} topK=$topK" }
-        val embedding = embeddingService.embed(query)
+        val embedding = embeddingService.embedQuery(query)
         val blob = floatArrayToBlob(embedding)
 
         val results =

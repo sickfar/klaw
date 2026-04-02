@@ -124,9 +124,9 @@ class AutoRagWindowDeduplicationE2eTest {
         val windowResponses =
             (1..3).map { n ->
                 StubResponse(
-                    content = "DEDUP-WindowResponse-$n $ASST_MSG_PADDING",
-                    promptTokens = STUB_PROMPT_TOKENS,
-                    completionTokens = STUB_COMPLETION_TOKENS,
+                    content = "DEDUP-WindowResponse-$n",
+                    promptTokens = SMALL_PROMPT_TOKENS,
+                    completionTokens = SMALL_COMPLETION_TOKENS,
                 )
             }
         wireMock.stubChatResponseSequence(windowResponses)
@@ -144,15 +144,15 @@ class AutoRagWindowDeduplicationE2eTest {
         )
 
         client.sendAndReceive(
-            "DEDUP-WINDOW-A DEDUP-SHARED-TOPIC window message $USER_MSG_PADDING",
+            "DEDUP-WINDOW-A DEDUP-SHARED-TOPIC window message",
             timeoutMs = RESPONSE_TIMEOUT_MS,
         )
         client.sendAndReceive(
-            "DEDUP-WINDOW-B DEDUP-SHARED-TOPIC window message $USER_MSG_PADDING",
+            "DEDUP-WINDOW-B DEDUP-SHARED-TOPIC window message",
             timeoutMs = RESPONSE_TIMEOUT_MS,
         )
         client.sendAndReceive(
-            "DEDUP-WINDOW-C DEDUP-SHARED-TOPIC window message $USER_MSG_PADDING",
+            "DEDUP-WINDOW-C DEDUP-SHARED-TOPIC window message",
             timeoutMs = RESPONSE_TIMEOUT_MS,
         )
 
@@ -219,14 +219,16 @@ class AutoRagWindowDeduplicationE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
-        private const val SUMMARY_BUDGET_FRACTION = 0.05
-        private const val COMPACTION_THRESHOLD_FRACTION = 0.5
+        private const val CONTEXT_BUDGET_TOKENS = 5000
+        private const val SUMMARY_BUDGET_FRACTION = 0.02
+        private const val COMPACTION_THRESHOLD_FRACTION = 0.2
         private const val PHASE1_MESSAGES = 16
         private const val MIN_SUMMARIES = 3
         private const val CHAT_ID = "local_ws_default"
         private const val STUB_PROMPT_TOKENS = 100
         private const val STUB_COMPLETION_TOKENS = 200
+        private const val SMALL_PROMPT_TOKENS = 30
+        private const val SMALL_COMPLETION_TOKENS = 5
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val SUMMARY_PERSIST_TIMEOUT_MS = 30_000L
         private const val EMBEDDING_WAIT_MS = 8_000L

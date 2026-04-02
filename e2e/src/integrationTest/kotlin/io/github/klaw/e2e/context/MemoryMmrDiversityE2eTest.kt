@@ -85,25 +85,25 @@ class MemoryMmrDiversityE2eTest {
                     listOf(
                         StubToolCall(
                             id = "save_1",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"Database connection timeout occurred at 10:00 AM","category":"errors"}""",
                         ),
                         StubToolCall(
                             id = "save_2",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"Connection timeout error when connecting to database at 10:05 AM","category":"errors"}""",
                         ),
                         StubToolCall(
                             id = "save_3",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"Timeout connecting to the database server at 10:10 AM","category":"errors"}""",
                         ),
                         StubToolCall(
                             id = "save_4",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"User prefers dark theme and compact sidebar layout","category":"preferences"}""",
                         ),

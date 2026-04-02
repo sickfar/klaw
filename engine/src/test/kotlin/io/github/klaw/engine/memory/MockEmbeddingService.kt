@@ -8,6 +8,8 @@ class MockEmbeddingService : EmbeddingService {
         }.also { normalize(it) }
     }
 
+    override suspend fun embedQuery(text: String): FloatArray = embed(text)
+
     override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { embed(it) }
 
     private fun normalize(arr: FloatArray) {

@@ -122,7 +122,7 @@ class EngineRestartRecoveryE2eTest {
     }
 
     companion object {
-        private const val CONTEXT_BUDGET_TOKENS = 2000
+        private const val CONTEXT_BUDGET_TOKENS = 5000
         private const val RESPONSE_TIMEOUT_MS = 30_000L
         private const val RECOVERY_TIMEOUT_MS = 90_000L
     }

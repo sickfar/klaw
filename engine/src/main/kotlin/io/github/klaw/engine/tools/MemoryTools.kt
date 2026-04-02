@@ -77,9 +77,11 @@ class MemoryTools(
                 id != null -> {
                     memoryService.deleteFact(id)
                 }
+
                 category != null && content != null -> {
                     memoryService.deleteFactByContent(category, content)
                 }
+
                 else -> {
                     0
                 }

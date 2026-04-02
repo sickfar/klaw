@@ -11,15 +11,16 @@ import kotlinx.serialization.json.putJsonArray
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.util.UUID
-import kotlin.time.Clock
+import kotlin.time.toKotlinInstant
 
 private val logger = KotlinLogging.logger {}
 
 class HeartbeatJsonlWriter(
     private val conversationsDir: Path,
+    private val clock: Clock = Clock.systemUTC(),
 ) {
     private val mutex = Mutex()
 
@@ -46,7 +47,7 @@ class HeartbeatJsonlWriter(
     }
 
     private fun resolveFile(): Path {
-        val date = LocalDate.now(ZoneOffset.UTC).toString()
+        val date = LocalDate.now(clock).toString()
         return conversationsDir.resolve("heartbeat").resolve("$date.jsonl")
     }
 
@@ -57,7 +58,7 @@ class HeartbeatJsonlWriter(
         val json =
             buildJsonObject {
                 put("id", UUID.randomUUID().toString())
-                put("ts", Clock.System.now().toString())
+                put("ts", clock.instant().toKotlinInstant().toString())
                 put("role", msg.role)
                 when {
                     msg.role == "tool" -> {

@@ -85,13 +85,13 @@ class MemoryTemporalDecayE2eTest {
                     listOf(
                         StubToolCall(
                             id = "save_1",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"The server runs on Raspberry Pi 5 with 8GB RAM","category":"infrastructure"}""",
                         ),
                         StubToolCall(
                             id = "save_2",
-                            name = "memory_save",
+                            name = "memory_fact_add",
                             arguments =
                                 """{"content":"Weekly backup runs every Sunday at 3 AM","category":"operations"}""",
                         ),
