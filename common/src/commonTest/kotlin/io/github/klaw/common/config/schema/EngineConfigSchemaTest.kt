@@ -29,9 +29,13 @@ class EngineConfigSchemaTest {
     @Test
     fun `required contains all mandatory fields`() {
         val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        val expected = listOf("providers", "models", "routing", "memory", "context", "processing")
+        val expected = listOf("providers", "models", "routing")
         expected.forEach { field ->
             assertContains(required, field, "required should contain '$field'")
+        }
+        // Fields that now have defaults — should NOT be required
+        listOf("memory", "context", "processing", "agents").forEach { field ->
+            assertTrue(field !in required, "required should NOT contain '$field' (has defaults)")
         }
     }
 
@@ -62,12 +66,14 @@ class EngineConfigSchemaTest {
     }
 
     @Test
-    fun `routing tasks requires summarization and subagent`() {
+    fun `routing tasks summarization and subagent are optional with defaults`() {
         val routing = schema["properties"]!!.jsonObject["routing"]!!.jsonObject
         val tasks = routing["properties"]!!.jsonObject["tasks"]!!.jsonObject
-        val required = tasks["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        assertContains(required, "summarization")
-        assertContains(required, "subagent")
+        // tasks itself is optional (has default TaskRoutingConfig())
+        // summarization and subagent have defaults ("") so should NOT be required
+        val required = tasks["required"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+        assertTrue("summarization" !in required, "summarization should not be required (has default)")
+        assertTrue("subagent" !in required, "subagent should not be required (has default)")
     }
 
     @Test

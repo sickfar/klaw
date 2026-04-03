@@ -68,27 +68,22 @@ object GeneratedSchemas {
                             "properties": {
                                 "summarization": {
                                     "type": "string",
-                                    "description": "Model reference for summarization tasks"
+                                    "description": "Model reference for summarization tasks (empty = fallback to routing.default at runtime)"
                                 },
                                 "subagent": {
                                     "type": "string",
-                                    "description": "Model reference for subagent tasks"
+                                    "description": "Model reference for subagent tasks (empty = fallback to routing.default at runtime)"
                                 },
                                 "consolidation": {
                                     "type": "string",
                                     "description": "Model reference for consolidation tasks"
                                 }
                             },
-                            "required": [
-                                "summarization",
-                                "subagent"
-                            ],
                             "additionalProperties": false
                         }
                     },
                     "required": [
-                        "default",
-                        "tasks"
+                        "default"
                     ],
                     "additionalProperties": false
                 },
@@ -166,9 +161,6 @@ object GeneratedSchemas {
                                     "additionalProperties": false
                                 }
                             },
-                            "required": [
-                                "topK"
-                            ],
                             "additionalProperties": false
                         },
                         "injectMemoryMap": {
@@ -261,9 +253,6 @@ object GeneratedSchemas {
                             "additionalProperties": false
                         }
                     },
-                    "required": [
-                        "search"
-                    ],
                     "additionalProperties": false
                 },
                 "context": {
@@ -280,9 +269,6 @@ object GeneratedSchemas {
                             "description": "Maximum number of history runs to include for subagents"
                         }
                     },
-                    "required": [
-                        "subagentHistory"
-                    ],
                     "additionalProperties": false
                 },
                 "processing": {
@@ -332,11 +318,6 @@ object GeneratedSchemas {
                             "additionalProperties": false
                         }
                     },
-                    "required": [
-                        "debounceMs",
-                        "maxConcurrentLlm",
-                        "maxToolCallRounds"
-                    ],
                     "additionalProperties": false
                 },
                 "skills": {
@@ -702,15 +683,421 @@ object GeneratedSchemas {
                         }
                     },
                     "additionalProperties": false
+                },
+                "agents": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Enable or disable this agent (disabled agents are ignored at runtime)"
+                            },
+                            "workspace": {
+                                "type": "string",
+                                "description": "Workspace directory for this agent (required for effective agents)"
+                            },
+                            "routing": {
+                                "type": "object",
+                                "properties": {
+                                    "default": {
+                                        "type": "string",
+                                        "description": "Default model reference override for this agent (null = use global routing.default)"
+                                    },
+                                    "tasks": {
+                                        "type": "object",
+                                        "properties": {
+                                            "summarization": {
+                                                "type": "string",
+                                                "description": "Model reference for summarization tasks (null = use global)"
+                                            },
+                                            "subagent": {
+                                                "type": "string",
+                                                "description": "Model reference for subagent tasks (null = use global)"
+                                            },
+                                            "consolidation": {
+                                                "type": "string",
+                                                "description": "Model reference for consolidation tasks (null = use global)"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "processing": {
+                                "type": "object",
+                                "properties": {
+                                    "slidingWindow": {
+                                        "type": "integer",
+                                        "description": "Sliding window size override for this agent (null = use global)"
+                                    },
+                                    "temperature": {
+                                        "type": "number",
+                                        "description": "Sampling temperature override for this agent (null = use model default)"
+                                    },
+                                    "maxOutputTokens": {
+                                        "type": "integer",
+                                        "description": "Maximum output tokens override for this agent (null = use model default)"
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "memory": {
+                                "type": "object",
+                                "properties": {
+                                    "consolidation": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "description": "Enable daily memory consolidation"
+                                            },
+                                            "cron": {
+                                                "type": "string",
+                                                "description": "Cron expression for consolidation schedule"
+                                            },
+                                            "model": {
+                                                "type": "string",
+                                                "description": "Model reference for consolidation LLM call (empty = use summarization model)"
+                                            },
+                                            "excludeChannels": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "description": "Channels to exclude from consolidation"
+                                            },
+                                            "category": {
+                                                "type": "string",
+                                                "description": "Memory category hint for consolidation summaries"
+                                            },
+                                            "minMessages": {
+                                                "type": "integer",
+                                                "description": "Minimum number of messages required to trigger consolidation"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "chunking": {
+                                        "type": "object",
+                                        "properties": {
+                                            "size": {
+                                                "type": "integer",
+                                                "description": "Maximum chunk size in approximate tokens"
+                                            },
+                                            "overlap": {
+                                                "type": "integer",
+                                                "description": "Overlap between consecutive chunks in approximate tokens"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "search": {
+                                        "type": "object",
+                                        "properties": {
+                                            "topK": {
+                                                "type": "integer",
+                                                "description": "Number of top results to return from hybrid search"
+                                            },
+                                            "mmr": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "enabled": {
+                                                        "type": "boolean",
+                                                        "description": "Enable MMR diversity reranking for memory search results"
+                                                    },
+                                                    "lambda": {
+                                                        "type": "number",
+                                                        "description": "Relevance vs diversity tradeoff (0.0=max diversity, 1.0=pure relevance)"
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "temporalDecay": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "enabled": {
+                                                        "type": "boolean",
+                                                        "description": "Enable temporal decay — recent memories score higher than old ones"
+                                                    },
+                                                    "halfLifeDays": {
+                                                        "type": "integer",
+                                                        "description": "Half-life in days — after this many days, score is halved"
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "autoRag": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "description": "Enable automatic RAG retrieval for conversation context"
+                                            },
+                                            "topK": {
+                                                "type": "integer",
+                                                "description": "Number of top relevant messages to retrieve"
+                                            },
+                                            "maxTokens": {
+                                                "type": "integer",
+                                                "description": "Maximum tokens of auto-RAG context to inject"
+                                            },
+                                            "relevanceThreshold": {
+                                                "type": "number",
+                                                "description": "Minimum relevance score threshold for including results"
+                                            },
+                                            "minMessageTokens": {
+                                                "type": "integer",
+                                                "description": "Minimum token count in a message to trigger auto-RAG"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "heartbeat": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "Enable or disable heartbeat for this agent"
+                                    },
+                                    "interval": {
+                                        "type": "string",
+                                        "description": "Heartbeat interval as ISO-8601 duration or 'off'"
+                                    },
+                                    "cron": {
+                                        "type": "string",
+                                        "description": "Cron expression for heartbeat schedule (alternative to interval)"
+                                    },
+                                    "model": {
+                                        "type": "string",
+                                        "description": "Model reference for heartbeat generation"
+                                    },
+                                    "channel": {
+                                        "type": "string",
+                                        "description": "Channel to deliver heartbeat messages to"
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "tools": {
+                                "type": "object",
+                                "properties": {
+                                    "sandbox": {
+                                        "type": "object",
+                                        "properties": {
+                                            "dockerImage": {
+                                                "type": "string",
+                                                "description": "Docker image used for code execution sandbox"
+                                            },
+                                            "timeout": {
+                                                "type": "integer",
+                                                "description": "Maximum execution timeout in seconds"
+                                            },
+                                            "allowNetwork": {
+                                                "type": "boolean",
+                                                "description": "Allow network access inside the sandbox container"
+                                            },
+                                            "maxMemory": {
+                                                "type": "string",
+                                                "description": "Maximum memory limit for the sandbox container"
+                                            },
+                                            "maxCpus": {
+                                                "type": "string",
+                                                "description": "Maximum CPU cores for the sandbox container"
+                                            },
+                                            "readOnlyRootfs": {
+                                                "type": "boolean",
+                                                "description": "Mount the container root filesystem as read-only"
+                                            },
+                                            "keepAlive": {
+                                                "type": "boolean",
+                                                "description": "Keep sandbox container alive between executions (reuses container for faster execution and state persistence)"
+                                            },
+                                            "keepAliveIdleTimeoutMin": {
+                                                "type": "integer",
+                                                "description": "Idle timeout in minutes before stopping a kept-alive container"
+                                            },
+                                            "keepAliveMaxExecutions": {
+                                                "type": "integer",
+                                                "description": "Maximum executions before recycling a kept-alive container"
+                                            },
+                                            "volumeMounts": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "description": "Additional Docker volume mounts for the sandbox"
+                                            },
+                                            "runAsUser": {
+                                                "type": "string",
+                                                "description": "User:group ID for sandbox container process (default: 1000:1000)"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    "hostExec": {
+                                        "type": "object",
+                                        "properties": {
+                                            "enabled": {
+                                                "type": "boolean",
+                                                "description": "Enable host command execution outside Docker sandbox"
+                                            },
+                                            "allowList": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "description": "Commands allowed to run without user confirmation"
+                                            },
+                                            "notifyList": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "description": "Commands that trigger a notification to the user"
+                                            },
+                                            "preValidation": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "enabled": {
+                                                        "type": "boolean",
+                                                        "description": "Enable LLM-based pre-validation of host commands"
+                                                    },
+                                                    "model": {
+                                                        "type": "string",
+                                                        "description": "Model reference used for pre-validation checks"
+                                                    },
+                                                    "riskThreshold": {
+                                                        "type": "integer",
+                                                        "description": "Risk score threshold above which commands are blocked"
+                                                    },
+                                                    "timeoutMs": {
+                                                        "type": "integer",
+                                                        "description": "Timeout in milliseconds for the pre-validation LLM call"
+                                                    }
+                                                },
+                                                "additionalProperties": false
+                                            },
+                                            "askTimeoutMin": {
+                                                "type": "integer",
+                                                "description": "Timeout in minutes for user confirmation prompts (0 = infinite, no timeout)"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "mcp": {
+                                "type": "object",
+                                "properties": {
+                                    "servers": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "object",
+                                            "properties": {
+                                                "enabled": {
+                                                    "type": "boolean",
+                                                    "description": "Enable or disable this MCP server"
+                                                },
+                                                "transport": {
+                                                    "type": "string",
+                                                    "description": "Transport type"
+                                                },
+                                                "command": {
+                                                    "type": "string",
+                                                    "description": "Command to spawn (stdio only)"
+                                                },
+                                                "args": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "Command arguments (stdio only)"
+                                                },
+                                                "env": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "Extra environment variables (stdio only)"
+                                                },
+                                                "url": {
+                                                    "type": "string",
+                                                    "description": "HTTP endpoint URL (http only)"
+                                                },
+                                                "apiKey": {
+                                                    "type": "string",
+                                                    "description": "Bearer token for HTTP auth (supports ${'$'}{VAR} from .env)"
+                                                },
+                                                "timeoutMs": {
+                                                    "type": "integer",
+                                                    "description": "Per-call timeout in milliseconds"
+                                                },
+                                                "reconnectDelayMs": {
+                                                    "type": "integer",
+                                                    "description": "Reconnect delay in milliseconds (stdio only)"
+                                                },
+                                                "maxReconnectAttempts": {
+                                                    "type": "integer",
+                                                    "description": "Maximum reconnect attempts, 0 = infinite (stdio only)"
+                                                }
+                                            },
+                                            "required": [
+                                                "transport"
+                                            ],
+                                            "additionalProperties": false
+                                        },
+                                        "description": "MCP server definitions keyed by server name"
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "limits": {
+                                "type": "object",
+                                "properties": {
+                                    "maxConcurrentRequests": {
+                                        "type": "integer",
+                                        "description": "Maximum concurrent requests for this agent (0 = unlimited)"
+                                    },
+                                    "maxMessagesPerMinute": {
+                                        "type": "integer",
+                                        "description": "Maximum messages per minute for this agent (0 = unlimited)"
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "vision": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "description": "Enable or disable vision for this agent"
+                                    },
+                                    "model": {
+                                        "type": "string",
+                                        "description": "Model reference for vision analysis for this agent"
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "description": "Agent definitions keyed by agent name; use '_defaults' key for shared defaults template"
                 }
             },
             "required": [
                 "providers",
                 "models",
-                "routing",
-                "memory",
-                "context",
-                "processing"
+                "routing"
             ],
             "additionalProperties": false
         }

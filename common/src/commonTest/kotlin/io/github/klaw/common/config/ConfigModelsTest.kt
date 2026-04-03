@@ -130,6 +130,7 @@ class ConfigModelsTest {
                     ),
                 files = FilesConfig(maxFileSizeBytes = 1048576),
                 commands = listOf(CommandConfig(name = "new", description = "New session")),
+                agents = mapOf("default" to AgentConfig(workspace = "/tmp/test")),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<EngineConfig>(encoded)
@@ -337,6 +338,7 @@ class ConfigModelsTest {
                     ),
                 context = ContextConfig(tokenBudget = 8000, subagentHistory = 5),
                 processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 2, maxToolCallRounds = 5),
+                agents = mapOf("default" to AgentConfig(workspace = "/tmp/test")),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<EngineConfig>(encoded)

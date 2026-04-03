@@ -96,6 +96,11 @@ class ConfigParsingTest {
   "logging": {
     "subagentConversations": true
   },
+  "agents": {
+    "default": {
+      "workspace": "/home/user/workspace"
+    }
+  },
   "codeExecution": {
     "dockerImage": "klaw-sandbox:latest",
     "timeout": 30,
@@ -344,6 +349,9 @@ class ConfigParsingTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
+  },
+  "agents": {
+    "default": {"workspace": "/tmp/test"}
   }
 }
             """.trimIndent()
@@ -410,7 +418,8 @@ class ConfigParsingTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(minimalJson)
@@ -435,6 +444,7 @@ class ConfigParsingTest {
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}},
   "unknownField": "should be ignored"
 }
             """.trimIndent()
@@ -598,6 +608,7 @@ class ConfigParsingTest {
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}},
   "database": {
     "busyTimeoutMs": 10000,
     "integrityCheckOnStartup": false,
@@ -625,7 +636,8 @@ class ConfigParsingTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
@@ -808,5 +820,541 @@ class ConfigParsingTest {
             )
         val config = parseEngineConfig(withoutBudget)
         assertNull(config.context.tokenBudget, "tokenBudget should default to null when not specified")
+    }
+
+    // --- Multi-agent config tests ---
+
+    @Test
+    fun `multi-agent minimal config - single default agent parses`() {
+        val json =
+            """
+{
+  "providers": {"glm": {"type": "openai-compatible", "endpoint": "https://example.com"}},
+  "models": {},
+  "routing": {"default": "glm/glm-5"},
+  "agents": {
+    "default": {
+      "workspace": "/home/user/workspace"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(1, config.effectiveAgents.size)
+        assertNotNull(config.effectiveAgents["default"])
+        assertEquals("/home/user/workspace", config.effectiveAgents["default"]!!.workspace)
+    }
+
+    @Test
+    fun `multi-agent config - agent enabled defaults to true`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "myAgent": {
+      "workspace": "/tmp/agent"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertTrue(config.effectiveAgents["myAgent"]!!.enabled)
+    }
+
+    @Test
+    fun `multi-agent config - disabled agent is in effectiveAgents but enabled=false`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "active": {"workspace": "/tmp/active"},
+    "disabled": {"workspace": "/tmp/disabled", "enabled": false}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(2, config.effectiveAgents.size)
+        assertTrue(config.effectiveAgents["active"]!!.enabled)
+        assertFalse(config.effectiveAgents["disabled"]!!.enabled)
+    }
+
+    @Test
+    fun `multi-agent config - _defaults key is excluded from effectiveAgents`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {
+      "workspace": ""
+    },
+    "main": {
+      "workspace": "/tmp/main"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertFalse(config.effectiveAgents.containsKey("_defaults"))
+        assertEquals(1, config.effectiveAgents.size)
+        assertNotNull(config.effectiveAgents["main"])
+    }
+
+    @Test
+    fun `multi-agent config - _defaults is parsed into agentDefaults`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {
+      "workspace": ""
+    },
+    "main": {
+      "workspace": "/tmp/main"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+    }
+
+    @Test
+    fun `multi-agent config - agentDefaults is null when no _defaults key`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNull(config.agentDefaults)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent routing override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "routing": {
+        "default": "custom/model",
+        "tasks": {"summarization": "sum/model", "subagent": "sub/model"}
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals("custom/model", agent.routing?.default)
+        assertEquals("sum/model", agent.routing?.tasks?.summarization)
+        assertEquals("sub/model", agent.routing?.tasks?.subagent)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent processing override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "processing": {
+        "slidingWindow": 20,
+        "temperature": 0.8,
+        "maxOutputTokens": 4096
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(20, agent.processing?.slidingWindow)
+        assertEquals(0.8, agent.processing?.temperature)
+        assertEquals(4096, agent.processing?.maxOutputTokens)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent memory override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "memory": {
+        "autoRag": {"enabled": false}
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertFalse(agent.memory?.autoRag?.enabled ?: true)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent heartbeat override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "heartbeat": {
+        "enabled": true,
+        "interval": "PT30M",
+        "model": "glm/glm-5",
+        "channel": "telegram:123"
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertTrue(agent.heartbeat?.enabled ?: false)
+        assertEquals("PT30M", agent.heartbeat?.interval)
+        assertEquals("glm/glm-5", agent.heartbeat?.model)
+        assertEquals("telegram:123", agent.heartbeat?.channel)
+    }
+
+    @Test
+    fun `multi-agent config - agent limits`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "limits": {
+        "maxConcurrentRequests": 5,
+        "maxMessagesPerMinute": 30
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(5, agent.limits?.maxConcurrentRequests)
+        assertEquals(30, agent.limits?.maxMessagesPerMinute)
+    }
+
+    @Test
+    fun `multi-agent config - agent limits default to zero meaning unlimited`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(0, agent.limits?.maxConcurrentRequests ?: 0)
+        assertEquals(0, agent.limits?.maxMessagesPerMinute ?: 0)
+    }
+
+    @Test
+    fun `multi-agent config - vision override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "vision": {
+        "enabled": true,
+        "model": "glm/glm-4v"
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertTrue(agent.vision?.enabled ?: false)
+        assertEquals("glm/glm-4v", agent.vision?.model)
+    }
+
+    @Test
+    fun `multi-agent config - agent tools config`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "tools": {
+        "sandbox": {
+          "dockerImage": "custom-sandbox:latest",
+          "timeout": 60
+        },
+        "hostExec": {
+          "enabled": true,
+          "allowList": ["ls", "pwd"]
+        }
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals("custom-sandbox:latest", agent.tools?.sandbox?.dockerImage)
+        assertEquals(60, agent.tools?.sandbox?.timeout)
+        assertTrue(agent.tools?.hostExec?.enabled ?: false)
+        assertEquals(listOf("ls", "pwd"), agent.tools?.hostExec?.allowList)
+    }
+
+    @Test
+    fun `multi-agent config - no agents field fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"}
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - empty agents fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {}
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - agent with blank workspace fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": ""}
+  }
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - _defaults with blank workspace is allowed`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {"workspace": ""},
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+        assertEquals(1, config.effectiveAgents.size)
+    }
+
+    @Test
+    fun `multi-agent config - processing defaults when not specified`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        // These should parse without error (defaults applied)
+        assertEquals(800L, config.processing.debounceMs)
+        assertEquals(3, config.processing.maxConcurrentLlm)
+        assertEquals(50, config.processing.maxToolCallRounds)
+    }
+
+    @Test
+    fun `multi-agent config - routing tasks defaults when not specified`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals("", config.routing.tasks.summarization)
+        assertEquals("", config.routing.tasks.subagent)
+    }
+
+    @Test
+    fun `multi-agent config - search topK defaults to 10`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(10, config.memory.search.topK)
+    }
+
+    @Test
+    fun `multi-agent config - context subagentHistory defaults to 10`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(10, config.context.subagentHistory)
+    }
+
+    @Test
+    fun `multi-agent config - heartbeat interval defaults to PT1H`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals("PT1H", config.heartbeat.interval)
+    }
+
+    @Test
+    fun `multi-agent config - chunking defaults changed to 512 and 64`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(512, config.memory.chunking.size)
+        assertEquals(64, config.memory.chunking.overlap)
+    }
+
+    @Test
+    fun `multi-agent config - full config with per-agent overrides and _defaults`() {
+        val json =
+            """
+{
+  "providers": {"glm": {"type": "openai-compatible", "endpoint": "https://example.com", "apiKey": "key"}},
+  "models": {},
+  "routing": {"default": "glm/glm-5", "fallback": [], "tasks": {"summarization": "glm/glm-5", "subagent": "glm/glm-5"}},
+  "agents": {
+    "_defaults": {
+      "workspace": "",
+      "processing": {"slidingWindow": 10}
+    },
+    "alice": {
+      "workspace": "/home/alice",
+      "routing": {"default": "glm/glm-4-plus"},
+      "limits": {"maxConcurrentRequests": 2, "maxMessagesPerMinute": 10}
+    },
+    "bob": {
+      "workspace": "/home/bob",
+      "enabled": false
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+        assertEquals(10, config.agentDefaults!!.processing?.slidingWindow)
+        assertEquals(2, config.effectiveAgents.size)
+        assertEquals("/home/alice", config.effectiveAgents["alice"]!!.workspace)
+        assertEquals("glm/glm-4-plus", config.effectiveAgents["alice"]!!.routing?.default)
+        assertEquals(2, config.effectiveAgents["alice"]!!.limits?.maxConcurrentRequests)
+        assertFalse(config.effectiveAgents["bob"]!!.enabled)
     }
 }

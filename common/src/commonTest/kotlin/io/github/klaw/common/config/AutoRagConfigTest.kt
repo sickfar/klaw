@@ -106,7 +106,8 @@ class AutoRagConfigTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
-  }
+  },
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
@@ -181,7 +182,8 @@ class AutoRagConfigTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
-  }
+  },
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
@@ -256,7 +258,8 @@ class AutoRagConfigTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
-  }
+  },
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)

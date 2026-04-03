@@ -102,14 +102,14 @@ class ConfigValidatorTest {
 
     @Test
     fun `nested missing required reports full path`() {
-        // Remove tasks.summarization
+        // Remove routing.default (required field)
         val json =
             parse(
                 """
             {
               "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost"}},
               "models": {},
-              "routing": {"default": "p/m", "fallback": [], "tasks": {"subagent": "p/m"}},
+              "routing": {"fallback": [], "tasks": {}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
               "context": {"tokenBudget": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
@@ -118,7 +118,7 @@ class ConfigValidatorTest {
             )
         val errors = validateConfig(schema, json)
         assertTrue(
-            errors.any { ".routing.tasks.summarization" in it.path },
+            errors.any { ".routing.default" in it.path },
             "Should report missing nested required field: $errors",
         )
     }

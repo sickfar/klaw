@@ -136,9 +136,9 @@ class DescriptorGeneratorTest {
 
     @Test
     fun detectsRequiredProperty() {
-        val desc = findDescriptor(engineDescriptors, "processing.debounceMs")
+        val desc = findDescriptor(engineDescriptors, "routing.default")
         assertNotNull(desc)
-        assertTrue(desc.required, "processing.debounceMs should be required")
+        assertTrue(desc.required, "routing.default should be required")
     }
 
     @Test
