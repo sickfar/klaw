@@ -72,6 +72,7 @@ class EngineLifecycle(
         backupService.start(backupScope)
         subagentRunRepository.markStaleRunsFailed()
         initializeAgentRegistry()
+        startAgentSchedulers()
         healthProvider.markStarted()
         logger.info { "EngineLifecycle started — socket server, scheduler, and backup service are ready" }
     }
@@ -89,6 +90,12 @@ class EngineLifecycle(
                     conversationsDir = KlawPaths.conversations,
                 ),
         )
+    }
+
+    private fun startAgentSchedulers() {
+        for (ctx in agentRegistry.all()) {
+            ctx.scheduler?.start()
+        }
     }
 
     @PreDestroy

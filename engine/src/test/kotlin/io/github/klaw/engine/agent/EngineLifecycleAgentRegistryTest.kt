@@ -9,6 +9,7 @@ import io.github.klaw.engine.db.NoOpSqliteVecLoader
 import io.github.klaw.engine.fixtures.testEngineConfig
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.tools.ActiveSubagentJobs
+import io.micronaut.context.ApplicationContext
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -69,6 +70,7 @@ class EngineLifecycleAgentRegistryTest {
             activeSubagentJobs = ActiveSubagentJobs(),
             webFetchTool = mockk(relaxed = true),
             webSearchTool = mockk(relaxed = true),
+            applicationContext = mockk<ApplicationContext>(relaxed = true),
         )
     }
 

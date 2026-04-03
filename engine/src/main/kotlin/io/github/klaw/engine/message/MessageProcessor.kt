@@ -147,19 +147,20 @@ class MessageProcessor(
             if (message.runId != null) {
                 activeSubagentJobs.jobs[message.runId] = kotlin.coroutines.coroutineContext[Job]!!
             }
+            val svc = EffectiveServices(message.agentId)
             val startTimeMs = System.currentTimeMillis()
             try {
                 withTimeout(config.processing.subagentTimeoutMs) {
                     llmLimiter.withSubagentPermit {
                         try {
-                            val session = sessionManager.getOrCreate(chatId, model)
+                            val session = svc.sessionManager.getOrCreate(chatId, model)
                             if (message.model != null) {
-                                sessionManager.updateModel(chatId, message.model)
+                                svc.sessionManager.updateModel(chatId, message.model)
                             }
 
                             val sink = if (message.injectInto != null) ScheduleDeliverSink() else null
                             val contextResult =
-                                contextBuilder.buildContext(
+                                svc.contextBuilder.buildContext(
                                     session,
                                     listOf(message.message),
                                     isSubagent = true,
@@ -175,7 +176,7 @@ class MessageProcessor(
                             // Persist scheduled user message before LLM call
                             if (config.logging.subagentConversations) {
                                 val userRowId =
-                                    messageRepository.saveAndGetRowId(
+                                    svc.messageRepository.saveAndGetRowId(
                                         id = UUID.randomUUID().toString(),
                                         channel = "scheduler",
                                         chatId = chatId,
@@ -184,7 +185,7 @@ class MessageProcessor(
                                         content = message.message,
                                         tokens = approximateTokenCount(message.message),
                                     )
-                                messageEmbeddingService.embedAsync(
+                                svc.messageEmbeddingService.embedAsync(
                                     userRowId,
                                     "user",
                                     "text",
@@ -220,7 +221,7 @@ class MessageProcessor(
                                 response.usage?.completionTokens ?: approximateTokenCount(content)
                             if (config.logging.subagentConversations) {
                                 val assistantRowId =
-                                    messageRepository.saveAndGetRowId(
+                                    svc.messageRepository.saveAndGetRowId(
                                         id = UUID.randomUUID().toString(),
                                         channel = "scheduler",
                                         chatId = chatId,
@@ -229,7 +230,7 @@ class MessageProcessor(
                                         content = content,
                                         tokens = subagentAssistantTokens,
                                     )
-                                messageEmbeddingService.embedAsync(
+                                svc.messageEmbeddingService.embedAsync(
                                     assistantRowId,
                                     "assistant",
                                     "text",
@@ -239,11 +240,11 @@ class MessageProcessor(
                                 )
                             }
 
-                            deliverScheduledResult(sink, message)
+                            deliverScheduledResult(sink, message, svc)
 
                             if (message.runId != null) {
                                 val durationMs = System.currentTimeMillis() - startTimeMs
-                                subagentRunRepository.completeRun(
+                                svc.subagentRunRepository.completeRun(
                                     message.runId,
                                     lastResponse = content,
                                     deliveredResult = sink?.lastDeliveredMessage,
@@ -258,7 +259,7 @@ class MessageProcessor(
                             throw e
                         } catch (e: CancellationException) {
                             if (message.runId != null) {
-                                subagentRunRepository.cancelRun(message.runId)
+                                svc.subagentRunRepository.cancelRun(message.runId)
                                 logger.info { "Subagent cancelled: name=${message.name}, runId=${message.runId}" }
                             }
                             throw e
@@ -266,7 +267,7 @@ class MessageProcessor(
                             logger.error(e) { "Subagent '${message.name}' failed" }
                             if (message.runId != null) {
                                 val errorInfo = buildErrorInfo(e)
-                                subagentRunRepository.failRun(message.runId, errorInfo)
+                                svc.subagentRunRepository.failRun(message.runId, errorInfo)
                                 logger.info {
                                     "Subagent failed: name=${message.name}, runId=${message.runId}, error=${e::class.simpleName}"
                                 }
@@ -278,7 +279,7 @@ class MessageProcessor(
             } catch (e: TimeoutCancellationException) {
                 logger.warn(e) { "Subagent timed out: name=${message.name}" }
                 if (message.runId != null) {
-                    subagentRunRepository.failRun(
+                    svc.subagentRunRepository.failRun(
                         message.runId,
                         "Timeout after ${config.processing.subagentTimeoutMs}ms",
                     )
@@ -336,6 +337,7 @@ class MessageProcessor(
     private suspend fun deliverScheduledResult(
         sink: ScheduleDeliverSink?,
         message: ScheduledMessage,
+        svc: EffectiveServices = EffectiveServices(null),
     ) {
         val deliveryMessage = sink?.consumeMessage() ?: return
         socketServerProvider.get().pushToGateway(
@@ -347,7 +349,7 @@ class MessageProcessor(
         )
         // Record in interactive session so user can follow up naturally
         val injectedRowId =
-            messageRepository.saveAndGetRowId(
+            svc.messageRepository.saveAndGetRowId(
                 id = UUID.randomUUID().toString(),
                 channel = message.channel ?: "engine",
                 chatId = message.injectInto,
@@ -356,7 +358,7 @@ class MessageProcessor(
                 content = deliveryMessage,
                 tokens = approximateTokenCount(deliveryMessage),
             )
-        messageEmbeddingService.embedAsync(
+        svc.messageEmbeddingService.embedAsync(
             injectedRowId,
             "assistant",
             "text",
@@ -376,6 +378,8 @@ class MessageProcessor(
         val messageEmbeddingService =
             ctx?.messageEmbeddingService ?: this@MessageProcessor.messageEmbeddingService
         val compactionRunner = ctx?.compactionRunner ?: this@MessageProcessor.compactionRunner
+        val subagentRunRepository =
+            ctx?.subagentRunRepository ?: this@MessageProcessor.subagentRunRepository
     }
 
     @Suppress("TooGenericExceptionCaught")

@@ -9,4 +9,5 @@ data class ScheduledMessage(
     val runId: String? = null,
     val sourceChatId: String? = null,
     val sourceChannel: String? = null,
+    val agentId: String? = null,
 )

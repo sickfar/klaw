@@ -40,6 +40,7 @@ import io.github.klaw.engine.tools.SubagentStatusTools
 import io.github.klaw.engine.tools.SubagentTools
 import io.github.klaw.engine.tools.ToolRegistryImpl
 import io.github.klaw.engine.tools.UtilityTools
+import io.github.klaw.engine.scheduler.AgentKlawScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.io.File
 import java.nio.file.Path
@@ -103,10 +104,12 @@ class AgentContextFactory(
             )
         val subagentHistoryLoader = SubagentHistoryLoader(dirs.conversationsDir)
 
+        val scheduler = buildScheduler(agentId, dirs, subagentRunRepository)
+
         val toolRegistry =
             buildToolRegistry(
                 agentConfig, dirs, config, driver, database, memoryService,
-                skillRegistry, subagentRunRepository, mcpToolRegistry,
+                skillRegistry, subagentRunRepository, mcpToolRegistry, scheduler,
             )
 
         val contextBuilder =
@@ -135,6 +138,7 @@ class AgentContextFactory(
             backupService = BackupService(driver, config),
             contextBuilder = contextBuilder,
             toolRegistry = toolRegistry,
+            scheduler = scheduler,
         )
     }
 
@@ -149,6 +153,7 @@ class AgentContextFactory(
         skillRegistry: FileSkillRegistry,
         subagentRunRepository: SubagentRunRepository,
         mcpToolRegistry: McpToolRegistry,
+        scheduler: AgentKlawScheduler,
     ): ToolRegistryImpl {
         val workspacePath = Path.of(agentConfig.workspace)
         val fileTools = buildFileTools(workspacePath, dirs, config)
@@ -211,7 +216,7 @@ class AgentContextFactory(
             skillTools = SkillTools(skillRegistry),
             memoryTools = MemoryTools(memoryService),
             docsTools = docsTools,
-            scheduleTools = ScheduleTools(shared.scheduler ?: error("KlawScheduler required")),
+            scheduleTools = ScheduleTools(scheduler),
             subagentTools = subagentTools,
             utilityTools = utilityTools,
             sandboxExecTool = sandboxExecTool,
@@ -354,6 +359,21 @@ class AgentContextFactory(
             healthProviderLazy = { shared.engineHealthProvider },
             llmRouter = shared.llmRouter,
         )
+
+    private fun buildScheduler(
+        agentId: String,
+        dirs: AgentDirectories,
+        subagentRunRepository: SubagentRunRepository,
+    ): AgentKlawScheduler {
+        val appCtx = shared.applicationContext ?: error("ApplicationContext required for per-agent scheduler")
+        val dbPath = "${dirs.stateDir}${File.separator}scheduler-$agentId.db"
+        return AgentKlawScheduler(
+            dbPath = dbPath,
+            applicationContext = appCtx,
+            subagentRunRepository = subagentRunRepository,
+            agentId = agentId,
+        )
+    }
 
     private fun ensureWorkspace(
         agentId: String,

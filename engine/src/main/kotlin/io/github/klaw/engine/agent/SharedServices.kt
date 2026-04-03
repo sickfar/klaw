@@ -15,6 +15,7 @@ import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.WebFetchTool
 import io.github.klaw.engine.tools.WebSearchTool
+import io.micronaut.context.ApplicationContext
 import jakarta.inject.Provider
 
 /**
@@ -38,4 +39,5 @@ class SharedServices(
     val activeSubagentJobs: ActiveSubagentJobs? = null,
     val webFetchTool: WebFetchTool? = null,
     val webSearchTool: WebSearchTool? = null,
+    val applicationContext: ApplicationContext? = null,
 )

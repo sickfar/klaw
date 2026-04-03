@@ -8,7 +8,9 @@ import io.github.klaw.engine.db.NoOpSqliteVecLoader
 import io.github.klaw.engine.fixtures.testEngineConfig
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.tools.ActiveSubagentJobs
+import io.github.klaw.engine.scheduler.AgentKlawScheduler
 import io.github.klaw.engine.tools.ToolRegistryImpl
+import io.micronaut.context.ApplicationContext
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -52,6 +54,7 @@ class AgentContextFactoryTest {
             activeSubagentJobs = ActiveSubagentJobs(),
             webFetchTool = mockk(relaxed = true),
             webSearchTool = mockk(relaxed = true),
+            applicationContext = mockk<ApplicationContext>(relaxed = true),
         )
     }
 
@@ -140,6 +143,31 @@ class AgentContextFactoryTest {
                 toolRegistry is ToolRegistryImpl,
                 "toolRegistry should be ToolRegistryImpl, was ${toolRegistry!!::class.simpleName}",
             )
+        } finally {
+            ctx.shutdown()
+        }
+    }
+
+    @Test
+    fun `creates per-agent scheduler with correct DB path`() {
+        val dirs = createAgentDirs()
+        val workspaceDir = tempDir.resolve("workspace").toFile().also { it.mkdirs() }
+
+        val shared = createSharedServices()
+        val factory = AgentContextFactory(shared)
+        val agentConfig = AgentConfig(workspace = workspaceDir.absolutePath)
+
+        val ctx = factory.create(agentId = "sched-agent", agentConfig = agentConfig, dirs = dirs)
+
+        try {
+            val scheduler = ctx.services.scheduler
+            assertNotNull(scheduler, "scheduler should not be null")
+            assertTrue(
+                scheduler is AgentKlawScheduler,
+                "scheduler should be AgentKlawScheduler, was ${scheduler!!::class.simpleName}",
+            )
+            val schedulerDb = File(dirs.stateDir, "scheduler-sched-agent.db")
+            assertTrue(schedulerDb.exists(), "Scheduler DB should exist at ${schedulerDb.absolutePath}")
         } finally {
             ctx.shutdown()
         }

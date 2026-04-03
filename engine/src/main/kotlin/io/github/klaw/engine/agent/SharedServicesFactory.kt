@@ -15,6 +15,7 @@ import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.WebFetchTool
 import io.github.klaw.engine.tools.WebSearchTool
+import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Factory
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
@@ -39,6 +40,7 @@ class SharedServicesFactory {
         activeSubagentJobs: ActiveSubagentJobs,
         webFetchTool: WebFetchTool,
         webSearchTool: WebSearchTool,
+        applicationContext: ApplicationContext,
     ): SharedServices =
         SharedServices(
             llmRouter = llmRouter,
@@ -56,6 +58,7 @@ class SharedServicesFactory {
             activeSubagentJobs = activeSubagentJobs,
             webFetchTool = webFetchTool,
             webSearchTool = webSearchTool,
+            applicationContext = applicationContext,
         )
 
     @Singleton

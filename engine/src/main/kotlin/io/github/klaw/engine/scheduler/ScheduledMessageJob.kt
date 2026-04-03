@@ -33,6 +33,7 @@ class ScheduledMessageJob(
                 injectInto = data.getString("injectInto"),
                 channel = data.getString("channel"),
                 runId = data.getString("runId"),
+                agentId = data.getString("agentId"),
             )
         @Suppress("TooGenericExceptionCaught")
         try {

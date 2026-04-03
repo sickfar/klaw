@@ -38,6 +38,7 @@ private fun jsonEscape(s: String): String =
  */
 class QuartzKlawScheduler(
     dbPath: String,
+    private val agentId: String? = null,
 ) : KlawScheduler {
     internal val quartzScheduler =
         run {
@@ -146,6 +147,7 @@ class QuartzKlawScheduler(
                         model?.let { put("model", it) }
                         injectInto?.let { put("injectInto", it) }
                         channel?.let { put("channel", it) }
+                        agentId?.let { put("agentId", it) }
                     }
                 if (cron != null) {
                     val job =
