@@ -337,4 +337,209 @@ class SocketProtocolTest {
         assertNull(decoded.chatTitle)
         assertNull(decoded.messageId)
     }
+
+    // --- agentId tests ---
+
+    @Test
+    fun `InboundSocketMessage with explicit agentId round-trip`() {
+        val msg =
+            InboundSocketMessage(
+                id = "msg_1",
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Hello",
+                ts = "2024-01-01T00:00:00Z",
+                agentId = "agent_work",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<InboundSocketMessage>(decoded)
+        assertEquals("agent_work", decoded.agentId)
+    }
+
+    @Test
+    fun `InboundSocketMessage defaults agentId to default`() {
+        val raw =
+            """{"type":"inbound","id":"1","channel":"tg","chatId":"123","content":"hi","ts":"2024-01-01T00:00:00Z"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<InboundSocketMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `OutboundSocketMessage with explicit agentId round-trip`() {
+        val msg =
+            OutboundSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                content = "Response",
+                agentId = "agent_work",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<OutboundSocketMessage>(decoded)
+        assertEquals("agent_work", decoded.agentId)
+    }
+
+    @Test
+    fun `OutboundSocketMessage defaults agentId to default`() {
+        val raw = """{"type":"outbound","channel":"tg","chatId":"123","content":"resp"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<OutboundSocketMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `CommandSocketMessage with explicit agentId round-trip`() {
+        val msg =
+            CommandSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                command = "status",
+                agentId = "agent_home",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<CommandSocketMessage>(decoded)
+        assertEquals("agent_home", decoded.agentId)
+    }
+
+    @Test
+    fun `CommandSocketMessage defaults agentId to default`() {
+        val raw = """{"type":"command","channel":"tg","chatId":"123","command":"new"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<CommandSocketMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalRequestMessage with explicit agentId round-trip`() {
+        val msg =
+            ApprovalRequestMessage(
+                id = "apr_001",
+                chatId = "telegram_123456",
+                command = "apt upgrade -y",
+                riskScore = 8,
+                timeout = 300,
+                agentId = "agent_pi",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalRequestMessage>(decoded)
+        assertEquals("agent_pi", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalRequestMessage defaults agentId to default`() {
+        val raw =
+            """{"type":"approval_request","id":"apr_1","chatId":"123","command":"ls","riskScore":2,"timeout":60}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<ApprovalRequestMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalResponseMessage with explicit agentId round-trip`() {
+        val msg = ApprovalResponseMessage(id = "apr_001", approved = true, agentId = "agent_pi")
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalResponseMessage>(decoded)
+        assertEquals("agent_pi", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalResponseMessage defaults agentId to default`() {
+        val raw = """{"type":"approval_response","id":"apr_1","approved":true}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<ApprovalResponseMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalDismissMessage with explicit agentId round-trip`() {
+        val msg = ApprovalDismissMessage(id = "apr_001", agentId = "agent_pi")
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<ApprovalDismissMessage>(decoded)
+        assertEquals("agent_pi", decoded.agentId)
+    }
+
+    @Test
+    fun `ApprovalDismissMessage defaults agentId to default`() {
+        val raw = """{"type":"approval_dismiss","id":"apr_1"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<ApprovalDismissMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `StreamDeltaSocketMessage with explicit agentId round-trip`() {
+        val msg =
+            StreamDeltaSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                delta = "Hello",
+                streamId = "stream_1",
+                agentId = "agent_work",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<StreamDeltaSocketMessage>(decoded)
+        assertEquals("agent_work", decoded.agentId)
+    }
+
+    @Test
+    fun `StreamDeltaSocketMessage defaults agentId to default`() {
+        val raw =
+            """{"type":"stream_delta","channel":"tg","chatId":"123","delta":"hi","streamId":"s1"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<StreamDeltaSocketMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `StreamEndSocketMessage with explicit agentId round-trip`() {
+        val msg =
+            StreamEndSocketMessage(
+                channel = "telegram",
+                chatId = "telegram_123",
+                streamId = "stream_1",
+                fullContent = "Hello world",
+                agentId = "agent_work",
+            )
+        val encoded = json.encodeToString<SocketMessage>(msg)
+        val decoded = json.decodeFromString<SocketMessage>(encoded)
+        assertIs<StreamEndSocketMessage>(decoded)
+        assertEquals("agent_work", decoded.agentId)
+    }
+
+    @Test
+    fun `StreamEndSocketMessage defaults agentId to default`() {
+        val raw =
+            """{"type":"stream_end","channel":"tg","chatId":"123","streamId":"s1","fullContent":"hi"}"""
+        val decoded = json.decodeFromString<SocketMessage>(raw)
+        assertIs<StreamEndSocketMessage>(decoded)
+        assertEquals("default", decoded.agentId)
+    }
+
+    @Test
+    fun `CliRequestMessage with explicit agentId round-trip`() {
+        val msg = CliRequestMessage(command = "status", agentId = "agent_home")
+        val encoded = json.encodeToString(msg)
+        val decoded = json.decodeFromString<CliRequestMessage>(encoded)
+        assertEquals("agent_home", decoded.agentId)
+    }
+
+    @Test
+    fun `CliRequestMessage defaults agentId to default`() {
+        val msg = CliRequestMessage(command = "status")
+        assertEquals("default", msg.agentId)
+    }
+
+    @Test
+    fun `CliRequestMessage without agentId in JSON deserializes with default`() {
+        val raw = """{"command":"status"}"""
+        val decoded = json.decodeFromString<CliRequestMessage>(raw)
+        assertEquals("default", decoded.agentId)
+    }
 }
