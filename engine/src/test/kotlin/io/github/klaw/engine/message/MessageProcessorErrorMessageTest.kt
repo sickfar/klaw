@@ -116,7 +116,9 @@ class MessageProcessorErrorMessageTest {
             "default",
             AgentContext(
                 agentId = "default",
-                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
                 services =
                     AgentServices(
                         sessionManager = sessionManager,
@@ -276,7 +278,9 @@ class MessageProcessorErrorMessageTest {
             "default",
             AgentContext(
                 agentId = "default",
-                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
                 services =
                     AgentServices(
                         sessionManager = sessionManager,

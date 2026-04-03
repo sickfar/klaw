@@ -6,10 +6,10 @@ import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.agent.AgentContext
 import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.agent.AgentServices
-import io.github.klaw.engine.context.FileSkillRegistry
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextDiagnosticsBreakdown
 import io.github.klaw.engine.context.ContextResult
+import io.github.klaw.engine.context.FileSkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.llm.LlmUsageTracker
@@ -62,7 +62,9 @@ class CliCommandDispatcherContextTest {
             "default",
             AgentContext(
                 agentId = "default",
-                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
                 services =
                     AgentServices(
                         sessionManager = sessionManager,

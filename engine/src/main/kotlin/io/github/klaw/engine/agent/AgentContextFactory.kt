@@ -3,6 +3,7 @@ package io.github.klaw.engine.agent
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.CompactionTracker
 import io.github.klaw.engine.context.ContextBuilder
@@ -20,6 +21,7 @@ import io.github.klaw.engine.memory.AutoRagService
 import io.github.klaw.engine.memory.MemoryServiceImpl
 import io.github.klaw.engine.message.MessageEmbeddingService
 import io.github.klaw.engine.message.MessageRepository
+import io.github.klaw.engine.scheduler.AgentKlawScheduler
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.tools.ConfigTools
 import io.github.klaw.engine.tools.DocsTools
@@ -34,14 +36,14 @@ import io.github.klaw.engine.tools.PdfReadTool
 import io.github.klaw.engine.tools.SandboxExecTool
 import io.github.klaw.engine.tools.SandboxManager
 import io.github.klaw.engine.tools.ScheduleTools
+import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.SkillTools
 import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.tools.SubagentStatusTools
 import io.github.klaw.engine.tools.SubagentTools
 import io.github.klaw.engine.tools.ToolRegistryImpl
 import io.github.klaw.engine.tools.UtilityTools
-import io.github.klaw.common.util.approximateTokenCount
-import io.github.klaw.engine.scheduler.AgentKlawScheduler
+import io.github.klaw.engine.tools.WebFetchTool
 import io.github.klaw.engine.util.VT
 import io.github.klaw.engine.workspace.HeartbeatCallbacks
 import io.github.klaw.engine.workspace.HeartbeatJsonlWriter
@@ -118,20 +120,41 @@ class AgentContextFactory(
 
         val toolRegistry =
             buildToolRegistry(
-                agentConfig, dirs, config, driver, database, memoryService,
-                skillRegistry, subagentRunRepository, mcpToolRegistry, scheduler,
+                agentConfig,
+                dirs,
+                config,
+                driver,
+                database,
+                memoryService,
+                skillRegistry,
+                subagentRunRepository,
+                mcpToolRegistry,
+                scheduler,
             )
 
         val contextBuilder =
             buildContextBuilder(
-                workspaceLoader, messageRepository, summaryService,
-                skillRegistry, toolRegistry, autoRagService, subagentHistoryLoader, config,
+                workspaceLoader,
+                messageRepository,
+                summaryService,
+                skillRegistry,
+                toolRegistry,
+                autoRagService,
+                subagentHistoryLoader,
+                config,
             )
 
         val (heartbeatRunner, heartbeatScope) =
             buildHeartbeatRunner(
-                agentId, agentConfig, dirs, config, sessionManager,
-                messageRepository, messageEmbeddingService, toolRegistry, workspaceLoader,
+                agentId,
+                agentConfig,
+                dirs,
+                config,
+                sessionManager,
+                messageRepository,
+                messageEmbeddingService,
+                toolRegistry,
+                workspaceLoader,
             )
 
         return AgentServices(
@@ -177,35 +200,7 @@ class AgentContextFactory(
         val fileTools = buildFileTools(workspacePath, dirs, config)
         val docsTools = buildDocsTools(database, driver, config)
         val sandboxExecTool = buildSandboxExecTool(workspacePath, dirs, config)
-        val hostExecTool = HostExecTool(
-            config = config.hostExecution,
-            llmRouter = shared.llmRouter,
-            approvalService = shared.approvalService ?: error("ApprovalService required for per-agent tools"),
-        )
-        val configTools =
-            shared.shutdownController?.let { ConfigTools(dirs.configDir, it) }
-                ?: ConfigTools(dirs.configDir, io.github.klaw.engine.tools.ShutdownController())
-        val historyTools = HistoryTools(
-            embeddingService = shared.embeddingService,
-            driver = driver,
-            sqliteVecLoader = shared.sqliteVecLoader,
-        )
-        val subagentTools = SubagentTools(
-            processorProvider = shared.processorProvider ?: error("MessageProcessor provider required"),
-            repository = subagentRunRepository,
-        )
-        val utilityTools = UtilityTools(
-            socketServerProvider = shared.socketServerProvider ?: error("EngineSocketServer provider required"),
-        )
-        val subagentStatusTools = SubagentStatusTools(
-            repository = subagentRunRepository,
-            activeSubagentJobs = shared.activeSubagentJobs ?: error("ActiveSubagentJobs required"),
-        )
-        val imageAnalyzeTool = ImageAnalyzeTool(
-            llmRouter = shared.llmRouter,
-            config = config.vision,
-            allowedPaths = listOf(workspacePath),
-        )
+        val infraTools = buildInfraTools(config, dirs, driver, workspacePath, subagentRunRepository)
 
         return ToolRegistryImpl(
             fileTools = fileTools,
@@ -213,23 +208,78 @@ class AgentContextFactory(
             memoryTools = MemoryTools(memoryService),
             docsTools = docsTools,
             scheduleTools = ScheduleTools(scheduler),
-            subagentTools = subagentTools,
-            utilityTools = utilityTools,
+            subagentTools = infraTools.subagentTools,
+            utilityTools = infraTools.utilityTools,
             sandboxExecTool = sandboxExecTool,
-            hostExecTool = hostExecTool,
-            configTools = configTools,
-            historyTools = historyTools,
+            hostExecTool = infraTools.hostExecTool,
+            configTools = infraTools.configTools,
+            historyTools = infraTools.historyTools,
             engineHealthTools = EngineHealthTools(shared.engineHealthProvider),
-            subagentStatusTools = subagentStatusTools,
-            webFetchTool = shared.webFetchTool ?: io.github.klaw.engine.tools.WebFetchTool(config.web.fetch),
+            subagentStatusTools = infraTools.subagentStatusTools,
+            webFetchTool = shared.webFetchTool ?: WebFetchTool(config.web.fetch),
             webSearchTool = shared.webSearchTool ?: buildWebSearchTool(config),
             pdfReadTool = PdfReadTool(fileTools, config.documents),
             mdToPdfTool = MdToPdfTool(fileTools, config.documents),
-            imageAnalyzeTool = imageAnalyzeTool,
+            imageAnalyzeTool = infraTools.imageAnalyzeTool,
             config = config,
             mcpToolRegistry = mcpToolRegistry,
         )
     }
+
+    private data class InfraTools(
+        val hostExecTool: HostExecTool,
+        val configTools: ConfigTools,
+        val historyTools: HistoryTools,
+        val subagentTools: SubagentTools,
+        val utilityTools: UtilityTools,
+        val subagentStatusTools: SubagentStatusTools,
+        val imageAnalyzeTool: ImageAnalyzeTool,
+    )
+
+    private fun buildInfraTools(
+        config: EngineConfig,
+        dirs: AgentDirectories,
+        driver: JdbcSqliteDriver,
+        workspacePath: Path,
+        subagentRunRepository: SubagentRunRepository,
+    ): InfraTools =
+        InfraTools(
+            hostExecTool =
+                HostExecTool(
+                    config = config.hostExecution,
+                    llmRouter = shared.llmRouter,
+                    approvalService = shared.approvalService ?: error("ApprovalService required"),
+                ),
+            configTools =
+                shared.shutdownController?.let { ConfigTools(dirs.configDir, it) }
+                    ?: ConfigTools(dirs.configDir, ShutdownController()),
+            historyTools =
+                HistoryTools(
+                    embeddingService = shared.embeddingService,
+                    driver = driver,
+                    sqliteVecLoader = shared.sqliteVecLoader,
+                ),
+            subagentTools =
+                SubagentTools(
+                    processorProvider = shared.processorProvider ?: error("MessageProcessor provider required"),
+                    repository = subagentRunRepository,
+                ),
+            utilityTools =
+                UtilityTools(
+                    socketServerProvider = shared.socketServerProvider ?: error("EngineSocketServer provider required"),
+                ),
+            subagentStatusTools =
+                SubagentStatusTools(
+                    repository = subagentRunRepository,
+                    activeSubagentJobs = shared.activeSubagentJobs ?: error("ActiveSubagentJobs required"),
+                ),
+            imageAnalyzeTool =
+                ImageAnalyzeTool(
+                    llmRouter = shared.llmRouter,
+                    config = config.vision,
+                    allowedPaths = listOf(workspacePath),
+                ),
+        )
 
     private fun buildDocsTools(
         database: KlawDatabase,
@@ -294,7 +344,9 @@ class AgentContextFactory(
             SandboxExecTool(
                 SandboxManager(
                     config = config.codeExecution,
-                    docker = io.github.klaw.engine.tools.ProcessDockerClient(),
+                    docker =
+                        io.github.klaw.engine.tools
+                            .ProcessDockerClient(),
                 ),
                 config.codeExecution,
             )
@@ -305,11 +357,22 @@ class AgentContextFactory(
         val searchConfig = config.web.search
         val provider =
             when (searchConfig.provider) {
-                "brave" -> io.github.klaw.engine.tools.BraveSearchProvider(searchConfig)
-                "tavily" -> io.github.klaw.engine.tools.TavilySearchProvider(searchConfig)
-                else -> error("Unknown web search provider: ${searchConfig.provider}")
+                "brave" -> {
+                    io.github.klaw.engine.tools
+                        .BraveSearchProvider(searchConfig)
+                }
+
+                "tavily" -> {
+                    io.github.klaw.engine.tools
+                        .TavilySearchProvider(searchConfig)
+                }
+
+                else -> {
+                    error("Unknown web search provider: ${searchConfig.provider}")
+                }
             }
-        return io.github.klaw.engine.tools.WebSearchTool(searchConfig, provider)
+        return io.github.klaw.engine.tools
+            .WebSearchTool(searchConfig, provider)
     }
 
     private fun buildMemoryPipeline(
@@ -436,19 +499,23 @@ class AgentContextFactory(
         val scope = CoroutineScope(Dispatchers.VT + SupervisorJob())
         val callbacks = buildHeartbeatCallbacks(sessionManager, resolved.injectInto, resolved.approvalBridge)
         val persistence = buildHeartbeatPersistence(dirs, config, messageRepository, messageEmbeddingService)
-        val effectiveConfig = config.copy(
-            heartbeat = config.heartbeat.copy(
-                channel = resolved.channel,
-                injectInto = resolved.injectInto,
-                model = resolved.model,
-            ),
-        )
+        val effectiveConfig =
+            config.copy(
+                heartbeat =
+                    config.heartbeat.copy(
+                        channel = resolved.channel,
+                        injectInto = resolved.injectInto,
+                        model = resolved.model,
+                    ),
+            )
 
         val runner =
             HeartbeatRunner(
                 config = effectiveConfig,
                 callbacks = callbacks,
-                toolExecutor = io.github.klaw.engine.tools.DispatchingToolExecutor(toolRegistry),
+                toolExecutor =
+                    io.github.klaw.engine.tools
+                        .DispatchingToolExecutor(toolRegistry),
                 workspaceLoader = workspaceLoader,
                 toolRegistry = toolRegistry,
                 workspacePath = Path.of(agentConfig.workspace),
@@ -508,14 +575,16 @@ class AgentContextFactory(
     private fun resolveHeartbeatDeps(
         agentId: String,
     ): Pair<io.micronaut.scheduling.TaskScheduler, io.github.klaw.engine.workspace.HeartbeatApprovalBridge>? {
-        val taskScheduler = shared.taskScheduler ?: run {
-            logger.warn { "TaskScheduler not available — per-agent heartbeat skipped for $agentId" }
-            return null
-        }
-        val approvalBridge = shared.heartbeatApprovalBridge ?: run {
-            logger.warn { "HeartbeatApprovalBridge not available — per-agent heartbeat skipped for $agentId" }
-            return null
-        }
+        val taskScheduler =
+            shared.taskScheduler ?: run {
+                logger.warn { "TaskScheduler not available — per-agent heartbeat skipped for $agentId" }
+                return null
+            }
+        val approvalBridge =
+            shared.heartbeatApprovalBridge ?: run {
+                logger.warn { "HeartbeatApprovalBridge not available — per-agent heartbeat skipped for $agentId" }
+                return null
+            }
         return taskScheduler to approvalBridge
     }
 
@@ -554,7 +623,12 @@ class AgentContextFactory(
                         tokens = approximateTokenCount(content),
                     )
                 messageEmbeddingService.embedAsync(
-                    rowId, "assistant", "text", content, config.memory.autoRag, embeddingScope,
+                    rowId,
+                    "assistant",
+                    "text",
+                    content,
+                    config.memory.autoRag,
+                    embeddingScope,
                 )
             },
             pushToGateway = { msg -> shared.socketServerProvider?.get()?.pushToGateway(msg) },

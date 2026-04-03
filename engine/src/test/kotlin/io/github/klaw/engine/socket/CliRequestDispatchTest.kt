@@ -2,6 +2,10 @@ package io.github.klaw.engine.socket
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
+import io.github.klaw.engine.context.FileSkillRegistry
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.maintenance.ReindexService
@@ -9,10 +13,6 @@ import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
-import io.github.klaw.engine.agent.AgentContext
-import io.github.klaw.engine.agent.AgentRegistry
-import io.github.klaw.engine.agent.AgentServices
-import io.github.klaw.engine.context.FileSkillRegistry
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -39,7 +39,9 @@ class CliRequestDispatchTest {
             "default",
             AgentContext(
                 agentId = "default",
-                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
                 services =
                     AgentServices(
                         sessionManager = sessionManager,

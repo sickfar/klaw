@@ -1278,6 +1278,15 @@ object GeneratedConfigDescriptors {
                 false,
             ),
             ConfigPropertyDescriptor(
+                "agents.*.heartbeat.injectInto",
+                ConfigValueType.STRING,
+                "Chat ID to inject heartbeat messages into (overrides global heartbeat.injectInto)",
+                null,
+                null,
+                false,
+                false,
+            ),
+            ConfigPropertyDescriptor(
                 "agents.*.tools.sandbox.dockerImage",
                 ConfigValueType.STRING,
                 "Docker image used for code execution sandbox",

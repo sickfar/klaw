@@ -9,8 +9,8 @@ import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.engine.db.NoOpSqliteVecLoader
 import io.github.klaw.engine.fixtures.testEngineConfig
 import io.github.klaw.engine.llm.LlmRouter
-import io.github.klaw.engine.tools.ActiveSubagentJobs
 import io.github.klaw.engine.scheduler.AgentKlawScheduler
+import io.github.klaw.engine.tools.ActiveSubagentJobs
 import io.github.klaw.engine.tools.ToolRegistryImpl
 import io.github.klaw.engine.workspace.HeartbeatApprovalBridge
 import io.micronaut.context.ApplicationContext
@@ -237,10 +237,11 @@ class AgentContextFactoryTest {
         val approvalBridge = mockk<HeartbeatApprovalBridge>(relaxed = true)
         val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
         val factory = AgentContextFactory(shared)
-        val agentConfig = AgentConfig(
-            workspace = workspaceDir.absolutePath,
-            heartbeat = AgentHeartbeatOverride(enabled = false),
-        )
+        val agentConfig =
+            AgentConfig(
+                workspace = workspaceDir.absolutePath,
+                heartbeat = AgentHeartbeatOverride(enabled = false),
+            )
 
         val ctx = factory.create(agentId = "hb-disabled", agentConfig = agentConfig, dirs = dirs)
 
@@ -260,10 +261,11 @@ class AgentContextFactoryTest {
         val approvalBridge = mockk<HeartbeatApprovalBridge>(relaxed = true)
         val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
         val factory = AgentContextFactory(shared)
-        val agentConfig = AgentConfig(
-            workspace = workspaceDir.absolutePath,
-            heartbeat = AgentHeartbeatOverride(interval = "off"),
-        )
+        val agentConfig =
+            AgentConfig(
+                workspace = workspaceDir.absolutePath,
+                heartbeat = AgentHeartbeatOverride(interval = "off"),
+            )
 
         val ctx = factory.create(agentId = "hb-off", agentConfig = agentConfig, dirs = dirs)
 
@@ -285,15 +287,19 @@ class AgentContextFactoryTest {
         val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
         val factory = AgentContextFactory(shared)
         // Use a very short interval so the test can use a real HeartbeatConfig
-        val agentConfig = AgentConfig(
-            workspace = workspaceDir.absolutePath,
-            heartbeat = AgentHeartbeatOverride(interval = "PT1H"),
-        )
+        val agentConfig =
+            AgentConfig(
+                workspace = workspaceDir.absolutePath,
+                heartbeat = AgentHeartbeatOverride(interval = "PT1H"),
+            )
 
         val ctx = factory.create(agentId = "hb-enabled", agentConfig = agentConfig, dirs = dirs)
 
         try {
-            assertNotNull(ctx.heartbeatRunner, "heartbeatRunner should be created when enabled and taskScheduler present")
+            assertNotNull(
+                ctx.heartbeatRunner,
+                "heartbeatRunner should be created when enabled and taskScheduler present",
+            )
             assertNotNull(ctx.heartbeatScope, "heartbeatScope should be created alongside runner")
         } finally {
             ctx.shutdown()

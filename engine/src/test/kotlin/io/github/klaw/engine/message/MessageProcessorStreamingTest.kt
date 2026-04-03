@@ -27,6 +27,9 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
@@ -36,9 +39,6 @@ import io.github.klaw.engine.llm.StreamEvent
 import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.socket.EngineSocketServer
-import io.github.klaw.engine.agent.AgentContext
-import io.github.klaw.engine.agent.AgentRegistry
-import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.tools.ActiveSubagentJobs
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.SubagentRunRepository
@@ -186,7 +186,9 @@ class MessageProcessorStreamingTest {
             "default",
             AgentContext(
                 agentId = "default",
-                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
                 services =
                     AgentServices(
                         sessionManager = sessionManager,

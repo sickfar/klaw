@@ -882,6 +882,10 @@ object GeneratedSchemas {
                                     "channel": {
                                         "type": "string",
                                         "description": "Channel to deliver heartbeat messages to"
+                                    },
+                                    "injectInto": {
+                                        "type": "string",
+                                        "description": "Chat ID to inject heartbeat messages into (overrides global heartbeat.injectInto)"
                                     }
                                 },
                                 "additionalProperties": false
