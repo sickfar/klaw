@@ -54,6 +54,12 @@ Lists all models configured in `engine.json` with their context length from the 
 
 Shows the Memory Map — top categories from long-term memory with entry counts. Use this to see what topics are stored in memory, then use `memory_search` to retrieve details.
 
+## /context
+
+Shows detailed context window diagnostics for the current session: budget breakdown (system prompt, summaries, tools, pending, overhead, message budget), message window statistics, summary coverage, Auto-RAG status, tool list, skill configuration, and compaction state.
+
+This is the in-chat equivalent of `klaw context` CLI command.
+
 ## /status
 
 Shows: uptime, current chat model, segment start timestamp, and LLM queue depth.
