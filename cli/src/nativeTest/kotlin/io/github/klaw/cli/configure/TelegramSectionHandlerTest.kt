@@ -7,7 +7,6 @@ import io.github.klaw.common.config.parseGatewayConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TelegramSectionHandlerTest {
@@ -38,7 +37,9 @@ class TelegramSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        val tg = state.gatewayConfig.channels.telegram
+        val tg =
+            state.gatewayConfig.channels.telegram.values
+                .firstOrNull()
         assertTrue(tg != null)
         assertEquals("\${KLAW_TELEGRAM_TOKEN}", tg.token)
         assertEquals(listOf("123", "456"), tg.allowedChats.map { it.chatId })
@@ -55,7 +56,10 @@ class TelegramSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        assertNull(state.gatewayConfig.channels.telegram)
+        assertTrue(
+            state.gatewayConfig.channels.telegram
+                .isEmpty(),
+        )
     }
 
     @Test
@@ -82,9 +86,10 @@ class TelegramSectionHandlerTest {
         val changed = handler.run(state)
         assertTrue(changed)
         assertTrue(
-            state.gatewayConfig.channels.telegram!!
-                .allowedChats
-                .isEmpty(),
+            state.gatewayConfig.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats
+                ?.isEmpty() == true,
         )
     }
 

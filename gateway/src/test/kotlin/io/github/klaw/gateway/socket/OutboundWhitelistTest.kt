@@ -3,8 +3,8 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
@@ -40,7 +40,15 @@ class OutboundWhitelistTest {
             GatewayConfig(
                 channels =
                     ChannelsConfig(
-                        telegram = TelegramConfig(token = "tok", allowedChats = allowedChats),
+                        telegram =
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats = allowedChats,
+                                    ),
+                            ),
                     ),
             )
         return GatewayOutboundHandler(
@@ -88,7 +96,10 @@ class OutboundWhitelistTest {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "local_ws"
             every { channel.isAlive() } returns true
-            val config = GatewayConfig(ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+            val config =
+                GatewayConfig(
+                    ChannelsConfig(websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default"))),
+                )
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),
@@ -112,7 +123,10 @@ class OutboundWhitelistTest {
         runBlocking {
             val channel = mockk<Channel>(relaxed = true)
             every { channel.name } returns "local_ws"
-            val config = GatewayConfig(ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+            val config =
+                GatewayConfig(
+                    ChannelsConfig(websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default"))),
+                )
             val handler =
                 GatewayOutboundHandler(
                     channels = listOf(channel),

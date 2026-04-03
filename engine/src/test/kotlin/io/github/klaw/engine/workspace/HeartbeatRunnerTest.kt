@@ -93,6 +93,12 @@ class HeartbeatRunnerTest {
                     maxToolCallRounds = 5,
                 ),
             heartbeat = heartbeat,
+            agents =
+                mapOf(
+                    "default" to
+                        io.github.klaw.common.config
+                            .AgentConfig(workspace = "/tmp/klaw-test-workspace"),
+                ),
         )
 
     @Test

@@ -3,9 +3,9 @@ package io.github.klaw.gateway.pairing
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -18,9 +18,13 @@ class InboundAllowlistServiceTest {
             channels =
                 ChannelsConfig(
                     telegram =
-                        TelegramConfig(
-                            token = "test-token",
-                            allowedChats = chats.toList(),
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(
+                                    agentId = "default",
+                                    token = "test-token",
+                                    allowedChats = chats.toList(),
+                                ),
                         ),
                 ),
         )
@@ -137,10 +141,13 @@ class InboundAllowlistServiceTest {
             channels =
                 ChannelsConfig(
                     discord =
-                        DiscordConfig(
-                            enabled = true,
-                            token = "discord-token",
-                            allowedGuilds = guilds.toList(),
+                        mapOf(
+                            "default" to
+                                DiscordChannelConfig(
+                                    agentId = "default",
+                                    token = "discord-token",
+                                    allowedGuilds = guilds.toList(),
+                                ),
                         ),
                 ),
         )

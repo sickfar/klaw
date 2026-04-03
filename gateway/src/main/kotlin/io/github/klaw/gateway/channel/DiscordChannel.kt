@@ -95,20 +95,14 @@ class DiscordChannel(
     }
 
     override suspend fun start() {
-        val discordConfig = config.channels.discord
+        val discordConfig =
+            config.channels.discord.values
+                .firstOrNull()
         if (discordConfig == null) {
             logger.info { "discord config not found, DiscordChannel not started" }
             return
         }
-        if (!discordConfig.enabled) {
-            logger.debug { "discord channel disabled, skipping start" }
-            return
-        }
         val token = discordConfig.token
-        if (token == null) {
-            logger.warn { "discord channel enabled but token is null, skipping start" }
-            return
-        }
 
         logger.info { "discord bot starting" }
 
@@ -517,7 +511,9 @@ class DiscordChannel(
         channelId: String,
         userId: String?,
     ): Boolean {
-        val discordConfig = config.channels.discord ?: return false
+        val discordConfig =
+            config.channels.discord.values
+                .firstOrNull() ?: return false
         val guilds = discordConfig.allowedGuilds
 
         if (guildId == null) {

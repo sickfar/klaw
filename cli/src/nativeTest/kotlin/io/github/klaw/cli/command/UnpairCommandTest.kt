@@ -7,9 +7,9 @@ import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.parseGatewayConfig
 import platform.posix.getpid
@@ -43,7 +43,15 @@ class UnpairCommandTest {
         GatewayConfig(
             channels =
                 ChannelsConfig(
-                    telegram = TelegramConfig(token = "tok", allowedChats = allowedChats),
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(
+                                    agentId = "default",
+                                    token = "tok",
+                                    allowedChats = allowedChats,
+                                ),
+                        ),
                 ),
         )
 
@@ -69,7 +77,10 @@ class UnpairCommandTest {
         assertTrue(result.output.contains("Unpaired") || result.output.contains("Removed"), result.output)
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
-        val remaining = updatedConfig.channels.telegram!!.allowedChats
+        val remaining =
+            updatedConfig.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats ?: emptyList()
         assertEquals(1, remaining.size)
         assertEquals("telegram_456", remaining[0].chatId)
     }
@@ -87,7 +98,15 @@ class UnpairCommandTest {
         GatewayConfig(
             channels =
                 ChannelsConfig(
-                    discord = DiscordConfig(enabled = true, token = "tok", allowedGuilds = allowedGuilds),
+                    discord =
+                        mapOf(
+                            "default" to
+                                DiscordChannelConfig(
+                                    agentId = "default",
+                                    token = "tok",
+                                    allowedGuilds = allowedGuilds,
+                                ),
+                        ),
                 ),
         )
 
@@ -105,7 +124,10 @@ class UnpairCommandTest {
         assertTrue(result.output.contains("Unpaired") || result.output.contains("Removed"), result.output)
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
-        val remaining = updatedConfig.channels.discord!!.allowedGuilds
+        val remaining =
+            updatedConfig.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds ?: emptyList()
         assertEquals(1, remaining.size)
         assertEquals("guild_222", remaining[0].guildId)
     }

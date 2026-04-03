@@ -88,7 +88,8 @@ class TelegramChannel(
 
     override suspend fun start() {
         val telegramConfig =
-            config.channels.telegram ?: run {
+            config.channels.telegram.values
+                .firstOrNull() ?: run {
                 logger.info { "Telegram config not found, TelegramChannel not started" }
                 return
             }

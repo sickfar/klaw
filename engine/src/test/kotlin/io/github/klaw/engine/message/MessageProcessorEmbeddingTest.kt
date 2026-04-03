@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
@@ -130,6 +131,7 @@ class MessageProcessorEmbeddingTest {
                     keepAliveMaxExecutions = 10,
                 ),
             files = FilesConfig(maxFileSizeBytes = 1_000_000),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
     }
 

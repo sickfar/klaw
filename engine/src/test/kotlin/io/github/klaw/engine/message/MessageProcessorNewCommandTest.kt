@@ -1,5 +1,6 @@
 package io.github.klaw.engine.message
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.ContextConfig
@@ -77,6 +78,7 @@ class MessageProcessorNewCommandTest {
                     keepAliveMaxExecutions = 10,
                 ),
             files = FilesConfig(maxFileSizeBytes = 1_000_000),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun buildProcessor(config: EngineConfig): MessageProcessor {

@@ -3,7 +3,7 @@ package io.github.klaw.gateway
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -259,9 +259,13 @@ class GatewayLifecycleInboundTest {
                     channels =
                         ChannelsConfig(
                             telegram =
-                                TelegramConfig(
-                                    token = "t",
-                                    allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                        ),
                                 ),
                         ),
                 )
@@ -310,9 +314,13 @@ class GatewayLifecycleInboundTest {
                     channels =
                         ChannelsConfig(
                             telegram =
-                                TelegramConfig(
-                                    token = "t",
-                                    allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                        ),
                                 ),
                         ),
                 )
@@ -362,7 +370,15 @@ class GatewayLifecycleInboundTest {
                 GatewayConfig(
                     channels =
                         ChannelsConfig(
-                            telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
+                            telegram =
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = emptyList(),
+                                        ),
+                                ),
                         ),
                 )
             capturedListener.captured.invoke(unrelatedConfig)

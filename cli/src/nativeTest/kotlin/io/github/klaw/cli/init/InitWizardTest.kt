@@ -1321,10 +1321,17 @@ class InitWizardTest {
 
         val gatewayJson = readFileText("$configDir/gateway.json")
         assertNotNull(gatewayJson)
-        assertTrue(gatewayJson.contains("\"enabled\": true"), "Expected 'enabled: true' in gateway.json:\n$gatewayJson")
-        // Default port (37474) is not encoded by minimal encoder; verify via parse
+        assertTrue(gatewayJson.contains("\"websocket\""), "Expected 'websocket' section in gateway.json:\n$gatewayJson")
+        // Verify via parse
         val config = parseGatewayConfig(gatewayJson)
-        assertTrue(config.channels.localWs?.port == 37474, "Expected default port 37474 in parsed config")
+        assertTrue(config.channels.websocket.isNotEmpty(), "Expected websocket channel configured")
+        assertEquals(
+            37474,
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.port,
+            "Expected default port 37474 in parsed config",
+        )
     }
 
     @Test
@@ -1357,7 +1364,7 @@ class InitWizardTest {
 
         val gatewayJson = readFileText("$configDir/gateway.json")
         assertNotNull(gatewayJson)
-        assertTrue(!gatewayJson.contains("localWs"), "Expected no localWs section in gateway.json:\n$gatewayJson")
+        assertTrue(!gatewayJson.contains("websocket"), "Expected no websocket section in gateway.json:\n$gatewayJson")
     }
 
     @Test

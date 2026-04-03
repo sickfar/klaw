@@ -48,8 +48,11 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): Boolean {
+        val telegramConfig =
+            config.channels.telegram.values
+                .firstOrNull()
         val allowedChats =
-            config.channels.telegram?.allowedChats ?: run {
+            telegramConfig?.allowedChats ?: run {
                 logger.trace { "telegram config absent, denied chatId=$chatId" }
                 return false
             }
@@ -71,8 +74,11 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): Boolean {
+        val discordConfig =
+            config.channels.discord.values
+                .firstOrNull()
         val guilds =
-            config.channels.discord?.allowedGuilds ?: run {
+            discordConfig?.allowedGuilds ?: run {
                 logger.trace { "discord config absent, denied chatId=$chatId" }
                 return false
             }
@@ -96,7 +102,10 @@ class InboundAllowlistService(
         }
 
     private fun isStartAllowedDiscord(userId: String?): PairingStatus {
-        val guilds = config.channels.discord?.allowedGuilds
+        val guilds =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds
         if (guilds.isNullOrEmpty()) return PairingStatus.NewChat
         val hasUser = guilds.any { g -> userId != null && userId in g.allowedUserIds }
         return if (hasUser) PairingStatus.AlreadyPaired else PairingStatus.NewUserInExistingChat
@@ -109,8 +118,15 @@ class InboundAllowlistService(
     ): PairingStatus {
         val allowedChats =
             when (channel) {
-                "telegram" -> config.channels.telegram?.allowedChats ?: emptyList()
-                else -> emptyList()
+                "telegram" -> {
+                    config.channels.telegram.values
+                        .firstOrNull()
+                        ?.allowedChats ?: emptyList()
+                }
+
+                else -> {
+                    emptyList()
+                }
             }
         val chat = allowedChats.find { it.chatId == chatId } ?: return PairingStatus.NewChat
         if (chat.allowedUserIds.isEmpty()) return PairingStatus.NewUserInExistingChat
@@ -133,12 +149,18 @@ class InboundAllowlistService(
         }
 
     private fun isChatAllowedTelegram(chatId: String): Boolean {
-        val allowedChats = config.channels.telegram?.allowedChats ?: return false
+        val allowedChats =
+            config.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats ?: return false
         return allowedChats.any { it.chatId == chatId }
     }
 
     private fun isChatAllowedDiscord(): Boolean {
-        val guilds = config.channels.discord?.allowedGuilds ?: return false
+        val guilds =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds ?: return false
         return guilds.isNotEmpty()
     }
 

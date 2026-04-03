@@ -69,5 +69,10 @@
   },
   "heartbeat": {
     "interval": "off"
+  },
+  "agents": {
+    "default": {
+      "workspace": "/tmp/klaw-test-workspace"
+    }
   }
 }

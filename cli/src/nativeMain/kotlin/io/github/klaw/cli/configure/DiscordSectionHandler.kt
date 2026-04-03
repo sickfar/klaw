@@ -1,7 +1,7 @@
 package io.github.klaw.cli.configure
 
 import io.github.klaw.common.config.AllowedGuild
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 
 internal class DiscordSectionHandler(
     private val readLine: () -> String?,
@@ -10,8 +10,10 @@ internal class DiscordSectionHandler(
     override val section: ConfigSection = ConfigSection.DISCORD
 
     override fun run(state: ConfigState): Boolean {
-        val current = state.gatewayConfig.channels.discord
-        val currentEnabled = current?.enabled == true
+        val current =
+            state.gatewayConfig.channels.discord.values
+                .firstOrNull()
+        val currentEnabled = current != null
         val currentGuilds = current?.allowedGuilds?.map { it.guildId } ?: emptyList()
 
         printCurrentState(currentEnabled, currentGuilds)
@@ -57,7 +59,7 @@ internal class DiscordSectionHandler(
         if (wasEnabled) {
             state.gatewayConfig =
                 state.gatewayConfig.copy(
-                    channels = state.gatewayConfig.channels.copy(discord = null),
+                    channels = state.gatewayConfig.channels.copy(discord = emptyMap()),
                 )
             state.envVars.remove("KLAW_DISCORD_TOKEN")
             return true
@@ -103,10 +105,13 @@ internal class DiscordSectionHandler(
                 channels =
                     state.gatewayConfig.channels.copy(
                         discord =
-                            DiscordConfig(
-                                enabled = true,
-                                token = "\${KLAW_DISCORD_TOKEN}",
-                                allowedGuilds = allowedGuilds,
+                            mapOf(
+                                "default" to
+                                    DiscordChannelConfig(
+                                        agentId = "default",
+                                        token = "\${KLAW_DISCORD_TOKEN}",
+                                        allowedGuilds = allowedGuilds,
+                                    ),
                             ),
                     ),
             )

@@ -2,7 +2,7 @@ package io.github.klaw.gateway.channel
 
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.mockk.mockk
 import kotlinx.coroutines.CancellationException
@@ -22,7 +22,11 @@ class TelegramChannelPollingRetryTest {
     private fun makeChannel(): TelegramChannel {
         val config =
             GatewayConfig(
-                channels = ChannelsConfig(telegram = TelegramConfig(token = "test-token")),
+                channels =
+                    ChannelsConfig(
+                        telegram =
+                            mapOf("default" to TelegramChannelConfig(agentId = "default", token = "test-token")),
+                    ),
             )
         val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
         return TelegramChannel(config, jsonlWriter)

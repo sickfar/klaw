@@ -2,7 +2,7 @@ package io.github.klaw.gateway.channel
 
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
@@ -25,9 +25,9 @@ class DiscordChannelTest {
     private val jsonlWriter = mockk<ConversationJsonlWriter>(relaxed = true)
 
     private fun makeChannel(
-        discordConfig: DiscordConfig? =
-            DiscordConfig(
-                enabled = true,
+        discordConfig: DiscordChannelConfig? =
+            DiscordChannelConfig(
+                agentId = "default",
                 token = "test-token",
                 allowedGuilds =
                     listOf(
@@ -41,7 +41,10 @@ class DiscordChannelTest {
     ): DiscordChannel {
         val config =
             GatewayConfig(
-                channels = ChannelsConfig(discord = discordConfig),
+                channels =
+                    ChannelsConfig(
+                        discord = if (discordConfig != null) mapOf("default" to discordConfig) else emptyMap(),
+                    ),
             )
         return DiscordChannel(config, jsonlWriter)
     }
@@ -58,25 +61,9 @@ class DiscordChannelTest {
     // --- Lifecycle ---
 
     @Test
-    fun `start when discord disabled does nothing`() =
-        runTest {
-            val channel = makeChannel(discordConfig = DiscordConfig(enabled = false, token = "t"))
-            channel.start()
-            assertFalse(channel.isAlive())
-        }
-
-    @Test
-    fun `start when discord config null does nothing`() =
+    fun `start when discord config absent (empty map) does nothing`() =
         runTest {
             val channel = makeChannel(discordConfig = null)
-            channel.start()
-            assertFalse(channel.isAlive())
-        }
-
-    @Test
-    fun `start when discord token null does nothing`() =
-        runTest {
-            val channel = makeChannel(discordConfig = DiscordConfig(enabled = true, token = null))
             channel.start()
             assertFalse(channel.isAlive())
         }
@@ -133,8 +120,8 @@ class DiscordChannelTest {
             val channel =
                 makeChannel(
                     discordConfig =
-                        DiscordConfig(
-                            enabled = true,
+                        DiscordChannelConfig(
+                            agentId = "default",
                             token = "test-token",
                             allowedGuilds =
                                 listOf(
@@ -519,8 +506,8 @@ class DiscordChannelTest {
             val channel =
                 makeChannel(
                     discordConfig =
-                        DiscordConfig(
-                            enabled = true,
+                        DiscordChannelConfig(
+                            agentId = "default",
                             token = "test-token",
                             allowedGuilds =
                                 listOf(

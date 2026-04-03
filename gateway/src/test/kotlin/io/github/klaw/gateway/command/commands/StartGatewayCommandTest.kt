@@ -3,7 +3,7 @@ package io.github.klaw.gateway.command.commands
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.paths.KlawPathsSnapshot
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.IncomingMessage
@@ -85,14 +85,18 @@ class StartGatewayCommandTest {
             channels =
                 ChannelsConfig(
                     telegram =
-                        TelegramConfig(
-                            token = "test-token",
-                            allowedChats =
-                                listOf(
-                                    AllowedChat(
-                                        chatId = chatId,
-                                        allowedUserIds = listOf(userId),
-                                    ),
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(
+                                    agentId = "default",
+                                    token = "test-token",
+                                    allowedChats =
+                                        listOf(
+                                            AllowedChat(
+                                                chatId = chatId,
+                                                allowedUserIds = listOf(userId),
+                                            ),
+                                        ),
                                 ),
                         ),
                 ),

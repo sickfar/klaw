@@ -3,7 +3,7 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.DeliveryConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.micronaut.context.ApplicationContext
 import io.mockk.mockk
 import io.mockk.verify
@@ -18,7 +18,14 @@ class GatewaySocketFactoryTest {
 
     private fun makeConfig(maxReconnectAttempts: Int): GatewayConfig =
         GatewayConfig(
-            channels = ChannelsConfig(TelegramConfig("tok", emptyList())),
+            channels =
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = emptyList()),
+                        ),
+                ),
             delivery = DeliveryConfig(maxReconnectAttempts = maxReconnectAttempts),
         )
 

@@ -51,6 +51,9 @@ class ConfigToolsTest {
                 "embedding": { "type": "onnx", "model": "all-MiniLM-L6-v2" },
                 "chunking": { "size": 512, "overlap": 64 },
                 "search": { "topK": 10 }
+            },
+            "agents": {
+                "default": { "workspace": "/tmp/klaw-test-workspace" }
             }
         }
         """.trimIndent()
@@ -60,8 +63,11 @@ class ConfigToolsTest {
         {
             "channels": {
                 "telegram": {
-                    "token": "bot-real-token",
-                    "allowedChats": []
+                    "default": {
+                        "agentId": "default",
+                        "token": "bot-real-token",
+                        "allowedChats": []
+                    }
                 }
             }
         }
@@ -204,7 +210,7 @@ class ConfigToolsTest {
     @Test
     fun `config_set gateway channels path writes value and requests gateway restart`() =
         runTest {
-            val result = configTools.configSet("gateway", "channels.telegram.token", "new-bot-token")
+            val result = configTools.configSet("gateway", "channels.telegram.default.token", "new-bot-token")
 
             assertTrue(result.contains("restarting") || result.contains("restart"), "Expected restart: $result")
             val written = File(configDir, "gateway.json").readText()
@@ -219,15 +225,17 @@ class ConfigToolsTest {
                 """
                 {
                     "channels": {
-                        "localWs": {
-                            "enabled": false,
-                            "port": 37474
+                        "websocket": {
+                            "default": {
+                                "agentId": "default",
+                                "port": 37474
+                            }
                         }
                     }
                 }
                 """.trimIndent(),
             )
-            val result = configTools.configSet("gateway", "channels.localWs.enabled", "true")
+            val result = configTools.configSet("gateway", "channels.websocket.default.port", "9090")
             assertTrue(
                 result.contains("restarting") || result.contains("restart"),
                 "Expected restart for channels path: $result",
@@ -242,15 +250,17 @@ class ConfigToolsTest {
                 """
                 {
                     "channels": {
-                        "localWs": {
-                            "enabled": false,
-                            "port": 37474
+                        "websocket": {
+                            "default": {
+                                "agentId": "default",
+                                "port": 37474
+                            }
                         }
                     }
                 }
                 """.trimIndent(),
             )
-            val result = configTools.configSet("gateway", "channels.localWs.enabled", "true")
+            val result = configTools.configSet("gateway", "channels.websocket.default.port", "9090")
 
             assertTrue(result.isNotBlank())
             verify { shutdownController.requestGatewayRestart() }

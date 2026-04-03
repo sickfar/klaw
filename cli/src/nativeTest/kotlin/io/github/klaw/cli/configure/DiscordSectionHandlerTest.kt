@@ -37,8 +37,10 @@ class DiscordSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        val dc = state.gatewayConfig.channels.discord
-        assertTrue(dc != null && dc.enabled)
+        val dc =
+            state.gatewayConfig.channels.discord.values
+                .firstOrNull()
+        assertTrue(dc != null)
         assertEquals(listOf("guild1", "guild2"), dc.allowedGuilds.map { it.guildId })
         assertEquals("new-discord-token", state.envVars["KLAW_DISCORD_TOKEN"])
     }
@@ -53,8 +55,10 @@ class DiscordSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        val dc = state.gatewayConfig.channels.discord
-        assertTrue(dc == null || !dc.enabled)
+        assertTrue(
+            state.gatewayConfig.channels.discord
+                .isEmpty(),
+        )
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.klaw.engine.message
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.ContextConfig
@@ -69,6 +70,7 @@ class MessageProcessorErrorMessageTest {
             logging = LoggingConfig(subagentConversations = false),
             codeExecution = CodeExecutionConfig(),
             files = FilesConfig(),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun makeSession(): Session {

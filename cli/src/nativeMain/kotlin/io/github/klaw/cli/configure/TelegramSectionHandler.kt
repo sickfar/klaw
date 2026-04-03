@@ -1,7 +1,7 @@
 package io.github.klaw.cli.configure
 
 import io.github.klaw.common.config.AllowedChat
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 
 internal class TelegramSectionHandler(
     private val readLine: () -> String?,
@@ -10,7 +10,9 @@ internal class TelegramSectionHandler(
     override val section: ConfigSection = ConfigSection.TELEGRAM
 
     override fun run(state: ConfigState): Boolean {
-        val current = state.gatewayConfig.channels.telegram
+        val current =
+            state.gatewayConfig.channels.telegram.values
+                .firstOrNull()
         val currentEnabled = current != null
         val currentChatIds = current?.allowedChats?.map { it.chatId } ?: emptyList()
 
@@ -57,7 +59,7 @@ internal class TelegramSectionHandler(
         if (wasEnabled) {
             state.gatewayConfig =
                 state.gatewayConfig.copy(
-                    channels = state.gatewayConfig.channels.copy(telegram = null),
+                    channels = state.gatewayConfig.channels.copy(telegram = emptyMap()),
                 )
             state.envVars.remove("KLAW_TELEGRAM_TOKEN")
             return true
@@ -103,9 +105,13 @@ internal class TelegramSectionHandler(
                 channels =
                     state.gatewayConfig.channels.copy(
                         telegram =
-                            TelegramConfig(
-                                token = "\${KLAW_TELEGRAM_TOKEN}",
-                                allowedChats = allowedChats,
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "\${KLAW_TELEGRAM_TOKEN}",
+                                        allowedChats = allowedChats,
+                                    ),
                             ),
                     ),
             )

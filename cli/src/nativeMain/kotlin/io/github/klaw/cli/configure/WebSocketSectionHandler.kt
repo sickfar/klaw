@@ -1,6 +1,6 @@
 package io.github.klaw.cli.configure
 
-import io.github.klaw.common.config.LocalWsConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 
 private const val DEFAULT_WS_PORT = 37474
 
@@ -11,8 +11,10 @@ internal class WebSocketSectionHandler(
     override val section: ConfigSection = ConfigSection.WEBSOCKET
 
     override fun run(state: ConfigState): Boolean {
-        val current = state.gatewayConfig.channels.localWs
-        val currentEnabled = current?.enabled == true
+        val current =
+            state.gatewayConfig.channels.websocket.values
+                .firstOrNull()
+        val currentEnabled = current != null
         val currentPort = current?.port ?: DEFAULT_WS_PORT
 
         printer("\n── WebSocket Chat ──")
@@ -31,7 +33,7 @@ internal class WebSocketSectionHandler(
             if (currentEnabled) {
                 state.gatewayConfig =
                     state.gatewayConfig.copy(
-                        channels = state.gatewayConfig.channels.copy(localWs = null),
+                        channels = state.gatewayConfig.channels.copy(websocket = emptyMap()),
                     )
                 return true
             }
@@ -46,7 +48,8 @@ internal class WebSocketSectionHandler(
             state.gatewayConfig.copy(
                 channels =
                     state.gatewayConfig.channels.copy(
-                        localWs = LocalWsConfig(enabled = true, port = port),
+                        websocket =
+                            mapOf("default" to WebSocketChannelConfig(agentId = "default", port = port)),
                     ),
             )
         return true

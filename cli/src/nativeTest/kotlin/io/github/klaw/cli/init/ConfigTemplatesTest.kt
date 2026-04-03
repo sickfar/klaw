@@ -52,7 +52,10 @@ class ConfigTemplatesTest {
         assertTrue(json.contains("telegram"), "Expected 'telegram' in:\n$json")
         // allowedChats=emptyList() matches Kotlin default — not encoded by minimal encoder
         val config = parseGatewayConfig(json)
-        val allowedChats = config.channels.telegram?.allowedChats
+        val allowedChats =
+            config.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats
         assertTrue(allowedChats?.isEmpty() == true, "Expected empty allowedChats in parsed config")
     }
 
@@ -69,19 +72,24 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `gatewayJson with enableLocalWs=true includes localWs section`() {
+    fun `gatewayJson with enableLocalWs=true includes websocket section`() {
         val json = ConfigTemplates.gatewayJson(enableLocalWs = true)
-        assertTrue(json.contains("localWs"), "Expected 'localWs' in:\n$json")
+        assertTrue(json.contains("websocket"), "Expected 'websocket' in:\n$json")
         // Verify via round-trip parse instead of fragile string checks
         val config = parseGatewayConfig(json)
-        assertTrue(config.channels.localWs?.enabled == true, "Expected localWs.enabled=true in parsed config")
-        assertTrue(config.channels.localWs?.port == 37474, "Expected default port 37474 in parsed config")
+        assertTrue(config.channels.websocket.isNotEmpty(), "Expected websocket configured")
+        assertTrue(
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.port == 37474,
+            "Expected default port 37474 in parsed config",
+        )
     }
 
     @Test
-    fun `gatewayJson with enableLocalWs=false omits localWs section`() {
+    fun `gatewayJson with enableLocalWs=false omits websocket section`() {
         val json = ConfigTemplates.gatewayJson(enableLocalWs = false)
-        assertTrue(!json.contains("localWs"), "Expected no 'localWs' section in:\n$json")
+        assertTrue(!json.contains("websocket"), "Expected no 'websocket' section in:\n$json")
     }
 
     @Test
@@ -99,7 +107,7 @@ class ConfigTemplatesTest {
                 localWsPort = 8080,
             )
         assertTrue(json.contains("123456"), "Expected chatId in:\n$json")
-        assertTrue(json.contains("localWs"), "Expected localWs section in:\n$json")
+        assertTrue(json.contains("websocket"), "Expected websocket section in:\n$json")
         assertTrue(json.contains("8080"), "Expected custom port in:\n$json")
     }
 
@@ -118,10 +126,10 @@ class ConfigTemplatesTest {
     }
 
     @Test
-    fun `gatewayJson with telegramEnabled=false and enableLocalWs=true has localWs but no telegram`() {
+    fun `gatewayJson with telegramEnabled=false and enableLocalWs=true has websocket but no telegram`() {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableLocalWs = true)
         assertTrue(!json.contains("telegram"), "Expected no telegram in:\n$json")
-        assertTrue(json.contains("localWs"), "Expected localWs section in:\n$json")
+        assertTrue(json.contains("websocket"), "Expected websocket section in:\n$json")
     }
 
     @Test
@@ -153,9 +161,14 @@ class ConfigTemplatesTest {
                 localWsPort = 9090,
             )
         val config = parseGatewayConfig(json)
-        assertTrue(config.channels.telegram != null, "Expected telegram section")
-        assertTrue(config.channels.localWs != null, "Expected localWs section")
-        assertTrue(config.channels.localWs?.port == 9090, "Expected port 9090")
+        assertTrue(config.channels.telegram.isNotEmpty(), "Expected telegram section")
+        assertTrue(config.channels.websocket.isNotEmpty(), "Expected websocket section")
+        assertTrue(
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.port == 9090,
+            "Expected port 9090",
+        )
     }
 
     // --- dockerComposeJson ---
@@ -624,8 +637,12 @@ class ConfigTemplatesTest {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = false, discordEnabled = true)
         assertTrue(json.contains("discord"), "Expected 'discord' in:\n$json")
         val config = parseGatewayConfig(json)
-        assertNotNull(config.channels.discord, "Expected discord config in parsed result")
-        assertTrue(config.channels.discord!!.enabled, "Expected discord enabled=true")
+        assertTrue(config.channels.discord.isNotEmpty(), "Expected discord config in parsed result")
+        assertNotNull(
+            config.channels.discord.values
+                .firstOrNull(),
+            "Expected discord entry",
+        )
     }
 
     @Test
@@ -643,7 +660,10 @@ class ConfigTemplatesTest {
                 discordAllowedGuilds = listOf("111222333", "444555666"),
             )
         val config = parseGatewayConfig(json)
-        val guilds = config.channels.discord?.allowedGuilds
+        val guilds =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds
         assertNotNull(guilds, "Expected allowedGuilds")
         assertEquals(2, guilds.size, "Expected 2 guilds")
         assertEquals("111222333", guilds[0].guildId)
@@ -655,7 +675,7 @@ class ConfigTemplatesTest {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = true, discordEnabled = false)
         assertTrue(!json.contains("discord"), "Expected no 'discord' section in:\n$json")
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.discord, "Expected null discord in parsed result")
+        assertTrue(config.channels.discord.isEmpty(), "Expected empty discord in parsed result")
     }
 
     @Test
@@ -668,9 +688,12 @@ class ConfigTemplatesTest {
                 discordAllowedGuilds = listOf("999"),
             )
         val config = parseGatewayConfig(json)
-        assertNotNull(config.channels.telegram, "Expected telegram config")
-        assertNotNull(config.channels.discord, "Expected discord config")
-        val guilds = config.channels.discord!!.allowedGuilds
+        assertTrue(config.channels.telegram.isNotEmpty(), "Expected telegram config")
+        assertTrue(config.channels.discord.isNotEmpty(), "Expected discord config")
+        val guilds =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds ?: emptyList()
         assertEquals("999", guilds.first().guildId)
     }
 
@@ -737,10 +760,19 @@ class ConfigTemplatesTest {
                 localWsPort = 9090,
             )
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.telegram, "Expected no telegram")
-        assertNotNull(config.channels.discord, "Expected discord")
-        assertTrue(config.channels.discord!!.enabled)
-        assertNotNull(config.channels.localWs, "Expected localWs")
-        assertEquals(9090, config.channels.localWs?.port)
+        assertTrue(config.channels.telegram.isEmpty(), "Expected no telegram")
+        assertTrue(config.channels.discord.isNotEmpty(), "Expected discord")
+        assertNotNull(
+            config.channels.discord.values
+                .firstOrNull(),
+            "Expected discord entry",
+        )
+        assertTrue(config.channels.websocket.isNotEmpty(), "Expected websocket")
+        assertEquals(
+            9090,
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.port,
+        )
     }
 }

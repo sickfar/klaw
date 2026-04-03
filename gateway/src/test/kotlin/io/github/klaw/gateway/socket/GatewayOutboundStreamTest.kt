@@ -3,8 +3,8 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.gateway.channel.Channel
@@ -33,7 +33,14 @@ class GatewayOutboundStreamTest {
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
             GatewayConfig(
-                ChannelsConfig(TelegramConfig("tok", allowedChats), localWs = LocalWsConfig(enabled = true)),
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = allowedChats),
+                        ),
+                    websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                ),
             )
         return InboundAllowlistService(config)
     }
@@ -220,7 +227,19 @@ class GatewayOutboundStreamTest {
                     channels = listOf(channel),
                     allowlistService =
                         InboundAllowlistService(
-                            GatewayConfig(ChannelsConfig(TelegramConfig("tok", emptyList()))),
+                            GatewayConfig(
+                                ChannelsConfig(
+                                    telegram =
+                                        mapOf(
+                                            "default" to
+                                                TelegramChannelConfig(
+                                                    agentId = "default",
+                                                    token = "tok",
+                                                    allowedChats = emptyList(),
+                                                ),
+                                        ),
+                                ),
+                            ),
                         ),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                     applicationContext = mockk<ApplicationContext>(relaxed = true),
