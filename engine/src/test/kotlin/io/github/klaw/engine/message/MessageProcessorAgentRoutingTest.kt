@@ -1,11 +1,16 @@
 package io.github.klaw.engine.message
 
 import io.github.klaw.common.config.AgentConfig
+import io.github.klaw.common.llm.FinishReason
+import io.github.klaw.common.llm.LlmMessage
+import io.github.klaw.common.llm.LlmResponse
+import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.engine.agent.AgentContext
 import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
@@ -18,10 +23,6 @@ import io.github.klaw.engine.socket.EngineSocketServer
 import io.github.klaw.engine.tools.ActiveSubagentJobs
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.ToolExecutor
-import io.github.klaw.common.llm.FinishReason
-import io.github.klaw.common.llm.LlmMessage
-import io.github.klaw.common.llm.LlmResponse
-import io.github.klaw.common.llm.TokenUsage
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -35,7 +36,10 @@ import kotlin.time.Clock
 class MessageProcessorAgentRoutingTest {
     private val config = testEngineConfig()
 
-    private fun makeSession(chatId: String = "chat1", model: String = "test/model"): Session {
+    private fun makeSession(
+        chatId: String = "chat1",
+        model: String = "test/model",
+    ): Session {
         val now = Clock.System.now()
         return Session(chatId = chatId, model = model, segmentStart = now.toString(), createdAt = now)
     }
@@ -70,78 +74,86 @@ class MessageProcessorAgentRoutingTest {
         )
 
     @Test
-    fun `handleCommand uses agent-specific sessionManager when available`() = runTest {
-        val agentRegistry = AgentRegistry()
-        val agentSessionManager = mockk<SessionManager>(relaxed = true)
-        val defaultSessionManager = mockk<SessionManager>(relaxed = true)
-        val session = makeSession()
-        coEvery { agentSessionManager.getOrCreate(any(), any()) } returns session
-        coEvery { defaultSessionManager.getOrCreate(any(), any()) } returns session
+    fun `handleCommand uses agent-specific sessionManager when available`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            val agentSessionManager = mockk<SessionManager>(relaxed = true)
+            val defaultSessionManager = mockk<SessionManager>(relaxed = true)
+            val session = makeSession()
+            coEvery { agentSessionManager.getOrCreate(any(), any()) } returns session
+            coEvery { defaultSessionManager.getOrCreate(any(), any()) } returns session
 
-        val agentCtx = AgentContext(
-            agentId = "agent-A",
-            agentConfig = AgentConfig(workspace = "/tmp/a"),
-            sessionManager = agentSessionManager,
-        )
-        agentRegistry.register("agent-A", agentCtx)
+            val agentCtx =
+                AgentContext(
+                    agentId = "agent-A",
+                    agentConfig = AgentConfig(workspace = "/tmp/a"),
+                    services = AgentServices(sessionManager = agentSessionManager),
+                )
+            agentRegistry.register("agent-A", agentCtx)
 
-        val commandHandler = mockk<CommandHandler>(relaxed = true)
-        coEvery { commandHandler.handle(any(), any()) } returns "ok"
+            val commandHandler = mockk<CommandHandler>(relaxed = true)
+            coEvery { commandHandler.handle(any(), any()) } returns "ok"
 
-        val processor = buildProcessor(
-            agentRegistry = agentRegistry,
-            sessionManager = defaultSessionManager,
-            commandHandler = commandHandler,
-        )
+            val processor =
+                buildProcessor(
+                    agentRegistry = agentRegistry,
+                    sessionManager = defaultSessionManager,
+                    commandHandler = commandHandler,
+                )
 
-        val msg = CommandSocketMessage(
-            channel = "telegram",
-            chatId = "chat1",
-            command = "status",
-            agentId = "agent-A",
-        )
-        processor.handleCommand(msg)
+            val msg =
+                CommandSocketMessage(
+                    channel = "telegram",
+                    chatId = "chat1",
+                    command = "status",
+                    agentId = "agent-A",
+                )
+            processor.handleCommand(msg)
 
-        coVerify { agentSessionManager.getOrCreate("chat1", any()) }
-        coVerify(exactly = 0) { defaultSessionManager.getOrCreate(any(), any()) }
-    }
-
-    @Test
-    fun `handleCommand falls back to singleton sessionManager when agent not registered`() = runTest {
-        val agentRegistry = AgentRegistry()
-        val defaultSessionManager = mockk<SessionManager>(relaxed = true)
-        val session = makeSession()
-        coEvery { defaultSessionManager.getOrCreate(any(), any()) } returns session
-
-        val commandHandler = mockk<CommandHandler>(relaxed = true)
-        coEvery { commandHandler.handle(any(), any()) } returns "ok"
-
-        val processor = buildProcessor(
-            agentRegistry = agentRegistry,
-            sessionManager = defaultSessionManager,
-            commandHandler = commandHandler,
-        )
-
-        val msg = CommandSocketMessage(
-            channel = "telegram",
-            chatId = "chat1",
-            command = "status",
-            agentId = "default",
-        )
-        processor.handleCommand(msg)
-
-        coVerify { defaultSessionManager.getOrCreate("chat1", any()) }
-    }
+            coVerify { agentSessionManager.getOrCreate("chat1", any()) }
+            coVerify(exactly = 0) { defaultSessionManager.getOrCreate(any(), any()) }
+        }
 
     @Test
-    fun `handleCliRequest dispatches to CliCommandDispatcher`() = runTest {
-        val cliDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
-        coEvery { cliDispatcher.dispatch(any()) } returns """{"status":"ok"}"""
+    fun `handleCommand falls back to singleton sessionManager when agent not registered`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            val defaultSessionManager = mockk<SessionManager>(relaxed = true)
+            val session = makeSession()
+            coEvery { defaultSessionManager.getOrCreate(any(), any()) } returns session
 
-        val processor = buildProcessor(cliCommandDispatcher = cliDispatcher)
-        val result = processor.handleCliRequest(CliRequestMessage(command = "status", agentId = "agent-B"))
+            val commandHandler = mockk<CommandHandler>(relaxed = true)
+            coEvery { commandHandler.handle(any(), any()) } returns "ok"
 
-        assertEquals("""{"status":"ok"}""", result)
-        coVerify { cliDispatcher.dispatch(match { it.agentId == "agent-B" }) }
-    }
+            val processor =
+                buildProcessor(
+                    agentRegistry = agentRegistry,
+                    sessionManager = defaultSessionManager,
+                    commandHandler = commandHandler,
+                )
+
+            val msg =
+                CommandSocketMessage(
+                    channel = "telegram",
+                    chatId = "chat1",
+                    command = "status",
+                    agentId = "default",
+                )
+            processor.handleCommand(msg)
+
+            coVerify { defaultSessionManager.getOrCreate("chat1", any()) }
+        }
+
+    @Test
+    fun `handleCliRequest dispatches to CliCommandDispatcher`() =
+        runTest {
+            val cliDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
+            coEvery { cliDispatcher.dispatch(any()) } returns """{"status":"ok"}"""
+
+            val processor = buildProcessor(cliCommandDispatcher = cliDispatcher)
+            val result = processor.handleCliRequest(CliRequestMessage(command = "status", agentId = "agent-B"))
+
+            assertEquals("""{"status":"ok"}""", result)
+            coVerify { cliDispatcher.dispatch(match { it.agentId == "agent-B" }) }
+        }
 }

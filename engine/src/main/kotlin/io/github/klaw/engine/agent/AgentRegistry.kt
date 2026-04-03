@@ -14,7 +14,10 @@ private val logger = KotlinLogging.logger {}
 class AgentRegistry {
     private val agents = ConcurrentHashMap<String, AgentContext>()
 
-    fun register(agentId: String, context: AgentContext) {
+    fun register(
+        agentId: String,
+        context: AgentContext,
+    ) {
         agents[agentId] = context
         logger.info { "Agent registered: $agentId" }
     }

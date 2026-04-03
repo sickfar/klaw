@@ -194,7 +194,9 @@ class MessageProcessorStreamingTest {
             compactionRunner = compactionRunner,
             subagentRunRepository = mockk<SubagentRunRepository>(relaxed = true),
             activeSubagentJobs = ActiveSubagentJobs(),
-            agentRegistry = io.github.klaw.engine.agent.AgentRegistry(),
+            agentRegistry =
+                io.github.klaw.engine.agent
+                    .AgentRegistry(),
         )
 
     /**

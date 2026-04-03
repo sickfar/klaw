@@ -366,169 +366,168 @@ class MessageProcessor(
         )
     }
 
-    @Suppress("TooGenericExceptionCaught", "LongMethod")
+    private inner class EffectiveServices(
+        agentId: String?,
+    ) {
+        private val ctx = agentId?.let { agentRegistry.getOrNull(it) }
+        val sessionManager = ctx?.sessionManager ?: this@MessageProcessor.sessionManager
+        val contextBuilder = ctx?.contextBuilder ?: this@MessageProcessor.contextBuilder
+        val messageRepository = ctx?.messageRepository ?: this@MessageProcessor.messageRepository
+        val messageEmbeddingService =
+            ctx?.messageEmbeddingService ?: this@MessageProcessor.messageEmbeddingService
+        val compactionRunner = ctx?.compactionRunner ?: this@MessageProcessor.compactionRunner
+    }
+
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun processMessages(messages: List<InboundSocketMessage>) {
         if (messages.isEmpty()) return
         val first = messages.first()
         val chatId = first.chatId
         val channel = first.channel
-        val agentId = first.agentId
-        logger.debug { "Processing: chatId=$chatId channel=$channel agentId=$agentId msgCount=${messages.size}" }
+        logger.debug {
+            "Processing: chatId=$chatId channel=$channel agentId=${first.agentId} msgCount=${messages.size}"
+        }
 
-        val ctx = agentRegistry.getOrNull(agentId)
-        val effectiveSessionManager = ctx?.sessionManager ?: sessionManager
-        val effectiveContextBuilder = ctx?.contextBuilder ?: contextBuilder
-        val effectiveMessageRepository = ctx?.messageRepository ?: messageRepository
-        val effectiveMessageEmbeddingService = ctx?.messageEmbeddingService ?: messageEmbeddingService
-        val effectiveCompactionRunner = ctx?.compactionRunner ?: compactionRunner
-
+        val svc = EffectiveServices(first.agentId)
         val currentJob = kotlin.coroutines.coroutineContext[Job]!!
         activeProcessingJobs[chatId] = currentJob
         try {
             llmLimiter.withInteractivePermit {
-                var session: Session? = null
-                var contextResult: ContextResult? = null
-                try {
-                    session = effectiveSessionManager.getOrCreate(chatId, config.routing.default)
-                    val pendingTexts = messages.map { it.content }
-
-                    // Persist user messages before building context so sumTokensInSegment is accurate
-                    persistInboundMessages(messages, effectiveMessageRepository, effectiveMessageEmbeddingService)
-
-                    val senderContext =
-                        SenderContext(
-                            senderId = first.senderId,
-                            senderName = first.senderName,
-                            chatType = first.chatType,
-                            platform = first.channel,
-                            chatTitle = first.chatTitle,
-                            messageId = first.messageId,
-                        )
-                    contextResult =
-                        effectiveContextBuilder.buildContext(
-                            session,
-                            pendingTexts,
-                            isSubagent = false,
-                            senderContext = senderContext,
-                        )
-                    logger.debug {
-                        "Context built: chatId=$chatId contextMsgs=${contextResult.messages.size}" +
-                            " uncoveredTokens=${contextResult.uncoveredMessageTokens}"
-                    }
-                    val tools = contextResult.tools
-
-                    val registryContextLength = ModelRegistry.contextLength(session.model)
-                    val rawBudget =
-                        config.context.tokenBudget
-                            ?: registryContextLength
-                            ?: ContextConfig.FALLBACK_BUDGET_TOKENS
-                    val modelContextLimit = registryContextLength ?: 0
-                    val streamCtx = buildStreamContext(channel, chatId)
-
-                    val runner =
-                        ToolCallLoopRunner(
-                            llmRouter,
-                            toolExecutor,
-                            config.processing.maxToolCallRounds,
-                            effectiveMessageRepository,
-                            channel,
-                            chatId,
-                            contextBudgetTokens = rawBudget,
-                            maxToolOutputChars = config.processing.maxToolOutputChars,
-                            modelContextLimit = modelContextLimit,
-                            streamingEnabled = streamCtx != null,
-                            onDelta = streamCtx?.onDelta,
-                        )
-                    val response = runner.run(contextResult.messages.toMutableList(), session, tools)
-                    logger.debug {
-                        "LLM responded: chatId=$chatId contentLen=${response.content?.length ?: 0}" +
-                            " tokens=${response.usage?.totalTokens}"
-                    }
-
-                    correctUserMessageTokens(
-                        runner.firstPromptTokens,
-                        contextResult.messages,
-                        messages,
-                        effectiveMessageRepository,
-                    )
-
-                    val content = persistAssistantResponse(
-                        response,
-                        channel,
-                        chatId,
-                        effectiveMessageRepository,
-                        effectiveMessageEmbeddingService,
-                    )
-                    val deliveryContent = appendStopNoticeIfNeeded(content, response)
-
-                    deliverResponse(deliveryContent, channel, chatId, streamCtx)
-
-                    // Fire-and-forget background compaction
-                    val successSegmentStart = session.segmentStart
-                    val successUncoveredTokens = contextResult.uncoveredMessageTokens
-                    val successBudget = contextResult.budget
-                    processingScope.launch {
-                        try {
-                            effectiveCompactionRunner.runIfNeeded(
-                                chatId = chatId,
-                                segmentStart = successSegmentStart,
-                                uncoveredMessageTokens = successUncoveredTokens,
-                                budget = successBudget,
-                            )
-                        } catch (
-                            @Suppress("TooGenericExceptionCaught") e: Exception,
-                        ) {
-                            logger.error(e) { "Background compaction failed" }
-                        }
-                    }
-                } catch (e: KlawError) {
-                    logger.warn { "Processing failed: chatId=$chatId error=${e::class.simpleName}" }
-                    socketServerProvider.get().pushToGateway(
-                        OutboundSocketMessage(
-                            channel = channel,
-                            chatId = chatId,
-                            content = userFacingMessage(e),
-                        ),
-                    )
-                    // Trigger compaction on failure — prevents context growth deadlock when LLM returns 500
-                    val errorCr = contextResult
-                    val errorSeg = session?.segmentStart
-                    if (errorCr != null && errorSeg != null) {
-                        val capturedUncoveredTokens = errorCr.uncoveredMessageTokens
-                        val capturedBudget = errorCr.budget
-                        processingScope.launch {
-                            try {
-                                effectiveCompactionRunner.runIfNeeded(
-                                    chatId = chatId,
-                                    segmentStart = errorSeg,
-                                    uncoveredMessageTokens = capturedUncoveredTokens,
-                                    budget = capturedBudget,
-                                )
-                            } catch (
-                                @Suppress("TooGenericExceptionCaught") ex: Exception,
-                            ) {
-                                logger.error(ex) { "Background compaction failed" }
-                            }
-                        }
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (
-                    @Suppress("TooGenericExceptionCaught") e: Exception,
-                ) {
-                    logger.error(e) { "Unexpected error processing chatId=$chatId" }
-                    socketServerProvider.get().pushToGateway(
-                        OutboundSocketMessage(
-                            channel = channel,
-                            chatId = chatId,
-                            content = "An internal error occurred.",
-                        ),
-                    )
-                }
+                runInteractiveTurn(messages, first, chatId, channel, svc)
             }
         } finally {
             activeProcessingJobs.remove(chatId, currentJob)
             executeDeferredRestarts()
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught", "LongMethod")
+    private suspend fun runInteractiveTurn(
+        messages: List<InboundSocketMessage>,
+        first: InboundSocketMessage,
+        chatId: String,
+        channel: String,
+        svc: EffectiveServices,
+    ) {
+        var session: Session? = null
+        var contextResult: ContextResult? = null
+        try {
+            session = svc.sessionManager.getOrCreate(chatId, config.routing.default)
+            val pendingTexts = messages.map { it.content }
+
+            persistInboundMessages(messages, svc.messageRepository, svc.messageEmbeddingService)
+
+            val senderContext =
+                SenderContext(
+                    senderId = first.senderId,
+                    senderName = first.senderName,
+                    chatType = first.chatType,
+                    platform = first.channel,
+                    chatTitle = first.chatTitle,
+                    messageId = first.messageId,
+                )
+            contextResult =
+                svc.contextBuilder.buildContext(
+                    session,
+                    pendingTexts,
+                    isSubagent = false,
+                    senderContext = senderContext,
+                )
+            logger.debug {
+                "Context built: chatId=$chatId contextMsgs=${contextResult.messages.size}" +
+                    " uncoveredTokens=${contextResult.uncoveredMessageTokens}"
+            }
+            val tools = contextResult.tools
+
+            val registryContextLength = ModelRegistry.contextLength(session.model)
+            val rawBudget =
+                config.context.tokenBudget
+                    ?: registryContextLength
+                    ?: ContextConfig.FALLBACK_BUDGET_TOKENS
+            val modelContextLimit = registryContextLength ?: 0
+            val streamCtx = buildStreamContext(channel, chatId)
+
+            val runner =
+                ToolCallLoopRunner(
+                    llmRouter,
+                    toolExecutor,
+                    config.processing.maxToolCallRounds,
+                    svc.messageRepository,
+                    channel,
+                    chatId,
+                    contextBudgetTokens = rawBudget,
+                    maxToolOutputChars = config.processing.maxToolOutputChars,
+                    modelContextLimit = modelContextLimit,
+                    streamingEnabled = streamCtx != null,
+                    onDelta = streamCtx?.onDelta,
+                )
+            val response = runner.run(contextResult.messages.toMutableList(), session, tools)
+            logger.debug {
+                "LLM responded: chatId=$chatId contentLen=${response.content?.length ?: 0}" +
+                    " tokens=${response.usage?.totalTokens}"
+            }
+
+            correctUserMessageTokens(
+                runner.firstPromptTokens,
+                contextResult.messages,
+                messages,
+                svc.messageRepository,
+            )
+
+            val content =
+                persistAssistantResponse(
+                    response,
+                    channel,
+                    chatId,
+                    svc.messageRepository,
+                    svc.messageEmbeddingService,
+                )
+            val deliveryContent = appendStopNoticeIfNeeded(content, response)
+
+            deliverResponse(deliveryContent, channel, chatId, streamCtx)
+
+            launchCompaction(svc.compactionRunner, chatId, session.segmentStart, contextResult)
+        } catch (e: KlawError) {
+            logger.warn { "Processing failed: chatId=$chatId error=${e::class.simpleName}" }
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(channel = channel, chatId = chatId, content = userFacingMessage(e)),
+            )
+            val errorCr = contextResult
+            val errorSeg = session?.segmentStart
+            if (errorCr != null && errorSeg != null) {
+                launchCompaction(svc.compactionRunner, chatId, errorSeg, errorCr)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(e) { "Unexpected error processing chatId=$chatId" }
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(channel = channel, chatId = chatId, content = "An internal error occurred."),
+            )
+        }
+    }
+
+    private fun launchCompaction(
+        runner: io.github.klaw.engine.context.CompactionRunner,
+        chatId: String,
+        segmentStart: String,
+        contextResult: ContextResult,
+    ) {
+        val uncoveredTokens = contextResult.uncoveredMessageTokens
+        val budget = contextResult.budget
+        processingScope.launch {
+            try {
+                runner.runIfNeeded(
+                    chatId = chatId,
+                    segmentStart = segmentStart,
+                    uncoveredMessageTokens = uncoveredTokens,
+                    budget = budget,
+                )
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                logger.error(e) { "Background compaction failed" }
+            }
         }
     }
 

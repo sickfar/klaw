@@ -24,6 +24,8 @@ import dev.inmo.tgbotapi.types.MessageId
 import dev.inmo.tgbotapi.types.RawChatId
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardButtons.CallbackDataInlineKeyboardButton
 import dev.inmo.tgbotapi.types.buttons.InlineKeyboardMarkup
+import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
+import dev.inmo.tgbotapi.types.message.content.TextContent
 import io.github.klaw.common.command.SlashCommand
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
@@ -52,10 +54,15 @@ class TelegramChannel(
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
     override val name: String
-        get() = config.channels.telegram.keys.firstOrNull() ?: "telegram"
+        get() =
+            config.channels.telegram.keys
+                .firstOrNull() ?: "telegram"
 
     private val agentId: String
-        get() = config.channels.telegram.values.firstOrNull()?.agentId ?: "default"
+        get() =
+            config.channels.telegram.values
+                .firstOrNull()
+                ?.agentId ?: "default"
 
     @Volatile private var alive: Boolean = false
     override var onBecameAlive: (suspend () -> Unit)? = null
@@ -174,6 +181,54 @@ class TelegramChannel(
         }
     }
 
+    private suspend fun handleTextMessage(
+        message: CommonMessage<TextContent>,
+        onMessage: suspend (IncomingMessage) -> Unit,
+    ) {
+        val chatId = message.chat.id.chatId.long
+        val text = message.content.text
+        val fromUser = (message as? dev.inmo.tgbotapi.abstracts.FromUser)?.from
+        val fromUserId = fromUser?.id?.chatId?.long
+        val senderName =
+            fromUser?.let { user ->
+                buildString {
+                    append(user.firstName)
+                    if (user.lastName.isNotEmpty()) append(" ${user.lastName}")
+                }
+            }
+        val chat = message.chat
+        val chatTypeStr =
+            when (chat) {
+                is dev.inmo.tgbotapi.types.chat.PrivateChat -> "private"
+                is dev.inmo.tgbotapi.types.chat.SupergroupChat -> "supergroup"
+                is dev.inmo.tgbotapi.types.chat.GroupChat -> "group"
+                is dev.inmo.tgbotapi.types.chat.ChannelChat -> "channel"
+                else -> "unknown"
+            }
+        val chatTitleStr = (chat as? dev.inmo.tgbotapi.types.chat.PublicChat)?.title
+        val platformMsgId = message.messageId.long.toString()
+        val incoming =
+            TelegramNormalizer.normalize(
+                chatId = chatId,
+                text = text,
+                userId = fromUserId,
+                senderName = senderName,
+                chatType = chatTypeStr,
+                chatTitle = chatTitleStr,
+                platformMessageId = platformMsgId,
+                agentId = agentId,
+            )
+        chatTypes[incoming.chatId] = chatTypeStr
+        startTyping(incoming.chatId, chatId)
+        logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
+        runCatching {
+            jsonlWriter.writeInbound(incoming)
+            onMessage(incoming)
+        }.onFailure { e ->
+            logger.error(e) { "Error processing Telegram message" }
+        }
+    }
+
     private suspend fun runLongPolling(
         b: TelegramBot,
         onMessage: suspend (IncomingMessage) -> Unit,
@@ -181,49 +236,7 @@ class TelegramChannel(
         pollingJob =
             b.buildBehaviourWithLongPolling(scope = scope) {
                 onText { message ->
-                    val chatId = message.chat.id.chatId.long
-                    val text = message.content.text
-                    val fromUser = (message as? dev.inmo.tgbotapi.abstracts.FromUser)?.from
-                    val fromUserId = fromUser?.id?.chatId?.long
-                    val senderName =
-                        fromUser?.let { user ->
-                            buildString {
-                                append(user.firstName)
-                                if (user.lastName.isNotEmpty()) append(" ${user.lastName}")
-                            }
-                        }
-                    val chat = message.chat
-                    val chatTypeStr =
-                        when (chat) {
-                            is dev.inmo.tgbotapi.types.chat.PrivateChat -> "private"
-                            is dev.inmo.tgbotapi.types.chat.SupergroupChat -> "supergroup"
-                            is dev.inmo.tgbotapi.types.chat.GroupChat -> "group"
-                            is dev.inmo.tgbotapi.types.chat.ChannelChat -> "channel"
-                            else -> "unknown"
-                        }
-                    val chatTitleStr =
-                        (chat as? dev.inmo.tgbotapi.types.chat.PublicChat)?.title
-                    val platformMsgId = message.messageId.long.toString()
-                    val incoming =
-                        TelegramNormalizer.normalize(
-                            chatId = chatId,
-                            text = text,
-                            userId = fromUserId,
-                            senderName = senderName,
-                            chatType = chatTypeStr,
-                            chatTitle = chatTitleStr,
-                            platformMessageId = platformMsgId,
-                            agentId = agentId,
-                        )
-                    chatTypes[incoming.chatId] = chatTypeStr
-                    startTyping(incoming.chatId, chatId)
-                    logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
-                    runCatching {
-                        jsonlWriter.writeInbound(incoming)
-                        onMessage(incoming)
-                    }.onFailure { e ->
-                        logger.error(e) { "Error processing Telegram message" }
-                    }
+                    handleTextMessage(message, onMessage)
                 }
                 onPhoto { message ->
                     handlePhotoMessage(message, onMessage)

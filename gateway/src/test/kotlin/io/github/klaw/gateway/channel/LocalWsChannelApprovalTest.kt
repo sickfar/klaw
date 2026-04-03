@@ -22,7 +22,8 @@ class LocalWsChannelApprovalTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
+    private fun makeChannel(): LocalWsChannel =
+        LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
 
     private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 

@@ -38,127 +38,61 @@ class AgentContextFactory(
     fun create(
         agentId: String,
         agentConfig: AgentConfig,
-        stateDir: String,
-        dataDir: String,
-        configDir: String,
-        conversationsDir: String,
+        dirs: AgentDirectories,
     ): AgentContext {
         logger.info { "Creating agent context: $agentId" }
+        ensureWorkspace(agentId, agentConfig)
+        val services = buildServices(agentId, agentConfig, dirs)
+        logger.info { "Agent context created: $agentId" }
+        return AgentContext(agentId = agentId, agentConfig = agentConfig, services = services)
+    }
 
-        // 1. Workspace auto-creation
-        val workspaceDir = File(agentConfig.workspace)
-        if (!workspaceDir.exists()) {
-            workspaceDir.mkdirs()
-            logger.info { "Auto-created workspace for agent $agentId: ${workspaceDir.absolutePath}" }
-        }
-
-        // 2. Database
-        val dbPath = "$stateDir${File.separator}klaw-$agentId.db"
-        File(dbPath).parentFile?.mkdirs()
-        val props = Properties()
-        props["enable_load_extension"] = "true"
-        val driver = JdbcSqliteDriver("jdbc:sqlite:$dbPath", props)
-        KlawDatabase.Schema.create(driver)
-        shared.sqliteVecLoader.loadExtension(driver)
-        VirtualTableSetup.createVirtualTables(driver, shared.sqliteVecLoader.isAvailable())
-        logger.debug { "Database initialized for agent $agentId: $dbPath" }
-
+    private fun buildServices(
+        agentId: String,
+        agentConfig: AgentConfig,
+        dirs: AgentDirectories,
+    ): AgentServices {
+        val driver = initDatabase(agentId, dirs.stateDir)
         val database = KlawDatabase(driver)
-
-        // 3. Repositories
         val messageRepository = MessageRepository(database)
         val subagentRunRepository = SubagentRunRepository(database)
         val summaryRepository = SummaryRepository(database)
-
-        // 4. SessionManager
         val sessionManager = SessionManager(database)
-
-        // 5. MemoryService
         val config = shared.globalConfig
-        val memoryService = MemoryServiceImpl(
-            database = database,
-            driver = driver,
-            embeddingService = shared.embeddingService,
-            sqliteVecLoader = shared.sqliteVecLoader,
-            searchConfig = config.memory.search,
-        )
 
-        // 6. WorkspaceLoader
-        val workspacePath = Path.of(agentConfig.workspace)
-        val workspaceLoader = KlawWorkspaceLoader(
-            workspacePath = workspacePath,
-            memoryService = memoryService,
-            config = config,
-        )
-        memoryService.setOnSaveCallback { workspaceLoader.refreshMemorySummary() }
-        workspaceLoader.initialize()
+        val (memoryService, workspaceLoader) = buildMemoryPipeline(database, driver, agentConfig, config)
+        val skillRegistry = buildSkillRegistry(dirs, Path.of(agentConfig.workspace))
 
-        // 7. SkillRegistry
-        val skillsDir = "$dataDir${File.separator}skills"
-        File(skillsDir).mkdirs()
-        val skillRegistry = FileSkillRegistry(
-            dataSkillsDir = Path.of(skillsDir),
-            workspaceSkillsDir = workspacePath.resolve("skills"),
-            workspaceDir = workspacePath,
-            dataDir = Path.of(dataDir),
-            configDir = Path.of(configDir),
-        )
-        skillRegistry.discover()
-
-        // 8. Summary + Compaction
         val summaryService = FileSummaryService(summaryRepository)
         val compactionTracker = CompactionTracker()
-        val compactionRunner = CompactionRunner(
-            summaryRepository = summaryRepository,
-            messageRepository = messageRepository,
-            llmRouter = shared.llmRouter,
-            memoryService = memoryService,
-            compactionTracker = compactionTracker,
-            config = config,
-        )
+        val compactionRunner =
+            buildCompactionRunner(summaryRepository, messageRepository, memoryService, compactionTracker, config)
 
-        // 9. AutoRag
-        val autoRagService = AutoRagService(
-            driver = driver,
-            embeddingService = shared.embeddingService,
-            sqliteVecLoader = shared.sqliteVecLoader,
-        )
+        val autoRagService =
+            AutoRagService(
+                driver = driver,
+                embeddingService = shared.embeddingService,
+                sqliteVecLoader = shared.sqliteVecLoader,
+            )
+        val messageEmbeddingService =
+            MessageEmbeddingService(
+                driver = driver,
+                embeddingService = shared.embeddingService,
+                sqliteVecLoader = shared.sqliteVecLoader,
+            )
+        val subagentHistoryLoader = SubagentHistoryLoader(dirs.conversationsDir)
+        val contextBuilder =
+            buildContextBuilder(
+                workspaceLoader,
+                messageRepository,
+                summaryService,
+                skillRegistry,
+                autoRagService,
+                subagentHistoryLoader,
+                config,
+            )
 
-        // 10. MessageEmbedding
-        val messageEmbeddingService = MessageEmbeddingService(
-            driver = driver,
-            embeddingService = shared.embeddingService,
-            sqliteVecLoader = shared.sqliteVecLoader,
-        )
-
-        // 11. SubagentHistoryLoader
-        val subagentHistoryLoader = SubagentHistoryLoader(conversationsDir)
-
-        // 12. McpToolRegistry (empty per-agent, populated later)
-        val mcpToolRegistry = McpToolRegistry()
-
-        // 13. BackupService
-        val backupService = BackupService(driver, config)
-
-        // 14. ContextBuilder — uses StubToolRegistry until ToolRegistry is wired per-agent
-        val contextBuilder = ContextBuilder(
-            workspaceLoader = workspaceLoader,
-            messageRepository = messageRepository,
-            summaryService = summaryService,
-            skillRegistry = skillRegistry,
-            toolRegistry = StubToolRegistry(),
-            config = config,
-            autoRagService = autoRagService,
-            subagentHistoryLoader = subagentHistoryLoader,
-            healthProviderLazy = { shared.engineHealthProvider },
-            llmRouter = shared.llmRouter,
-        )
-
-        logger.info { "Agent context created: $agentId" }
-
-        return AgentContext(
-            agentId = agentId,
-            agentConfig = agentConfig,
+        return AgentServices(
             database = database,
             driver = driver,
             sessionManager = sessionManager,
@@ -174,12 +108,118 @@ class AgentContextFactory(
             messageEmbeddingService = messageEmbeddingService,
             subagentRunRepository = subagentRunRepository,
             subagentHistoryLoader = subagentHistoryLoader,
-            mcpToolRegistry = mcpToolRegistry,
-            backupService = backupService,
+            mcpToolRegistry = McpToolRegistry(),
+            backupService = BackupService(driver, config),
             contextBuilder = contextBuilder,
-            // toolRegistry uses StubToolRegistry in contextBuilder until full per-agent wiring
-            // scheduler is wired when we set up per-agent Quartz
-            // heartbeatRunner is wired when we set up per-agent heartbeat
         )
+    }
+
+    private fun buildMemoryPipeline(
+        database: KlawDatabase,
+        driver: JdbcSqliteDriver,
+        agentConfig: AgentConfig,
+        config: io.github.klaw.common.config.EngineConfig,
+    ): Pair<MemoryServiceImpl, KlawWorkspaceLoader> {
+        val memoryService =
+            MemoryServiceImpl(
+                database = database,
+                driver = driver,
+                embeddingService = shared.embeddingService,
+                sqliteVecLoader = shared.sqliteVecLoader,
+                searchConfig = config.memory.search,
+            )
+        val workspaceLoader =
+            KlawWorkspaceLoader(
+                workspacePath = Path.of(agentConfig.workspace),
+                memoryService = memoryService,
+                config = config,
+            )
+        memoryService.setOnSaveCallback { workspaceLoader.refreshMemorySummary() }
+        workspaceLoader.initialize()
+        return memoryService to workspaceLoader
+    }
+
+    private fun buildCompactionRunner(
+        summaryRepository: SummaryRepository,
+        messageRepository: MessageRepository,
+        memoryService: MemoryServiceImpl,
+        compactionTracker: CompactionTracker,
+        config: io.github.klaw.common.config.EngineConfig,
+    ): CompactionRunner =
+        CompactionRunner(
+            summaryRepository = summaryRepository,
+            messageRepository = messageRepository,
+            llmRouter = shared.llmRouter,
+            memoryService = memoryService,
+            compactionTracker = compactionTracker,
+            config = config,
+        )
+
+    @Suppress("LongParameterList")
+    private fun buildContextBuilder(
+        workspaceLoader: KlawWorkspaceLoader,
+        messageRepository: MessageRepository,
+        summaryService: FileSummaryService,
+        skillRegistry: FileSkillRegistry,
+        autoRagService: AutoRagService,
+        subagentHistoryLoader: SubagentHistoryLoader,
+        config: io.github.klaw.common.config.EngineConfig,
+    ): ContextBuilder =
+        ContextBuilder(
+            workspaceLoader = workspaceLoader,
+            messageRepository = messageRepository,
+            summaryService = summaryService,
+            skillRegistry = skillRegistry,
+            toolRegistry = StubToolRegistry(),
+            config = config,
+            autoRagService = autoRagService,
+            subagentHistoryLoader = subagentHistoryLoader,
+            healthProviderLazy = { shared.engineHealthProvider },
+            llmRouter = shared.llmRouter,
+        )
+
+    private fun ensureWorkspace(
+        agentId: String,
+        agentConfig: AgentConfig,
+    ) {
+        val workspaceDir = File(agentConfig.workspace)
+        if (!workspaceDir.exists()) {
+            workspaceDir.mkdirs()
+            logger.info { "Auto-created workspace for agent $agentId: ${workspaceDir.absolutePath}" }
+        }
+    }
+
+    private fun initDatabase(
+        agentId: String,
+        stateDir: String,
+    ): JdbcSqliteDriver {
+        val dbPath = "$stateDir${File.separator}klaw-$agentId.db"
+        File(dbPath).parentFile?.mkdirs()
+        val props = Properties()
+        props["enable_load_extension"] = "true"
+        val driver = JdbcSqliteDriver("jdbc:sqlite:$dbPath", props)
+        KlawDatabase.Schema.create(driver)
+        shared.sqliteVecLoader.loadExtension(driver)
+        VirtualTableSetup.createVirtualTables(driver, shared.sqliteVecLoader.isAvailable())
+        logger.debug { "Database initialized for agent $agentId: $dbPath" }
+        return driver
+    }
+
+    private fun buildSkillRegistry(
+        dirs: AgentDirectories,
+        workspacePath: java.nio.file.Path,
+    ): FileSkillRegistry {
+        val skillsDir = "${dirs.dataDir}${File.separator}skills"
+        File(skillsDir).mkdirs()
+        val skillRegistry =
+            FileSkillRegistry(
+                dataSkillsDir = Path.of(skillsDir),
+                workspaceSkillsDir = workspacePath.resolve("skills"),
+                workspaceDir = workspacePath,
+                dataDir = Path.of(dirs.dataDir),
+                configDir = Path.of(dirs.configDir),
+            )
+        skillRegistry.discover()
+        return skillRegistry
     }
 }

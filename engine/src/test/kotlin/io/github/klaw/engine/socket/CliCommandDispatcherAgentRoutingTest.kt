@@ -5,6 +5,7 @@ import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.agent.AgentContext
 import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmRouter
@@ -50,70 +51,76 @@ class CliCommandDispatcherAgentRoutingTest {
         )
 
     @Test
-    fun `dispatch uses agent-specific sessionManager for sessions command`() = runTest {
-        val agentRegistry = AgentRegistry()
-        val agentSessionManager = mockk<SessionManager>(relaxed = true)
-        coEvery { agentSessionManager.listSessions() } returns emptyList()
+    fun `dispatch uses agent-specific sessionManager for sessions command`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            val agentSessionManager = mockk<SessionManager>(relaxed = true)
+            coEvery { agentSessionManager.listSessions() } returns emptyList()
 
-        val ctx = AgentContext(
-            agentId = "agent-X",
-            agentConfig = AgentConfig(workspace = "/tmp/x"),
-            sessionManager = agentSessionManager,
-        )
-        agentRegistry.register("agent-X", ctx)
+            val ctx =
+                AgentContext(
+                    agentId = "agent-X",
+                    agentConfig = AgentConfig(workspace = "/tmp/x"),
+                    services = AgentServices(sessionManager = agentSessionManager),
+                )
+            agentRegistry.register("agent-X", ctx)
 
-        val dispatcher = createDispatcher(agentRegistry)
-        dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "agent-X"))
+            val dispatcher = createDispatcher(agentRegistry)
+            dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "agent-X"))
 
-        coVerify { agentSessionManager.listSessions() }
-        coVerify(exactly = 0) { defaultSessionManager.listSessions() }
-    }
-
-    @Test
-    fun `dispatch uses agent-specific memoryService for memory_search`() = runTest {
-        val agentRegistry = AgentRegistry()
-        val agentMemory = mockk<MemoryService>(relaxed = true)
-        coEvery { agentMemory.search(any(), any(), any()) } returns """{"results":[]}"""
-
-        val ctx = AgentContext(
-            agentId = "agent-Y",
-            agentConfig = AgentConfig(workspace = "/tmp/y"),
-            memoryService = agentMemory,
-        )
-        agentRegistry.register("agent-Y", ctx)
-
-        val dispatcher = createDispatcher(agentRegistry)
-        dispatcher.dispatch(
-            CliRequestMessage(
-                command = "memory_search",
-                params = mapOf("query" to "test"),
-                agentId = "agent-Y",
-            ),
-        )
-
-        coVerify { agentMemory.search("test", any(), any()) }
-        coVerify(exactly = 0) { defaultMemoryService.search(any(), any(), any()) }
-    }
+            coVerify { agentSessionManager.listSessions() }
+            coVerify(exactly = 0) { defaultSessionManager.listSessions() }
+        }
 
     @Test
-    fun `dispatch falls back to singleton when agent not registered`() = runTest {
-        val agentRegistry = AgentRegistry()
-        coEvery { defaultSessionManager.listSessions() } returns emptyList()
+    fun `dispatch uses agent-specific memoryService for memory_search`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            val agentMemory = mockk<MemoryService>(relaxed = true)
+            coEvery { agentMemory.search(any(), any(), any()) } returns """{"results":[]}"""
 
-        val dispatcher = createDispatcher(agentRegistry)
-        dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "default"))
+            val ctx =
+                AgentContext(
+                    agentId = "agent-Y",
+                    agentConfig = AgentConfig(workspace = "/tmp/y"),
+                    services = AgentServices(memoryService = agentMemory),
+                )
+            agentRegistry.register("agent-Y", ctx)
 
-        coVerify { defaultSessionManager.listSessions() }
-    }
+            val dispatcher = createDispatcher(agentRegistry)
+            dispatcher.dispatch(
+                CliRequestMessage(
+                    command = "memory_search",
+                    params = mapOf("query" to "test"),
+                    agentId = "agent-Y",
+                ),
+            )
+
+            coVerify { agentMemory.search("test", any(), any()) }
+            coVerify(exactly = 0) { defaultMemoryService.search(any(), any(), any()) }
+        }
 
     @Test
-    fun `dispatch with unknown agentId falls back to singleton`() = runTest {
-        val agentRegistry = AgentRegistry()
-        coEvery { defaultSessionManager.listSessions() } returns emptyList()
+    fun `dispatch falls back to singleton when agent not registered`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            coEvery { defaultSessionManager.listSessions() } returns emptyList()
 
-        val dispatcher = createDispatcher(agentRegistry)
-        dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "nonexistent"))
+            val dispatcher = createDispatcher(agentRegistry)
+            dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "default"))
 
-        coVerify { defaultSessionManager.listSessions() }
-    }
+            coVerify { defaultSessionManager.listSessions() }
+        }
+
+    @Test
+    fun `dispatch with unknown agentId falls back to singleton`() =
+        runTest {
+            val agentRegistry = AgentRegistry()
+            coEvery { defaultSessionManager.listSessions() } returns emptyList()
+
+            val dispatcher = createDispatcher(agentRegistry)
+            dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "nonexistent"))
+
+            coVerify { defaultSessionManager.listSessions() }
+        }
 }

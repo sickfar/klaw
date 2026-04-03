@@ -61,10 +61,15 @@ class DiscordChannel(
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
     override val name: String
-        get() = config.channels.discord.keys.firstOrNull() ?: "discord"
+        get() =
+            config.channels.discord.keys
+                .firstOrNull() ?: "discord"
 
     private val agentId: String
-        get() = config.channels.discord.values.firstOrNull()?.agentId ?: "default"
+        get() =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.agentId ?: "default"
 
     @Volatile
     private var alive: Boolean = false

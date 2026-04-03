@@ -69,7 +69,8 @@ class CliCommandDispatcherContextTest {
             doctorDeepProbe,
             commandsCliHandler,
             contextDiagnoseHandler,
-            io.github.klaw.engine.agent.AgentRegistry(),
+            io.github.klaw.engine.agent
+                .AgentRegistry(),
         )
 
     private fun testSession(

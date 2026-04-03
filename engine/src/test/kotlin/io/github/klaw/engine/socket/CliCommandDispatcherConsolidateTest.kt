@@ -49,7 +49,8 @@ class CliCommandDispatcherConsolidateTest {
             mockk(relaxed = true),
             commandsCliHandler,
             ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
-            io.github.klaw.engine.agent.AgentRegistry(),
+            io.github.klaw.engine.agent
+                .AgentRegistry(),
         )
 
     @Test

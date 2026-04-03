@@ -7,6 +7,5 @@ class StubEmbeddingService : EmbeddingService {
 
     override suspend fun embedQuery(text: String): FloatArray = FloatArray(384)
 
-    override suspend fun embedBatch(texts: List<String>): List<FloatArray> =
-        texts.map { FloatArray(384) }
+    override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { FloatArray(384) }
 }

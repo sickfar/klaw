@@ -22,10 +22,15 @@ class LocalWsChannel(
     private val config: GatewayConfig,
 ) : Channel {
     override val name: String
-        get() = config.channels.websocket.keys.firstOrNull() ?: "local_ws"
+        get() =
+            config.channels.websocket.keys
+                .firstOrNull() ?: "local_ws"
 
     private val agentId: String
-        get() = config.channels.websocket.values.firstOrNull()?.agentId ?: "default"
+        get() =
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.agentId ?: "default"
 
     @Volatile private var activeSession: WebSocketSession? = null
     override var onBecameAlive: (suspend () -> Unit)? = null

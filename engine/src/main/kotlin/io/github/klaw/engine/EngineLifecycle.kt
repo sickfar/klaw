@@ -3,6 +3,7 @@ package io.github.klaw.engine
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.klaw.engine.agent.AgentContextFactory
+import io.github.klaw.engine.agent.AgentDirectories
 import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.agent.initializeAgents
 import io.github.klaw.engine.db.BackupService
@@ -80,10 +81,13 @@ class EngineLifecycle(
             config = engineConfig,
             factory = agentContextFactory,
             registry = agentRegistry,
-            stateDir = KlawPaths.state,
-            dataDir = KlawPaths.data,
-            configDir = KlawPaths.config,
-            conversationsDir = KlawPaths.conversations,
+            dirs =
+                AgentDirectories(
+                    stateDir = KlawPaths.state,
+                    dataDir = KlawPaths.data,
+                    configDir = KlawPaths.config,
+                    conversationsDir = KlawPaths.conversations,
+                ),
         )
     }
 

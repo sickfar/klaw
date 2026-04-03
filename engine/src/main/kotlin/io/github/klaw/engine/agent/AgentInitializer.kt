@@ -13,10 +13,7 @@ fun initializeAgents(
     config: EngineConfig,
     factory: AgentContextFactory,
     registry: AgentRegistry,
-    stateDir: String,
-    dataDir: String,
-    configDir: String,
-    conversationsDir: String,
+    dirs: AgentDirectories,
 ) {
     val agents = config.effectiveAgents
     logger.info { "Initializing ${agents.size} agent(s)" }
@@ -27,14 +24,7 @@ fun initializeAgents(
             continue
         }
 
-        val ctx = factory.create(
-            agentId = agentId,
-            agentConfig = agentConfig,
-            stateDir = stateDir,
-            dataDir = dataDir,
-            configDir = configDir,
-            conversationsDir = conversationsDir,
-        )
+        val ctx = factory.create(agentId = agentId, agentConfig = agentConfig, dirs = dirs)
         registry.register(agentId, ctx)
     }
 

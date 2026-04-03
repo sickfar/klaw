@@ -45,7 +45,9 @@ class CliRequestDispatchTest {
             doctorDeepProbe = mockk(relaxed = true),
             commandsCliHandler = mockk(relaxed = true),
             contextDiagnoseHandler = ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
-            agentRegistry = io.github.klaw.engine.agent.AgentRegistry(),
+            agentRegistry =
+                io.github.klaw.engine.agent
+                    .AgentRegistry(),
         )
 
     @Test

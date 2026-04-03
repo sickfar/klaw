@@ -20,7 +20,5 @@ class SharedServicesFactory {
     ): SharedServices = SharedServices(llmRouter, embeddingService, sqliteVecLoader, config, engineHealthProvider)
 
     @Singleton
-    fun agentContextFactory(
-        sharedServices: SharedServices,
-    ): AgentContextFactory = AgentContextFactory(sharedServices)
+    fun agentContextFactory(sharedServices: SharedServices): AgentContextFactory = AgentContextFactory(sharedServices)
 }

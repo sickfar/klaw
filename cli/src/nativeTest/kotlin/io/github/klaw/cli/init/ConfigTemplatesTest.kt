@@ -173,7 +173,9 @@ class ConfigTemplatesTest {
     fun `gatewayJson telegram channel has agentId=default`() {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = true)
         val config = parseGatewayConfig(json)
-        val tg = config.channels.telegram.values.firstOrNull()
+        val tg =
+            config.channels.telegram.values
+                .firstOrNull()
         assertNotNull(tg, "Expected telegram channel")
         assertEquals("default", tg.agentId, "Expected agentId=default in telegram channel")
     }
@@ -182,7 +184,9 @@ class ConfigTemplatesTest {
     fun `gatewayJson websocket channel has agentId=default`() {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableLocalWs = true)
         val config = parseGatewayConfig(json)
-        val ws = config.channels.websocket.values.firstOrNull()
+        val ws =
+            config.channels.websocket.values
+                .firstOrNull()
         assertNotNull(ws, "Expected websocket channel")
         assertEquals("default", ws.agentId, "Expected agentId=default in websocket channel")
     }
@@ -191,7 +195,9 @@ class ConfigTemplatesTest {
     fun `gatewayJson discord channel has agentId=default`() {
         val json = ConfigTemplates.gatewayJson(telegramEnabled = false, discordEnabled = true)
         val config = parseGatewayConfig(json)
-        val dc = config.channels.discord.values.firstOrNull()
+        val dc =
+            config.channels.discord.values
+                .firstOrNull()
         assertNotNull(dc, "Expected discord channel")
         assertEquals("default", dc.agentId, "Expected agentId=default in discord channel")
     }

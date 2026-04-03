@@ -19,7 +19,8 @@ class LocalWsChannelTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
+    private fun makeChannel(): LocalWsChannel =
+        LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
 
     private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 
