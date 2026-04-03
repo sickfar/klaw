@@ -9,6 +9,10 @@ import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
 import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
+import io.github.klaw.engine.context.FileSkillRegistry
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -29,14 +33,25 @@ class CliRequestDispatchTest {
 
     private val consolidationService = mockk<DailyConsolidationService>(relaxed = true)
 
-    private fun buildDispatcher(sessionManager: SessionManager = SessionManager(inMemoryDb())): CliCommandDispatcher =
-        CliCommandDispatcher(
+    private fun buildDispatcher(sessionManager: SessionManager = SessionManager(inMemoryDb())): CliCommandDispatcher {
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        scheduler = klawScheduler,
+                        memoryService = memoryService,
+                        skillRegistry = mockk<FileSkillRegistry>(relaxed = true),
+                    ),
+            ),
+        )
+        return CliCommandDispatcher(
             initCliHandler = initCliHandler,
-            sessionManager = sessionManager,
-            klawScheduler = klawScheduler,
-            memoryService = memoryService,
             reindexService = reindexService,
-            skillRegistry = mockk(relaxed = true),
             consolidationService = consolidationService,
             engineHealthProvider = mockk(relaxed = true),
             llmUsageTracker = mockk(relaxed = true),
@@ -45,10 +60,9 @@ class CliRequestDispatchTest {
             doctorDeepProbe = mockk(relaxed = true),
             commandsCliHandler = mockk(relaxed = true),
             contextDiagnoseHandler = ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
-            agentRegistry =
-                io.github.klaw.engine.agent
-                    .AgentRegistry(),
+            agentRegistry = agentRegistry,
         )
+    }
 
     @Test
     fun `status command returns session info`() =

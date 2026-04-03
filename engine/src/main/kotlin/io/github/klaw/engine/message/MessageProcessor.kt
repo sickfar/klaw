@@ -58,19 +58,14 @@ import java.util.concurrent.ConcurrentHashMap
 @Singleton
 @Suppress("LongParameterList")
 class MessageProcessor(
-    private val sessionManager: SessionManager,
-    private val messageRepository: MessageRepository,
-    private val contextBuilder: ContextBuilder,
     private val llmRouter: LlmRouter,
     private val toolExecutor: ToolExecutor,
     private val socketServerProvider: Provider<EngineSocketServer>,
     private val commandHandler: CommandHandler,
     private val config: EngineConfig,
-    private val messageEmbeddingService: MessageEmbeddingService,
     private val cliCommandDispatcher: CliCommandDispatcher,
     private val approvalService: ApprovalService,
     private val shutdownController: ShutdownController,
-    private val compactionRunner: CompactionRunner,
     private val subagentRunRepository: io.github.klaw.engine.tools.SubagentRunRepository,
     private val activeSubagentJobs: io.github.klaw.engine.tools.ActiveSubagentJobs,
     private val agentRegistry: AgentRegistry,
@@ -119,8 +114,18 @@ class MessageProcessor(
             }
         }
         val ctx = agentRegistry.getOrNull(message.agentId)
-        val effectiveSessionManager = ctx?.sessionManager ?: sessionManager
-        val session = effectiveSessionManager.getOrCreate(message.chatId, config.routing.default)
+        if (ctx == null) {
+            logger.warn { "Unknown agentId=${message.agentId} for command, dropping" }
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(
+                    channel = message.channel,
+                    chatId = message.chatId,
+                    content = "Unknown agent: ${message.agentId}",
+                ),
+            )
+            return
+        }
+        val session = ctx.sessionManager!!.getOrCreate(message.chatId, config.routing.default)
         val result = commandHandler.handle(message, session)
         socketServerProvider.get().pushToGateway(
             OutboundSocketMessage(channel = message.channel, chatId = message.chatId, content = result),
@@ -147,7 +152,15 @@ class MessageProcessor(
             if (message.runId != null) {
                 activeSubagentJobs.jobs[message.runId] = kotlin.coroutines.coroutineContext[Job]!!
             }
-            val svc = EffectiveServices(message.agentId)
+            val svc = resolveServices(message.agentId)
+            if (svc == null) {
+                logger.warn { "Unknown agentId=${message.agentId} for scheduled message ${message.name}, skipping" }
+                if (message.runId != null) {
+                    subagentRunRepository.failRun(message.runId, "Unknown agent: ${message.agentId}")
+                    activeSubagentJobs.jobs.remove(message.runId)
+                }
+                return@launch
+            }
             val startTimeMs = System.currentTimeMillis()
             try {
                 withTimeout(config.processing.subagentTimeoutMs) {
@@ -337,7 +350,7 @@ class MessageProcessor(
     private suspend fun deliverScheduledResult(
         sink: ScheduleDeliverSink?,
         message: ScheduledMessage,
-        svc: EffectiveServices = EffectiveServices(null),
+        svc: EffectiveServices,
     ) {
         val deliveryMessage = sink?.consumeMessage() ?: return
         socketServerProvider.get().pushToGateway(
@@ -369,17 +382,20 @@ class MessageProcessor(
     }
 
     private inner class EffectiveServices(
-        agentId: String?,
+        private val ctx: io.github.klaw.engine.agent.AgentContext,
     ) {
-        private val ctx = agentId?.let { agentRegistry.getOrNull(it) }
-        val sessionManager = ctx?.sessionManager ?: this@MessageProcessor.sessionManager
-        val contextBuilder = ctx?.contextBuilder ?: this@MessageProcessor.contextBuilder
-        val messageRepository = ctx?.messageRepository ?: this@MessageProcessor.messageRepository
-        val messageEmbeddingService =
-            ctx?.messageEmbeddingService ?: this@MessageProcessor.messageEmbeddingService
-        val compactionRunner = ctx?.compactionRunner ?: this@MessageProcessor.compactionRunner
-        val subagentRunRepository =
-            ctx?.subagentRunRepository ?: this@MessageProcessor.subagentRunRepository
+        val sessionManager get() = ctx.sessionManager!!
+        val contextBuilder get() = ctx.contextBuilder!!
+        val messageRepository get() = ctx.messageRepository!!
+        val messageEmbeddingService get() = ctx.messageEmbeddingService!!
+        val compactionRunner get() = ctx.compactionRunner!!
+        val subagentRunRepository get() = ctx.subagentRunRepository ?: this@MessageProcessor.subagentRunRepository
+    }
+
+    private fun resolveServices(agentId: String?): EffectiveServices? {
+        val id = agentId ?: "default"
+        val ctx = agentRegistry.getOrNull(id) ?: return null
+        return EffectiveServices(ctx)
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -392,7 +408,18 @@ class MessageProcessor(
             "Processing: chatId=$chatId channel=$channel agentId=${first.agentId} msgCount=${messages.size}"
         }
 
-        val svc = EffectiveServices(first.agentId)
+        val svc = resolveServices(first.agentId)
+        if (svc == null) {
+            logger.warn { "Unknown agentId=${first.agentId} for inbound message, dropping" }
+            socketServerProvider.get().pushToGateway(
+                OutboundSocketMessage(
+                    channel = channel,
+                    chatId = chatId,
+                    content = "Unknown agent: ${first.agentId}",
+                ),
+            )
+            return
+        }
         val currentJob = kotlin.coroutines.coroutineContext[Job]!!
         activeProcessingJobs[chatId] = currentJob
         try {
@@ -589,8 +616,8 @@ class MessageProcessor(
         response: io.github.klaw.common.llm.LlmResponse,
         channel: String,
         chatId: String,
-        msgRepo: MessageRepository = messageRepository,
-        embedService: MessageEmbeddingService = messageEmbeddingService,
+        msgRepo: MessageRepository,
+        embedService: MessageEmbeddingService,
     ): String {
         val content = response.content ?: ""
         val assistantTokens = response.usage?.completionTokens ?: approximateTokenCount(content)
@@ -617,8 +644,8 @@ class MessageProcessor(
 
     private suspend fun persistInboundMessages(
         messages: List<InboundSocketMessage>,
-        msgRepo: MessageRepository = messageRepository,
-        embedService: MessageEmbeddingService = messageEmbeddingService,
+        msgRepo: MessageRepository,
+        embedService: MessageEmbeddingService,
     ) {
         messages.forEach { msg ->
             val hasAttachments = msg.attachments.isNotEmpty()
@@ -669,7 +696,7 @@ class MessageProcessor(
         firstPromptTokens: Int?,
         contextMessages: List<io.github.klaw.common.llm.LlmMessage>,
         userMessages: List<InboundSocketMessage>,
-        msgRepo: MessageRepository = messageRepository,
+        msgRepo: MessageRepository,
     ) {
         if (firstPromptTokens == null || userMessages.isEmpty()) return
 

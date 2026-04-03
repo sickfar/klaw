@@ -22,6 +22,9 @@ import io.github.klaw.common.llm.LlmResponse
 import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.llm.LlmRouter
@@ -122,29 +125,39 @@ class SubagentSpawnTest {
         socketServerProvider: Provider<EngineSocketServer> = Provider { mockk(relaxed = true) },
         commandHandler: CommandHandler = mockk(relaxed = true),
         messageEmbeddingService: MessageEmbeddingService = mockk(relaxed = true),
-    ): MessageProcessor =
-        MessageProcessor(
-            sessionManager = sessionManager,
-            messageRepository = messageRepository,
-            contextBuilder = contextBuilder,
+    ): MessageProcessor {
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = messageRepository,
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = messageEmbeddingService,
+                        compactionRunner = mockk(relaxed = true),
+                    ),
+            ),
+        )
+        return MessageProcessor(
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
             socketServerProvider = socketServerProvider,
             commandHandler = commandHandler,
             config = config,
-            messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = mockk(relaxed = true),
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
-            compactionRunner = mockk(relaxed = true),
             subagentRunRepository = mockk(relaxed = true),
             activeSubagentJobs =
                 io.github.klaw.engine.tools
                     .ActiveSubagentJobs(),
-            agentRegistry =
-                io.github.klaw.engine.agent
-                    .AgentRegistry(),
+            agentRegistry = agentRegistry,
         )
+    }
 
     @Test
     fun `handleScheduledMessage spawns and processes message then pushes to gateway`() =

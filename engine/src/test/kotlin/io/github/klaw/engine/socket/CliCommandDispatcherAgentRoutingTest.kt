@@ -1,44 +1,24 @@
 package io.github.klaw.engine.socket
 
 import io.github.klaw.common.config.AgentConfig
-import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
 import io.github.klaw.engine.agent.AgentContext
 import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.agent.AgentServices
-import io.github.klaw.engine.context.SkillRegistry
-import io.github.klaw.engine.init.InitCliHandler
-import io.github.klaw.engine.llm.LlmRouter
-import io.github.klaw.engine.llm.LlmUsageTracker
-import io.github.klaw.engine.maintenance.ReindexService
-import io.github.klaw.engine.memory.DailyConsolidationService
 import io.github.klaw.engine.memory.MemoryService
-import io.github.klaw.engine.scheduler.KlawScheduler
-import io.github.klaw.engine.session.Session
 import io.github.klaw.engine.session.SessionManager
-import io.github.klaw.engine.tools.DoctorDeepProbe
-import io.github.klaw.engine.tools.EngineHealthProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import kotlin.time.Clock
 
 class CliCommandDispatcherAgentRoutingTest {
-    private val defaultSessionManager = mockk<SessionManager>(relaxed = true)
-    private val defaultMemoryService = mockk<MemoryService>(relaxed = true)
-    private val defaultScheduler = mockk<KlawScheduler>(relaxed = true)
-
-    private fun createDispatcher(agentRegistry: AgentRegistry = AgentRegistry()): CliCommandDispatcher =
+    private fun createDispatcher(agentRegistry: AgentRegistry): CliCommandDispatcher =
         CliCommandDispatcher(
             initCliHandler = mockk(relaxed = true),
-            sessionManager = defaultSessionManager,
-            klawScheduler = defaultScheduler,
-            memoryService = defaultMemoryService,
             reindexService = mockk(relaxed = true),
-            skillRegistry = mockk(relaxed = true),
             consolidationService = mockk(relaxed = true),
             engineHealthProvider = mockk(relaxed = true),
             llmUsageTracker = mockk(relaxed = true),
@@ -61,7 +41,13 @@ class CliCommandDispatcherAgentRoutingTest {
                 AgentContext(
                     agentId = "agent-X",
                     agentConfig = AgentConfig(workspace = "/tmp/x"),
-                    services = AgentServices(sessionManager = agentSessionManager),
+                    services =
+                        AgentServices(
+                            sessionManager = agentSessionManager,
+                            memoryService = mockk(relaxed = true),
+                            scheduler = mockk(relaxed = true),
+                            skillRegistry = mockk(relaxed = true),
+                        ),
                 )
             agentRegistry.register("agent-X", ctx)
 
@@ -69,7 +55,6 @@ class CliCommandDispatcherAgentRoutingTest {
             dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "agent-X"))
 
             coVerify { agentSessionManager.listSessions() }
-            coVerify(exactly = 0) { defaultSessionManager.listSessions() }
         }
 
     @Test
@@ -83,7 +68,13 @@ class CliCommandDispatcherAgentRoutingTest {
                 AgentContext(
                     agentId = "agent-Y",
                     agentConfig = AgentConfig(workspace = "/tmp/y"),
-                    services = AgentServices(memoryService = agentMemory),
+                    services =
+                        AgentServices(
+                            sessionManager = mockk(relaxed = true),
+                            memoryService = agentMemory,
+                            scheduler = mockk(relaxed = true),
+                            skillRegistry = mockk(relaxed = true),
+                        ),
                 )
             agentRegistry.register("agent-Y", ctx)
 
@@ -97,30 +88,16 @@ class CliCommandDispatcherAgentRoutingTest {
             )
 
             coVerify { agentMemory.search("test", any(), any()) }
-            coVerify(exactly = 0) { defaultMemoryService.search(any(), any(), any()) }
         }
 
     @Test
-    fun `dispatch falls back to singleton when agent not registered`() =
+    fun `dispatch returns error when agentId is unknown`() =
         runTest {
             val agentRegistry = AgentRegistry()
-            coEvery { defaultSessionManager.listSessions() } returns emptyList()
-
             val dispatcher = createDispatcher(agentRegistry)
-            dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "default"))
+            val result = dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "nonexistent"))
 
-            coVerify { defaultSessionManager.listSessions() }
-        }
-
-    @Test
-    fun `dispatch with unknown agentId falls back to singleton`() =
-        runTest {
-            val agentRegistry = AgentRegistry()
-            coEvery { defaultSessionManager.listSessions() } returns emptyList()
-
-            val dispatcher = createDispatcher(agentRegistry)
-            dispatcher.dispatch(CliRequestMessage(command = "sessions", agentId = "nonexistent"))
-
-            coVerify { defaultSessionManager.listSessions() }
+            assertTrue(result.contains("error", ignoreCase = true))
+            assertTrue(result.contains("nonexistent"))
         }
 }

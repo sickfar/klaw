@@ -2,6 +2,10 @@ package io.github.klaw.engine.socket
 
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
+import io.github.klaw.engine.context.FileSkillRegistry
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
 import io.github.klaw.engine.llm.LlmUsageTracker
@@ -33,14 +37,25 @@ class CliCommandDispatcherConsolidateTest {
     private val engineConfig = mockk<EngineConfig>(relaxed = true)
     private val commandsCliHandler = mockk<CommandsCliHandler>(relaxed = true)
 
-    private fun createDispatcher() =
-        CliCommandDispatcher(
+    private fun createDispatcher(): CliCommandDispatcher {
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        scheduler = klawScheduler,
+                        memoryService = memoryService,
+                        skillRegistry = mockk<FileSkillRegistry>(relaxed = true),
+                    ),
+            ),
+        )
+        return CliCommandDispatcher(
             initCliHandler,
-            sessionManager,
-            klawScheduler,
-            memoryService,
             reindexService,
-            skillRegistry,
             consolidationService,
             engineHealthProvider,
             llmUsageTracker,
@@ -49,9 +64,9 @@ class CliCommandDispatcherConsolidateTest {
             mockk(relaxed = true),
             commandsCliHandler,
             ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
-            io.github.klaw.engine.agent
-                .AgentRegistry(),
+            agentRegistry,
         )
+    }
 
     @Test
     fun `memory_consolidate with defaults`() =

@@ -20,6 +20,9 @@ import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
@@ -108,28 +111,37 @@ class MessageProcessorErrorMessageTest {
         val socketServer = mockk<EngineSocketServer>(relaxed = true)
         coEvery { socketServer.pushToGateway(any()) } answers { pushed.complete(firstArg()) }
 
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = mockk(relaxed = true),
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = mockk(relaxed = true),
+                        compactionRunner = mockk(relaxed = true),
+                    ),
+            ),
+        )
         val processor =
             MessageProcessor(
-                sessionManager = sessionManager,
-                messageRepository = mockk(relaxed = true),
-                contextBuilder = contextBuilder,
                 llmRouter = llmRouter,
                 toolExecutor = mockk(relaxed = true),
                 socketServerProvider = Provider { socketServer },
                 commandHandler = mockk(relaxed = true),
                 config = config,
-                messageEmbeddingService = mockk(relaxed = true),
                 cliCommandDispatcher = mockk(relaxed = true),
                 approvalService = mockk(relaxed = true),
                 shutdownController = mockk(relaxed = true),
-                compactionRunner = mockk(relaxed = true),
                 subagentRunRepository = mockk(relaxed = true),
                 activeSubagentJobs =
                     io.github.klaw.engine.tools
                         .ActiveSubagentJobs(),
-                agentRegistry =
-                    io.github.klaw.engine.agent
-                        .AgentRegistry(),
+                agentRegistry = agentRegistry,
             )
         return processor to pushed
     }
@@ -259,28 +271,37 @@ class MessageProcessorErrorMessageTest {
             compactionCalled.complete(Unit)
         }
 
+        val agentRegistry2 = AgentRegistry()
+        agentRegistry2.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = mockk(relaxed = true),
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = mockk(relaxed = true),
+                        compactionRunner = compactionRunner,
+                    ),
+            ),
+        )
         val processor =
             MessageProcessor(
-                sessionManager = sessionManager,
-                messageRepository = mockk(relaxed = true),
-                contextBuilder = contextBuilder,
                 llmRouter = llmRouter,
                 toolExecutor = mockk(relaxed = true),
                 socketServerProvider = Provider { socketServer },
                 commandHandler = mockk(relaxed = true),
                 config = config,
-                messageEmbeddingService = mockk(relaxed = true),
                 cliCommandDispatcher = mockk(relaxed = true),
                 approvalService = mockk(relaxed = true),
                 shutdownController = mockk(relaxed = true),
-                compactionRunner = compactionRunner,
                 subagentRunRepository = mockk(relaxed = true),
                 activeSubagentJobs =
                     io.github.klaw.engine.tools
                         .ActiveSubagentJobs(),
-                agentRegistry =
-                    io.github.klaw.engine.agent
-                        .AgentRegistry(),
+                agentRegistry = agentRegistry2,
             )
 
         runBlocking {

@@ -35,11 +35,7 @@ private val logger = KotlinLogging.logger {}
 @Suppress("LongParameterList")
 class CliCommandDispatcher(
     private val initCliHandler: InitCliHandler,
-    private val sessionManager: SessionManager,
-    private val klawScheduler: KlawScheduler,
-    private val memoryService: MemoryService,
     private val reindexService: ReindexService,
-    private val skillRegistry: SkillRegistry,
     private val consolidationService: DailyConsolidationService,
     private val engineHealthProvider: EngineHealthProvider,
     private val llmUsageTracker: LlmUsageTracker,
@@ -53,10 +49,15 @@ class CliCommandDispatcher(
     suspend fun dispatch(request: CliRequestMessage): String {
         logger.debug { "CLI command: ${request.command} agentId=${request.agentId}" }
         val ctx = agentRegistry.getOrNull(request.agentId)
-        val effectiveSessionManager = ctx?.sessionManager ?: sessionManager
-        val effectiveMemoryService = ctx?.memoryService ?: memoryService
-        val effectiveScheduler = ctx?.scheduler ?: klawScheduler
-        val effectiveSkillRegistry = ctx?.skillRegistry ?: skillRegistry
+        if (ctx == null) {
+            logger.warn { "Unknown agentId=${request.agentId} for CLI command ${request.command}" }
+            val safe = request.agentId.replace("\\", "\\\\").replace("\"", "\\\"")
+            return """{"error":"unknown agent: $safe"}"""
+        }
+        val effectiveSessionManager = ctx.sessionManager!!
+        val effectiveMemoryService = ctx.memoryService!!
+        val effectiveScheduler = ctx.scheduler!!
+        val effectiveSkillRegistry = ctx.skillRegistry!!
         val result =
             withContext(Dispatchers.VT) {
                 dispatchMemoryCommand(request, effectiveMemoryService)
@@ -68,7 +69,7 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchMemoryCommand(
         request: CliRequestMessage,
-        effectiveMemory: MemoryService = memoryService,
+        effectiveMemory: MemoryService,
     ): String? =
         when (request.command) {
             "memory_search" -> {
@@ -135,9 +136,9 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchCoreCommand(
         request: CliRequestMessage,
-        effectiveSession: SessionManager = sessionManager,
-        effectiveScheduler: KlawScheduler = klawScheduler,
-        effectiveSkills: SkillRegistry = skillRegistry,
+        effectiveSession: SessionManager,
+        effectiveScheduler: KlawScheduler,
+        effectiveSkills: SkillRegistry,
     ): String =
         dispatchScheduleCommand(request, effectiveScheduler)
             ?: dispatchSessionCommand(request, effectiveSession)
@@ -190,7 +191,7 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchSessionCommand(
         request: CliRequestMessage,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String? =
         when (request.command) {
             "sessions" -> handleSessions(effectiveSession)
@@ -202,7 +203,7 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchScheduleCommand(
         request: CliRequestMessage,
-        effectiveScheduler: KlawScheduler = klawScheduler,
+        effectiveScheduler: KlawScheduler,
     ): String? =
         when (request.command) {
             "schedule_list" -> {
@@ -253,7 +254,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleStatus(
         params: Map<String, String>,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val deep = params["deep"]?.toBoolean() ?: false
         val jsonOutput = params["json"]?.toBoolean() ?: false
@@ -273,7 +274,7 @@ class CliCommandDispatcher(
         }
     }
 
-    private suspend fun basicStatus(effectiveSession: SessionManager = sessionManager): String {
+    private suspend fun basicStatus(effectiveSession: SessionManager): String {
         val sessions = effectiveSession.listSessions()
         return """{"status":"ok","engine":"klaw","sessions":${sessions.size}}"""
     }
@@ -281,7 +282,7 @@ class CliCommandDispatcher(
     private suspend fun buildStatusJson(
         showDeep: Boolean,
         showUsage: Boolean,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val sessions = effectiveSession.listSessions()
         val parts = mutableListOf(""""status":"ok","engine":"klaw","sessions":${sessions.size}""")
@@ -316,7 +317,7 @@ class CliCommandDispatcher(
     private suspend fun buildStatusText(
         showDeep: Boolean,
         showUsage: Boolean,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val sessions = effectiveSession.listSessions()
         val text =
@@ -379,7 +380,7 @@ class CliCommandDispatcher(
         }
     }
 
-    private suspend fun handleSessions(effectiveSession: SessionManager = sessionManager): String {
+    private suspend fun handleSessions(effectiveSession: SessionManager): String {
         val sessions = effectiveSession.listSessions()
         return sessions.joinToString(",", "[", "]") { s ->
             """{"chatId":"${escapeJson(s.chatId)}","model":"${escapeJson(s.model)}"}"""
@@ -388,7 +389,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleSessionsList(
         params: Map<String, String>,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val activeMinutes = params["active_minutes"]?.toIntOrNull()
         val verbose = params["verbose"]?.toBoolean() ?: false
@@ -412,7 +413,7 @@ class CliCommandDispatcher(
     private suspend fun formatSessionsJson(
         sessions: List<Session>,
         verbose: Boolean,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val parts =
             sessions.map { s ->
@@ -438,7 +439,7 @@ class CliCommandDispatcher(
     private suspend fun formatSessionsText(
         sessions: List<Session>,
         verbose: Boolean,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         if (sessions.isEmpty()) return "No active sessions."
         val lines =
@@ -455,7 +456,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleSessionsCleanup(
         params: Map<String, String>,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val olderThanMinutes = params["older_than_minutes"]?.toIntOrNull() ?: DEFAULT_CLEANUP_MINUTES
         val threshold = Clock.System.now() - olderThanMinutes.minutes
@@ -466,7 +467,7 @@ class CliCommandDispatcher(
     @Suppress("ReturnCount")
     private suspend fun handleScheduleAdd(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         val cron = params["cron"]
@@ -480,7 +481,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleRemove(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         return sched.remove(name)
@@ -488,7 +489,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleEdit(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         return sched.edit(name, params["cron"], params["message"], params["model"])
@@ -496,7 +497,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleEnable(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         return sched.enable(name)
@@ -504,7 +505,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleDisable(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         return sched.disable(name)
@@ -512,7 +513,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleRun(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         return sched.run(name)
@@ -520,7 +521,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleRuns(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val name = params["name"] ?: return """{"error":"missing name"}"""
         val rawLimit = params["limit"]?.toIntOrNull() ?: DEFAULT_RUNS_LIMIT
@@ -530,7 +531,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleScheduleImport(
         params: Map<String, String>,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String {
         val content = params["content"] ?: return """{"error":"missing content"}"""
         val includeDisabled = params["all"]?.toBoolean() ?: false
@@ -581,7 +582,7 @@ class CliCommandDispatcher(
 
     private suspend fun importSingleJob(
         job: io.github.klaw.common.migration.OpenClawJob,
-        sched: KlawScheduler = klawScheduler,
+        sched: KlawScheduler,
     ): String? {
         val p =
             try {
@@ -617,7 +618,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleMemorySearch(
         params: Map<String, String>,
-        effectiveMemory: MemoryService = memoryService,
+        effectiveMemory: MemoryService,
     ): String {
         val query = params["query"] ?: return """{"error":"missing query"}"""
         val topK = params["top_k"]?.toIntOrNull() ?: DEFAULT_TOP_K
@@ -626,7 +627,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleMemoryCategoriesList(
         params: Map<String, String>,
-        effectiveMemory: MemoryService = memoryService,
+        effectiveMemory: MemoryService,
     ): String {
         val categories = effectiveMemory.getTopCategories(MAX_CATEGORIES_DISPLAY)
         val jsonOutput = params["json"]?.toBoolean() ?: false
@@ -656,7 +657,7 @@ class CliCommandDispatcher(
         return if (lines.isEmpty()) """{"status":"ok"}""" else lines.joinToString("\n")
     }
 
-    private suspend fun handleSkillsValidate(effectiveSkills: SkillRegistry = skillRegistry): String {
+    private suspend fun handleSkillsValidate(effectiveSkills: SkillRegistry): String {
         val report = effectiveSkills.validate()
         val skillsJson =
             report.skills.joinToString(",", "[", "]") { e ->
@@ -669,7 +670,7 @@ class CliCommandDispatcher(
         return """{"skills":$skillsJson,"total":${report.total},"valid":${report.valid},"errors":${report.errors}}"""
     }
 
-    private suspend fun handleSkillsList(effectiveSkills: SkillRegistry = skillRegistry): String {
+    private suspend fun handleSkillsList(effectiveSkills: SkillRegistry): String {
         effectiveSkills.discover()
         val skills = effectiveSkills.listDetailed()
         val items =
@@ -684,7 +685,7 @@ class CliCommandDispatcher(
 
     private suspend fun handleSessionMessages(
         params: Map<String, String>,
-        effectiveSession: SessionManager = sessionManager,
+        effectiveSession: SessionManager,
     ): String {
         val chatId = params["chat_id"] ?: return """{"error":"missing chat_id"}"""
         val messages =

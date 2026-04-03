@@ -28,6 +28,9 @@ import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.engine.command.CommandHandler
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SubagentHistoryLoader
@@ -197,38 +200,39 @@ class MessageProcessorIntegrationTest {
                 llmRouter = io.mockk.mockk(relaxed = true),
             )
 
-        val commandHandler =
-            CommandHandler(
-                sessionManager = sessionManager,
-                messageRepository = messageRepository,
-                config = config,
-                heartbeatRunnerFactory = jakarta.inject.Provider { io.mockk.mockk(relaxed = true) },
-                skillRegistry = io.mockk.mockk(relaxed = true),
-            )
+        val commandHandler = CommandHandler(registry = mockk(relaxed = true))
 
         val messageEmbeddingService = mockk<MessageEmbeddingService>(relaxed = true)
         val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
 
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = messageRepository,
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = messageEmbeddingService,
+                        compactionRunner = mockk(relaxed = true),
+                    ),
+            ),
+        )
         return MessageProcessor(
-            sessionManager = sessionManager,
-            messageRepository = messageRepository,
-            contextBuilder = contextBuilder,
-            toolRegistry = toolRegistry,
             llmRouter = buildLlmRouter(config),
             toolExecutor = toolExecutor,
             socketServerProvider = { socketServer },
             commandHandler = commandHandler,
             config = config,
-            messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
-            compactionRunner = mockk(relaxed = true),
             subagentRunRepository = mockk(relaxed = true),
             activeSubagentJobs = mockk(relaxed = true),
-            agentRegistry =
-                io.github.klaw.engine.agent
-                    .AgentRegistry(),
+            agentRegistry = agentRegistry,
         )
     }
 

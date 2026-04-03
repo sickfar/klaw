@@ -18,6 +18,9 @@ import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.llm.LlmRouter
@@ -103,27 +106,36 @@ class MessageProcessorNewCommandTest {
         val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
         val approvalService = mockk<ApprovalService>(relaxed = true)
 
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig = io.github.klaw.common.config.AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = messageRepository,
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = messageEmbeddingService,
+                        compactionRunner = mockk(relaxed = true),
+                    ),
+            ),
+        )
         return MessageProcessor(
-            sessionManager,
-            messageRepository,
-            contextBuilder,
-            llmRouter,
-            toolExecutor,
-            socketServerProvider,
-            commandHandler,
-            config,
-            messageEmbeddingService,
-            cliCommandDispatcher,
-            approvalService,
+            llmRouter = llmRouter,
+            toolExecutor = toolExecutor,
+            socketServerProvider = socketServerProvider,
+            commandHandler = commandHandler,
+            config = config,
+            cliCommandDispatcher = cliCommandDispatcher,
+            approvalService = approvalService,
             shutdownController = mockk(relaxed = true),
-            compactionRunner = mockk(relaxed = true),
             subagentRunRepository = mockk(relaxed = true),
             activeSubagentJobs =
                 io.github.klaw.engine.tools
                     .ActiveSubagentJobs(),
-            agentRegistry =
-                io.github.klaw.engine.agent
-                    .AgentRegistry(),
+            agentRegistry = agentRegistry,
         )
     }
 
