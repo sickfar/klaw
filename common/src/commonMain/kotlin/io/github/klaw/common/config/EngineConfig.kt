@@ -757,6 +757,8 @@ data class AgentHeartbeatOverride(
     val model: String? = null,
     @ConfigDoc("Channel to deliver heartbeat messages to")
     val channel: String? = null,
+    @ConfigDoc("Chat ID to inject heartbeat messages into (overrides global heartbeat.injectInto)")
+    val injectInto: String? = null,
 )
 
 @Serializable

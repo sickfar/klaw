@@ -2,6 +2,7 @@ package io.github.klaw.engine.agent
 
 import io.github.klaw.common.config.AgentConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.cancel
 
 private val logger = KotlinLogging.logger {}
 
@@ -27,6 +28,7 @@ class AgentContext(
     val toolRegistry get() = services.toolRegistry
     val autoRagService get() = services.autoRagService
     val heartbeatRunner get() = services.heartbeatRunner
+    val heartbeatScope get() = services.heartbeatScope
     val summaryService get() = services.summaryService
     val summaryRepository get() = services.summaryRepository
     val compactionRunner get() = services.compactionRunner
@@ -48,6 +50,8 @@ class AgentContext(
             .onFailure { logger.warn(it) { "Scheduler shutdown failed for agent $agentId" } }
         runCatching { services.backupService?.stop() }
             .onFailure { logger.warn(it) { "Backup stop failed for agent $agentId" } }
+        runCatching { services.heartbeatScope?.cancel() }
+            .onFailure { logger.warn(it) { "Heartbeat scope cancel failed for agent $agentId" } }
         runCatching { services.driver?.close() }
             .onFailure { logger.warn(it) { "DB driver close failed for agent $agentId" } }
         logger.debug { "Agent shut down: $agentId" }

@@ -15,8 +15,10 @@ import io.github.klaw.engine.tools.EngineHealthProvider
 import io.github.klaw.engine.tools.ShutdownController
 import io.github.klaw.engine.tools.WebFetchTool
 import io.github.klaw.engine.tools.WebSearchTool
+import io.github.klaw.engine.workspace.HeartbeatApprovalBridge
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Factory
+import io.micronaut.scheduling.TaskScheduler
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
 
@@ -41,6 +43,8 @@ class SharedServicesFactory {
         webFetchTool: WebFetchTool,
         webSearchTool: WebSearchTool,
         applicationContext: ApplicationContext,
+        taskScheduler: TaskScheduler,
+        heartbeatApprovalBridge: HeartbeatApprovalBridge,
     ): SharedServices =
         SharedServices(
             llmRouter = llmRouter,
@@ -59,6 +63,8 @@ class SharedServicesFactory {
             webFetchTool = webFetchTool,
             webSearchTool = webSearchTool,
             applicationContext = applicationContext,
+            taskScheduler = taskScheduler,
+            heartbeatApprovalBridge = heartbeatApprovalBridge,
         )
 
     @Singleton

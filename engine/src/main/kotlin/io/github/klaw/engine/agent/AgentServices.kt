@@ -21,6 +21,7 @@ import io.github.klaw.engine.scheduler.KlawScheduler
 import io.github.klaw.engine.session.SessionManager
 import io.github.klaw.engine.tools.SubagentRunRepository
 import io.github.klaw.engine.workspace.HeartbeatRunner
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * Bundles all optional per-agent service instances created by [AgentContextFactory].
@@ -38,6 +39,7 @@ data class AgentServices(
     val toolRegistry: ToolRegistry? = null,
     val autoRagService: AutoRagService? = null,
     val heartbeatRunner: HeartbeatRunner? = null,
+    val heartbeatScope: CoroutineScope? = null,
     val summaryService: FileSummaryService? = null,
     val summaryRepository: SummaryRepository? = null,
     val compactionRunner: CompactionRunner? = null,

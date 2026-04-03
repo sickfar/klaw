@@ -73,6 +73,7 @@ class EngineLifecycle(
         subagentRunRepository.markStaleRunsFailed()
         initializeAgentRegistry()
         startAgentSchedulers()
+        startAgentHeartbeats()
         healthProvider.markStarted()
         logger.info { "EngineLifecycle started — socket server, scheduler, and backup service are ready" }
     }
@@ -95,6 +96,14 @@ class EngineLifecycle(
     private fun startAgentSchedulers() {
         for (ctx in agentRegistry.all()) {
             ctx.scheduler?.start()
+        }
+    }
+
+    private fun startAgentHeartbeats() {
+        for (ctx in agentRegistry.all()) {
+            if (ctx.heartbeatRunner != null) {
+                logger.info { "Per-agent heartbeat runner active for agent ${ctx.agentId}" }
+            }
         }
     }
 

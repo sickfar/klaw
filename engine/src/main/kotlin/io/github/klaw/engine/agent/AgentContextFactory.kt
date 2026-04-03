@@ -40,11 +40,21 @@ import io.github.klaw.engine.tools.SubagentStatusTools
 import io.github.klaw.engine.tools.SubagentTools
 import io.github.klaw.engine.tools.ToolRegistryImpl
 import io.github.klaw.engine.tools.UtilityTools
+import io.github.klaw.common.util.approximateTokenCount
 import io.github.klaw.engine.scheduler.AgentKlawScheduler
+import io.github.klaw.engine.util.VT
+import io.github.klaw.engine.workspace.HeartbeatCallbacks
+import io.github.klaw.engine.workspace.HeartbeatJsonlWriter
+import io.github.klaw.engine.workspace.HeartbeatPersistence
+import io.github.klaw.engine.workspace.HeartbeatRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.io.File
 import java.nio.file.Path
 import java.util.Properties
+import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -118,6 +128,12 @@ class AgentContextFactory(
                 skillRegistry, toolRegistry, autoRagService, subagentHistoryLoader, config,
             )
 
+        val (heartbeatRunner, heartbeatScope) =
+            buildHeartbeatRunner(
+                agentId, agentConfig, dirs, config, sessionManager,
+                messageRepository, messageEmbeddingService, toolRegistry, workspaceLoader,
+            )
+
         return AgentServices(
             database = database,
             driver = driver,
@@ -139,6 +155,8 @@ class AgentContextFactory(
             contextBuilder = contextBuilder,
             toolRegistry = toolRegistry,
             scheduler = scheduler,
+            heartbeatRunner = heartbeatRunner,
+            heartbeatScope = heartbeatScope,
         )
     }
 
@@ -157,59 +175,37 @@ class AgentContextFactory(
     ): ToolRegistryImpl {
         val workspacePath = Path.of(agentConfig.workspace)
         val fileTools = buildFileTools(workspacePath, dirs, config)
-        val docsService = shared.docsService
-        val docsTools =
-            if (docsService != null) {
-                DocsTools(docsService)
-            } else {
-                DocsTools(
-                    DocsServiceImpl(
-                        embeddingService = shared.embeddingService,
-                        database = database,
-                        driver = driver,
-                        sqliteVecLoader = shared.sqliteVecLoader,
-                        config = config,
-                    ),
-                )
-            }
-
+        val docsTools = buildDocsTools(database, driver, config)
         val sandboxExecTool = buildSandboxExecTool(workspacePath, dirs, config)
-        val hostExecTool =
-            HostExecTool(
-                config = config.hostExecution,
-                llmRouter = shared.llmRouter,
-                approvalService = shared.approvalService ?: error("ApprovalService required for per-agent tools"),
-            )
+        val hostExecTool = HostExecTool(
+            config = config.hostExecution,
+            llmRouter = shared.llmRouter,
+            approvalService = shared.approvalService ?: error("ApprovalService required for per-agent tools"),
+        )
         val configTools =
             shared.shutdownController?.let { ConfigTools(dirs.configDir, it) }
                 ?: ConfigTools(dirs.configDir, io.github.klaw.engine.tools.ShutdownController())
-        val historyTools =
-            HistoryTools(
-                embeddingService = shared.embeddingService,
-                driver = driver,
-                sqliteVecLoader = shared.sqliteVecLoader,
-            )
-        val subagentTools =
-            SubagentTools(
-                processorProvider = shared.processorProvider ?: error("MessageProcessor provider required"),
-                repository = subagentRunRepository,
-            )
-        val utilityTools =
-            UtilityTools(
-                socketServerProvider = shared.socketServerProvider ?: error("EngineSocketServer provider required"),
-            )
-        val subagentStatusTools =
-            SubagentStatusTools(
-                repository = subagentRunRepository,
-                activeSubagentJobs = shared.activeSubagentJobs ?: error("ActiveSubagentJobs required"),
-            )
-        val engineHealthTools = EngineHealthTools(shared.engineHealthProvider)
-        val imageAnalyzeTool =
-            ImageAnalyzeTool(
-                llmRouter = shared.llmRouter,
-                config = config.vision,
-                allowedPaths = listOf(workspacePath),
-            )
+        val historyTools = HistoryTools(
+            embeddingService = shared.embeddingService,
+            driver = driver,
+            sqliteVecLoader = shared.sqliteVecLoader,
+        )
+        val subagentTools = SubagentTools(
+            processorProvider = shared.processorProvider ?: error("MessageProcessor provider required"),
+            repository = subagentRunRepository,
+        )
+        val utilityTools = UtilityTools(
+            socketServerProvider = shared.socketServerProvider ?: error("EngineSocketServer provider required"),
+        )
+        val subagentStatusTools = SubagentStatusTools(
+            repository = subagentRunRepository,
+            activeSubagentJobs = shared.activeSubagentJobs ?: error("ActiveSubagentJobs required"),
+        )
+        val imageAnalyzeTool = ImageAnalyzeTool(
+            llmRouter = shared.llmRouter,
+            config = config.vision,
+            allowedPaths = listOf(workspacePath),
+        )
 
         return ToolRegistryImpl(
             fileTools = fileTools,
@@ -223,7 +219,7 @@ class AgentContextFactory(
             hostExecTool = hostExecTool,
             configTools = configTools,
             historyTools = historyTools,
-            engineHealthTools = engineHealthTools,
+            engineHealthTools = EngineHealthTools(shared.engineHealthProvider),
             subagentStatusTools = subagentStatusTools,
             webFetchTool = shared.webFetchTool ?: io.github.klaw.engine.tools.WebFetchTool(config.web.fetch),
             webSearchTool = shared.webSearchTool ?: buildWebSearchTool(config),
@@ -233,6 +229,27 @@ class AgentContextFactory(
             config = config,
             mcpToolRegistry = mcpToolRegistry,
         )
+    }
+
+    private fun buildDocsTools(
+        database: KlawDatabase,
+        driver: JdbcSqliteDriver,
+        config: EngineConfig,
+    ): DocsTools {
+        val docsService = shared.docsService
+        return if (docsService != null) {
+            DocsTools(docsService)
+        } else {
+            DocsTools(
+                DocsServiceImpl(
+                    embeddingService = shared.embeddingService,
+                    database = database,
+                    driver = driver,
+                    sqliteVecLoader = shared.sqliteVecLoader,
+                    config = config,
+                ),
+            )
+        }
     }
 
     private fun buildFileTools(
@@ -400,6 +417,148 @@ class AgentContextFactory(
         VirtualTableSetup.createVirtualTables(driver, shared.sqliteVecLoader.isAvailable())
         logger.debug { "Database initialized for agent $agentId: $dbPath" }
         return driver
+    }
+
+    @Suppress("LongParameterList")
+    private fun buildHeartbeatRunner(
+        agentId: String,
+        agentConfig: AgentConfig,
+        dirs: AgentDirectories,
+        config: EngineConfig,
+        sessionManager: SessionManager,
+        messageRepository: MessageRepository,
+        messageEmbeddingService: MessageEmbeddingService,
+        toolRegistry: ToolRegistryImpl,
+        workspaceLoader: KlawWorkspaceLoader,
+    ): Pair<HeartbeatRunner?, CoroutineScope?> {
+        val resolved = resolveHeartbeatPrereqs(agentId, agentConfig, config) ?: return null to null
+
+        val scope = CoroutineScope(Dispatchers.VT + SupervisorJob())
+        val callbacks = buildHeartbeatCallbacks(sessionManager, resolved.injectInto, resolved.approvalBridge)
+        val persistence = buildHeartbeatPersistence(dirs, config, messageRepository, messageEmbeddingService)
+        val effectiveConfig = config.copy(
+            heartbeat = config.heartbeat.copy(
+                channel = resolved.channel,
+                injectInto = resolved.injectInto,
+                model = resolved.model,
+            ),
+        )
+
+        val runner =
+            HeartbeatRunner(
+                config = effectiveConfig,
+                callbacks = callbacks,
+                toolExecutor = io.github.klaw.engine.tools.DispatchingToolExecutor(toolRegistry),
+                workspaceLoader = workspaceLoader,
+                toolRegistry = toolRegistry,
+                workspacePath = Path.of(agentConfig.workspace),
+                maxToolCallRounds = config.processing.maxToolCallRounds,
+                persistence = persistence,
+                scope = scope,
+            )
+
+        resolved.taskScheduler.scheduleAtFixedRate(resolved.interval, resolved.interval) { runner.triggerHeartbeat() }
+        logger.info { "Heartbeat scheduled for agent $agentId — first run in ${resolved.interval}" }
+
+        return runner to scope
+    }
+
+    private data class HeartbeatPrereqs(
+        val interval: java.time.Duration,
+        val taskScheduler: io.micronaut.scheduling.TaskScheduler,
+        val approvalBridge: io.github.klaw.engine.workspace.HeartbeatApprovalBridge,
+        val channel: String?,
+        val injectInto: String?,
+        val model: String,
+    )
+
+    private fun resolveHeartbeatPrereqs(
+        agentId: String,
+        agentConfig: AgentConfig,
+        config: EngineConfig,
+    ): HeartbeatPrereqs? {
+        val override = agentConfig.heartbeat
+        if (override?.enabled == false) {
+            logger.debug { "Heartbeat disabled for agent $agentId" }
+            return null
+        }
+        val interval = resolveHeartbeatInterval(agentId, override, config) ?: return null
+        val (taskScheduler, approvalBridge) = resolveHeartbeatDeps(agentId) ?: return null
+
+        val channel = override?.channel ?: config.heartbeat.channel
+        val injectInto = override?.injectInto ?: config.heartbeat.injectInto
+        val model = override?.model ?: config.heartbeat.model ?: config.routing.default
+        logger.info {
+            "Heartbeat starting for agent $agentId: interval=$interval, model=$model, " +
+                "channel=${channel ?: "<not set>"}, injectInto=${injectInto ?: "<not set>"}"
+        }
+        return HeartbeatPrereqs(interval, taskScheduler, approvalBridge, channel, injectInto, model)
+    }
+
+    private fun resolveHeartbeatInterval(
+        agentId: String,
+        override: io.github.klaw.common.config.AgentHeartbeatOverride?,
+        config: EngineConfig,
+    ): java.time.Duration? {
+        val interval = HeartbeatRunner.parseInterval(override?.interval ?: config.heartbeat.interval)
+        if (interval == null) logger.info { "Heartbeat disabled for agent $agentId (interval=off)" }
+        return interval
+    }
+
+    private fun resolveHeartbeatDeps(
+        agentId: String,
+    ): Pair<io.micronaut.scheduling.TaskScheduler, io.github.klaw.engine.workspace.HeartbeatApprovalBridge>? {
+        val taskScheduler = shared.taskScheduler ?: run {
+            logger.warn { "TaskScheduler not available — per-agent heartbeat skipped for $agentId" }
+            return null
+        }
+        val approvalBridge = shared.heartbeatApprovalBridge ?: run {
+            logger.warn { "HeartbeatApprovalBridge not available — per-agent heartbeat skipped for $agentId" }
+            return null
+        }
+        return taskScheduler to approvalBridge
+    }
+
+    private fun buildHeartbeatCallbacks(
+        sessionManager: SessionManager,
+        injectInto: String?,
+        approvalBridge: io.github.klaw.engine.workspace.HeartbeatApprovalBridge,
+    ): HeartbeatCallbacks =
+        HeartbeatCallbacks(
+            chat = shared.llmRouter::chat,
+            getOrCreateSession = sessionManager::getOrCreate,
+            denyPendingApprovals = {
+                if (injectInto != null) approvalBridge.denyPendingForChatId(injectInto) else emptyList()
+            },
+            sendDismiss = { id -> approvalBridge.sendDismiss(id) },
+        )
+
+    private fun buildHeartbeatPersistence(
+        dirs: AgentDirectories,
+        config: EngineConfig,
+        messageRepository: MessageRepository,
+        messageEmbeddingService: MessageEmbeddingService,
+    ): HeartbeatPersistence {
+        val embeddingScope = CoroutineScope(Dispatchers.VT + SupervisorJob())
+        return HeartbeatPersistence(
+            jsonlWriter = HeartbeatJsonlWriter(Path.of(dirs.conversationsDir)),
+            persistDelivered = { ch, chatId, content ->
+                val rowId =
+                    messageRepository.saveAndGetRowId(
+                        id = UUID.randomUUID().toString(),
+                        channel = ch,
+                        chatId = chatId,
+                        role = "assistant",
+                        type = "text",
+                        content = content,
+                        tokens = approximateTokenCount(content),
+                    )
+                messageEmbeddingService.embedAsync(
+                    rowId, "assistant", "text", content, config.memory.autoRag, embeddingScope,
+                )
+            },
+            pushToGateway = { msg -> shared.socketServerProvider?.get()?.pushToGateway(msg) },
+        )
     }
 
     private fun buildSkillRegistry(

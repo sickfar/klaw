@@ -1,6 +1,8 @@
 package io.github.klaw.engine.agent
 
 import io.github.klaw.common.config.AgentConfig
+import io.github.klaw.common.config.AgentHeartbeatOverride
+import io.github.klaw.common.config.HeartbeatConfig
 import io.github.klaw.common.config.HttpRetryConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.TaskRoutingConfig
@@ -10,9 +12,13 @@ import io.github.klaw.engine.llm.LlmRouter
 import io.github.klaw.engine.tools.ActiveSubagentJobs
 import io.github.klaw.engine.scheduler.AgentKlawScheduler
 import io.github.klaw.engine.tools.ToolRegistryImpl
+import io.github.klaw.engine.workspace.HeartbeatApprovalBridge
 import io.micronaut.context.ApplicationContext
+import io.micronaut.scheduling.TaskScheduler
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -23,7 +29,10 @@ class AgentContextFactoryTest {
     @TempDir
     lateinit var tempDir: Path
 
-    private fun createSharedServices(): SharedServices {
+    private fun createSharedServices(
+        taskScheduler: TaskScheduler? = null,
+        heartbeatApprovalBridge: HeartbeatApprovalBridge? = null,
+    ): SharedServices {
         val config = testEngineConfig()
         val llmRouter =
             LlmRouter(
@@ -55,6 +64,8 @@ class AgentContextFactoryTest {
             webFetchTool = mockk(relaxed = true),
             webSearchTool = mockk(relaxed = true),
             applicationContext = mockk<ApplicationContext>(relaxed = true),
+            taskScheduler = taskScheduler,
+            heartbeatApprovalBridge = heartbeatApprovalBridge,
         )
     }
 
@@ -192,6 +203,98 @@ class AgentContextFactoryTest {
             assertTrue("file_read" in toolNames, "Should have file_read tool")
             assertTrue("memory_search" in toolNames, "Should have memory_search tool")
             assertTrue("schedule_list" in toolNames, "Should have schedule_list tool")
+        } finally {
+            ctx.shutdown()
+        }
+    }
+
+    @Test
+    fun `per-agent heartbeat runner is null when taskScheduler is not available`() {
+        val dirs = createAgentDirs()
+        val workspaceDir = tempDir.resolve("workspace-hb-null").toFile().also { it.mkdirs() }
+
+        // no taskScheduler provided
+        val shared = createSharedServices(taskScheduler = null)
+        val factory = AgentContextFactory(shared)
+        val agentConfig = AgentConfig(workspace = workspaceDir.absolutePath)
+
+        val ctx = factory.create(agentId = "hb-null", agentConfig = agentConfig, dirs = dirs)
+
+        try {
+            assertNull(ctx.heartbeatRunner, "heartbeatRunner should be null when taskScheduler is not available")
+            assertNull(ctx.heartbeatScope, "heartbeatScope should be null when runner is not created")
+        } finally {
+            ctx.shutdown()
+        }
+    }
+
+    @Test
+    fun `per-agent heartbeat runner is null when heartbeat disabled via override`() {
+        val dirs = createAgentDirs()
+        val workspaceDir = tempDir.resolve("workspace-hb-disabled").toFile().also { it.mkdirs() }
+
+        val taskScheduler = mockk<TaskScheduler>(relaxed = true)
+        val approvalBridge = mockk<HeartbeatApprovalBridge>(relaxed = true)
+        val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
+        val factory = AgentContextFactory(shared)
+        val agentConfig = AgentConfig(
+            workspace = workspaceDir.absolutePath,
+            heartbeat = AgentHeartbeatOverride(enabled = false),
+        )
+
+        val ctx = factory.create(agentId = "hb-disabled", agentConfig = agentConfig, dirs = dirs)
+
+        try {
+            assertNull(ctx.heartbeatRunner, "heartbeatRunner should be null when heartbeat disabled")
+        } finally {
+            ctx.shutdown()
+        }
+    }
+
+    @Test
+    fun `per-agent heartbeat runner is null when interval is off`() {
+        val dirs = createAgentDirs()
+        val workspaceDir = tempDir.resolve("workspace-hb-off").toFile().also { it.mkdirs() }
+
+        val taskScheduler = mockk<TaskScheduler>(relaxed = true)
+        val approvalBridge = mockk<HeartbeatApprovalBridge>(relaxed = true)
+        val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
+        val factory = AgentContextFactory(shared)
+        val agentConfig = AgentConfig(
+            workspace = workspaceDir.absolutePath,
+            heartbeat = AgentHeartbeatOverride(interval = "off"),
+        )
+
+        val ctx = factory.create(agentId = "hb-off", agentConfig = agentConfig, dirs = dirs)
+
+        try {
+            assertNull(ctx.heartbeatRunner, "heartbeatRunner should be null when interval is off")
+        } finally {
+            ctx.shutdown()
+        }
+    }
+
+    @Test
+    fun `per-agent heartbeat runner is created when taskScheduler is available and heartbeat is enabled`() {
+        val dirs = createAgentDirs()
+        val workspaceDir = tempDir.resolve("workspace-hb-enabled").toFile().also { it.mkdirs() }
+
+        val taskScheduler = mockk<TaskScheduler>(relaxed = true)
+        every { taskScheduler.scheduleAtFixedRate(any(), any(), any()) } returns mockk()
+        val approvalBridge = mockk<HeartbeatApprovalBridge>(relaxed = true)
+        val shared = createSharedServices(taskScheduler = taskScheduler, heartbeatApprovalBridge = approvalBridge)
+        val factory = AgentContextFactory(shared)
+        // Use a very short interval so the test can use a real HeartbeatConfig
+        val agentConfig = AgentConfig(
+            workspace = workspaceDir.absolutePath,
+            heartbeat = AgentHeartbeatOverride(interval = "PT1H"),
+        )
+
+        val ctx = factory.create(agentId = "hb-enabled", agentConfig = agentConfig, dirs = dirs)
+
+        try {
+            assertNotNull(ctx.heartbeatRunner, "heartbeatRunner should be created when enabled and taskScheduler present")
+            assertNotNull(ctx.heartbeatScope, "heartbeatScope should be created alongside runner")
         } finally {
             ctx.shutdown()
         }
