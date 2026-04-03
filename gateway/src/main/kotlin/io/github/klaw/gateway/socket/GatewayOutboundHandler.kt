@@ -64,6 +64,7 @@ class GatewayOutboundHandler(
             return
         }
         jsonlWriter.writeOutbound(
+            agentId = message.agentId,
             chatId = message.chatId,
             content = message.content,
             model = message.meta?.get("model"),
@@ -158,6 +159,7 @@ class GatewayOutboundHandler(
             return
         }
         jsonlWriter.writeOutbound(
+            agentId = message.agentId,
             chatId = message.chatId,
             content = message.fullContent,
             model = message.meta?.get("model"),

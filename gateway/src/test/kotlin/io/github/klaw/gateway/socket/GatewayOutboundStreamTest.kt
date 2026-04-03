@@ -106,7 +106,7 @@ class GatewayOutboundStreamTest {
 
             // Verify JSONL was written
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should exist")
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
@@ -210,7 +210,7 @@ class GatewayOutboundStreamTest {
 
             // JSONL should still be written (allowlist passes for local_ws_default)
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "local_ws_default/$today.jsonl")
+            val file = File(tempDir, "default/local_ws_default/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should exist even when no matching channel found")
 
             // channel.sendStreamEnd should NOT be called (wrong channel name)

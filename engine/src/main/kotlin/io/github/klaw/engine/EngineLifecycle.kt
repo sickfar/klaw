@@ -1,5 +1,10 @@
 package io.github.klaw.engine
 
+import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.paths.KlawPaths
+import io.github.klaw.engine.agent.AgentContextFactory
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.initializeAgents
 import io.github.klaw.engine.db.BackupService
 import io.github.klaw.engine.message.MessageProcessor
 import io.github.klaw.engine.scheduler.KlawScheduler
@@ -53,6 +58,9 @@ class EngineLifecycle(
     private val subagentRunRepository: SubagentRunRepository,
     // Eagerly instantiates HeartbeatRunnerFactory so @PostConstruct schedules heartbeat on startup
     @Suppress("unused") private val heartbeatRunnerFactory: HeartbeatRunnerFactory,
+    private val agentRegistry: AgentRegistry,
+    private val agentContextFactory: AgentContextFactory,
+    private val engineConfig: EngineConfig,
 ) : ApplicationEventListener<StartupEvent> {
     private val shutdownOnce = AtomicBoolean(false)
     private val backupScope = CoroutineScope(Dispatchers.VT + SupervisorJob())
@@ -62,14 +70,33 @@ class EngineLifecycle(
         scheduler.start()
         backupService.start(backupScope)
         subagentRunRepository.markStaleRunsFailed()
+        initializeAgentRegistry()
         healthProvider.markStarted()
         logger.info { "EngineLifecycle started — socket server, scheduler, and backup service are ready" }
+    }
+
+    private fun initializeAgentRegistry() {
+        initializeAgents(
+            config = engineConfig,
+            factory = agentContextFactory,
+            registry = agentRegistry,
+            stateDir = KlawPaths.state,
+            dataDir = KlawPaths.data,
+            configDir = KlawPaths.config,
+            conversationsDir = KlawPaths.conversations,
+        )
     }
 
     @PreDestroy
     @Suppress("TooGenericExceptionCaught")
     fun shutdown() {
         if (!shutdownOnce.compareAndSet(false, true)) return
+
+        try {
+            agentRegistry.shutdown()
+        } catch (_: Exception) {
+            // Best-effort
+        }
 
         try {
             scheduler.shutdownBlocking()

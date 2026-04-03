@@ -204,7 +204,7 @@ class GatewayOutboundHandlerBufferTest {
             handler.handleOutbound(outboundMsg(chatId = "telegram_123", content = "buffered message"))
 
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should be written even when channel not alive")
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject

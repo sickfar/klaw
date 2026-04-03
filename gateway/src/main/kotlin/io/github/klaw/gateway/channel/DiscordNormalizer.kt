@@ -20,6 +20,7 @@ object DiscordNormalizer {
         platformMessageId: String? = null,
         guildId: String? = null,
         attachments: List<AttachmentInfo> = emptyList(),
+        agentId: String = "default",
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
@@ -28,6 +29,7 @@ object DiscordNormalizer {
             chatId = "discord_$channelId",
             content = text,
             ts = ts,
+            agentId = agentId,
             userId = userId?.toString(),
             isCommand = parsed.isCommand,
             commandName = parsed.commandName,

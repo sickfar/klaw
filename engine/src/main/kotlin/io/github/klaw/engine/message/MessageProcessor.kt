@@ -14,6 +14,7 @@ import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.common.registry.ModelRegistry
 import io.github.klaw.common.util.approximateTokenCount
+import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
@@ -72,6 +73,7 @@ class MessageProcessor(
     private val compactionRunner: CompactionRunner,
     private val subagentRunRepository: io.github.klaw.engine.tools.SubagentRunRepository,
     private val activeSubagentJobs: io.github.klaw.engine.tools.ActiveSubagentJobs,
+    private val agentRegistry: AgentRegistry,
 ) : SocketMessageHandler {
     private val logger = KotlinLogging.logger {}
     private val processingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -105,7 +107,7 @@ class MessageProcessor(
     }
 
     override suspend fun handleCommand(message: CommandSocketMessage) {
-        logger.debug { "Command: chatId=${message.chatId} command=${message.command}" }
+        logger.debug { "Command: chatId=${message.chatId} command=${message.command} agentId=${message.agentId}" }
         if (message.command == "new") {
             val activeJob = activeProcessingJobs[message.chatId]
             if (activeJob != null) {
@@ -116,7 +118,9 @@ class MessageProcessor(
                 activeJob.join()
             }
         }
-        val session = sessionManager.getOrCreate(message.chatId, config.routing.default)
+        val ctx = agentRegistry.getOrNull(message.agentId)
+        val effectiveSessionManager = ctx?.sessionManager ?: sessionManager
+        val session = effectiveSessionManager.getOrCreate(message.chatId, config.routing.default)
         val result = commandHandler.handle(message, session)
         socketServerProvider.get().pushToGateway(
             OutboundSocketMessage(channel = message.channel, chatId = message.chatId, content = result),
@@ -368,7 +372,15 @@ class MessageProcessor(
         val first = messages.first()
         val chatId = first.chatId
         val channel = first.channel
-        logger.debug { "Processing: chatId=$chatId channel=$channel msgCount=${messages.size}" }
+        val agentId = first.agentId
+        logger.debug { "Processing: chatId=$chatId channel=$channel agentId=$agentId msgCount=${messages.size}" }
+
+        val ctx = agentRegistry.getOrNull(agentId)
+        val effectiveSessionManager = ctx?.sessionManager ?: sessionManager
+        val effectiveContextBuilder = ctx?.contextBuilder ?: contextBuilder
+        val effectiveMessageRepository = ctx?.messageRepository ?: messageRepository
+        val effectiveMessageEmbeddingService = ctx?.messageEmbeddingService ?: messageEmbeddingService
+        val effectiveCompactionRunner = ctx?.compactionRunner ?: compactionRunner
 
         val currentJob = kotlin.coroutines.coroutineContext[Job]!!
         activeProcessingJobs[chatId] = currentJob
@@ -377,11 +389,11 @@ class MessageProcessor(
                 var session: Session? = null
                 var contextResult: ContextResult? = null
                 try {
-                    session = sessionManager.getOrCreate(chatId, config.routing.default)
+                    session = effectiveSessionManager.getOrCreate(chatId, config.routing.default)
                     val pendingTexts = messages.map { it.content }
 
                     // Persist user messages before building context so sumTokensInSegment is accurate
-                    persistInboundMessages(messages)
+                    persistInboundMessages(messages, effectiveMessageRepository, effectiveMessageEmbeddingService)
 
                     val senderContext =
                         SenderContext(
@@ -393,7 +405,7 @@ class MessageProcessor(
                             messageId = first.messageId,
                         )
                     contextResult =
-                        contextBuilder.buildContext(
+                        effectiveContextBuilder.buildContext(
                             session,
                             pendingTexts,
                             isSubagent = false,
@@ -418,7 +430,7 @@ class MessageProcessor(
                             llmRouter,
                             toolExecutor,
                             config.processing.maxToolCallRounds,
-                            messageRepository,
+                            effectiveMessageRepository,
                             channel,
                             chatId,
                             contextBudgetTokens = rawBudget,
@@ -433,9 +445,20 @@ class MessageProcessor(
                             " tokens=${response.usage?.totalTokens}"
                     }
 
-                    correctUserMessageTokens(runner.firstPromptTokens, contextResult.messages, messages)
+                    correctUserMessageTokens(
+                        runner.firstPromptTokens,
+                        contextResult.messages,
+                        messages,
+                        effectiveMessageRepository,
+                    )
 
-                    val content = persistAssistantResponse(response, channel, chatId)
+                    val content = persistAssistantResponse(
+                        response,
+                        channel,
+                        chatId,
+                        effectiveMessageRepository,
+                        effectiveMessageEmbeddingService,
+                    )
                     val deliveryContent = appendStopNoticeIfNeeded(content, response)
 
                     deliverResponse(deliveryContent, channel, chatId, streamCtx)
@@ -446,7 +469,7 @@ class MessageProcessor(
                     val successBudget = contextResult.budget
                     processingScope.launch {
                         try {
-                            compactionRunner.runIfNeeded(
+                            effectiveCompactionRunner.runIfNeeded(
                                 chatId = chatId,
                                 segmentStart = successSegmentStart,
                                 uncoveredMessageTokens = successUncoveredTokens,
@@ -475,7 +498,7 @@ class MessageProcessor(
                         val capturedBudget = errorCr.budget
                         processingScope.launch {
                             try {
-                                compactionRunner.runIfNeeded(
+                                effectiveCompactionRunner.runIfNeeded(
                                     chatId = chatId,
                                     segmentStart = errorSeg,
                                     uncoveredMessageTokens = capturedUncoveredTokens,
@@ -563,11 +586,13 @@ class MessageProcessor(
         response: io.github.klaw.common.llm.LlmResponse,
         channel: String,
         chatId: String,
+        msgRepo: MessageRepository = messageRepository,
+        embedService: MessageEmbeddingService = messageEmbeddingService,
     ): String {
         val content = response.content ?: ""
         val assistantTokens = response.usage?.completionTokens ?: approximateTokenCount(content)
         val assistantRowId =
-            messageRepository.saveAndGetRowId(
+            msgRepo.saveAndGetRowId(
                 id = UUID.randomUUID().toString(),
                 channel = channel,
                 chatId = chatId,
@@ -576,7 +601,7 @@ class MessageProcessor(
                 content = content,
                 tokens = assistantTokens,
             )
-        messageEmbeddingService.embedAsync(
+        embedService.embedAsync(
             assistantRowId,
             "assistant",
             "text",
@@ -587,7 +612,11 @@ class MessageProcessor(
         return content
     }
 
-    private suspend fun persistInboundMessages(messages: List<InboundSocketMessage>) {
+    private suspend fun persistInboundMessages(
+        messages: List<InboundSocketMessage>,
+        msgRepo: MessageRepository = messageRepository,
+        embedService: MessageEmbeddingService = messageEmbeddingService,
+    ) {
         messages.forEach { msg ->
             val hasAttachments = msg.attachments.isNotEmpty()
             val type = if (hasAttachments) "multimodal" else "text"
@@ -605,7 +634,7 @@ class MessageProcessor(
                 }
 
             val rowId =
-                messageRepository.saveAndGetRowId(
+                msgRepo.saveAndGetRowId(
                     id = msg.id,
                     channel = msg.channel,
                     chatId = msg.chatId,
@@ -615,7 +644,7 @@ class MessageProcessor(
                     metadata = metadata,
                     tokens = approximateTokenCount(msg.content),
                 )
-            messageEmbeddingService.embedAsync(
+            embedService.embedAsync(
                 rowId,
                 "user",
                 type,
@@ -637,6 +666,7 @@ class MessageProcessor(
         firstPromptTokens: Int?,
         contextMessages: List<io.github.klaw.common.llm.LlmMessage>,
         userMessages: List<InboundSocketMessage>,
+        msgRepo: MessageRepository = messageRepository,
     ) {
         if (firstPromptTokens == null || userMessages.isEmpty()) return
 
@@ -648,7 +678,7 @@ class MessageProcessor(
         if (actualPendingTotal <= 0) return
 
         if (userMessages.size == 1) {
-            messageRepository.updateTokens(userMessages[0].id, actualPendingTotal)
+            msgRepo.updateTokens(userMessages[0].id, actualPendingTotal)
             return
         }
 
@@ -660,7 +690,7 @@ class MessageProcessor(
         userMessages.forEachIndexed { i, msg ->
             val proportional = (approxTokens[i].toLong() * actualPendingTotal / approxTotal).toInt()
             val adjusted = proportional + if (i < remainder && proportional == 0) 1 else 0
-            messageRepository.updateTokens(msg.id, adjusted)
+            msgRepo.updateTokens(msg.id, adjusted)
         }
     }
 

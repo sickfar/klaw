@@ -78,6 +78,7 @@ class CliCommandDispatcherStatusTest {
             mockk(relaxed = true),
             commandsCliHandler,
             ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
+            io.github.klaw.engine.agent.AgentRegistry(),
         )
 
     private fun stubSessions(count: Int = 2) {

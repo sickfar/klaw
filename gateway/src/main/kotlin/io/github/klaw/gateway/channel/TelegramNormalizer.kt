@@ -17,6 +17,7 @@ object TelegramNormalizer {
         chatTitle: String? = null,
         platformMessageId: String? = null,
         attachments: List<AttachmentInfo> = emptyList(),
+        agentId: String = "default",
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
@@ -25,6 +26,7 @@ object TelegramNormalizer {
             chatId = "telegram_$chatId",
             content = text,
             ts = ts,
+            agentId = agentId,
             userId = userId?.toString(),
             isCommand = parsed.isCommand,
             commandName = parsed.commandName,

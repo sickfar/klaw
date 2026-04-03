@@ -3,6 +3,7 @@ package io.github.klaw.engine.socket
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.context.SkillDetail
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.context.SkillValidationEntry
@@ -67,6 +68,7 @@ class CliCommandDispatcherTest {
             doctorDeepProbe,
             commandsCliHandler,
             ContextDiagnoseHandler(mockk(relaxed = true), mockk(relaxed = true)),
+            AgentRegistry(),
         )
 
     @Test

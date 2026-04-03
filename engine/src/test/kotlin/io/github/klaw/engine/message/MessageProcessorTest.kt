@@ -23,6 +23,7 @@ import io.github.klaw.common.llm.TokenUsage
 import io.github.klaw.common.llm.ToolCall
 import io.github.klaw.common.llm.ToolResult
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.ContextResult
@@ -158,6 +159,7 @@ class MessageProcessorTest {
             activeSubagentJobs =
                 io.github.klaw.engine.tools
                     .ActiveSubagentJobs(),
+            agentRegistry = AgentRegistry(),
         )
 
     @Test

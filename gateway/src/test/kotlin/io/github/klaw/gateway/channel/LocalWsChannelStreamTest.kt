@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.micronaut.websocket.WebSocketSession
 import io.mockk.mockk
@@ -13,7 +14,7 @@ class LocalWsChannelStreamTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
+    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
 
     private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 

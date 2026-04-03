@@ -90,7 +90,7 @@ class OutboundHandlerTest {
                 OutboundSocketMessage(channel = "telegram", chatId = "telegram_123", content = "hello", replyTo = null),
             )
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists())
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject

@@ -51,7 +51,11 @@ class TelegramChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
-    override val name = "telegram"
+    override val name: String
+        get() = config.channels.telegram.keys.firstOrNull() ?: "telegram"
+
+    private val agentId: String
+        get() = config.channels.telegram.values.firstOrNull()?.agentId ?: "default"
 
     @Volatile private var alive: Boolean = false
     override var onBecameAlive: (suspend () -> Unit)? = null
@@ -209,6 +213,7 @@ class TelegramChannel(
                             chatType = chatTypeStr,
                             chatTitle = chatTitleStr,
                             platformMessageId = platformMsgId,
+                            agentId = agentId,
                         )
                     chatTypes[incoming.chatId] = chatTypeStr
                     startTyping(incoming.chatId, chatId)
@@ -406,6 +411,7 @@ class TelegramChannel(
                 chatTitle = chatTitleStr,
                 platformMessageId = platformMsgId,
                 attachments = attachments,
+                agentId = agentId,
             )
         chatTypes[incoming.chatId] = chatTypeStr
         startTyping(incoming.chatId, chatId)

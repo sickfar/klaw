@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ChatFrame
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
@@ -18,8 +19,13 @@ private val logger = KotlinLogging.logger {}
 @Singleton
 class LocalWsChannel(
     private val jsonlWriter: ConversationJsonlWriter,
+    private val config: GatewayConfig,
 ) : Channel {
-    override val name = "local_ws"
+    override val name: String
+        get() = config.channels.websocket.keys.firstOrNull() ?: "local_ws"
+
+    private val agentId: String
+        get() = config.channels.websocket.values.firstOrNull()?.agentId ?: "default"
 
     @Volatile private var activeSession: WebSocketSession? = null
     override var onBecameAlive: (suspend () -> Unit)? = null
@@ -87,6 +93,7 @@ class LocalWsChannel(
                 chatId = "local_ws_default",
                 content = content,
                 ts = Clock.System.now(),
+                agentId = agentId,
                 senderName = "User",
                 chatType = "local",
                 messageId = msgId,

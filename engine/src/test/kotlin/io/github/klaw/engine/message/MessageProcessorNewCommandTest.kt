@@ -121,6 +121,7 @@ class MessageProcessorNewCommandTest {
             activeSubagentJobs =
                 io.github.klaw.engine.tools
                     .ActiveSubagentJobs(),
+            agentRegistry = io.github.klaw.engine.agent.AgentRegistry(),
         )
     }
 

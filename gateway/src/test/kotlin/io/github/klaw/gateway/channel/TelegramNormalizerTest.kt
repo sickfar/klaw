@@ -86,4 +86,16 @@ class TelegramNormalizerTest {
         assertNull(msg.chatTitle)
         assertNull(msg.messageId)
     }
+
+    @Test
+    fun `agentId propagated to IncomingMessage`() {
+        val msg = TelegramNormalizer.normalize(chatId = 123L, text = "hello", agentId = "work-agent")
+        assertEquals("work-agent", msg.agentId)
+    }
+
+    @Test
+    fun `agentId defaults to default when not provided`() {
+        val msg = TelegramNormalizer.normalize(chatId = 123L, text = "hello")
+        assertEquals("default", msg.agentId)
+    }
 }

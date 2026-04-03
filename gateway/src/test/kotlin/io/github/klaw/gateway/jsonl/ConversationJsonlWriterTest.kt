@@ -39,7 +39,7 @@ class ConversationJsonlWriterTest {
             val writer = writer()
             writer.writeInbound(sampleInbound("telegram_123456"))
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123456/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123456/$today.jsonl")
             assertTrue(file.exists(), "Expected file at $file")
         }
 
@@ -49,7 +49,7 @@ class ConversationJsonlWriterTest {
             val writer = writer()
             writer.writeInbound(sampleInbound())
             val today = LocalDate.now().toString()
-            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val line = File(tempDir, "default/telegram_123/$today.jsonl").readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
             assertEquals("user", json["role"]?.jsonPrimitive?.content)
             assertEquals("hello", json["content"]?.jsonPrimitive?.content)
@@ -59,9 +59,9 @@ class ConversationJsonlWriterTest {
     fun `outbound message written with role=assistant`() =
         runBlocking {
             val writer = writer()
-            writer.writeOutbound("telegram_123", "response text", model = "gpt-4")
+            writer.writeOutbound(chatId = "telegram_123", content = "response text", model = "gpt-4")
             val today = LocalDate.now().toString()
-            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val line = File(tempDir, "default/telegram_123/$today.jsonl").readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
             assertEquals("assistant", json["role"]?.jsonPrimitive?.content)
             assertEquals("response text", json["content"]?.jsonPrimitive?.content)
@@ -74,7 +74,7 @@ class ConversationJsonlWriterTest {
             writer.writeInbound(sampleInbound())
             val today = LocalDate.now().toString()
             assertTrue(today.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists())
         }
 
@@ -85,7 +85,7 @@ class ConversationJsonlWriterTest {
             writer.writeInbound(sampleInbound())
             writer.writeInbound(sampleInbound())
             val today = LocalDate.now().toString()
-            val lines = File(tempDir, "telegram_123/$today.jsonl").readLines()
+            val lines = File(tempDir, "default/telegram_123/$today.jsonl").readLines()
             assertEquals(2, lines.size)
         }
 
@@ -101,7 +101,7 @@ class ConversationJsonlWriterTest {
                 }
             jobs.awaitAll()
             val today = LocalDate.now().toString()
-            val lines = File(tempDir, "telegram_123/$today.jsonl").readLines()
+            val lines = File(tempDir, "default/telegram_123/$today.jsonl").readLines()
             assertEquals(20, lines.size)
             lines.forEach { line -> Json.parseToJsonElement(line) }
         }
@@ -110,9 +110,9 @@ class ConversationJsonlWriterTest {
     fun `file created if not exists`() =
         runBlocking {
             val writer = writer()
-            writer.writeOutbound("telegram_999", "hi")
+            writer.writeOutbound(chatId = "telegram_999", content = "hi")
             val today = LocalDate.now().toString()
-            assertTrue(File(tempDir, "telegram_999/$today.jsonl").exists())
+            assertTrue(File(tempDir, "default/telegram_999/$today.jsonl").exists())
         }
 
     @Test
@@ -122,7 +122,7 @@ class ConversationJsonlWriterTest {
             val nestedChatId = "telegram_999888777"
             writer.writeInbound(sampleInbound(nestedChatId))
             val today = LocalDate.now().toString()
-            assertTrue(File(tempDir, "$nestedChatId/$today.jsonl").exists())
+            assertTrue(File(tempDir, "default/$nestedChatId/$today.jsonl").exists())
         }
 
     @Test
@@ -142,7 +142,7 @@ class ConversationJsonlWriterTest {
         val writer = writer()
         var thrown = false
         try {
-            runBlocking { writer.writeOutbound("../../etc/passwd", "content") }
+            runBlocking { writer.writeOutbound(chatId = "../../etc/passwd", content = "content") }
         } catch (_: IllegalArgumentException) {
             thrown = true
         }
@@ -198,6 +198,38 @@ class ConversationJsonlWriterTest {
         }
 
     @Test
+    fun `inbound message scoped under agentId directory`() =
+        runBlocking {
+            val writer = writer()
+            val msg = sampleInbound("telegram_123").copy(agentId = "work-agent")
+            writer.writeInbound(msg)
+            val today = LocalDate.now().toString()
+            val file = File(tempDir, "work-agent/telegram_123/$today.jsonl")
+            assertTrue(file.exists(), "Expected file at $file")
+        }
+
+    @Test
+    fun `outbound message scoped under agentId directory`() =
+        runBlocking {
+            val writer = writer()
+            writer.writeOutbound(agentId = "personal", chatId = "telegram_999", content = "hi")
+            val today = LocalDate.now().toString()
+            val file = File(tempDir, "personal/telegram_999/$today.jsonl")
+            assertTrue(file.exists(), "Expected file at $file")
+        }
+
+    @Test
+    fun `messages from different agents are stored in separate directories`() =
+        runBlocking {
+            val writer = writer()
+            writer.writeInbound(sampleInbound("telegram_1").copy(agentId = "agent-a"))
+            writer.writeInbound(sampleInbound("telegram_1").copy(agentId = "agent-b"))
+            val today = LocalDate.now().toString()
+            assertTrue(File(tempDir, "agent-a/telegram_1/$today.jsonl").exists())
+            assertTrue(File(tempDir, "agent-b/telegram_1/$today.jsonl").exists())
+        }
+
+    @Test
     fun `inbound message with attachments includes attachments in JSONL`() =
         runBlocking {
             val writer = writer()
@@ -218,7 +250,7 @@ class ConversationJsonlWriterTest {
                 java.time.LocalDate
                     .now()
                     .toString()
-            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val line = File(tempDir, "default/telegram_123/$today.jsonl").readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
             assertTrue(json.containsKey("attachments"), "JSONL should contain attachments key")
             val attachments = json["attachments"]!!.jsonArray
@@ -244,7 +276,7 @@ class ConversationJsonlWriterTest {
                 java.time.LocalDate
                     .now()
                     .toString()
-            val line = File(tempDir, "telegram_123/$today.jsonl").readLines().first()
+            val line = File(tempDir, "default/telegram_123/$today.jsonl").readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
             assertFalse(json.containsKey("attachments"), "JSONL should NOT contain attachments when empty")
         }

@@ -226,6 +226,7 @@ class MessageProcessorIntegrationTest {
             compactionRunner = mockk(relaxed = true),
             subagentRunRepository = mockk(relaxed = true),
             activeSubagentJobs = mockk(relaxed = true),
+            agentRegistry = io.github.klaw.engine.agent.AgentRegistry(),
         )
     }
 

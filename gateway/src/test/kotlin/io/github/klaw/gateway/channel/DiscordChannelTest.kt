@@ -595,7 +595,7 @@ class DiscordChannelTest {
             channel.sendAction = { _, _ -> }
             channel.send("discord_123", OutgoingMessage("response text"))
 
-            coVerify { jsonlWriter.writeOutbound("discord_123", "response text") }
+            coVerify { jsonlWriter.writeOutbound(agentId = any(), chatId = "discord_123", content = "response text") }
         }
 
     // --- Liveness ---
