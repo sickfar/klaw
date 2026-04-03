@@ -53,7 +53,7 @@ class DoctorFixCommandTest {
         engineRunning: Boolean = false,
         commandRunner: (String) -> Int = { 0 },
     ) = KlawCli(
-        requestFn = { _, _ -> "{}" },
+        requestFn = { _, _, _ -> "{}" },
         conversationsDir = conversationsDir,
         engineChecker = { engineRunning },
         configDir = tmpDir,

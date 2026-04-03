@@ -17,7 +17,7 @@ internal class ReindexCommand(
         CliLogger.debug { "requesting reindex" }
         try {
             val params = if (fromJsonl) mapOf("from_jsonl" to "true") else emptyMap()
-            echo(requestFn("reindex", params))
+            echo(requestFn("reindex", params, "default"))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")

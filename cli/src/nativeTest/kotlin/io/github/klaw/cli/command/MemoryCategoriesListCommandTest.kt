@@ -12,7 +12,7 @@ class MemoryCategoriesListCommandTest {
     private var capturedParams = mapOf<String, String>()
 
     private fun cli(
-        requestFn: EngineRequest = { cmd, params ->
+        requestFn: EngineRequest = { cmd, params, _ ->
             capturedCommand = cmd
             capturedParams = params
             "No memory categories found."

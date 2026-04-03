@@ -68,7 +68,7 @@ class UpdateCommandTest {
         readLineFn: () -> String? = { "n" },
     ): KlawCli =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = tmpDir,
             logDir = "/nonexistent/logs",
             commandRunner = runner,
@@ -156,7 +156,7 @@ class UpdateCommandTest {
         val client = FakeReleaseClient(newerRelease)
         val result =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 logDir = "/nonexistent/logs",
                 commandRunner = commandRunner,

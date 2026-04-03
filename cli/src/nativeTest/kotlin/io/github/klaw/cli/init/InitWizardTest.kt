@@ -80,7 +80,7 @@ class InitWizardTest {
             skillsDir = "$tmpDir/skills",
             modelsDir = "$tmpDir/models",
             serviceOutputDir = "$tmpDir/service",
-            requestFn = { cmd, _ -> engineResponses[cmd] ?: """{"error":"not mocked"}""" },
+            requestFn = { cmd, _, _ -> engineResponses[cmd] ?: """{"error":"not mocked"}""" },
             readLine = readLineOverride ?: { inputQueue.removeFirstOrNull() },
             printer = { output += it },
             commandRunner = commandRunner,
@@ -2008,7 +2008,7 @@ class InitWizardTest {
                 skillsDir = "$tmpDir/skills",
                 modelsDir = "$tmpDir/models",
                 serviceOutputDir = "$tmpDir/service",
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     engineRequestCmds += cmd
                     """{"error":"should not be called"}"""
                 },
@@ -2183,7 +2183,7 @@ class InitWizardTest {
                 skillsDir = "$tmpDir/skills",
                 modelsDir = "$tmpDir/models",
                 serviceOutputDir = "$tmpDir/service",
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     engineRequestCmds += cmd
                     """{"error":"should not be called"}"""
                 },

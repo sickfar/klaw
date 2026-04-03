@@ -45,7 +45,7 @@ class ConfigureCommandTest {
 
     private fun cli() =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = configDir,
             logDir = "/nonexistent/logs",
         )

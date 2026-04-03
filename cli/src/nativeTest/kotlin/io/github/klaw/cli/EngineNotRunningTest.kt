@@ -10,8 +10,9 @@ class EngineNotRunningTest {
     private fun engineDownRequest(): (
         String,
         Map<String, String>,
+        String,
     ) -> String =
-        { _, _ -> throw EngineNotRunningException() }
+        { _, _, _ -> throw EngineNotRunningException() }
 
     private fun cli() =
         KlawCli(

@@ -153,6 +153,50 @@ class ConfigTemplatesTest {
     }
 
     @Test
+    fun `engineJson produces agents section with default agent`() {
+        val json = ConfigTemplates.engineJson("test/model", workspace = "/my/workspace")
+        val config = parseEngineConfig(json)
+        assertTrue(config.agents.containsKey("default"), "Expected 'default' agent in agents map")
+        assertEquals("/my/workspace", config.agents["default"]?.workspace, "Expected workspace in default agent")
+    }
+
+    @Test
+    fun `engineJson agents section uses fallback workspace when workspace is null`() {
+        val json = ConfigTemplates.engineJson("test/model", workspace = null)
+        val config = parseEngineConfig(json)
+        assertTrue(config.agents.containsKey("default"), "Expected 'default' agent in agents map")
+        val workspace = config.agents["default"]?.workspace
+        assertTrue(workspace != null && workspace.isNotBlank(), "Expected non-blank workspace in default agent")
+    }
+
+    @Test
+    fun `gatewayJson telegram channel has agentId=default`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = true)
+        val config = parseGatewayConfig(json)
+        val tg = config.channels.telegram.values.firstOrNull()
+        assertNotNull(tg, "Expected telegram channel")
+        assertEquals("default", tg.agentId, "Expected agentId=default in telegram channel")
+    }
+
+    @Test
+    fun `gatewayJson websocket channel has agentId=default`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, enableLocalWs = true)
+        val config = parseGatewayConfig(json)
+        val ws = config.channels.websocket.values.firstOrNull()
+        assertNotNull(ws, "Expected websocket channel")
+        assertEquals("default", ws.agentId, "Expected agentId=default in websocket channel")
+    }
+
+    @Test
+    fun `gatewayJson discord channel has agentId=default`() {
+        val json = ConfigTemplates.gatewayJson(telegramEnabled = false, discordEnabled = true)
+        val config = parseGatewayConfig(json)
+        val dc = config.channels.discord.values.firstOrNull()
+        assertNotNull(dc, "Expected discord channel")
+        assertEquals("default", dc.agentId, "Expected agentId=default in discord channel")
+    }
+
+    @Test
     fun `gatewayJson round-trips through parser`() {
         val json =
             ConfigTemplates.gatewayJson(

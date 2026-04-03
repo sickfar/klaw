@@ -45,7 +45,7 @@ class ConfigCommandTest {
         writeFileText("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -62,7 +62,7 @@ class ConfigCommandTest {
         writeFileText("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -76,7 +76,7 @@ class ConfigCommandTest {
     fun `config set handles missing engine json gracefully`() {
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",

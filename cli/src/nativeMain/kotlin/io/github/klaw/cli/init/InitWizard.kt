@@ -667,6 +667,7 @@ internal class InitWizard(
                                         "role" to role,
                                         "user_info" to userInfo,
                                     ),
+                                    "default",
                                 )
                             }
                         }.getOrElse { e ->

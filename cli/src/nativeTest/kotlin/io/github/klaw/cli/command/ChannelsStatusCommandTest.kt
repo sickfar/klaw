@@ -38,7 +38,7 @@ class ChannelsStatusCommandTest {
         rmdir(tmpDir)
     }
 
-    private fun makeCli(requestFn: (String, Map<String, String>) -> String = { _, _ -> "{}" }): KlawCli =
+    private fun makeCli(requestFn: (String, Map<String, String>, String) -> String = { _, _, _ -> "{}" }): KlawCli =
         KlawCli(
             requestFn = requestFn,
             configDir = configDir,
@@ -59,7 +59,7 @@ class ChannelsStatusCommandTest {
 
         var engineCalled = false
         val cli =
-            makeCli { _, _ ->
+            makeCli { _, _, _ ->
                 engineCalled = true
                 "{}"
             }
@@ -97,7 +97,7 @@ class ChannelsStatusCommandTest {
         var capturedCommand = ""
         var capturedParams = emptyMap<String, String>()
         val cli =
-            makeCli { cmd, params ->
+            makeCli { cmd, params, _ ->
                 capturedCommand = cmd
                 capturedParams = params
                 """{"status":"ok","health":{"gateway_status":"connected","uptime":"1h 23m"}}"""
@@ -167,7 +167,7 @@ class ChannelsStatusCommandTest {
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(config))
 
         val cli =
-            makeCli { _, _ ->
+            makeCli { _, _, _ ->
                 throw EngineNotRunningException()
             }
 

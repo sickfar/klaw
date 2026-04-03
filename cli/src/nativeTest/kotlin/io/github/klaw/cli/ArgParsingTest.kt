@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ArgParsingTest {
-    private fun fakeRequest(response: String): (String, Map<String, String>) -> String = { _, _ -> response }
+    private fun fakeRequest(response: String): (String, Map<String, String>, String) -> String = { _, _, _ -> response }
 
     @Test
     fun `klaw logs --follow parsed correctly`() {

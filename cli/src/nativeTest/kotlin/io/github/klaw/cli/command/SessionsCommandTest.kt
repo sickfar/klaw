@@ -11,11 +11,13 @@ import kotlin.test.assertTrue
 class SessionsCommandTest {
     private var capturedCommand = ""
     private var capturedParams = mapOf<String, String>()
+    private var capturedAgentId = ""
 
     private fun cli(
-        requestFn: EngineRequest = { cmd, params ->
+        requestFn: EngineRequest = { cmd, params, agentId ->
             capturedCommand = cmd
             capturedParams = params
+            capturedAgentId = agentId
             """[{"chatId":"test","model":"glm-5"}]"""
         },
     ): KlawCli =
@@ -83,8 +85,26 @@ class SessionsCommandTest {
     }
 
     @Test
+    fun `sessions list uses default agent when no --agent flag`() {
+        cli().test("sessions list")
+        assertEquals("default", capturedAgentId)
+    }
+
+    @Test
+    fun `sessions --agent myagent list passes agentId`() {
+        cli().test("sessions --agent myagent list")
+        assertEquals("myagent", capturedAgentId)
+    }
+
+    @Test
+    fun `sessions -a prod list passes agentId via short option`() {
+        cli().test("sessions -a prod list")
+        assertEquals("prod", capturedAgentId)
+    }
+
+    @Test
     fun `sessions list shows engine not running on failure`() {
-        val failingRequest: EngineRequest = { _, _ -> throw EngineNotRunningException() }
+        val failingRequest: EngineRequest = { _, _, _ -> throw EngineNotRunningException() }
         val result = cli(failingRequest).test("sessions list")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Engine is not running"), "output: ${result.output}")
@@ -92,7 +112,7 @@ class SessionsCommandTest {
 
     @Test
     fun `sessions cleanup shows engine not running on failure`() {
-        val failingRequest: EngineRequest = { _, _ -> throw EngineNotRunningException() }
+        val failingRequest: EngineRequest = { _, _, _ -> throw EngineNotRunningException() }
         val result = cli(failingRequest).test("sessions cleanup")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Engine is not running"), "output: ${result.output}")

@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 class StatusCommandTest {
     private val calledCommands = mutableListOf<String>()
-    private val requestFn: (String, Map<String, String>) -> String = { cmd, _ ->
+    private val requestFn: (String, Map<String, String>, String) -> String = { cmd, _, _ ->
         calledCommands += cmd
         when (cmd) {
             "status" -> """{"status": "running"}"""
@@ -18,7 +18,7 @@ class StatusCommandTest {
         }
     }
 
-    private fun cli(fn: (String, Map<String, String>) -> String = requestFn): KlawCli =
+    private fun cli(fn: (String, Map<String, String>, String) -> String = requestFn): KlawCli =
         KlawCli(
             requestFn = fn,
             logDir = "/nonexistent/logs",
@@ -34,7 +34,7 @@ class StatusCommandTest {
 
     @Test
     fun `status shows error when engine not running`() {
-        val fn: (String, Map<String, String>) -> String = { _, _ ->
+        val fn: (String, Map<String, String>, String) -> String = { _, _, _ ->
             throw EngineNotRunningException()
         }
         val result = cli(fn).test("status")

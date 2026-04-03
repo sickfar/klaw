@@ -2,6 +2,7 @@ package io.github.klaw.cli.command
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
@@ -12,6 +13,8 @@ import io.github.klaw.cli.util.CliLogger
 internal class SessionsCommand(
     requestFn: EngineRequest,
 ) : CliktCommand(name = "sessions") {
+    val agent by option("--agent", "-a", help = "Agent ID").default("default")
+
     init {
         subcommands(
             SessionsListCommand(requestFn),
@@ -28,6 +31,7 @@ internal class SessionsListCommand(
     private val active by option("--active", help = "Show only sessions active within N minutes").int()
     private val json by option("--json", help = "Output as JSON").flag()
     private val verbose by option("--verbose", help = "Show detailed info (tokens, timestamps)").flag()
+    private val agentId: String get() = (currentContext.parent?.command as? SessionsCommand)?.agent ?: "default"
 
     override fun run() {
         val params =
@@ -38,7 +42,7 @@ internal class SessionsListCommand(
             }
         CliLogger.debug { "requesting sessions_list params=$params" }
         try {
-            echo(requestFn("sessions_list", params))
+            echo(requestFn("sessions_list", params, agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -51,6 +55,7 @@ internal class SessionsCleanupCommand(
 ) : CliktCommand(name = "cleanup") {
     private val olderThan by option("--older-than", help = "Remove sessions inactive for N minutes (default: 1440)")
         .int()
+    private val agentId: String get() = (currentContext.parent?.command as? SessionsCommand)?.agent ?: "default"
 
     override fun run() {
         val params =
@@ -59,7 +64,7 @@ internal class SessionsCleanupCommand(
             }
         CliLogger.debug { "requesting sessions_cleanup params=$params" }
         try {
-            echo(requestFn("sessions_cleanup", params))
+            echo(requestFn("sessions_cleanup", params, agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")

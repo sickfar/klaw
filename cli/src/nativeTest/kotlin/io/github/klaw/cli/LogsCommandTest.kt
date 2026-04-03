@@ -75,7 +75,7 @@ class LogsCommandTest {
 
     private fun cli() =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             conversationsDir = conversationsDir,
             engineChecker = { false },
             configDir = "/nonexistent",

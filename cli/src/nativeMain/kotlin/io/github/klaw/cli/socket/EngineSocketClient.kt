@@ -43,6 +43,7 @@ class EngineSocketClient(
     fun request(
         command: String,
         params: Map<String, String> = emptyMap(),
+        agentId: String = "default",
     ): String {
         CliLogger.debug { "connecting to $host:$port" }
         val fd = socket(AF_INET, SOCK_STREAM, 0)
@@ -70,7 +71,7 @@ class EngineSocketClient(
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, tv.ptr, sizeOf<timeval>().convert())
         }
 
-        val lineBytes = (json.encodeToString(CliRequestMessage(command, params)) + "\n").encodeToByteArray()
+        val lineBytes = (json.encodeToString(CliRequestMessage(command, params, agentId)) + "\n").encodeToByteArray()
         var sent = 0
         lineBytes.usePinned { pinned ->
             while (sent < lineBytes.size) {

@@ -138,7 +138,7 @@ internal class ChannelsStatusCommand(
 
     private fun probeGateway(): String? =
         try {
-            val response = requestFn("status", mapOf("deep" to "true"))
+            val response = requestFn("status", mapOf("deep" to "true"), "default")
             extractGatewayStatus(response)
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }

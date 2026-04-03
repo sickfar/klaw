@@ -35,7 +35,7 @@ class ServiceCommandTest {
 
     private fun cli(runner: (String) -> Int = commandRunner): KlawCli =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = tmpDir,
             logDir = "/nonexistent/logs",
             commandRunner = runner,

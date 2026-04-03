@@ -74,7 +74,7 @@ class PairCommandTest {
 
     private fun makeCli(): KlawCli =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = configDir,
             modelsDir = "/nonexistent",
             logDir = "/nonexistent/logs",
