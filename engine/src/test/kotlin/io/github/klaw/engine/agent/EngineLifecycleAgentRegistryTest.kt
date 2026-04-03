@@ -8,6 +8,8 @@ import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.engine.db.NoOpSqliteVecLoader
 import io.github.klaw.engine.fixtures.testEngineConfig
 import io.github.klaw.engine.llm.LlmRouter
+import io.github.klaw.engine.tools.ActiveSubagentJobs
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -56,7 +58,17 @@ class EngineLifecycleAgentRegistryTest {
             embeddingService = StubEmbeddingService(),
             sqliteVecLoader = NoOpSqliteVecLoader(),
             globalConfig = config,
-            engineHealthProvider = io.mockk.mockk(relaxed = true),
+            engineHealthProvider = mockk(relaxed = true),
+            dockerClient = mockk(relaxed = true),
+            approvalService = mockk(relaxed = true),
+            shutdownController = mockk(relaxed = true),
+            scheduler = mockk(relaxed = true),
+            docsService = mockk(relaxed = true),
+            socketServerProvider = mockk(relaxed = true),
+            processorProvider = mockk(relaxed = true),
+            activeSubagentJobs = ActiveSubagentJobs(),
+            webFetchTool = mockk(relaxed = true),
+            webSearchTool = mockk(relaxed = true),
         )
     }
 
