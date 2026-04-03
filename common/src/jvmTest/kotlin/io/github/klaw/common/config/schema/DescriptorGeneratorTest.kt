@@ -119,10 +119,10 @@ class DescriptorGeneratorTest {
     @Test
     fun marksSensitiveProperties() {
         // providers.*.apiKey is inside a map value — we check via a different path
-        // TelegramConfig.token is sensitive
-        val desc = findDescriptor(gatewayDescriptors, "channels.telegram.token")
-        assertNotNull(desc, "channels.telegram.token not found")
-        assertTrue(desc.sensitive, "telegram.token should be sensitive")
+        // TelegramChannelConfig.token is sensitive
+        val desc = findDescriptor(gatewayDescriptors, "channels.telegram.*.token")
+        assertNotNull(desc, "channels.telegram.*.token not found")
+        assertTrue(desc.sensitive, "telegram.*.token should be sensitive")
     }
 
     @Test
@@ -161,15 +161,15 @@ class DescriptorGeneratorTest {
     @Test
     fun generatesGatewayDescriptors() {
         assertTrue(gatewayDescriptors.isNotEmpty(), "Gateway descriptors should not be empty")
-        val desc = findDescriptor(gatewayDescriptors, "channels.telegram.token")
-        assertNotNull(desc, "channels.telegram.token not found")
+        val desc = findDescriptor(gatewayDescriptors, "channels.telegram.*.token")
+        assertNotNull(desc, "channels.telegram.*.token not found")
         assertEquals(ConfigValueType.STRING, desc.type)
     }
 
     @Test
-    fun generatesGatewayLocalWsPort() {
-        val desc = findDescriptor(gatewayDescriptors, "channels.localWs.port")
-        assertNotNull(desc, "channels.localWs.port not found")
+    fun generatesGatewayWebsocketPort() {
+        val desc = findDescriptor(gatewayDescriptors, "channels.websocket.*.port")
+        assertNotNull(desc, "channels.websocket.*.port not found")
         assertEquals(ConfigValueType.INT, desc.type)
     }
 
@@ -177,8 +177,8 @@ class DescriptorGeneratorTest {
 
     @Test
     fun discordTokenIsSensitive() {
-        val desc = findDescriptor(gatewayDescriptors, "channels.discord.token")
-        assertNotNull(desc, "channels.discord.token not found")
-        assertTrue(desc.sensitive, "discord.token should be sensitive")
+        val desc = findDescriptor(gatewayDescriptors, "channels.discord.*.token")
+        assertNotNull(desc, "channels.discord.*.token not found")
+        assertTrue(desc.sensitive, "discord.*.token should be sensitive")
     }
 }

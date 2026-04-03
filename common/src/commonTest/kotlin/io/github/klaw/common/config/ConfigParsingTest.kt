@@ -14,12 +14,17 @@ class ConfigParsingTest {
 {
   "channels": {
     "telegram": {
-      "token": "test_bot_token_123",
-      "allowedChats": [{"chatId": "123456", "allowedUserIds": ["user1"]}, {"chatId": "789012"}]
+      "main": {
+        "token": "test_bot_token_123",
+        "agentId": "default",
+        "allowedChats": [{"chatId": "123456", "allowedUserIds": ["user1"]}, {"chatId": "789012"}]
+      }
     },
     "discord": {
-      "enabled": false,
-      "token": "discord_bot_token"
+      "main": {
+        "token": "discord_bot_token",
+        "agentId": "default"
+      }
     }
   }
 }
@@ -140,13 +145,13 @@ class ConfigParsingTest {
     @Test
     fun `parse gateway json - telegram token`() {
         val config = parseGatewayConfig(gatewayJson)
-        assertEquals("test_bot_token_123", config.channels.telegram?.token)
+        assertEquals("test_bot_token_123", config.channels.telegram["main"]?.token)
     }
 
     @Test
     fun `parse gateway json - telegram allowedChats`() {
         val config = parseGatewayConfig(gatewayJson)
-        val chats = config.channels.telegram?.allowedChats
+        val chats = config.channels.telegram["main"]?.allowedChats
         assertEquals(2, chats?.size)
         assertEquals("123456", chats?.get(0)?.chatId)
         assertEquals(listOf("user1"), chats?.get(0)?.allowedUserIds)
@@ -155,10 +160,10 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `parse gateway json - discord enabled false`() {
+    fun `parse gateway json - discord token present`() {
         val config = parseGatewayConfig(gatewayJson)
-        val discord = assertNotNull(config.channels.discord)
-        assertFalse(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
+        assertEquals("discord_bot_token", discord.token)
     }
 
     @Test
@@ -224,66 +229,59 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `GatewayConfig with localWs section enabled=true and port=9090 parses correctly`() {
+    fun `GatewayConfig with websocket section and custom port parses correctly`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 },
-                "localWs": {
-                  "enabled": true,
-                  "port": 9090
+                "websocket": {
+                  "console": { "agentId": "default", "port": 9090 }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.localWs)
-        assertTrue(console.enabled)
+        val console = assertNotNull(config.channels.websocket["console"])
         assertEquals(9090, console.port)
     }
 
     @Test
-    fun `GatewayConfig with localWs section enabled=false parses correctly`() {
+    fun `GatewayConfig with websocket section and default port parses correctly`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 },
-                "localWs": {
-                  "enabled": false,
-                  "port": 37474
+                "websocket": {
+                  "console": { "agentId": "default", "port": 37474 }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.localWs)
-        assertFalse(console.enabled)
+        val console = assertNotNull(config.channels.websocket["console"])
         assertEquals(37474, console.port)
     }
 
     @Test
-    fun `GatewayConfig without localWs section uses null default`() {
+    fun `GatewayConfig without websocket section has empty map`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.localWs)
+        assertTrue(config.channels.websocket.isEmpty())
     }
 
     @Test
@@ -683,28 +681,29 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "discord_token",
-                  "allowedGuilds": [
-                    {
-                      "guildId": "guild_001",
-                      "allowedChannelIds": ["ch_1", "ch_2"],
-                      "allowedUserIds": ["user_a", "user_b"]
-                    },
-                    {
-                      "guildId": "guild_002",
-                      "allowedChannelIds": [],
-                      "allowedUserIds": ["user_c"]
-                    }
-                  ],
-                  "apiBaseUrl": "https://discord.example.com/api"
+                  "main": {
+                    "token": "discord_token",
+                    "agentId": "default",
+                    "allowedGuilds": [
+                      {
+                        "guildId": "guild_001",
+                        "allowedChannelIds": ["ch_1", "ch_2"],
+                        "allowedUserIds": ["user_a", "user_b"]
+                      },
+                      {
+                        "guildId": "guild_002",
+                        "allowedChannelIds": [],
+                        "allowedUserIds": ["user_c"]
+                      }
+                    ],
+                    "apiBaseUrl": "https://discord.example.com/api"
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertTrue(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
         assertEquals(2, discord.allowedGuilds.size)
 
         val guild1 = discord.allowedGuilds[0]
@@ -727,34 +726,18 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "discord_token"
+                  "main": {
+                    "token": "discord_token",
+                    "agentId": "default"
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertTrue(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
         assertTrue(discord.allowedGuilds.isEmpty())
         assertNull(discord.apiBaseUrl)
-    }
-
-    @Test
-    fun `parse gateway json - discord enabled false by default`() {
-        val json =
-            """
-            {
-              "channels": {
-                "discord": {
-                  "token": "discord_token"
-                }
-              }
-            }
-            """.trimIndent()
-        val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertFalse(discord.enabled)
     }
 
     @Test
@@ -764,36 +747,37 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "t",
-                  "allowedGuilds": [{"guildId": "g1"}]
+                  "main": {
+                    "token": "t",
+                    "agentId": "default",
+                    "allowedGuilds": [{"guildId": "g1"}]
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val guild = config.channels.discord!!.allowedGuilds[0]
+        val guild = config.channels.discord["main"]!!.allowedGuilds[0]
         assertEquals("g1", guild.guildId)
         assertTrue(guild.allowedChannelIds.isEmpty())
         assertTrue(guild.allowedUserIds.isEmpty())
     }
 
     @Test
-    fun `backward compat - existing config without discord section still parses`() {
+    fun `backward compat - existing config without discord section has empty map`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot_token",
-                  "allowedChats": [{"chatId": "123"}]
+                  "main": { "token": "bot_token", "agentId": "default" }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.discord)
-        assertNotNull(config.channels.telegram)
+        assertTrue(config.channels.discord.isEmpty())
+        assertFalse(config.channels.telegram.isEmpty())
     }
 
     @Test
@@ -1356,5 +1340,154 @@ class ConfigParsingTest {
         assertEquals("glm/glm-4-plus", config.effectiveAgents["alice"]!!.routing?.default)
         assertEquals(2, config.effectiveAgents["alice"]!!.limits?.maxConcurrentRequests)
         assertFalse(config.effectiveAgents["bob"]!!.enabled)
+    }
+
+    // --- New map-based gateway channel tests ---
+
+    @Test
+    fun `parse gateway config with map-based channels`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": { "token": "tok1", "agentId": "default" },
+                  "work": { "token": "tok2", "agentId": "work" }
+                },
+                "websocket": {
+                  "main": { "agentId": "default" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(2, config.channels.telegram.size)
+        assertEquals("tok1", config.channels.telegram["personal"]?.token)
+        assertEquals("default", config.channels.telegram["personal"]?.agentId)
+        assertEquals("work", config.channels.telegram["work"]?.agentId)
+        assertEquals(1, config.channels.websocket.size)
+    }
+
+    @Test
+    fun `parse gateway discord channel with agentId`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "work-guild": { "token": "disc-tok", "agentId": "work" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals("work", config.channels.discord["work-guild"]?.agentId)
+    }
+
+    @Test
+    fun `parse gateway config with empty channels`() {
+        val json =
+            """
+            {
+              "channels": {}
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertTrue(config.channels.telegram.isEmpty())
+        assertTrue(config.channels.discord.isEmpty())
+        assertTrue(config.channels.websocket.isEmpty())
+    }
+
+    @Test
+    fun `parse gateway config minimal - channels absent`() {
+        val config = parseGatewayConfig("{}")
+        assertTrue(config.channels.telegram.isEmpty())
+        assertTrue(config.channels.discord.isEmpty())
+        assertTrue(config.channels.websocket.isEmpty())
+    }
+
+    @Test
+    fun `parse telegram channel config with allowedChats`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": {
+                    "token": "bot-token",
+                    "agentId": "default",
+                    "allowedChats": [
+                      {"chatId": "123456", "allowedUserIds": ["user1"]},
+                      {"chatId": "789012"}
+                    ]
+                  }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val ch = config.channels.telegram["personal"]
+        assertNotNull(ch)
+        assertEquals(2, ch.allowedChats.size)
+        assertEquals("123456", ch.allowedChats[0].chatId)
+        assertEquals(listOf("user1"), ch.allowedChats[0].allowedUserIds)
+        assertEquals("789012", ch.allowedChats[1].chatId)
+        assertTrue(ch.allowedChats[1].allowedUserIds.isEmpty())
+    }
+
+    @Test
+    fun `parse websocket channel config with custom port`() {
+        val json =
+            """
+            {
+              "channels": {
+                "websocket": {
+                  "main": { "agentId": "default", "port": 9090 }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(9090, config.channels.websocket["main"]?.port)
+    }
+
+    @Test
+    fun `parse websocket channel config with default port`() {
+        val json =
+            """
+            {
+              "channels": {
+                "websocket": {
+                  "main": { "agentId": "default" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(37474, config.channels.websocket["main"]?.port)
+    }
+
+    @Test
+    fun `gateway config map-based round-trip`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": { "token": "tok1", "agentId": "default" }
+                },
+                "discord": {
+                  "main": { "token": "disc-tok", "agentId": "work" }
+                },
+                "websocket": {
+                  "console": { "agentId": "default", "port": 37474 }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val encoded = encodeGatewayConfig(config)
+        val reparsed = parseGatewayConfig(encoded)
+        assertEquals(config, reparsed)
     }
 }

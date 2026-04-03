@@ -1114,105 +1114,129 @@ object GeneratedSchemas {
                     "properties": {
                         "telegram": {
                             "type": "object",
-                            "properties": {
-                                "token": {
-                                    "type": "string",
-                                    "description": "Telegram Bot API token"
-                                },
-                                "allowedChats": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "chatId": {
-                                                "type": "string",
-                                                "description": "Platform-specific chat identifier"
-                                            },
-                                            "allowedUserIds": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "Agent ID this channel routes messages to"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "description": "Telegram Bot API token"
+                                    },
+                                    "allowedChats": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "chatId": {
+                                                    "type": "string",
+                                                    "description": "Platform-specific chat identifier"
                                                 },
-                                                "description": "List of user IDs allowed to interact in this chat"
-                                            }
-                                        },
-                                        "required": [
-                                            "chatId"
-                                        ],
-                                        "additionalProperties": false
+                                                "allowedUserIds": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "List of user IDs allowed to interact in this chat"
+                                                }
+                                            },
+                                            "required": [
+                                                "chatId"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "apiBaseUrl": {
+                                        "type": "string",
+                                        "description": "Custom API base URL (testing only)"
                                     }
                                 },
-                                "apiBaseUrl": {
-                                    "type": "string",
-                                    "description": "Custom API base URL (testing only)"
-                                }
+                                "required": [
+                                    "agentId",
+                                    "token"
+                                ],
+                                "additionalProperties": false
                             },
-                            "required": [
-                                "token"
-                            ],
-                            "additionalProperties": false
+                            "description": "Telegram bot channel instances keyed by name"
                         },
                         "discord": {
                             "type": "object",
-                            "properties": {
-                                "enabled": {
-                                    "type": "boolean",
-                                    "description": "Enable the Discord bot channel"
-                                },
-                                "token": {
-                                    "type": "string",
-                                    "description": "Discord bot token"
-                                },
-                                "allowedGuilds": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "guildId": {
-                                                "type": "string",
-                                                "description": "Discord guild (server) ID"
-                                            },
-                                            "allowedChannelIds": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "Agent ID this channel routes messages to"
+                                    },
+                                    "token": {
+                                        "type": "string",
+                                        "description": "Discord bot token"
+                                    },
+                                    "allowedGuilds": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "guildId": {
+                                                    "type": "string",
+                                                    "description": "Discord guild (server) ID"
                                                 },
-                                                "description": "Allowed channel IDs within guild (empty = all channels)"
-                                            },
-                                            "allowedUserIds": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
+                                                "allowedChannelIds": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "Allowed channel IDs within guild (empty = all channels)"
                                                 },
-                                                "description": "Allowed user IDs (empty = deny all)"
-                                            }
-                                        },
-                                        "required": [
-                                            "guildId"
-                                        ],
-                                        "additionalProperties": false
+                                                "allowedUserIds": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "Allowed user IDs (empty = deny all)"
+                                                }
+                                            },
+                                            "required": [
+                                                "guildId"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "apiBaseUrl": {
+                                        "type": "string",
+                                        "description": "Custom API base URL (testing only)"
                                     }
                                 },
-                                "apiBaseUrl": {
-                                    "type": "string",
-                                    "description": "Custom API base URL (testing only)"
-                                }
+                                "required": [
+                                    "agentId",
+                                    "token"
+                                ],
+                                "additionalProperties": false
                             },
-                            "additionalProperties": false
+                            "description": "Discord bot channel instances keyed by name"
                         },
-                        "localWs": {
+                        "websocket": {
                             "type": "object",
-                            "properties": {
-                                "enabled": {
-                                    "type": "boolean",
-                                    "description": "Enable the local WebSocket channel"
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "agentId": {
+                                        "type": "string",
+                                        "description": "Agent ID this channel routes messages to"
+                                    },
+                                    "port": {
+                                        "type": "integer",
+                                        "description": "TCP port for the WebSocket channel"
+                                    }
                                 },
-                                "port": {
-                                    "type": "integer",
-                                    "description": "TCP port for the local WebSocket channel"
-                                }
+                                "required": [
+                                    "agentId"
+                                ],
+                                "additionalProperties": false
                             },
-                            "additionalProperties": false
+                            "description": "WebSocket channel instances keyed by name"
                         }
                     },
                     "additionalProperties": false
@@ -1260,9 +1284,6 @@ object GeneratedSchemas {
                     "additionalProperties": false
                 }
             },
-            "required": [
-                "channels"
-            ],
             "additionalProperties": false
         }
         """.trimIndent()

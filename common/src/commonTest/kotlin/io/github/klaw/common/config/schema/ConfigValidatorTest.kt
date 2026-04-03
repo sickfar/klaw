@@ -252,7 +252,7 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `gateway schema validates correctly`() {
+    fun `gateway schema validates correctly with channels`() {
         val gwSchema = gatewayJsonSchema()
         val validGw = parse("""{"channels": {}}""")
         val errors = validateConfig(gwSchema, validGw)
@@ -260,10 +260,10 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `gateway schema reports missing channels`() {
+    fun `gateway schema validates empty object - channels is optional`() {
         val gwSchema = gatewayJsonSchema()
-        val invalid = parse("""{}""")
-        val errors = validateConfig(gwSchema, invalid)
-        assertTrue(errors.any { ".channels" in it.path }, "Should report missing channels: $errors")
+        val valid = parse("""{}""")
+        val errors = validateConfig(gwSchema, valid)
+        assertEquals(emptyList(), errors, "Empty gateway config should pass (channels has default): $errors")
     }
 }

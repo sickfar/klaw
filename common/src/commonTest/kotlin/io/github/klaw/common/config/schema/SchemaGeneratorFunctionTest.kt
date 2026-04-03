@@ -289,8 +289,9 @@ class SchemaGeneratorFunctionTest {
                     .serializer()
                     .descriptor,
             )
-        val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        assertTrue("channels" in required)
+        // channels has a default value so it is not required
+        val required = schema["required"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+        assertTrue("channels" !in required, "channels is optional (has default)")
         assertTrue("commands" !in required)
     }
 

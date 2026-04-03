@@ -44,18 +44,22 @@ class ConfigModelsTest {
                 channels =
                     ChannelsConfig(
                         telegram =
-                            TelegramConfig(
-                                token = "bot123",
-                                allowedChats = listOf(AllowedChat("123456", listOf("user1"))),
+                            mapOf(
+                                "personal" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "bot123",
+                                        allowedChats = listOf(AllowedChat("123456", listOf("user1"))),
+                                    ),
                             ),
                     ),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<GatewayConfig>(encoded)
         assertEquals(config, decoded)
-        assertEquals("bot123", decoded.channels.telegram?.token)
+        assertEquals("bot123", decoded.channels.telegram["personal"]?.token)
         val chat =
-            decoded.channels.telegram
+            decoded.channels.telegram["personal"]
                 ?.allowedChats
                 ?.firstOrNull()
         assertNotNull(chat)
@@ -64,14 +68,17 @@ class ConfigModelsTest {
     }
 
     @Test
-    fun `GatewayConfig with null discord round-trip`() {
+    fun `GatewayConfig with empty discord map round-trip`() {
         val config =
             GatewayConfig(
-                channels = ChannelsConfig(telegram = TelegramConfig(token = "tok")),
+                channels =
+                    ChannelsConfig(
+                        telegram = mapOf("main" to TelegramChannelConfig(agentId = "default", token = "tok")),
+                    ),
             )
         val encoded = json.encodeToString(config)
         val decoded = json.decodeFromString<GatewayConfig>(encoded)
-        assertNull(decoded.channels.discord)
+        assertTrue(decoded.channels.discord.isEmpty())
     }
 
     @Test
