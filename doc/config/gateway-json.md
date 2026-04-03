@@ -27,32 +27,74 @@ klaw doctor --dump-schema gateway > gateway.schema.json
 
 ---
 
+## Channel Architecture
+
+The `channels` map uses a two-level structure: `channels.<type>.<name>`. Each named channel instance has its own config and an `agentId` field that routes its messages to a specific engine agent.
+
+This lets you run multiple bots of the same type (e.g. two Telegram bots) pointing to different agents:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "main": {
+        "agentId": "default",
+        "token": "${TELEGRAM_BOT_TOKEN}",
+        "allowedChats": [
+          {"chatId": "telegram_123456789", "allowedUserIds": ["12345"]}
+        ]
+      },
+      "assistant": {
+        "agentId": "assistant",
+        "token": "${TELEGRAM_ASSISTANT_TOKEN}",
+        "allowedChats": [
+          {"chatId": "telegram_987654321", "allowedUserIds": ["12345"]}
+        ]
+      }
+    },
+    "websocket": {
+      "local": {
+        "agentId": "default",
+        "port": 37474
+      }
+    }
+  }
+}
+```
+
 ## Full Example
 
 ```json
 {
   "channels": {
     "telegram": {
-      "token": "your-bot-token",
-      "allowedChats": [
-        {"chatId": "telegram_123456789", "allowedUserIds": ["12345"]},
-        {"chatId": "telegram_987654321"}
-      ]
+      "main": {
+        "agentId": "default",
+        "token": "your-bot-token",
+        "allowedChats": [
+          {"chatId": "telegram_123456789", "allowedUserIds": ["12345"]},
+          {"chatId": "telegram_987654321"}
+        ]
+      }
     },
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "local": {
+        "agentId": "default",
+        "port": 37474
+      }
     },
     "discord": {
-      "enabled": true,
-      "token": "${KLAW_DISCORD_TOKEN}",
-      "allowedGuilds": [
-        {
-          "guildId": "123456789012345678",
-          "allowedChannelIds": [],
-          "allowedUserIds": ["987654321098765432"]
-        }
-      ]
+      "main": {
+        "agentId": "default",
+        "token": "${KLAW_DISCORD_TOKEN}",
+        "allowedGuilds": [
+          {
+            "guildId": "123456789012345678",
+            "allowedChannelIds": [],
+            "allowedUserIds": ["987654321098765432"]
+          }
+        ]
+      }
     }
   },
   "attachments": {
@@ -66,22 +108,19 @@ klaw doctor --dump-schema gateway > gateway.schema.json
   "webui": {
     "enabled": true,
     "apiToken": ""
-  },
-  "commands": [
-    {"name": "new", "description": "Start a new conversation"},
-    {"name": "model", "description": "Show or change the active model"},
-    {"name": "status", "description": "Show agent status"},
-    {"name": "help", "description": "List available commands"}
-  ]
+  }
 }
 ```
 
 ---
 
-## channels.telegram
+## channels.telegram.\<name\>
+
+Each named Telegram channel instance routes to one agent.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `agentId` | string | required | Agent ID in `engine.json` that this channel routes messages to |
 | `token` | string | required | Telegram Bot API token from @BotFather |
 | `allowedChats` | list of objects | `[]` | Paired chats allowed to interact with the bot |
 
@@ -128,29 +167,29 @@ If a chat is not paired, the user will receive "Not paired. Send /start to get a
 
 ---
 
-## channels.localWs
+## channels.websocket.\<name\>
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable the local WebSocket channel (`klaw chat`) |
+| `agentId` | string | required | Agent ID this channel routes messages to |
 | `port` | integer | `37474` | Port the Gateway WebSocket server listens on |
 
-The local WebSocket channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's WebSocket endpoint at `ws://localhost:<port>/ws/chat`.
+The WebSocket channel enables `klaw chat` — an interactive split-screen TUI that routes messages through the Gateway's WebSocket endpoint at `ws://localhost:<port>/ws/chat`.
 
-**Disabled by default.** The Gateway always registers the `/chat` endpoint, but rejects all connections unless `enabled` is `true`.
+**Session:** All WebSocket messages use the fixed chatId `local_ws_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
 
-**Session:** All local WebSocket messages use the fixed chatId `local_ws_default`. This session persists across `klaw chat` invocations like any other channel — history is JSONL-logged and searchable.
-
-**Allow policy:** `local_ws_default` is implicitly allowed — no pairing needed. Other chatIds are blocked on the local WebSocket channel.
+**Allow policy:** `local_ws_default` is implicitly allowed — no pairing needed.
 
 To enable via `klaw init`, answer `y` at the "WebSocket chat setup" phase. To enable manually, add to `gateway.json`:
 
 ```json
 {
   "channels": {
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "local": {
+        "agentId": "default",
+        "port": 37474
+      }
     }
   }
 }
@@ -160,12 +199,14 @@ Then restart the gateway: `klaw service restart gateway`
 
 ---
 
-## channels.discord
+## channels.discord.\<name\>
+
+Each named Discord channel instance routes to one agent.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable the Discord bot channel |
-| `token` | string | `null` | Discord bot token (env var `${KLAW_DISCORD_TOKEN}`) |
+| `agentId` | string | required | Agent ID this channel routes messages to |
+| `token` | string | required | Discord bot token (env var `${KLAW_DISCORD_TOKEN}`) |
 | `allowedGuilds` | list of objects | `[]` | Guild-level access control list |
 | `apiBaseUrl` | string | `null` | Custom API base URL (testing only, omit in production) |
 
@@ -194,20 +235,22 @@ Each entry is an object:
 {
   "channels": {
     "discord": {
-      "enabled": true,
-      "token": "${KLAW_DISCORD_TOKEN}",
-      "allowedGuilds": [
-        {
-          "guildId": "123456789012345678",
-          "allowedChannelIds": [],
-          "allowedUserIds": ["987654321098765432"]
-        },
-        {
-          "guildId": "111222333444555666",
-          "allowedChannelIds": ["777888999000111222"],
-          "allowedUserIds": ["987654321098765432", "112233445566778899"]
-        }
-      ]
+      "main": {
+        "agentId": "default",
+        "token": "${KLAW_DISCORD_TOKEN}",
+        "allowedGuilds": [
+          {
+            "guildId": "123456789012345678",
+            "allowedChannelIds": [],
+            "allowedUserIds": ["987654321098765432"]
+          },
+          {
+            "guildId": "111222333444555666",
+            "allowedChannelIds": ["777888999000111222"],
+            "allowedUserIds": ["987654321098765432", "112233445566778899"]
+          }
+        ]
+      }
     }
   }
 }
