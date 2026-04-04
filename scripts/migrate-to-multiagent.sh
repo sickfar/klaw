@@ -341,7 +341,7 @@ move_file "${SCHED_DB}-shm" "${SCHED_DB_NEW}-shm"
 # ---------------------------------------------------------------------------
 echo "--- Conversation files ---"
 
-CONV_DIR="${STATE_DIR}/conversations"
+CONV_DIR="${DATA_DIR}/conversations"
 
 if [[ -d "$CONV_DIR" ]]; then
   # Find direct subdirectories that are NOT already "default" (i.e. old chatId dirs)
