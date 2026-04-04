@@ -16,6 +16,10 @@ import kotlinx.coroutines.channels.Channel as KChannel
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * WebSocket channel supporting multiple agents via /ws/chat/{agentId}.
+ * Each agentId has its own session and chatId (local_ws_{agentId}).
+ */
 @Singleton
 class LocalWsChannel(
     private val jsonlWriter: ConversationJsonlWriter,
@@ -26,18 +30,17 @@ class LocalWsChannel(
             config.channels.websocket.keys
                 .firstOrNull() ?: "local_ws"
 
-    private val agentId: String
-        get() =
-            config.channels.websocket.values
-                .firstOrNull()
-                ?.agentId ?: "default"
+    /** Sessions keyed by agentId. */
+    private val sessions = ConcurrentHashMap<String, WebSocketSession>()
 
-    @Volatile private var activeSession: WebSocketSession? = null
+    /** Reverse lookup: chatId → agentId for outbound routing. */
+    private val chatIdToAgent = ConcurrentHashMap<String, String>()
+
     override var onBecameAlive: (suspend () -> Unit)? = null
     private val incomingQueue = KChannel<IncomingMessage>(KChannel.UNLIMITED)
     private val pendingApprovals = ConcurrentHashMap<String, suspend (Boolean) -> Unit>()
 
-    override fun isAlive(): Boolean = activeSession != null
+    override fun isAlive(): Boolean = sessions.isNotEmpty()
 
     override suspend fun start() {
         // WebSocket server handles binding; nothing to do here
@@ -45,11 +48,11 @@ class LocalWsChannel(
 
     override suspend fun stop() {
         incomingQueue.close()
-        try {
-            activeSession?.close()
-        } catch (_: Exception) {
-            // ignore close errors
+        sessions.values.forEach { session ->
+            runCatching { session.close() }
         }
+        sessions.clear()
+        chatIdToAgent.clear()
         logger.info { "LocalWsChannel stopped" }
     }
 
@@ -59,30 +62,40 @@ class LocalWsChannel(
         }
     }
 
-    suspend fun registerSession(session: WebSocketSession) {
-        val previousSession = activeSession
-        activeSession = session
-        if (previousSession !== session) {
-            // New or different session — always drain buffer so buffered messages
-            // are not lost when client reconnects before the old session is cleared
+    suspend fun registerSession(
+        agentId: String,
+        session: WebSocketSession,
+    ) {
+        val previous = sessions.put(agentId, session)
+        val chatId = chatIdFor(agentId)
+        chatIdToAgent[chatId] = agentId
+        if (previous !== session) {
             onBecameAlive?.invoke()
-            logger.debug { "Local WS session registered, draining buffer" }
+            logger.debug { "WS session registered for agent=$agentId chatId=$chatId" }
         }
     }
 
-    fun clearSession(session: WebSocketSession) {
-        if (activeSession === session) {
-            activeSession = null
-            logger.debug { "Local WS session cleared" }
+    fun clearSession(
+        agentId: String,
+        session: WebSocketSession,
+    ) {
+        if (sessions[agentId] === session) {
+            sessions.remove(agentId)
+            chatIdToAgent.remove(chatIdFor(agentId))
+            logger.debug { "WS session cleared for agent=$agentId" }
         }
     }
 
     suspend fun handleIncoming(
+        agentId: String,
         content: String,
         session: WebSocketSession,
         attachmentPaths: List<String> = emptyList(),
     ) {
-        activeSession = session
+        sessions[agentId] = session
+        val chatId = chatIdFor(agentId)
+        chatIdToAgent[chatId] = agentId
+        val channelName = resolveChannelName(agentId)
         val msgId = UUID.randomUUID().toString()
         val attachments =
             attachmentPaths.map { path ->
@@ -94,8 +107,8 @@ class LocalWsChannel(
         val incoming =
             IncomingMessage(
                 id = msgId,
-                channel = name,
-                chatId = "local_ws_default",
+                channel = channelName,
+                chatId = chatId,
                 content = content,
                 ts = Clock.System.now(),
                 agentId = agentId,
@@ -107,7 +120,7 @@ class LocalWsChannel(
         jsonlWriter.writeInbound(incoming)
         incomingQueue.send(incoming)
         sendStatusFrame(session, "thinking")
-        logger.trace { "Local WS message enqueued: ${content.length} chars, attachments=${attachments.size}" }
+        logger.trace { "WS message enqueued: agent=$agentId ${content.length} chars" }
     }
 
     override suspend fun sendStreamDelta(
@@ -115,14 +128,10 @@ class LocalWsChannel(
         delta: String,
         streamId: String,
     ) {
-        val session =
-            activeSession ?: run {
-                logger.warn { "LocalWsChannel.sendStreamDelta: no active session" }
-                return
-            }
+        val session = sessionFor(chatId) ?: return
         val message = Json.encodeToString(ChatFrame(type = "stream_delta", content = delta))
         runCatching { session.sendSync(message) }
-            .onFailure { e -> logger.trace { "LocalWsChannel: stream delta send failed: ${e::class.simpleName}" } }
+            .onFailure { e -> logger.trace { "WS stream delta send failed: ${e::class.simpleName}" } }
     }
 
     override suspend fun sendStreamEnd(
@@ -130,30 +139,22 @@ class LocalWsChannel(
         fullContent: String,
         streamId: String,
     ) {
-        val session =
-            activeSession ?: run {
-                logger.warn { "LocalWsChannel.sendStreamEnd: no active session" }
-                return
-            }
+        val session = sessionFor(chatId) ?: return
         sendStatusFrame(session, "")
         val message = Json.encodeToString(ChatFrame(type = "stream_end", content = fullContent))
         runCatching { session.sendSync(message) }
-            .onFailure { e -> logger.error(e) { "LocalWsChannel: stream end send failed" } }
+            .onFailure { e -> logger.error(e) { "WS stream end send failed" } }
     }
 
     override suspend fun send(
         chatId: String,
         response: OutgoingMessage,
     ) {
-        val session =
-            activeSession ?: run {
-                logger.warn { "LocalWsChannel.send: no active session" }
-                return
-            }
+        val session = sessionFor(chatId) ?: return
         sendStatusFrame(session, "")
         val message = Json.encodeToString(ChatFrame(type = "assistant", content = response.content))
         runCatching { session.sendSync(message) }
-            .onFailure { e -> logger.error(e) { "LocalWsChannel: send failed" } }
+            .onFailure { e -> logger.error(e) { "WS send failed for chatId=$chatId" } }
     }
 
     override suspend fun sendApproval(
@@ -161,11 +162,7 @@ class LocalWsChannel(
         request: ApprovalRequestMessage,
         onResult: suspend (Boolean) -> Unit,
     ) {
-        val session =
-            activeSession ?: run {
-                logger.warn { "LocalWsChannel.sendApproval: no active session" }
-                return
-            }
+        val session = sessionFor(chatId) ?: return
         pendingApprovals[request.id] = onResult
         val message =
             Json.encodeToString(
@@ -180,28 +177,18 @@ class LocalWsChannel(
         runCatching { session.sendSync(message) }
             .onFailure { e ->
                 pendingApprovals.remove(request.id)
-                logger.error(e) { "LocalWsChannel: sendApproval failed" }
+                logger.error(e) { "WS sendApproval failed" }
             }
     }
 
     override suspend fun dismissApproval(approvalId: String) {
         val callback = pendingApprovals.remove(approvalId) ?: return
-        val session = activeSession
-        if (session != null) {
+        sessions.values.forEach { session ->
             val frame = Json.encodeToString(ChatFrame(type = "approval_dismiss", approvalId = approvalId))
             runCatching { session.sendSync(frame) }
         }
         callback(false)
         logger.debug { "Approval dismissed: id=$approvalId" }
-    }
-
-    private fun sendStatusFrame(
-        session: WebSocketSession,
-        status: String,
-    ) {
-        val message = Json.encodeToString(ChatFrame(type = "status", content = status))
-        runCatching { session.sendSync(message) }
-            .onFailure { e -> logger.trace { "LocalWsChannel: status frame send failed: ${e::class.simpleName}" } }
     }
 
     suspend fun resolveApproval(
@@ -215,5 +202,33 @@ class LocalWsChannel(
             }
         callback(approved)
         logger.debug { "Approval resolved: approved=$approved" }
+    }
+
+    private fun sessionFor(chatId: String): WebSocketSession? {
+        val agentId = chatIdToAgent[chatId]
+        if (agentId == null) {
+            logger.warn { "WS: no agent for chatId=$chatId" }
+            return null
+        }
+        return sessions[agentId] ?: run {
+            logger.warn { "WS: no session for agent=$agentId" }
+            null
+        }
+    }
+
+    private fun chatIdFor(agentId: String): String = "local_ws_$agentId"
+
+    private fun resolveChannelName(agentId: String): String =
+        config.channels.websocket.entries
+            .firstOrNull { it.value.agentId == agentId }
+            ?.key ?: name
+
+    private fun sendStatusFrame(
+        session: WebSocketSession,
+        status: String,
+    ) {
+        val message = Json.encodeToString(ChatFrame(type = "status", content = status))
+        runCatching { session.sendSync(message) }
+            .onFailure { e -> logger.trace { "WS status frame send failed: ${e::class.simpleName}" } }
     }
 }

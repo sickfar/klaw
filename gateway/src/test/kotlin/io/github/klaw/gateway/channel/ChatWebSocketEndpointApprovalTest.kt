@@ -23,8 +23,8 @@ class ChatWebSocketEndpointApprovalTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage(
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", 
                 """{"type":"approval_response","approvalId":"apr-99","approved":true}""",
                 session,
             )
@@ -47,8 +47,8 @@ class ChatWebSocketEndpointApprovalTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage(
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", 
                 """{"type":"approval_response","approvalId":"apr-100","approved":false}""",
                 session,
             )
@@ -71,8 +71,8 @@ class ChatWebSocketEndpointApprovalTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage(
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", 
                 """{"type":"approval_response","approved":true}""",
                 session,
             )
@@ -95,8 +95,8 @@ class ChatWebSocketEndpointApprovalTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage(
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", 
                 """{"type":"approval_response","approvalId":"apr-101"}""",
                 session,
             )

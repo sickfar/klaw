@@ -79,7 +79,7 @@ class DisabledAgentE2eTest {
         containers.start()
 
         client = WebSocketChatClient()
-        client.connectAsync(containers.gatewayHost, containers.gatewayMappedPort)
+        client.connectAsync(containers.gatewayHost, containers.gatewayMappedPort, agentId = "disabled-agent")
     }
 
     @AfterAll

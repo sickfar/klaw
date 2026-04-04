@@ -31,7 +31,7 @@ class LocalWsChannelAttachmentTest {
             val listenJob = launch { channel.listen { msg -> received += msg } }
 
             val attachments = listOf("/data/photos/image1.png", "/data/photos/image2.jpg")
-            channel.handleIncoming("check this photo", session, attachments)
+            channel.handleIncoming("default", "check this photo", session, attachments)
             channel.stop()
             listenJob.join()
 
@@ -56,7 +56,7 @@ class LocalWsChannelAttachmentTest {
 
             val listenJob = launch { channel.listen { msg -> received += msg } }
 
-            channel.handleIncoming("hello", session)
+            channel.handleIncoming("default", "hello", session)
             channel.stop()
             listenJob.join()
 
@@ -73,7 +73,7 @@ class LocalWsChannelAttachmentTest {
 
             val listenJob = launch { channel.listen { msg -> received += msg } }
 
-            channel.handleIncoming("text only", session, emptyList())
+            channel.handleIncoming("default", "text only", session, emptyList())
             channel.stop()
             listenJob.join()
 
@@ -99,7 +99,7 @@ class LocalWsChannelAttachmentTest {
                     "/data/doc.pdf",
                     "/data/unknown.xyz",
                 )
-            channel.handleIncoming("mixed files", session, attachments)
+            channel.handleIncoming("default", "mixed files", session, attachments)
             channel.stop()
             listenJob.join()
 

@@ -7,10 +7,11 @@ internal data class ConsoleChatConfig(
     val enabled: Boolean,
     val port: Int = 37474,
     val apiToken: String = "",
+    val agentId: String = "default",
 ) {
     val wsUrl: String
         get() {
-            val base = "ws://localhost:$port/ws/chat"
+            val base = "ws://localhost:$port/ws/chat/$agentId"
             return if (apiToken.isNotBlank()) "$base?token=$apiToken" else base
         }
 

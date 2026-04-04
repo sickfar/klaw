@@ -33,7 +33,7 @@ class LocalWsChannelTest {
 
             val listenJob = launch { channel.listen { msg -> received += msg } }
 
-            channel.handleIncoming("hello", session)
+            channel.handleIncoming("default", "hello", session)
             channel.stop()
             listenJob.join()
 
@@ -49,7 +49,7 @@ class LocalWsChannelTest {
             val channel = makeChannel()
             val session = mockSession()
 
-            channel.handleIncoming("test message", session)
+            channel.handleIncoming("default", "test message", session)
             channel.stop()
 
             val today = LocalDate.now().toString()
@@ -67,7 +67,7 @@ class LocalWsChannelTest {
             val session = mockSession()
 
             // Call handleIncoming without starting listen — queue is buffered, should not block
-            channel.handleIncoming("hello", session)
+            channel.handleIncoming("default", "hello", session)
             channel.stop()
         }
 
@@ -78,7 +78,7 @@ class LocalWsChannelTest {
             val session = mockSession()
 
             // Set active session via handleIncoming
-            channel.handleIncoming("trigger", session)
+            channel.handleIncoming("default", "trigger", session)
 
             // Now send a response
             channel.send("local_ws_default", OutgoingMessage("AI response"))
@@ -114,8 +114,8 @@ class LocalWsChannelTest {
 
             val listenJob = launch { channel.listen { received += it } }
 
-            channel.handleIncoming("msg1", session)
-            channel.handleIncoming("msg2", session)
+            channel.handleIncoming("default", "msg1", session)
+            channel.handleIncoming("default", "msg2", session)
             channel.stop()
             listenJob.join()
 
@@ -149,8 +149,8 @@ class LocalWsChannelTest {
 
             val listenJob = launch { channel.listen { received += it } }
 
-            channel.handleIncoming("first", session)
-            channel.handleIncoming("second", session)
+            channel.handleIncoming("default", "first", session)
+            channel.handleIncoming("default", "second", session)
             channel.stop()
             listenJob.join()
 

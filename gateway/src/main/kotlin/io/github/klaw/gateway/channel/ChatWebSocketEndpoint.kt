@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 
 private val logger = KotlinLogging.logger {}
 
-@ServerWebSocket("/ws/chat")
+@ServerWebSocket("/ws/chat/{agentId}")
 @Requires(condition = WsEnabledCondition::class)
 class ChatWebSocketEndpoint(
     private val localWsChannel: LocalWsChannel,
@@ -23,22 +23,26 @@ class ChatWebSocketEndpoint(
     private val json = Json { ignoreUnknownKeys = true }
 
     @OnOpen
-    suspend fun onOpen(session: WebSocketSession) {
-        logger.debug { "Local WS WebSocket connected" }
-        localWsChannel.registerSession(session)
+    suspend fun onOpen(
+        agentId: String,
+        session: WebSocketSession,
+    ) {
+        logger.debug { "WS connected for agent=$agentId" }
+        localWsChannel.registerSession(agentId, session)
     }
 
     @OnMessage
     suspend fun onMessage(
+        agentId: String,
         message: String,
         session: WebSocketSession,
     ) {
         val chatFrame = decodeFrame(message) ?: return
         when (chatFrame.type) {
             "user" -> {
-                logger.trace { "Local WS frame received: ${chatFrame.content.length} chars" }
+                logger.trace { "WS frame for agent=$agentId: ${chatFrame.content.length} chars" }
                 val attachmentPaths = resolveAttachmentIds(chatFrame.attachments.orEmpty())
-                localWsChannel.handleIncoming(chatFrame.content, session, attachmentPaths)
+                localWsChannel.handleIncoming(agentId, chatFrame.content, session, attachmentPaths)
             }
 
             "approval_response" -> {
@@ -54,9 +58,12 @@ class ChatWebSocketEndpoint(
     }
 
     @OnClose
-    fun onClose(session: WebSocketSession) {
-        localWsChannel.clearSession(session)
-        logger.debug { "Local WS WebSocket closed" }
+    fun onClose(
+        agentId: String,
+        session: WebSocketSession,
+    ) {
+        localWsChannel.clearSession(agentId, session)
+        logger.debug { "WS closed for agent=$agentId" }
     }
 
     private fun resolveAttachmentIds(ids: List<String>): List<String> {

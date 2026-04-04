@@ -24,7 +24,7 @@ class LocalWsChannelStreamTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             channel.sendStreamDelta("local_ws_default", "Hello ", "stream-1")
 
@@ -42,7 +42,7 @@ class LocalWsChannelStreamTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             channel.sendStreamEnd("local_ws_default", "Hello world!", "stream-1")
 
@@ -82,7 +82,7 @@ class LocalWsChannelStreamTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             channel.sendStreamDelta("local_ws_default", "Hello ", "stream-1")
             channel.sendStreamDelta("local_ws_default", "world", "stream-1")

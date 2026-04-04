@@ -21,11 +21,11 @@ class ChatWebSocketEndpointTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage("""{"type":"user","content":"hello"}""", session)
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", """{"type":"user","content":"hello"}""", session)
         }
 
-        coVerify(exactly = 1) { localWsChannel.handleIncoming("hello", any()) }
+        coVerify(exactly = 1) { localWsChannel.handleIncoming(any(), "hello", any()) }
     }
 
     @Test
@@ -40,11 +40,11 @@ class ChatWebSocketEndpointTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage("""{"type":"assistant","content":"should be ignored"}""", session)
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", """{"type":"assistant","content":"should be ignored"}""", session)
         }
 
-        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any(), any()) }
     }
 
     @Test
@@ -59,11 +59,11 @@ class ChatWebSocketEndpointTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage("not-valid-json{{{", session)
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", "not-valid-json{{{", session)
         }
 
-        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any()) }
+        coVerify(exactly = 0) { localWsChannel.handleIncoming(any(), any(), any()) }
     }
 
     @Test
@@ -78,10 +78,10 @@ class ChatWebSocketEndpointTest {
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
-            endpoint.onMessage("""{"type":"user","content":""}""", session)
+            endpoint.onOpen("default", session)
+            endpoint.onMessage("default", """{"type":"user","content":""}""", session)
         }
 
-        coVerify(exactly = 1) { localWsChannel.handleIncoming("", any()) }
+        coVerify(exactly = 1) { localWsChannel.handleIncoming(any(), "", any()) }
     }
 }
