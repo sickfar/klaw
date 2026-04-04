@@ -12,14 +12,14 @@ export function useWebSocket() {
   const status = useState<'connecting' | 'connected' | 'disconnected'>('wsStatus', () => 'disconnected')
   const callbacks = useState<FrameCallback[]>('wsCallbacks', () => [])
 
-  function getWsUrl(): string {
+  function getWsUrl(agentId: string = 'default'): string {
     if (import.meta.client) {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const base = `${proto}//${window.location.host}/ws/chat`
+      const base = `${proto}//${window.location.host}/ws/chat/${agentId}`
       const savedToken = localStorage.getItem('klaw_token')
       return savedToken ? `${base}?token=${encodeURIComponent(savedToken)}` : base
     }
-    return 'ws://localhost/ws/chat'
+    return `ws://localhost/ws/chat/${agentId}`
   }
 
   function connect() {
