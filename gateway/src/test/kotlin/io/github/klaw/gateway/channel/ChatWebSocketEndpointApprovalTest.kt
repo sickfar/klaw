@@ -2,7 +2,7 @@ package io.github.klaw.gateway.channel
 
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -12,13 +12,20 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response frame dispatches to localWsChannel resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val config = GatewayConfig(channels = ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+        val config =
+            GatewayConfig(
+                channels =
+                    ChannelsConfig(
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                    ),
+            )
         val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(config))
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
+            endpoint.onOpen("default", session)
             endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-99","approved":true}""",
                 session,
             )
@@ -30,13 +37,20 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response with approved=false dispatches correctly`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val config = GatewayConfig(channels = ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+        val config =
+            GatewayConfig(
+                channels =
+                    ChannelsConfig(
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                    ),
+            )
         val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(config))
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
+            endpoint.onOpen("default", session)
             endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-100","approved":false}""",
                 session,
             )
@@ -48,13 +62,20 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response missing approvalId does not call resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val config = GatewayConfig(channels = ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+        val config =
+            GatewayConfig(
+                channels =
+                    ChannelsConfig(
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                    ),
+            )
         val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(config))
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
+            endpoint.onOpen("default", session)
             endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approved":true}""",
                 session,
             )
@@ -66,13 +87,20 @@ class ChatWebSocketEndpointApprovalTest {
     @Test
     fun `approval_response missing approved does not call resolveApproval`() {
         val localWsChannel = mockk<LocalWsChannel>(relaxed = true)
-        val config = GatewayConfig(channels = ChannelsConfig(localWs = LocalWsConfig(enabled = true)))
+        val config =
+            GatewayConfig(
+                channels =
+                    ChannelsConfig(
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                    ),
+            )
         val endpoint = ChatWebSocketEndpoint(localWsChannel, UploadStore(config))
         val session = mockk<io.micronaut.websocket.WebSocketSession>(relaxed = true)
 
         runBlocking {
-            endpoint.onOpen(session)
+            endpoint.onOpen("default", session)
             endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-101"}""",
                 session,
             )

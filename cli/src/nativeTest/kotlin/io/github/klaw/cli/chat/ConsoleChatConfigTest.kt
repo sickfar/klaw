@@ -13,11 +13,13 @@ class ConsoleChatConfigTest {
     ): ConsoleChatConfig =
         try {
             val config = parseGatewayConfig(json)
-            val localWs = config.channels.localWs
-            if (localWs != null) {
+            val ws =
+                config.channels.websocket.values
+                    .firstOrNull()
+            if (ws != null) {
                 val rawToken = config.webui.apiToken
                 val resolvedToken = resolveFromDotenv(rawToken, dotenvContent)
-                ConsoleChatConfig(enabled = localWs.enabled, port = localWs.port, apiToken = resolvedToken)
+                ConsoleChatConfig(enabled = true, port = ws.port, apiToken = resolvedToken)
             } else {
                 ConsoleChatConfig(enabled = false)
             }
@@ -26,15 +28,18 @@ class ConsoleChatConfigTest {
         }
 
     @Test
-    fun `localWs not configured returns enabled false`() {
+    fun `websocket not configured returns enabled false`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
     "telegram": {
-      "token": "abc",
-      "allowedChats": []
+      "default": {
+        "agentId": "default",
+        "token": "abc",
+        "allowedChats": []
+      }
     }
   }
 }
@@ -44,19 +49,18 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `localWs enabled false returns enabled false`() {
+    fun `websocket absent returns enabled false`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
     "telegram": {
-      "token": "abc",
-      "allowedChats": []
-    },
-    "localWs": {
-      "enabled": false,
-      "port": 37474
+      "default": {
+        "agentId": "default",
+        "token": "abc",
+        "allowedChats": []
+      }
     }
   }
 }
@@ -66,19 +70,24 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `localWs enabled true with default port`() {
+    fun `websocket configured with default port`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
     "telegram": {
-      "token": "abc",
-      "allowedChats": []
+      "default": {
+        "agentId": "default",
+        "token": "abc",
+        "allowedChats": []
+      }
     },
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 37474
+      }
     }
   }
 }
@@ -89,19 +98,24 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `localWs enabled true with custom port`() {
+    fun `websocket configured with custom port`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
     "telegram": {
-      "token": "abc",
-      "allowedChats": []
+      "default": {
+        "agentId": "default",
+        "token": "abc",
+        "allowedChats": []
+      }
     },
-    "localWs": {
-      "enabled": true,
-      "port": 9090
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 9090
+      }
     }
   }
 }
@@ -126,25 +140,27 @@ class ConsoleChatConfigTest {
     @Test
     fun `wsUrl builds correct url`() {
         val config = ConsoleChatConfig(enabled = true, port = 37474)
-        assertEquals("ws://localhost:37474/ws/chat", config.wsUrl)
+        assertEquals("ws://localhost:37474/ws/chat/default", config.wsUrl)
     }
 
     @Test
     fun `wsUrl with custom port`() {
         val config = ConsoleChatConfig(enabled = true, port = 9090)
-        assertEquals("ws://localhost:9090/ws/chat", config.wsUrl)
+        assertEquals("ws://localhost:9090/ws/chat/default", config.wsUrl)
     }
 
     @Test
-    fun `localWs section with port before enabled`() {
+    fun `websocket section only`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
-    "localWs": {
-      "port": 8080,
-      "enabled": true
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 8080
+      }
     }
   }
 }
@@ -155,15 +171,17 @@ class ConsoleChatConfigTest {
     }
 
     @Test
-    fun `channels with only localWs section`() {
+    fun `channels with only websocket section`() {
         val config =
             parseConsoleConfig(
                 """
 {
   "channels": {
-    "localWs": {
-      "enabled": true,
-      "port": 5000
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 5000
+      }
     }
   }
 }
@@ -176,13 +194,13 @@ class ConsoleChatConfigTest {
     @Test
     fun `wsUrl with apiToken appends query parameter`() {
         val config = ConsoleChatConfig(enabled = true, port = 37474, apiToken = "secret")
-        assertEquals("ws://localhost:37474/ws/chat?token=secret", config.wsUrl)
+        assertEquals("ws://localhost:37474/ws/chat/default?token=secret", config.wsUrl)
     }
 
     @Test
     fun `wsUrl with blank apiToken has no query parameter`() {
         val config = ConsoleChatConfig(enabled = true, port = 37474)
-        assertEquals("ws://localhost:37474/ws/chat", config.wsUrl)
+        assertEquals("ws://localhost:37474/ws/chat/default", config.wsUrl)
     }
 
     @Test
@@ -192,9 +210,11 @@ class ConsoleChatConfigTest {
                 """
 {
   "channels": {
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 37474
+      }
     }
   },
   "webui": {
@@ -214,9 +234,11 @@ class ConsoleChatConfigTest {
                 """
 {
   "channels": {
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 37474
+      }
     }
   }
 }
@@ -306,9 +328,11 @@ class ConsoleChatConfigTest {
                 """
 {
   "channels": {
-    "localWs": {
-      "enabled": true,
-      "port": 37474
+    "websocket": {
+      "default": {
+        "agentId": "default",
+        "port": 37474
+      }
     }
   },
   "webui": {

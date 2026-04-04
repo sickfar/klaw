@@ -1,6 +1,7 @@
 package io.github.klaw.cli.command
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import io.github.klaw.cli.chat.ChatEvent
 import io.github.klaw.cli.chat.ChatSession
@@ -33,10 +34,11 @@ internal class ChatCommand(
     private val historyFetcher: suspend (String, String) -> List<ChatTui.Message> = ::fetchHistory,
 ) : CliktCommand(name = "chat") {
     private val url by option("--url", help = "Override gateway WebSocket URL (bypasses enabled check)")
+    private val agent by option("--agent", "-a", help = "Agent ID (default: 'default')").default("default")
 
     override fun run() {
         CliLogger.info { "chat start" }
-        val chatConfig = configReader(configDir)
+        val chatConfig = configReader(configDir).copy(agentId = agent)
         if (url == null && !chatConfig.enabled) {
             CliLogger.warn { "local WebSocket chat not enabled" }
             showConsoleChatDisabledError()

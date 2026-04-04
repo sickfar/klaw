@@ -14,12 +14,17 @@ class ConfigParsingTest {
 {
   "channels": {
     "telegram": {
-      "token": "test_bot_token_123",
-      "allowedChats": [{"chatId": "123456", "allowedUserIds": ["user1"]}, {"chatId": "789012"}]
+      "main": {
+        "token": "test_bot_token_123",
+        "agentId": "default",
+        "allowedChats": [{"chatId": "123456", "allowedUserIds": ["user1"]}, {"chatId": "789012"}]
+      }
     },
     "discord": {
-      "enabled": false,
-      "token": "discord_bot_token"
+      "main": {
+        "token": "discord_bot_token",
+        "agentId": "default"
+      }
     }
   }
 }
@@ -96,6 +101,11 @@ class ConfigParsingTest {
   "logging": {
     "subagentConversations": true
   },
+  "agents": {
+    "default": {
+      "workspace": "/home/user/workspace"
+    }
+  },
   "codeExecution": {
     "dockerImage": "klaw-sandbox:latest",
     "timeout": 30,
@@ -135,13 +145,13 @@ class ConfigParsingTest {
     @Test
     fun `parse gateway json - telegram token`() {
         val config = parseGatewayConfig(gatewayJson)
-        assertEquals("test_bot_token_123", config.channels.telegram?.token)
+        assertEquals("test_bot_token_123", config.channels.telegram["main"]?.token)
     }
 
     @Test
     fun `parse gateway json - telegram allowedChats`() {
         val config = parseGatewayConfig(gatewayJson)
-        val chats = config.channels.telegram?.allowedChats
+        val chats = config.channels.telegram["main"]?.allowedChats
         assertEquals(2, chats?.size)
         assertEquals("123456", chats?.get(0)?.chatId)
         assertEquals(listOf("user1"), chats?.get(0)?.allowedUserIds)
@@ -150,10 +160,10 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `parse gateway json - discord enabled false`() {
+    fun `parse gateway json - discord token present`() {
         val config = parseGatewayConfig(gatewayJson)
-        val discord = assertNotNull(config.channels.discord)
-        assertFalse(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
+        assertEquals("discord_bot_token", discord.token)
     }
 
     @Test
@@ -219,66 +229,59 @@ class ConfigParsingTest {
     }
 
     @Test
-    fun `GatewayConfig with localWs section enabled=true and port=9090 parses correctly`() {
+    fun `GatewayConfig with websocket section and custom port parses correctly`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 },
-                "localWs": {
-                  "enabled": true,
-                  "port": 9090
+                "websocket": {
+                  "console": { "agentId": "default", "port": 9090 }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.localWs)
-        assertTrue(console.enabled)
+        val console = assertNotNull(config.channels.websocket["console"])
         assertEquals(9090, console.port)
     }
 
     @Test
-    fun `GatewayConfig with localWs section enabled=false parses correctly`() {
+    fun `GatewayConfig with websocket section and default port parses correctly`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 },
-                "localWs": {
-                  "enabled": false,
-                  "port": 37474
+                "websocket": {
+                  "console": { "agentId": "default", "port": 37474 }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val console = assertNotNull(config.channels.localWs)
-        assertFalse(console.enabled)
+        val console = assertNotNull(config.channels.websocket["console"])
         assertEquals(37474, console.port)
     }
 
     @Test
-    fun `GatewayConfig without localWs section uses null default`() {
+    fun `GatewayConfig without websocket section has empty map`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot-token",
-                  "allowedChats": []
+                  "main": { "token": "bot-token", "agentId": "default" }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.localWs)
+        assertTrue(config.channels.websocket.isEmpty())
     }
 
     @Test
@@ -344,6 +347,9 @@ class ConfigParsingTest {
   },
   "files": {
     "maxFileSizeBytes": 1048576
+  },
+  "agents": {
+    "default": {"workspace": "/tmp/test"}
   }
 }
             """.trimIndent()
@@ -410,7 +416,8 @@ class ConfigParsingTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(minimalJson)
@@ -435,6 +442,7 @@ class ConfigParsingTest {
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}},
   "unknownField": "should be ignored"
 }
             """.trimIndent()
@@ -598,6 +606,7 @@ class ConfigParsingTest {
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
   "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}},
   "database": {
     "busyTimeoutMs": 10000,
     "integrityCheckOnStartup": false,
@@ -625,7 +634,8 @@ class ConfigParsingTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
@@ -671,28 +681,29 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "discord_token",
-                  "allowedGuilds": [
-                    {
-                      "guildId": "guild_001",
-                      "allowedChannelIds": ["ch_1", "ch_2"],
-                      "allowedUserIds": ["user_a", "user_b"]
-                    },
-                    {
-                      "guildId": "guild_002",
-                      "allowedChannelIds": [],
-                      "allowedUserIds": ["user_c"]
-                    }
-                  ],
-                  "apiBaseUrl": "https://discord.example.com/api"
+                  "main": {
+                    "token": "discord_token",
+                    "agentId": "default",
+                    "allowedGuilds": [
+                      {
+                        "guildId": "guild_001",
+                        "allowedChannelIds": ["ch_1", "ch_2"],
+                        "allowedUserIds": ["user_a", "user_b"]
+                      },
+                      {
+                        "guildId": "guild_002",
+                        "allowedChannelIds": [],
+                        "allowedUserIds": ["user_c"]
+                      }
+                    ],
+                    "apiBaseUrl": "https://discord.example.com/api"
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertTrue(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
         assertEquals(2, discord.allowedGuilds.size)
 
         val guild1 = discord.allowedGuilds[0]
@@ -715,34 +726,18 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "discord_token"
+                  "main": {
+                    "token": "discord_token",
+                    "agentId": "default"
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertTrue(discord.enabled)
+        val discord = assertNotNull(config.channels.discord["main"])
         assertTrue(discord.allowedGuilds.isEmpty())
         assertNull(discord.apiBaseUrl)
-    }
-
-    @Test
-    fun `parse gateway json - discord enabled false by default`() {
-        val json =
-            """
-            {
-              "channels": {
-                "discord": {
-                  "token": "discord_token"
-                }
-              }
-            }
-            """.trimIndent()
-        val config = parseGatewayConfig(json)
-        val discord = assertNotNull(config.channels.discord)
-        assertFalse(discord.enabled)
     }
 
     @Test
@@ -752,36 +747,37 @@ class ConfigParsingTest {
             {
               "channels": {
                 "discord": {
-                  "enabled": true,
-                  "token": "t",
-                  "allowedGuilds": [{"guildId": "g1"}]
+                  "main": {
+                    "token": "t",
+                    "agentId": "default",
+                    "allowedGuilds": [{"guildId": "g1"}]
+                  }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        val guild = config.channels.discord!!.allowedGuilds[0]
+        val guild = config.channels.discord["main"]!!.allowedGuilds[0]
         assertEquals("g1", guild.guildId)
         assertTrue(guild.allowedChannelIds.isEmpty())
         assertTrue(guild.allowedUserIds.isEmpty())
     }
 
     @Test
-    fun `backward compat - existing config without discord section still parses`() {
+    fun `backward compat - existing config without discord section has empty map`() {
         val json =
             """
             {
               "channels": {
                 "telegram": {
-                  "token": "bot_token",
-                  "allowedChats": [{"chatId": "123"}]
+                  "main": { "token": "bot_token", "agentId": "default" }
                 }
               }
             }
             """.trimIndent()
         val config = parseGatewayConfig(json)
-        assertNull(config.channels.discord)
-        assertNotNull(config.channels.telegram)
+        assertTrue(config.channels.discord.isEmpty())
+        assertFalse(config.channels.telegram.isEmpty())
     }
 
     @Test
@@ -808,5 +804,690 @@ class ConfigParsingTest {
             )
         val config = parseEngineConfig(withoutBudget)
         assertNull(config.context.tokenBudget, "tokenBudget should default to null when not specified")
+    }
+
+    // --- Multi-agent config tests ---
+
+    @Test
+    fun `multi-agent minimal config - single default agent parses`() {
+        val json =
+            """
+{
+  "providers": {"glm": {"type": "openai-compatible", "endpoint": "https://example.com"}},
+  "models": {},
+  "routing": {"default": "glm/glm-5"},
+  "agents": {
+    "default": {
+      "workspace": "/home/user/workspace"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(1, config.effectiveAgents.size)
+        assertNotNull(config.effectiveAgents["default"])
+        assertEquals("/home/user/workspace", config.effectiveAgents["default"]!!.workspace)
+    }
+
+    @Test
+    fun `multi-agent config - agent enabled defaults to true`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "myAgent": {
+      "workspace": "/tmp/agent"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertTrue(config.effectiveAgents["myAgent"]!!.enabled)
+    }
+
+    @Test
+    fun `multi-agent config - disabled agent is in effectiveAgents but enabled=false`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "active": {"workspace": "/tmp/active"},
+    "disabled": {"workspace": "/tmp/disabled", "enabled": false}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(2, config.effectiveAgents.size)
+        assertTrue(config.effectiveAgents["active"]!!.enabled)
+        assertFalse(config.effectiveAgents["disabled"]!!.enabled)
+    }
+
+    @Test
+    fun `multi-agent config - _defaults key is excluded from effectiveAgents`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {
+      "workspace": ""
+    },
+    "main": {
+      "workspace": "/tmp/main"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertFalse(config.effectiveAgents.containsKey("_defaults"))
+        assertEquals(1, config.effectiveAgents.size)
+        assertNotNull(config.effectiveAgents["main"])
+    }
+
+    @Test
+    fun `multi-agent config - _defaults is parsed into agentDefaults`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {
+      "workspace": ""
+    },
+    "main": {
+      "workspace": "/tmp/main"
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+    }
+
+    @Test
+    fun `multi-agent config - agentDefaults is null when no _defaults key`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNull(config.agentDefaults)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent routing override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "routing": {
+        "default": "custom/model",
+        "tasks": {"summarization": "sum/model", "subagent": "sub/model"}
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals("custom/model", agent.routing?.default)
+        assertEquals("sum/model", agent.routing?.tasks?.summarization)
+        assertEquals("sub/model", agent.routing?.tasks?.subagent)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent processing override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "processing": {
+        "slidingWindow": 20,
+        "temperature": 0.8,
+        "maxOutputTokens": 4096
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(20, agent.processing?.slidingWindow)
+        assertEquals(0.8, agent.processing?.temperature)
+        assertEquals(4096, agent.processing?.maxOutputTokens)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent memory override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "memory": {
+        "autoRag": {"enabled": false}
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertFalse(agent.memory?.autoRag?.enabled ?: true)
+    }
+
+    @Test
+    fun `multi-agent config - per-agent heartbeat override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "heartbeat": {
+        "enabled": true,
+        "interval": "PT30M",
+        "model": "glm/glm-5",
+        "channel": "telegram:123"
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertTrue(agent.heartbeat?.enabled ?: false)
+        assertEquals("PT30M", agent.heartbeat?.interval)
+        assertEquals("glm/glm-5", agent.heartbeat?.model)
+        assertEquals("telegram:123", agent.heartbeat?.channel)
+    }
+
+    @Test
+    fun `multi-agent config - agent limits`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "limits": {
+        "maxConcurrentRequests": 5,
+        "maxMessagesPerMinute": 30
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(5, agent.limits?.maxConcurrentRequests)
+        assertEquals(30, agent.limits?.maxMessagesPerMinute)
+    }
+
+    @Test
+    fun `multi-agent config - agent limits default to zero meaning unlimited`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals(0, agent.limits?.maxConcurrentRequests ?: 0)
+        assertEquals(0, agent.limits?.maxMessagesPerMinute ?: 0)
+    }
+
+    @Test
+    fun `multi-agent config - vision override`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "vision": {
+        "enabled": true,
+        "model": "glm/glm-4v"
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertTrue(agent.vision?.enabled ?: false)
+        assertEquals("glm/glm-4v", agent.vision?.model)
+    }
+
+    @Test
+    fun `multi-agent config - agent tools config`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {
+      "workspace": "/tmp/main",
+      "tools": {
+        "sandbox": {
+          "dockerImage": "custom-sandbox:latest",
+          "timeout": 60
+        },
+        "hostExec": {
+          "enabled": true,
+          "allowList": ["ls", "pwd"]
+        }
+      }
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        val agent = config.effectiveAgents["main"]!!
+        assertEquals("custom-sandbox:latest", agent.tools?.sandbox?.dockerImage)
+        assertEquals(60, agent.tools?.sandbox?.timeout)
+        assertTrue(agent.tools?.hostExec?.enabled ?: false)
+        assertEquals(listOf("ls", "pwd"), agent.tools?.hostExec?.allowList)
+    }
+
+    @Test
+    fun `multi-agent config - no agents field fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"}
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - empty agents fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {}
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - agent with blank workspace fails validation`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": ""}
+  }
+}
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { parseEngineConfig(json) }
+    }
+
+    @Test
+    fun `multi-agent config - _defaults with blank workspace is allowed`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "_defaults": {"workspace": ""},
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+        assertEquals(1, config.effectiveAgents.size)
+    }
+
+    @Test
+    fun `multi-agent config - processing defaults when not specified`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        // These should parse without error (defaults applied)
+        assertEquals(800L, config.processing.debounceMs)
+        assertEquals(3, config.processing.maxConcurrentLlm)
+        assertEquals(50, config.processing.maxToolCallRounds)
+    }
+
+    @Test
+    fun `multi-agent config - routing tasks defaults when not specified`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals("", config.routing.tasks.summarization)
+        assertEquals("", config.routing.tasks.subagent)
+    }
+
+    @Test
+    fun `multi-agent config - search topK defaults to 10`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(10, config.memory.search.topK)
+    }
+
+    @Test
+    fun `multi-agent config - context subagentHistory defaults to 10`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(10, config.context.subagentHistory)
+    }
+
+    @Test
+    fun `multi-agent config - heartbeat interval defaults to PT1H`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals("PT1H", config.heartbeat.interval)
+    }
+
+    @Test
+    fun `multi-agent config - chunking defaults changed to 512 and 64`() {
+        val json =
+            """
+{
+  "providers": {},
+  "models": {},
+  "routing": {"default": "a/b"},
+  "agents": {
+    "main": {"workspace": "/tmp/main"}
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertEquals(512, config.memory.chunking.size)
+        assertEquals(64, config.memory.chunking.overlap)
+    }
+
+    @Test
+    fun `multi-agent config - full config with per-agent overrides and _defaults`() {
+        val json =
+            """
+{
+  "providers": {"glm": {"type": "openai-compatible", "endpoint": "https://example.com", "apiKey": "key"}},
+  "models": {},
+  "routing": {"default": "glm/glm-5", "fallback": [], "tasks": {"summarization": "glm/glm-5", "subagent": "glm/glm-5"}},
+  "agents": {
+    "_defaults": {
+      "workspace": "",
+      "processing": {"slidingWindow": 10}
+    },
+    "alice": {
+      "workspace": "/home/alice",
+      "routing": {"default": "glm/glm-4-plus"},
+      "limits": {"maxConcurrentRequests": 2, "maxMessagesPerMinute": 10}
+    },
+    "bob": {
+      "workspace": "/home/bob",
+      "enabled": false
+    }
+  }
+}
+            """.trimIndent()
+        val config = parseEngineConfig(json)
+        assertNotNull(config.agentDefaults)
+        assertEquals(10, config.agentDefaults!!.processing?.slidingWindow)
+        assertEquals(2, config.effectiveAgents.size)
+        assertEquals("/home/alice", config.effectiveAgents["alice"]!!.workspace)
+        assertEquals("glm/glm-4-plus", config.effectiveAgents["alice"]!!.routing?.default)
+        assertEquals(2, config.effectiveAgents["alice"]!!.limits?.maxConcurrentRequests)
+        assertFalse(config.effectiveAgents["bob"]!!.enabled)
+    }
+
+    // --- New map-based gateway channel tests ---
+
+    @Test
+    fun `parse gateway config with map-based channels`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": { "token": "tok1", "agentId": "default" },
+                  "work": { "token": "tok2", "agentId": "work" }
+                },
+                "websocket": {
+                  "main": { "agentId": "default" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(2, config.channels.telegram.size)
+        assertEquals("tok1", config.channels.telegram["personal"]?.token)
+        assertEquals("default", config.channels.telegram["personal"]?.agentId)
+        assertEquals("work", config.channels.telegram["work"]?.agentId)
+        assertEquals(1, config.channels.websocket.size)
+    }
+
+    @Test
+    fun `parse gateway discord channel with agentId`() {
+        val json =
+            """
+            {
+              "channels": {
+                "discord": {
+                  "work-guild": { "token": "disc-tok", "agentId": "work" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals("work", config.channels.discord["work-guild"]?.agentId)
+    }
+
+    @Test
+    fun `parse gateway config with empty channels`() {
+        val json =
+            """
+            {
+              "channels": {}
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertTrue(config.channels.telegram.isEmpty())
+        assertTrue(config.channels.discord.isEmpty())
+        assertTrue(config.channels.websocket.isEmpty())
+    }
+
+    @Test
+    fun `parse gateway config minimal - channels absent`() {
+        val config = parseGatewayConfig("{}")
+        assertTrue(config.channels.telegram.isEmpty())
+        assertTrue(config.channels.discord.isEmpty())
+        assertTrue(config.channels.websocket.isEmpty())
+    }
+
+    @Test
+    fun `parse telegram channel config with allowedChats`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": {
+                    "token": "bot-token",
+                    "agentId": "default",
+                    "allowedChats": [
+                      {"chatId": "123456", "allowedUserIds": ["user1"]},
+                      {"chatId": "789012"}
+                    ]
+                  }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val ch = config.channels.telegram["personal"]
+        assertNotNull(ch)
+        assertEquals(2, ch.allowedChats.size)
+        assertEquals("123456", ch.allowedChats[0].chatId)
+        assertEquals(listOf("user1"), ch.allowedChats[0].allowedUserIds)
+        assertEquals("789012", ch.allowedChats[1].chatId)
+        assertTrue(ch.allowedChats[1].allowedUserIds.isEmpty())
+    }
+
+    @Test
+    fun `parse websocket channel config with custom port`() {
+        val json =
+            """
+            {
+              "channels": {
+                "websocket": {
+                  "main": { "agentId": "default", "port": 9090 }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(9090, config.channels.websocket["main"]?.port)
+    }
+
+    @Test
+    fun `parse websocket channel config with default port`() {
+        val json =
+            """
+            {
+              "channels": {
+                "websocket": {
+                  "main": { "agentId": "default" }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        assertEquals(37474, config.channels.websocket["main"]?.port)
+    }
+
+    @Test
+    fun `gateway config map-based round-trip`() {
+        val json =
+            """
+            {
+              "channels": {
+                "telegram": {
+                  "personal": { "token": "tok1", "agentId": "default" }
+                },
+                "discord": {
+                  "main": { "token": "disc-tok", "agentId": "work" }
+                },
+                "websocket": {
+                  "console": { "agentId": "default", "port": 37474 }
+                }
+              }
+            }
+            """.trimIndent()
+        val config = parseGatewayConfig(json)
+        val encoded = encodeGatewayConfig(config)
+        val reparsed = parseGatewayConfig(encoded)
+        assertEquals(config, reparsed)
     }
 }

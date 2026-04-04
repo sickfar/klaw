@@ -1,5 +1,6 @@
 package io.github.klaw.engine.init
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
@@ -116,6 +117,7 @@ class InitCliHandlerTest {
                         keepAliveMaxExecutions = 10,
                     ),
                 files = FilesConfig(maxFileSizeBytes = 1_000_000),
+                agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
             )
     }
 }

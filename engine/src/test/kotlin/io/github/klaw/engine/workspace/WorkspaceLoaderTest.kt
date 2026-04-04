@@ -1,5 +1,6 @@
 package io.github.klaw.engine.workspace
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.EmbeddingConfig
@@ -43,6 +44,7 @@ class WorkspaceLoaderTest {
                 ),
             context = ContextConfig(subagentHistory = 5),
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 1, maxToolCallRounds = 5),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     @BeforeEach

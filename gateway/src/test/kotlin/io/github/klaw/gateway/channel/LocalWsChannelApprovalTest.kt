@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ChatFrame
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
@@ -21,7 +22,8 @@ class LocalWsChannelApprovalTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
+    private fun makeChannel(): LocalWsChannel =
+        LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
 
     private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 
@@ -45,7 +47,7 @@ class LocalWsChannelApprovalTest {
             val session = mockSession()
 
             // Set active session
-            channel.handleIncoming("trigger", session)
+            channel.handleIncoming("default", "trigger", session)
 
             channel.sendApproval("local_ws_default", approvalRequest()) { }
 
@@ -80,7 +82,7 @@ class LocalWsChannelApprovalTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.handleIncoming("trigger", session)
+            channel.handleIncoming("default", "trigger", session)
 
             var callbackResult: Boolean? = null
             channel.sendApproval("local_ws_default", approvalRequest(id = "apr-2")) { approved ->
@@ -98,7 +100,7 @@ class LocalWsChannelApprovalTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.handleIncoming("trigger", session)
+            channel.handleIncoming("default", "trigger", session)
 
             var callbackResult: Boolean? = null
             channel.sendApproval("local_ws_default", approvalRequest(id = "apr-3")) { approved ->
@@ -125,7 +127,7 @@ class LocalWsChannelApprovalTest {
         runBlocking {
             val channel = makeChannel()
             val session = mockSession()
-            channel.handleIncoming("trigger", session)
+            channel.handleIncoming("default", "trigger", session)
 
             var callCount = 0
             channel.sendApproval("local_ws_default", approvalRequest(id = "apr-4")) {
@@ -147,7 +149,7 @@ class LocalWsChannelApprovalTest {
                 mockk<WebSocketSession>(relaxed = true) {
                     every { sendSync(any<String>()) } throws RuntimeException("WS closed")
                 }
-            channel.handleIncoming("trigger", failSession)
+            channel.handleIncoming("default", "trigger", failSession)
 
             var callbackInvoked = false
             channel.sendApproval("local_ws_default", approvalRequest(id = "apr-5")) {

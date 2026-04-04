@@ -46,13 +46,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Klaw is a two-process AI agent for Raspberry Pi 5 with Chinese LLM support:
 
 - **Gateway** — Micronaut JVM service, pure message transport (Telegram, Discord). Sole writer of interactive `conversations/*/` JSONL files. Knows nothing about LLM/memory.
-- **Engine** — Micronaut JVM service, LLM orchestration, memory, scheduler, tool execution. Sole owner of `klaw.db` and `scheduler.db`.
+- **Engine** — Micronaut JVM service, LLM orchestration, memory, scheduler, tool execution. Sole owner of `klaw-{agentId}.db` and `scheduler-{agentId}.db`.
 - **Common** — KMP module (JVM + linuxArm64 + linuxX64 + macosArm64/X64). Shared models, protocol, config schemas, path utilities.
 - **CLI** — Kotlin/Native (linuxArm64 + linuxX64 + macosArm64/X64). Sends commands to Engine via IPC.
 
 Gateway ↔ Engine communicate via TCP localhost (port `7470`) using JSONL framing. The scheduler is an in-process module inside Engine (not a separate service).
 
-User-facing docs: `doc/` (commands, config, deployment, tools, memory, etc.).
+**Multi-agent:** The Engine supports multiple named agents in a single process. Each agent has its own workspace, `klaw-{id}.db`, `scheduler-{id}.db`, memory, scheduler, and sessions. Agents are defined in `engine.json` under the `agents` map. Gateway channels each specify an `agentId` to route messages. Key patterns:
+- `AgentContext` — bundles all per-agent state (DB, scheduler, session manager, context builder, etc.)
+- `AgentRegistry` — singleton `ConcurrentHashMap<String, AgentContext>` holding all live agents
+- `AgentContextFactory` — creates and wires `AgentContext` instances on startup
+- `engine.json`: `agents` map with optional `_defaults` key for shared config template; effective agents validated to have non-blank `workspace`
+- `gateway.json`: `channels.<type>.<name>` map (e.g. `channels.telegram.main`), each with `agentId` field
+
+User-facing docs: `doc/` (commands, config, deployment, tools, memory, architecture, etc.).
 
 ## Module & Source Set Layout
 
@@ -65,6 +72,7 @@ common/src/
 └── jvmTest/      # JVM token counting tests
 
 engine/src/main/kotlin/io/github/klaw/engine/
+├── agent/        # AgentContext, AgentRegistry, AgentContextFactory (multi-agent lifecycle)
 ├── llm/          # LlmClient, OpenAiCompatibleClient, LlmRouter, RetryUtils, EnvVarResolver
 ├── context/      # ContextBuilder, SubagentHistoryLoader, SkillRegistry, WorkspaceLoader, CompactionRunner
 ├── command/      # CommandHandler (slash commands from chat)

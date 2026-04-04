@@ -45,11 +45,14 @@ class WebSocketChatClient(
     @Volatile
     private var connected = false
 
+    private var agentId: String = "default"
+
     private fun connect(
         host: String,
         port: Int,
     ) = runBlocking {
-        val path = if (token != null) "/ws/chat?token=$token" else "/ws/chat"
+        val basePath = "/ws/chat/$agentId"
+        val path = if (token != null) "$basePath?token=$token" else basePath
         httpClient.webSocket("ws://$host:$port$path") {
             session = this
             connected = true
@@ -84,7 +87,9 @@ class WebSocketChatClient(
     fun connectAsync(
         host: String,
         port: Int,
+        agentId: String = "default",
     ) {
+        this.agentId = agentId
         connectedHost = host
         connectedPort = port
         // Close existing session if reconnecting

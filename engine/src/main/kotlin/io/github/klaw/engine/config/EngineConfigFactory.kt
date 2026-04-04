@@ -1,6 +1,7 @@
 package io.github.klaw.engine.config
 
 import io.github.klaw.common.config.EngineConfig
+import io.github.klaw.common.config.EnvVarResolver
 import io.github.klaw.common.config.parseEngineConfig
 import io.github.klaw.common.paths.KlawPaths
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -26,7 +27,7 @@ class EngineConfigFactory {
                     ?.readText()
                     ?: error("engine.json not found at ${configFile.absolutePath} or on classpath")
             }
-        val config = parseEngineConfig(jsonContent)
+        val config = parseEngineConfig(EnvVarResolver.resolveAll(jsonContent))
         logger.info {
             "Engine config loaded: ${if (configFile.exists()) configFile.absolutePath else "classpath:/engine.json"}"
         }

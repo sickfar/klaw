@@ -60,11 +60,9 @@ The `anthropic` type uses the official Anthropic Java SDK. It handles the differ
 
 ## Top-Level Structure
 
-The config has 20 top-level fields organized into logical groups:
+The config has the following top-level fields organized into logical groups:
 
 **LLM providers & routing:** `providers`, `models`, `routing`
-
-**Workspace:** `workspace`
 
 **Memory system:** `memory` (embedding, chunking, search, autoRag, compaction, consolidation)
 
@@ -78,9 +76,11 @@ The config has 20 top-level fields organized into logical groups:
 
 **Infrastructure:** `httpRetry`, `database`, `logging`, `docs`
 
+**Multi-agent:** `agents` (per-agent workspace, routing, memory, heartbeat, tools, limits, vision)
+
 ## Example engine.json
 
-Minimal config for a known provider (recommended):
+Minimal config — single agent named `default`:
 
 ```json
 {
@@ -91,6 +91,11 @@ Minimal config for a known provider (recommended):
   },
   "routing": {
     "default": "anthropic/claude-sonnet-4-6"
+  },
+  "agents": {
+    "default": {
+      "workspace": "/home/klaw/workspace"
+    }
   }
 }
 ```
@@ -530,6 +535,145 @@ Image analysis and inline vision support. Enables the `image_analyze` tool and a
 - `image_analyze` is always available when `vision.enabled` is true, regardless of the active model.
 
 See [vision.md](../tools/vision.md) for tool documentation.
+
+## agents
+
+Defines one or more named agents. Each agent gets its own isolated database (`klaw-{id}.db`, `scheduler-{id}.db`), workspace, and optional config overrides.
+
+**Required**: at least one agent must be defined. The agent named `default` is used by CLI commands when no `--agent` flag is given.
+
+### _defaults key
+
+The special key `_defaults` in the `agents` map provides a shared template applied to every non-default agent via deep merge. Fields set in `_defaults` are used unless overridden per-agent. The `_defaults` entry is never started as an agent.
+
+```json
+{
+  "agents": {
+    "_defaults": {
+      "routing": { "default": "zai/glm-5" },
+      "processing": { "slidingWindow": 20 }
+    },
+    "default": {
+      "workspace": "/home/klaw/workspace"
+    },
+    "assistant": {
+      "workspace": "/home/klaw/workspace-assistant",
+      "routing": { "default": "anthropic/claude-sonnet-4-6" }
+    }
+  }
+}
+```
+
+### AgentConfig fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable or disable this agent. Disabled agents are ignored at startup. |
+| `workspace` | string | required | Absolute path to the workspace directory for this agent. Each agent must have a unique workspace. |
+| `routing` | `AgentRoutingOverride` | `null` | Per-agent routing overrides. `null` = use global `routing`. |
+| `processing` | `AgentProcessingOverride` | `null` | Per-agent processing overrides. `null` = use global `processing`. |
+| `memory` | `AgentMemoryOverride` | `null` | Per-agent memory overrides. `null` = use global `memory`. |
+| `heartbeat` | `AgentHeartbeatOverride` | `null` | Per-agent heartbeat overrides. `null` = use global `heartbeat`. |
+| `tools` | `AgentToolsConfig` | `null` | Per-agent tool config (sandbox, hostExec). `null` = use global tool config. |
+| `mcp` | `McpConfig` | `null` | Per-agent MCP server config. `null` = use global MCP config. |
+| `limits` | `AgentLimitsConfig` | `null` | Per-agent resource limits. |
+| `vision` | `AgentVisionOverride` | `null` | Per-agent vision overrides. `null` = use global `vision`. |
+
+### AgentRoutingOverride
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `default` | string | `null` | Default model for this agent. `null` = use global `routing.default`. |
+| `tasks.summarization` | string | `null` | Model for summarization tasks. |
+| `tasks.subagent` | string | `null` | Model for subagent tasks. |
+| `tasks.consolidation` | string | `null` | Model for consolidation tasks. |
+
+### AgentProcessingOverride
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `slidingWindow` | int | `null` | Sliding window message count for this agent. `null` = use global. |
+| `temperature` | double | `null` | Sampling temperature override. `null` = use model default. |
+| `maxOutputTokens` | int | `null` | Maximum output tokens override. `null` = use model default. |
+
+### AgentMemoryOverride
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `consolidation` | `DailyConsolidationConfig` | `null` | Daily consolidation config override. |
+| `chunking` | `ChunkingConfig` | `null` | Chunking config override. |
+| `search` | `SearchConfig` | `null` | Search config override. |
+| `autoRag` | `AutoRagConfig` | `null` | Auto-RAG config override. |
+
+### AgentHeartbeatOverride
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `null` | Enable or disable heartbeat for this agent. |
+| `interval` | string | `null` | ISO-8601 duration (`"PT1H"`) or `"off"`. |
+| `cron` | string | `null` | Cron expression (alternative to interval). |
+| `model` | string | `null` | Model for heartbeat. |
+| `channel` | string | `null` | Channel name for delivery. |
+
+### AgentToolsConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sandbox` | `CodeExecutionConfig` | `null` | Docker sandbox config for this agent. `null` = use global `codeExecution`. |
+| `hostExec` | `HostExecutionConfig` | `null` | Host execution config for this agent. `null` = use global `hostExecution`. |
+
+### AgentVisionOverride
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `null` | Enable or disable vision for this agent. |
+| `model` | string | `null` | Vision model for this agent. |
+
+### AgentLimitsConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `maxConcurrentRequests` | int | `0` | Maximum concurrent LLM requests for this agent. `0` = unlimited. |
+| `maxMessagesPerMinute` | int | `0` | Maximum messages per minute rate limit. `0` = unlimited. |
+
+### Full agents example
+
+```json
+{
+  "agents": {
+    "_defaults": {
+      "processing": { "slidingWindow": 20 },
+      "memory": {
+        "autoRag": { "enabled": true, "topK": 5 }
+      }
+    },
+    "default": {
+      "workspace": "/home/klaw/workspace",
+      "routing": { "default": "zai/glm-5" },
+      "heartbeat": {
+        "enabled": true,
+        "interval": "PT1H",
+        "channel": "main"
+      }
+    },
+    "assistant": {
+      "workspace": "/home/klaw/workspace-assistant",
+      "routing": { "default": "anthropic/claude-sonnet-4-6" },
+      "limits": {
+        "maxConcurrentRequests": 2,
+        "maxMessagesPerMinute": 30
+      },
+      "vision": { "enabled": true, "model": "glm/glm-4.6v" }
+    },
+    "legacy-bot": {
+      "enabled": false,
+      "workspace": "/home/klaw/workspace-legacy"
+    }
+  }
+}
+```
+
+See [multi-agent architecture](../architecture/multi-agent.md) for a full guide.
 
 ## Notes
 

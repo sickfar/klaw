@@ -16,6 +16,8 @@ import io.github.klaw.common.migration.OpenClawCronConverter
 internal class ScheduleCommand(
     requestFn: EngineRequest,
 ) : CliktCommand(name = "schedule") {
+    val agent by option("--agent", "-a", help = "Agent ID").default("default")
+
     init {
         subcommands(
             ScheduleListCommand(requestFn),
@@ -37,10 +39,12 @@ internal class ScheduleCommand(
 internal class ScheduleListCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "list") {
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
+
     override fun run() {
         CliLogger.debug { "schedule list" }
         try {
-            echo(requestFn("schedule_list", emptyMap()))
+            echo(requestFn("schedule_list", emptyMap(), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -56,6 +60,7 @@ internal class ScheduleAddCommand(
     private val message by argument()
     private val model by option("--model")
     private val injectInto by option("--inject-into")
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule add name=$name" }
@@ -68,7 +73,7 @@ internal class ScheduleAddCommand(
                     model?.let { put("model", it) }
                     injectInto?.let { put("inject_into", it) }
                 }
-            echo(requestFn("schedule_add", params))
+            echo(requestFn("schedule_add", params, agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -80,11 +85,12 @@ internal class ScheduleRemoveCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "remove") {
     private val name by argument()
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule remove name=$name" }
         try {
-            echo(requestFn("schedule_remove", mapOf("name" to name)))
+            echo(requestFn("schedule_remove", mapOf("name" to name), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -99,6 +105,7 @@ internal class ScheduleEditCommand(
     private val cron by option("--cron")
     private val message by option("--message")
     private val model by option("--model")
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule edit name=$name" }
@@ -110,7 +117,7 @@ internal class ScheduleEditCommand(
                     message?.let { put("message", it) }
                     model?.let { put("model", it) }
                 }
-            echo(requestFn("schedule_edit", params))
+            echo(requestFn("schedule_edit", params, agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -122,11 +129,12 @@ internal class ScheduleEnableCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "enable") {
     private val name by argument()
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule enable name=$name" }
         try {
-            echo(requestFn("schedule_enable", mapOf("name" to name)))
+            echo(requestFn("schedule_enable", mapOf("name" to name), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -138,11 +146,12 @@ internal class ScheduleDisableCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "disable") {
     private val name by argument()
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule disable name=$name" }
         try {
-            echo(requestFn("schedule_disable", mapOf("name" to name)))
+            echo(requestFn("schedule_disable", mapOf("name" to name), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -154,11 +163,12 @@ internal class ScheduleRunCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "run") {
     private val name by argument()
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         CliLogger.debug { "schedule run name=$name" }
         try {
-            echo(requestFn("schedule_run", mapOf("name" to name)))
+            echo(requestFn("schedule_run", mapOf("name" to name), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -171,6 +181,7 @@ internal class ScheduleRunsCommand(
 ) : CliktCommand(name = "runs") {
     private val name by argument()
     private val limit by option("--limit").int().default(DEFAULT_RUNS_LIMIT)
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     companion object {
         private const val DEFAULT_RUNS_LIMIT = 20
@@ -179,7 +190,7 @@ internal class ScheduleRunsCommand(
     override fun run() {
         CliLogger.debug { "schedule runs name=$name limit=$limit" }
         try {
-            echo(requestFn("schedule_runs", mapOf("name" to name, "limit" to limit.toString())))
+            echo(requestFn("schedule_runs", mapOf("name" to name, "limit" to limit.toString()), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -190,10 +201,12 @@ internal class ScheduleRunsCommand(
 internal class ScheduleStatusCommand(
     private val requestFn: EngineRequest,
 ) : CliktCommand(name = "status") {
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
+
     override fun run() {
         CliLogger.debug { "schedule status" }
         try {
-            echo(requestFn("schedule_status", emptyMap()))
+            echo(requestFn("schedule_status", emptyMap(), agentId))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
             echo("Engine is not running. Start it with: klaw service start engine")
@@ -206,6 +219,7 @@ internal class ScheduleImportCommand(
 ) : CliktCommand(name = "import") {
     private val fromOpenclaw by option("--from-openclaw", help = "Path to OpenClaw jobs.json file")
     private val all by option("--all", help = "Import all jobs including disabled").flag()
+    private val agentId: String get() = (currentContext.parent?.command as? ScheduleCommand)?.agent ?: "default"
 
     override fun run() {
         val path = fromOpenclaw
@@ -263,7 +277,7 @@ internal class ScheduleImportCommand(
                         failed++
                         continue
                     }
-                val result = requestFn("schedule_add", params)
+                val result = requestFn("schedule_add", params, agentId)
                 if (result.contains("error", ignoreCase = true)) {
                     echo("  FAIL  ${job.name} — $result")
                     failed++

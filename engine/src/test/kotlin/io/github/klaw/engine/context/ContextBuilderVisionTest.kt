@@ -1,6 +1,7 @@
 package io.github.klaw.engine.context
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
@@ -96,6 +97,7 @@ class ContextBuilderVisionTest {
             codeExecution = CodeExecutionConfig(),
             files = FilesConfig(),
             commands = emptyList(),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
             skills = SkillsConfig(),
             docs = DocsConfig(),
             hostExecution = HostExecutionConfig(),

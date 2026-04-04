@@ -13,7 +13,7 @@ class MemoryConsolidateCommandTest {
     private var capturedParams = mapOf<String, String>()
 
     private fun cli(
-        requestFn: EngineRequest = { cmd, params ->
+        requestFn: EngineRequest = { cmd, params, _ ->
             capturedCommand = cmd
             capturedParams = params
             "Consolidation complete"
@@ -65,7 +65,7 @@ class MemoryConsolidateCommandTest {
 
     @Test
     fun `consolidate prints engine not running when engine is down`() {
-        val failingRequest: EngineRequest = { _, _ -> throw EngineNotRunningException() }
+        val failingRequest: EngineRequest = { _, _, _ -> throw EngineNotRunningException() }
         val result = cli(failingRequest).test("memory consolidate")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("Engine is not running"), "output: ${result.output}")

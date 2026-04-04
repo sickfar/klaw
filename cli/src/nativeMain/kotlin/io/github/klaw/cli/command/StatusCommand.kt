@@ -28,7 +28,7 @@ internal class StatusCommand(
             }
         CliLogger.debug { "requesting status params=$params" }
         try {
-            val response = requestFn("status", params)
+            val response = requestFn("status", params, "default")
             echo(response.replace("\\n", "\n"))
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }

@@ -138,7 +138,7 @@ internal class ChannelsStatusCommand(
 
     private fun probeGateway(): String? =
         try {
-            val response = requestFn("status", mapOf("deep" to "true"))
+            val response = requestFn("status", mapOf("deep" to "true"), "default")
             extractGatewayStatus(response)
         } catch (_: EngineNotRunningException) {
             CliLogger.error { "engine not running" }
@@ -251,7 +251,10 @@ internal class ChannelsPairCommand(
         config: GatewayConfig,
         request: PairingRequest,
     ): GatewayConfig {
-        val telegram = config.channels.telegram ?: return config
+        val telegramEntry =
+            config.channels.telegram.entries
+                .firstOrNull() ?: return config
+        val (channelName, telegram) = telegramEntry
         val existingChat = telegram.allowedChats.find { it.chatId == request.chatId }
         val userId = request.userId
         val updatedChats =
@@ -272,7 +275,9 @@ internal class ChannelsPairCommand(
         return config.copy(
             channels =
                 config.channels.copy(
-                    telegram = telegram.copy(allowedChats = updatedChats),
+                    telegram =
+                        config.channels.telegram +
+                            mapOf(channelName to telegram.copy(allowedChats = updatedChats)),
                 ),
         )
     }
@@ -281,7 +286,10 @@ internal class ChannelsPairCommand(
         config: GatewayConfig,
         request: PairingRequest,
     ): GatewayConfig {
-        val discord = config.channels.discord ?: return config
+        val discordEntry =
+            config.channels.discord.entries
+                .firstOrNull() ?: return config
+        val (channelName, discord) = discordEntry
         val guildId = request.guildId ?: return config
         val userId = request.userId
         val existingGuild = discord.allowedGuilds.find { it.guildId == guildId }
@@ -303,7 +311,9 @@ internal class ChannelsPairCommand(
         return config.copy(
             channels =
                 config.channels.copy(
-                    discord = discord.copy(allowedGuilds = updatedGuilds),
+                    discord =
+                        config.channels.discord +
+                            mapOf(channelName to discord.copy(allowedGuilds = updatedGuilds)),
                 ),
         )
     }
@@ -346,11 +356,14 @@ internal class ChannelsUnpairCommand(
     }
 
     private fun unpairTelegram(config: GatewayConfig): GatewayConfig? {
-        val telegram = config.channels.telegram
-        if (telegram == null) {
+        val telegramEntry =
+            config.channels.telegram.entries
+                .firstOrNull()
+        if (telegramEntry == null) {
             echo("No telegram config found.")
             return null
         }
+        val (channelName, telegram) = telegramEntry
         val existing = telegram.allowedChats.find { it.chatId == chatId }
         if (existing == null) {
             echo("Chat $chatId not found in allowedChats.")
@@ -360,17 +373,22 @@ internal class ChannelsUnpairCommand(
         return config.copy(
             channels =
                 config.channels.copy(
-                    telegram = telegram.copy(allowedChats = updatedChats),
+                    telegram =
+                        config.channels.telegram +
+                            mapOf(channelName to telegram.copy(allowedChats = updatedChats)),
                 ),
         )
     }
 
     private fun unpairDiscord(config: GatewayConfig): GatewayConfig? {
-        val discord = config.channels.discord
-        if (discord == null) {
+        val discordEntry =
+            config.channels.discord.entries
+                .firstOrNull()
+        if (discordEntry == null) {
             echo("No discord config found.")
             return null
         }
+        val (channelName, discord) = discordEntry
         val existing = discord.allowedGuilds.find { it.guildId == chatId }
         if (existing == null) {
             echo("Guild $chatId not found in allowedGuilds.")
@@ -380,7 +398,9 @@ internal class ChannelsUnpairCommand(
         return config.copy(
             channels =
                 config.channels.copy(
-                    discord = discord.copy(allowedGuilds = updatedGuilds),
+                    discord =
+                        config.channels.discord +
+                            mapOf(channelName to discord.copy(allowedGuilds = updatedGuilds)),
                 ),
         )
     }
@@ -420,14 +440,14 @@ private fun loadGatewayConfig(configDir: String): ConfigResult {
 
 private fun collectChannels(config: GatewayConfig): List<ChannelInfo> =
     buildList {
-        config.channels.telegram?.let { tg ->
-            add(ChannelInfo(name = "telegram", enabled = true, paired = tg.allowedChats.size))
+        config.channels.telegram.forEach { (name, tg) ->
+            add(ChannelInfo(name = "telegram[$name]", enabled = true, paired = tg.allowedChats.size))
         }
-        config.channels.discord?.let { dc ->
-            add(ChannelInfo(name = "discord", enabled = dc.enabled, paired = dc.allowedGuilds.size))
+        config.channels.discord.forEach { (name, dc) ->
+            add(ChannelInfo(name = "discord[$name]", enabled = true, paired = dc.allowedGuilds.size))
         }
-        config.channels.localWs?.let { ws ->
-            add(ChannelInfo(name = "local_ws", enabled = ws.enabled, port = ws.port))
+        config.channels.websocket.forEach { (name, ws) ->
+            add(ChannelInfo(name = "local_ws[$name]", enabled = true, port = ws.port))
         }
     }
 

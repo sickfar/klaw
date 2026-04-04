@@ -3,7 +3,7 @@ package io.github.klaw.gateway
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.protocol.CommandSocketMessage
 import io.github.klaw.common.protocol.InboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -41,12 +41,14 @@ class GatewayLifecycleInboundTest {
         chatType: String? = null,
         chatTitle: String? = null,
         messageId: String? = null,
+        agentId: String = "default",
     ) = IncomingMessage(
         id = "msg-1",
         channel = channel,
         chatId = chatId,
         content = content,
         ts = Clock.System.now(),
+        agentId = agentId,
         userId = userId,
         isCommand = isCommand,
         commandName = commandName,
@@ -259,9 +261,13 @@ class GatewayLifecycleInboundTest {
                     channels =
                         ChannelsConfig(
                             telegram =
-                                TelegramConfig(
-                                    token = "t",
-                                    allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                        ),
                                 ),
                         ),
                 )
@@ -310,9 +316,13 @@ class GatewayLifecycleInboundTest {
                     channels =
                         ChannelsConfig(
                             telegram =
-                                TelegramConfig(
-                                    token = "t",
-                                    allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                        ),
                                 ),
                         ),
                 )
@@ -362,7 +372,15 @@ class GatewayLifecycleInboundTest {
                 GatewayConfig(
                     channels =
                         ChannelsConfig(
-                            telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
+                            telegram =
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "t",
+                                            allowedChats = emptyList(),
+                                        ),
+                                ),
                         ),
                 )
             capturedListener.captured.invoke(unrelatedConfig)
@@ -441,6 +459,58 @@ class GatewayLifecycleInboundTest {
             assertEquals("private", sent.chatType)
             assertNull(sent.chatTitle)
             assertEquals("msg_1", sent.messageId)
+        }
+
+    @Test
+    fun `agentId forwarded to engine in InboundSocketMessage`() =
+        runBlocking {
+            val allowlistService = mockk<InboundAllowlistService>()
+            every { allowlistService.isAllowed("telegram", "telegram_123", "user1") } returns true
+
+            val engineClient = mockk<EngineSocketClient>(relaxed = true)
+            val sentMessages = mutableListOf<SocketMessage>()
+            every { engineClient.send(capture(sentMessages)) } returns true
+
+            val incoming = makeIncoming(agentId = "work-agent")
+            val callback =
+                GatewayLifecycle.buildInboundCallback(
+                    allowlistService = allowlistService,
+                    pairingService = mockk(relaxed = true),
+                    configFileWatcher = mockk(relaxed = true),
+                    engineClient = engineClient,
+                    replyFn = { _, _ -> },
+                )
+            callback(incoming)
+
+            val sent = sentMessages.single()
+            assertIs<InboundSocketMessage>(sent)
+            assertEquals("work-agent", sent.agentId)
+        }
+
+    @Test
+    fun `agentId forwarded to engine in CommandSocketMessage`() =
+        runBlocking {
+            val allowlistService = mockk<InboundAllowlistService>()
+            every { allowlistService.isAllowed("telegram", "telegram_123", "user1") } returns true
+
+            val engineClient = mockk<EngineSocketClient>(relaxed = true)
+            val sentMessages = mutableListOf<SocketMessage>()
+            every { engineClient.send(capture(sentMessages)) } returns true
+
+            val incoming = makeIncoming(isCommand = true, commandName = "status", agentId = "personal")
+            val callback =
+                GatewayLifecycle.buildInboundCallback(
+                    allowlistService = allowlistService,
+                    pairingService = mockk(relaxed = true),
+                    configFileWatcher = mockk(relaxed = true),
+                    engineClient = engineClient,
+                    replyFn = { _, _ -> },
+                )
+            callback(incoming)
+
+            val sent = sentMessages.single()
+            assertIs<CommandSocketMessage>(sent)
+            assertEquals("personal", sent.agentId)
         }
 
     @Test

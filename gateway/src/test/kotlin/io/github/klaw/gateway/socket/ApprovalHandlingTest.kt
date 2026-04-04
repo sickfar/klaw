@@ -3,7 +3,7 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.ApprovalResponseMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
@@ -44,7 +44,13 @@ class ApprovalHandlingTest {
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
             GatewayConfig(
-                ChannelsConfig(TelegramConfig("tok", allowedChats)),
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = allowedChats),
+                        ),
+                ),
             )
         return InboundAllowlistService(config)
     }

@@ -44,7 +44,8 @@ class StreamingConfigTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)
@@ -62,7 +63,8 @@ class StreamingConfigTest {
   "routing": {"default": "a/b", "fallback": [], "tasks": {"summarization": "a/b", "subagent": "a/b"}},
   "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
   "context": {"tokenBudget": 100, "subagentHistory": 3},
-  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1, "streaming": {"enabled": true, "throttleMs": 100}}
+  "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1, "streaming": {"enabled": true, "throttleMs": 100}},
+  "agents": {"default": {"workspace": "/tmp/test"}}
 }
             """.trimIndent()
         val config = parseEngineConfig(json)

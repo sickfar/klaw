@@ -1,5 +1,6 @@
 package io.github.klaw.cli.init
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.AttachmentsConfig
@@ -9,13 +10,12 @@ import io.github.klaw.common.config.ComposeConfig
 import io.github.klaw.common.config.ComposeServiceConfig
 import io.github.klaw.common.config.ComposeVolumeConfig
 import io.github.klaw.common.config.ContextConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.EmbeddingConfig
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.HeartbeatConfig
 import io.github.klaw.common.config.HostExecutionConfig
-import io.github.klaw.common.config.LocalWsConfig
 import io.github.klaw.common.config.MemoryConfig
 import io.github.klaw.common.config.ModelConfig
 import io.github.klaw.common.config.PreValidationConfig
@@ -24,10 +24,11 @@ import io.github.klaw.common.config.ProviderConfig
 import io.github.klaw.common.config.RoutingConfig
 import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.config.VisionConfig
 import io.github.klaw.common.config.WebConfig
 import io.github.klaw.common.config.WebSearchConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.config.encodeComposeConfig
 import io.github.klaw.common.config.encodeEngineConfigMinimal
 import io.github.klaw.common.config.encodeGatewayConfigMinimal
@@ -98,6 +99,7 @@ internal object ConfigTemplates {
             } else {
                 VisionConfig()
             }
+        val agentWorkspace = workspace?.takeIf { it.isNotBlank() } ?: "/tmp/klaw-workspace"
         return EngineConfig(
             workspace = workspace,
             providers = buildConfigProviders(providerName),
@@ -128,6 +130,7 @@ internal object ConfigTemplates {
                 ),
             web = WebConfig(search = webSearch),
             vision = vision,
+            agents = mapOf("default" to AgentConfig(workspace = agentWorkspace)),
         )
     }
 
@@ -143,31 +146,35 @@ internal object ConfigTemplates {
     ): String {
         val telegram =
             if (telegramEnabled) {
-                TelegramConfig(
-                    token = "\${KLAW_TELEGRAM_TOKEN}",
-                    allowedChats = allowedChats,
+                mapOf(
+                    "default" to
+                        TelegramChannelConfig(
+                            agentId = "default",
+                            token = "\${KLAW_TELEGRAM_TOKEN}",
+                            allowedChats = allowedChats,
+                        ),
                 )
             } else {
-                null
+                emptyMap()
             }
         val discord =
             if (discordEnabled) {
-                DiscordConfig(
-                    enabled = true,
-                    token = "\${KLAW_DISCORD_TOKEN}",
-                    allowedGuilds = discordAllowedGuilds.map { AllowedGuild(guildId = it) },
+                mapOf(
+                    "default" to
+                        DiscordChannelConfig(
+                            agentId = "default",
+                            token = "\${KLAW_DISCORD_TOKEN}",
+                            allowedGuilds = discordAllowedGuilds.map { AllowedGuild(guildId = it) },
+                        ),
                 )
             } else {
-                null
+                emptyMap()
             }
-        val localWs =
+        val websocket =
             if (enableLocalWs) {
-                LocalWsConfig(
-                    enabled = true,
-                    port = localWsPort,
-                )
+                mapOf("default" to WebSocketChannelConfig(agentId = "default", port = localWsPort))
             } else {
-                null
+                emptyMap()
             }
         val attachments =
             if (attachmentsDirectory.isNotBlank()) {
@@ -181,7 +188,7 @@ internal object ConfigTemplates {
                     ChannelsConfig(
                         telegram = telegram,
                         discord = discord,
-                        localWs = localWs,
+                        websocket = websocket,
                     ),
                 attachments = attachments,
             )

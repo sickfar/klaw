@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GatewayConfig(
     @ConfigDoc("Channel transport configurations")
-    val channels: ChannelsConfig,
+    val channels: ChannelsConfig = ChannelsConfig(),
     @ConfigDoc("Delivery reliability settings")
     val delivery: DeliveryConfig = DeliveryConfig(),
     @ConfigDoc("Attachment handling settings")
@@ -32,19 +32,47 @@ data class DeliveryConfig(
 
 @Serializable
 data class ChannelsConfig(
-    @ConfigDoc("Telegram bot channel settings")
-    val telegram: TelegramConfig? = null,
-    @ConfigDoc("Discord bot channel settings")
-    val discord: DiscordConfig? = null,
-    @ConfigDoc("Local WebSocket channel settings")
-    val localWs: LocalWsConfig? = null,
+    @ConfigDoc("Telegram bot channel instances keyed by name")
+    val telegram: Map<String, TelegramChannelConfig> = emptyMap(),
+    @ConfigDoc("Discord bot channel instances keyed by name")
+    val discord: Map<String, DiscordChannelConfig> = emptyMap(),
+    @ConfigDoc("WebSocket channel instances keyed by name")
+    val websocket: Map<String, WebSocketChannelConfig> = emptyMap(),
 )
 
 @Serializable
-data class LocalWsConfig(
-    @ConfigDoc("Enable the local WebSocket channel")
-    val enabled: Boolean = false,
-    @ConfigDoc("TCP port for the local WebSocket channel")
+data class TelegramChannelConfig(
+    @ConfigDoc("Agent ID this channel routes messages to")
+    val agentId: String,
+    @ConfigDoc("Telegram Bot API token", sensitive = true)
+    val token: String,
+    @ConfigDoc("List of chats allowed to interact with the bot")
+    val allowedChats: List<AllowedChat> = emptyList(),
+    @ConfigDoc("Custom API base URL (testing only)")
+    val apiBaseUrl: String? = null,
+) {
+    override fun toString(): String = "TelegramChannelConfig(agentId=$agentId, token=***, allowedChats=$allowedChats)"
+}
+
+@Serializable
+data class DiscordChannelConfig(
+    @ConfigDoc("Agent ID this channel routes messages to")
+    val agentId: String,
+    @ConfigDoc("Discord bot token", sensitive = true)
+    val token: String,
+    @ConfigDoc("List of guilds (servers) allowed to interact with the bot")
+    val allowedGuilds: List<AllowedGuild> = emptyList(),
+    @ConfigDoc("Custom API base URL (testing only)")
+    val apiBaseUrl: String? = null,
+) {
+    override fun toString(): String = "DiscordChannelConfig(agentId=$agentId, token=***, allowedGuilds=$allowedGuilds)"
+}
+
+@Serializable
+data class WebSocketChannelConfig(
+    @ConfigDoc("Agent ID this channel routes messages to")
+    val agentId: String,
+    @ConfigDoc("TCP port for the WebSocket channel")
     val port: Int = 37474,
 )
 
@@ -55,33 +83,6 @@ data class AllowedChat(
     @ConfigDoc("List of user IDs allowed to interact in this chat")
     val allowedUserIds: List<String> = emptyList(),
 )
-
-@Serializable
-data class TelegramConfig(
-    @ConfigDoc("Telegram Bot API token", sensitive = true)
-    val token: String,
-    @ConfigDoc("List of chats allowed to interact with the bot")
-    val allowedChats: List<AllowedChat> = emptyList(),
-    @ConfigDoc("Custom API base URL (testing only)")
-    val apiBaseUrl: String? = null,
-) {
-    override fun toString(): String = "TelegramConfig(token=***, allowedChats=$allowedChats)"
-}
-
-@Serializable
-data class DiscordConfig(
-    @ConfigDoc("Enable the Discord bot channel")
-    val enabled: Boolean = false,
-    @ConfigDoc("Discord bot token", sensitive = true)
-    val token: String? = null,
-    @ConfigDoc("List of guilds (servers) allowed to interact with the bot")
-    val allowedGuilds: List<AllowedGuild> = emptyList(),
-    @ConfigDoc("Custom API base URL (testing only)")
-    val apiBaseUrl: String? = null,
-) {
-    override fun toString(): String =
-        "DiscordConfig(enabled=$enabled, token=${if (token != null) "***" else "null"}, allowedGuilds=$allowedGuilds)"
-}
 
 @Serializable
 data class AllowedGuild(

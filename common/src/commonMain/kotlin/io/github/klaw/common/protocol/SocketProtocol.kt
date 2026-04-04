@@ -31,6 +31,7 @@ data class InboundSocketMessage(
     val chatTitle: String? = null,
     val messageId: String? = null,
     val attachments: List<Attachment> = emptyList(),
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -41,6 +42,7 @@ data class OutboundSocketMessage(
     val chatId: String,
     val content: String,
     val meta: Map<String, String>? = null,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -55,6 +57,7 @@ data class CommandSocketMessage(
     val chatType: String? = null,
     val chatTitle: String? = null,
     val messageId: String? = null,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -75,6 +78,7 @@ data class ApprovalRequestMessage(
     val command: String,
     val riskScore: Int,
     val timeout: Int,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -82,12 +86,14 @@ data class ApprovalRequestMessage(
 data class ApprovalResponseMessage(
     val id: String,
     val approved: Boolean,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
 @SerialName("approval_dismiss")
 data class ApprovalDismissMessage(
     val id: String,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -109,6 +115,7 @@ data class StreamDeltaSocketMessage(
     val chatId: String,
     val delta: String,
     val streamId: String,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 @Serializable
@@ -119,6 +126,7 @@ data class StreamEndSocketMessage(
     val streamId: String,
     val fullContent: String,
     val meta: Map<String, String>? = null,
+    val agentId: String = "default",
 ) : SocketMessage()
 
 // CliRequestMessage is intentionally NOT a SocketMessage subclass.
@@ -128,4 +136,5 @@ data class StreamEndSocketMessage(
 data class CliRequestMessage(
     val command: String,
     val params: Map<String, String> = emptyMap(),
+    val agentId: String = "default",
 )

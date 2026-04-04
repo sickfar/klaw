@@ -8,7 +8,7 @@ import dev.kord.core.entity.User
 import dev.kord.core.entity.interaction.ChatInputCommandInteraction
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.mockk.coVerify
@@ -29,16 +29,19 @@ class DiscordChannelSlashCommandsTest {
                 channels =
                     ChannelsConfig(
                         discord =
-                            DiscordConfig(
-                                enabled = true,
-                                token = "test-token",
-                                allowedGuilds =
-                                    listOf(
-                                        AllowedGuild(
-                                            guildId = "111222333",
-                                            allowedChannelIds = emptyList(),
-                                            allowedUserIds = listOf("100", "200"),
-                                        ),
+                            mapOf(
+                                "default" to
+                                    DiscordChannelConfig(
+                                        agentId = "default",
+                                        token = "test-token",
+                                        allowedGuilds =
+                                            listOf(
+                                                AllowedGuild(
+                                                    guildId = "111222333",
+                                                    allowedChannelIds = emptyList(),
+                                                    allowedUserIds = listOf("100", "200"),
+                                                ),
+                                            ),
                                     ),
                             ),
                     ),

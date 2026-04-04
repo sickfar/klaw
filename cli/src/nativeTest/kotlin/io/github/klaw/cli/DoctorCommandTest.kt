@@ -62,7 +62,7 @@ class DoctorCommandTest {
         workspace: String = workspaceDir,
         commandOutput: (String) -> String? = { null },
     ) = KlawCli(
-        requestFn = { _, _ -> "{}" },
+        requestFn = { _, _, _ -> "{}" },
         conversationsDir = "/nonexistent",
         engineChecker = { engineRunning },
         configDir = configDir,
@@ -491,7 +491,7 @@ class DoctorCommandTest {
         val calledCommands = mutableListOf<String>()
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     calledCommands += cmd
                     """{"valid": true}"""
                 },
@@ -516,7 +516,7 @@ class DoctorCommandTest {
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val result =
             KlawCli(
-                requestFn = { _, _ ->
+                requestFn = { _, _, _ ->
                     throw io.github.klaw.cli.socket
                         .EngineNotRunningException()
                 },
@@ -537,7 +537,7 @@ class DoctorCommandTest {
         val calledCommands = mutableListOf<String>()
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     calledCommands += cmd
                     "{}"
                 },
@@ -623,7 +623,7 @@ class DoctorCommandTest {
         val calledCommands = mutableListOf<String>()
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     calledCommands += cmd
                     if (cmd == "doctor_deep") {
                         """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
@@ -652,7 +652,7 @@ class DoctorCommandTest {
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     if (cmd == "doctor_deep") {
                         """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
                     } else {
@@ -678,7 +678,7 @@ class DoctorCommandTest {
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     if (cmd == "doctor_deep") {
                         """{"embedding":{"status":"ok","type":"onnx"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
                     } else {
@@ -714,7 +714,7 @@ class DoctorCommandTest {
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val result =
             KlawCli(
-                requestFn = { _, _ ->
+                requestFn = { _, _, _ ->
                     throw io.github.klaw.cli.socket
                         .EngineNotRunningException()
                 },
@@ -749,7 +749,7 @@ class DoctorCommandTest {
         writeFile("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     if (cmd == "doctor_deep") {
                         """{"embedding":{"status":"ok"},"database":{"status":"ok"},"providers":[],"mcpServers":[]}"""
                     } else {
@@ -775,7 +775,7 @@ class DoctorCommandTest {
         val calledCommands = mutableListOf<String>()
         val result =
             KlawCli(
-                requestFn = { cmd, _ ->
+                requestFn = { cmd, _, _ ->
                     calledCommands += cmd
                     "{}"
                 },

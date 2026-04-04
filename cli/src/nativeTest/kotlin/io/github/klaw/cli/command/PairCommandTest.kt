@@ -7,10 +7,10 @@ import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.common.config.PairingRequest
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.config.encodeGatewayConfig
 import io.github.klaw.common.config.klawPrettyJson
 import io.github.klaw.common.config.parseGatewayConfig
@@ -60,13 +60,21 @@ class PairCommandTest {
         GatewayConfig(
             channels =
                 ChannelsConfig(
-                    telegram = TelegramConfig(token = "tok", allowedChats = allowedChats),
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(
+                                    agentId = "default",
+                                    token = "tok",
+                                    allowedChats = allowedChats,
+                                ),
+                        ),
                 ),
         )
 
     private fun makeCli(): KlawCli =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = configDir,
             modelsDir = "/nonexistent",
             logDir = "/nonexistent/logs",
@@ -93,7 +101,10 @@ class PairCommandTest {
         assertTrue(result.output.contains("Paired"), "Expected 'Paired' in: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
-        val chats = updatedConfig.channels.telegram!!.allowedChats
+        val chats =
+            updatedConfig.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats ?: emptyList()
         assertTrue(chats.any { it.chatId == "telegram_456" }, "Expected telegram_456 in allowedChats: $chats")
         assertTrue(
             chats.first { it.chatId == "telegram_456" }.allowedUserIds.contains("user1"),
@@ -155,9 +166,11 @@ class PairCommandTest {
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
         val chat =
-            updatedConfig.channels.telegram!!
-                .allowedChats
-                .first { it.chatId == "telegram_456" }
+            updatedConfig.channels.telegram.values
+                .firstOrNull()
+                ?.allowedChats
+                ?.first { it.chatId == "telegram_456" }
+        assertTrue(chat != null, "Expected telegram_456 chat entry to exist")
         assertTrue(chat.allowedUserIds.contains("existingUser"), "Expected existingUser preserved")
         assertTrue(chat.allowedUserIds.contains("newUser"), "Expected newUser added")
     }
@@ -186,7 +199,15 @@ class PairCommandTest {
         GatewayConfig(
             channels =
                 ChannelsConfig(
-                    discord = DiscordConfig(enabled = true, token = "tok", allowedGuilds = allowedGuilds),
+                    discord =
+                        mapOf(
+                            "default" to
+                                DiscordChannelConfig(
+                                    agentId = "default",
+                                    token = "tok",
+                                    allowedGuilds = allowedGuilds,
+                                ),
+                        ),
                 ),
         )
 
@@ -211,7 +232,10 @@ class PairCommandTest {
         assertTrue(result.output.contains("Paired"), "Expected 'Paired' in: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
-        val guilds = updatedConfig.channels.discord!!.allowedGuilds
+        val guilds =
+            updatedConfig.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds ?: emptyList()
         assertEquals(1, guilds.size, "Expected 1 guild, got: $guilds")
         assertEquals("guild_999", guilds[0].guildId)
         assertTrue(guilds[0].allowedUserIds.contains("user42"), "Expected user42 in allowedUserIds")
@@ -242,9 +266,11 @@ class PairCommandTest {
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
         val guild =
-            updatedConfig.channels.discord!!
-                .allowedGuilds
-                .first { it.guildId == "guild_999" }
+            updatedConfig.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds
+                ?.first { it.guildId == "guild_999" }
+        assertTrue(guild != null, "Expected guild_999 entry to exist")
         assertTrue(guild.allowedUserIds.contains("existingUser"), "Expected existingUser preserved")
         assertTrue(guild.allowedUserIds.contains("newUser"), "Expected newUser added")
     }
@@ -270,7 +296,10 @@ class PairCommandTest {
         assertEquals(0, result.statusCode, "output: ${result.output}")
 
         val updatedConfig = parseGatewayConfig(readFileText("$configDir/gateway.json")!!)
-        val guilds = updatedConfig.channels.discord!!.allowedGuilds
+        val guilds =
+            updatedConfig.channels.discord.values
+                .firstOrNull()
+                ?.allowedGuilds ?: emptyList()
         assertEquals(2, guilds.size, "Expected 2 guilds, got: $guilds")
         assertTrue(guilds.any { it.guildId == "guild_111" }, "Expected existing guild preserved")
         val newGuild = guilds.first { it.guildId == "guild_222" }

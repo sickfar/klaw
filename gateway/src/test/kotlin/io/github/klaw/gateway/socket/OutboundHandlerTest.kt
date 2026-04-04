@@ -3,7 +3,7 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.gateway.channel.Channel
 import io.github.klaw.gateway.channel.OutgoingMessage
@@ -43,7 +43,13 @@ class OutboundHandlerTest {
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
             GatewayConfig(
-                ChannelsConfig(TelegramConfig("tok", allowedChats)),
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = allowedChats),
+                        ),
+                ),
             )
         return InboundAllowlistService(config)
     }
@@ -84,7 +90,7 @@ class OutboundHandlerTest {
                 OutboundSocketMessage(channel = "telegram", chatId = "telegram_123", content = "hello", replyTo = null),
             )
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists())
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject

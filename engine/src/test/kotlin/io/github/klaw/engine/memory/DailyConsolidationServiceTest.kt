@@ -1,5 +1,6 @@
 package io.github.klaw.engine.memory
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.ContextConfig
 import io.github.klaw.common.config.DailyConsolidationConfig
@@ -92,6 +93,7 @@ class DailyConsolidationServiceTest {
                     maxConcurrentLlm = 2,
                     maxToolCallRounds = 5,
                 ),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun buildService(config: EngineConfig) =

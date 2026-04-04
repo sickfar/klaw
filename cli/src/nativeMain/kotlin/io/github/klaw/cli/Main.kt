@@ -37,12 +37,12 @@ import platform.posix.signal
 // SIGINT exit code: 128 + signal number (2) = 130, per POSIX convention
 private const val SIGINT_EXIT_CODE = 130
 
-/** Type alias for delegated engine commands — (command, params) → JSON response */
-internal typealias EngineRequest = (command: String, params: Map<String, String>) -> String
+/** Type alias for delegated engine commands — (command, params, agentId) → JSON response */
+internal typealias EngineRequest = (command: String, params: Map<String, String>, agentId: String) -> String
 
 internal fun defaultEngineRequest(): EngineRequest =
-    { cmd, params ->
-        EngineSocketClient().request(cmd, params)
+    { cmd, params, agentId ->
+        EngineSocketClient().request(cmd, params, agentId)
     }
 
 @Suppress("LongParameterList")

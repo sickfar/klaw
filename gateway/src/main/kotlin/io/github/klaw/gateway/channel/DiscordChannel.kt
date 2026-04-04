@@ -60,7 +60,16 @@ class DiscordChannel(
     private val config: GatewayConfig,
     private val jsonlWriter: ConversationJsonlWriter,
 ) : Channel {
-    override val name = "discord"
+    override val name: String
+        get() =
+            config.channels.discord.keys
+                .firstOrNull() ?: "discord"
+
+    private val agentId: String
+        get() =
+            config.channels.discord.values
+                .firstOrNull()
+                ?.agentId ?: "default"
 
     @Volatile
     private var alive: Boolean = false
@@ -95,20 +104,14 @@ class DiscordChannel(
     }
 
     override suspend fun start() {
-        val discordConfig = config.channels.discord
+        val discordConfig =
+            config.channels.discord.values
+                .firstOrNull()
         if (discordConfig == null) {
             logger.info { "discord config not found, DiscordChannel not started" }
             return
         }
-        if (!discordConfig.enabled) {
-            logger.debug { "discord channel disabled, skipping start" }
-            return
-        }
         val token = discordConfig.token
-        if (token == null) {
-            logger.warn { "discord channel enabled but token is null, skipping start" }
-            return
-        }
 
         logger.info { "discord bot starting" }
 
@@ -500,6 +503,8 @@ class DiscordChannel(
                 platformMessageId = platformMessageId,
                 guildId = guildId,
                 attachments = imageAttachments,
+                agentId = agentId,
+                channelName = name,
             )
 
         logger.trace { "discord message normalized chatId=${incoming.chatId} chatType=$chatType" }
@@ -517,7 +522,9 @@ class DiscordChannel(
         channelId: String,
         userId: String?,
     ): Boolean {
-        val discordConfig = config.channels.discord ?: return false
+        val discordConfig =
+            config.channels.discord.values
+                .firstOrNull() ?: return false
         val guilds = discordConfig.allowedGuilds
 
         if (guildId == null) {
@@ -603,7 +610,7 @@ class DiscordChannel(
             }
         }
 
-        jsonlWriter.writeOutbound(chatId, response.content)
+        jsonlWriter.writeOutbound(agentId = agentId, chatId = chatId, content = response.content)
         logger.debug { "discord message sent channelId=$channelId chunks=${chunks.size}" }
     }
 
@@ -632,7 +639,7 @@ class DiscordChannel(
             return
         }
 
-        jsonlWriter.writeOutbound(chatId, response.content)
+        jsonlWriter.writeOutbound(agentId = agentId, chatId = chatId, content = response.content)
         logger.debug { "discord slash response sent channelId=$channelId" }
     }
 
@@ -768,6 +775,7 @@ class DiscordChannel(
             ts =
                 kotlin.time.Clock.System
                     .now(),
+            agentId = agentId,
             userId = interaction.user.id.toString(),
             senderName = interaction.user.username,
             isCommand = true,

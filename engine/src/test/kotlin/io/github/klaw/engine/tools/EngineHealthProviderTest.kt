@@ -1,6 +1,7 @@
 package io.github.klaw.engine.tools
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.ContextConfig
@@ -74,6 +75,7 @@ class EngineHealthProviderTest {
             processing = ProcessingConfig(debounceMs = 100, maxConcurrentLlm = 1, maxToolCallRounds = 5),
             codeExecution = CodeExecutionConfig(keepAlive = keepAlive),
             docs = DocsConfig(enabled = docsEnabled),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun buildInfra(mcpReg: McpToolRegistry = mcpToolRegistry): HealthInfrastructure =

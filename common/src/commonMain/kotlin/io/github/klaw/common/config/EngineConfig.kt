@@ -18,12 +18,12 @@ data class EngineConfig(
     val routing: RoutingConfig,
     // --- Memory pipeline (embedding, chunking, search, auto-RAG, compaction, consolidation) ---
     @ConfigDoc("Memory system configuration")
-    val memory: MemoryConfig,
+    val memory: MemoryConfig = MemoryConfig(),
     // --- Agent behavior ---
     @ConfigDoc("Context window budget settings")
-    val context: ContextConfig,
+    val context: ContextConfig = ContextConfig(),
     @ConfigDoc("Message processing pipeline settings")
-    val processing: ProcessingConfig,
+    val processing: ProcessingConfig = ProcessingConfig(),
     @ConfigDoc("Skill system settings")
     val skills: SkillsConfig = SkillsConfig(),
     @ConfigDoc("Custom slash commands available to the agent")
@@ -54,7 +54,26 @@ data class EngineConfig(
     val logging: LoggingConfig = LoggingConfig(),
     @ConfigDoc("Documentation tool settings")
     val docs: DocsConfig = DocsConfig(),
-)
+    // --- Multi-agent ---
+    @ConfigDoc("Agent definitions keyed by agent name; use '_defaults' key for shared defaults template")
+    val agents: Map<String, AgentConfig> = emptyMap(),
+) {
+    @Transient
+    val agentDefaults: AgentConfig? = agents["_defaults"]
+
+    @Transient
+    val effectiveAgents: Map<String, AgentConfig> = agents.filterKeys { it != "_defaults" }
+
+    init {
+        require(effectiveAgents.isNotEmpty()) {
+            "At least one agent must be defined in 'agents' (excluding '_defaults')"
+        }
+        val blankWorkspaceAgents = effectiveAgents.filterValues { it.workspace.isBlank() }.keys
+        require(blankWorkspaceAgents.isEmpty()) {
+            "Agent(s) $blankWorkspaceAgents must have a non-blank workspace"
+        }
+    }
+}
 
 @Serializable
 data class ProviderConfig(
@@ -108,15 +127,15 @@ data class RoutingConfig(
     @ConfigDoc("Fallback model references tried in order if default fails")
     val fallback: List<String> = emptyList(),
     @ConfigDoc("Task-specific model routing overrides")
-    val tasks: TaskRoutingConfig,
+    val tasks: TaskRoutingConfig = TaskRoutingConfig(),
 )
 
 @Serializable
 data class TaskRoutingConfig(
-    @ConfigDoc("Model reference for summarization tasks")
-    val summarization: String,
-    @ConfigDoc("Model reference for subagent tasks")
-    val subagent: String,
+    @ConfigDoc("Model reference for summarization tasks (empty = fallback to routing.default at runtime)")
+    val summarization: String = "",
+    @ConfigDoc("Model reference for subagent tasks (empty = fallback to routing.default at runtime)")
+    val subagent: String = "",
     @ConfigDoc("Model reference for consolidation tasks")
     val consolidation: String = "",
 )
@@ -128,7 +147,7 @@ data class MemoryConfig(
     @ConfigDoc("Text chunking settings for memory storage")
     val chunking: ChunkingConfig = ChunkingConfig(),
     @ConfigDoc("Hybrid search settings for memory retrieval")
-    val search: SearchConfig,
+    val search: SearchConfig = SearchConfig(),
     @ConfigDoc("Inject a Memory Map of database categories into the system prompt")
     val injectMemoryMap: Boolean = false,
     @ConfigDoc("Maximum number of categories displayed in the memory map")
@@ -178,15 +197,15 @@ data class ChunkingConfig(
     }
 
     companion object {
-        const val DEFAULT_CHUNK_SIZE = 400
-        const val DEFAULT_OVERLAP = 80
+        const val DEFAULT_CHUNK_SIZE = 512
+        const val DEFAULT_OVERLAP = 64
     }
 }
 
 @Serializable
 data class SearchConfig(
     @ConfigDoc("Number of top results to return from hybrid search")
-    val topK: Int,
+    val topK: Int = DEFAULT_TOP_K,
     @ConfigDoc("MMR (Maximal Marginal Relevance) diversity reranking settings")
     val mmr: MmrConfig = MmrConfig(),
     @ConfigDoc("Temporal decay settings — recent memories score higher")
@@ -194,6 +213,10 @@ data class SearchConfig(
 ) {
     init {
         require(topK > 0) { "topK must be > 0, got $topK" }
+    }
+
+    companion object {
+        const val DEFAULT_TOP_K = 10
     }
 }
 
@@ -226,7 +249,7 @@ data class ContextConfig(
     @ConfigDoc("Token budget for context window. Priority: config > model registry > 100000.")
     val tokenBudget: Int? = null,
     @ConfigDoc("Maximum number of history runs to include for subagents")
-    val subagentHistory: Int,
+    val subagentHistory: Int = DEFAULT_SUBAGENT_HISTORY,
 ) {
     init {
         require(tokenBudget == null || tokenBudget > 0) {
@@ -237,17 +260,18 @@ data class ContextConfig(
 
     companion object {
         const val FALLBACK_BUDGET_TOKENS = 100_000
+        const val DEFAULT_SUBAGENT_HISTORY = 10
     }
 }
 
 @Serializable
 data class ProcessingConfig(
     @ConfigDoc("Delay in milliseconds before processing buffered messages")
-    val debounceMs: Long,
+    val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
     @ConfigDoc("Maximum number of concurrent LLM API requests")
-    val maxConcurrentLlm: Int,
+    val maxConcurrentLlm: Int = DEFAULT_MAX_CONCURRENT_LLM,
     @ConfigDoc("Maximum number of tool-call rounds per conversation turn")
-    val maxToolCallRounds: Int,
+    val maxToolCallRounds: Int = DEFAULT_MAX_TOOL_CALL_ROUNDS,
     @ConfigDoc("Maximum characters in tool output before truncation")
     val maxToolOutputChars: Int = 50_000,
     @ConfigDoc("Maximum messages in the debounce buffer before force-flush")
@@ -264,6 +288,12 @@ data class ProcessingConfig(
         require(maxToolOutputChars > 0) { "maxToolOutputChars must be > 0, got $maxToolOutputChars" }
         require(maxDebounceEntries > 0) { "maxDebounceEntries must be > 0, got $maxDebounceEntries" }
         require(subagentTimeoutMs > 0) { "subagentTimeoutMs must be > 0, got $subagentTimeoutMs" }
+    }
+
+    companion object {
+        const val DEFAULT_DEBOUNCE_MS = 800L
+        const val DEFAULT_MAX_CONCURRENT_LLM = 3
+        const val DEFAULT_MAX_TOOL_CALL_ROUNDS = 50
     }
 }
 
@@ -453,7 +483,7 @@ data class PreValidationConfig(
 @Serializable
 data class HeartbeatConfig(
     @ConfigDoc("Heartbeat interval as ISO-8601 duration (e.g. PT1H, PT30M) or 'off' to disable")
-    val interval: String = "off",
+    val interval: String = "PT1H",
     @ConfigDoc("Model reference used for heartbeat generation")
     val model: String? = null,
     @ConfigDoc("Session name to inject heartbeat output into")
@@ -646,5 +676,120 @@ data class VisionConfig(
     companion object {
         private const val DEFAULT_MAX_IMAGE_SIZE_BYTES = 10_485_760L
         private const val DEFAULT_MAX_IMAGES_PER_MESSAGE = 5
+    }
+}
+
+// --- Multi-agent config classes ---
+
+@Serializable
+data class AgentConfig(
+    @ConfigDoc("Enable or disable this agent (disabled agents are ignored at runtime)")
+    val enabled: Boolean = true,
+    @ConfigDoc("Workspace directory for this agent (required for effective agents)")
+    val workspace: String = "",
+    @ConfigDoc("Per-agent routing overrides (null = use global routing)")
+    val routing: AgentRoutingOverride? = null,
+    @ConfigDoc("Per-agent processing overrides (null = use global processing)")
+    val processing: AgentProcessingOverride? = null,
+    @ConfigDoc("Per-agent memory overrides (null = use global memory config)")
+    val memory: AgentMemoryOverride? = null,
+    @ConfigDoc("Per-agent heartbeat overrides (null = use global heartbeat config)")
+    val heartbeat: AgentHeartbeatOverride? = null,
+    @ConfigDoc("Per-agent tool configuration (null = use global tool config)")
+    val tools: AgentToolsConfig? = null,
+    @ConfigDoc("Per-agent MCP server configuration (null = use global MCP config)")
+    val mcp: McpConfig? = null,
+    @ConfigDoc("Per-agent resource limits (null = use defaults, 0 = unlimited)")
+    val limits: AgentLimitsConfig? = null,
+    @ConfigDoc("Per-agent vision overrides (null = use global vision config)")
+    val vision: AgentVisionOverride? = null,
+)
+
+@Serializable
+data class AgentRoutingOverride(
+    @ConfigDoc("Default model reference override for this agent (null = use global routing.default)")
+    val default: String? = null,
+    @ConfigDoc("Task-specific routing overrides for this agent")
+    val tasks: AgentTaskRoutingOverride? = null,
+)
+
+@Serializable
+data class AgentTaskRoutingOverride(
+    @ConfigDoc("Model reference for summarization tasks (null = use global)")
+    val summarization: String? = null,
+    @ConfigDoc("Model reference for subagent tasks (null = use global)")
+    val subagent: String? = null,
+    @ConfigDoc("Model reference for consolidation tasks (null = use global)")
+    val consolidation: String? = null,
+)
+
+@Serializable
+data class AgentProcessingOverride(
+    @ConfigDoc("Sliding window size override for this agent (null = use global)")
+    val slidingWindow: Int? = null,
+    @ConfigDoc("Sampling temperature override for this agent (null = use model default)")
+    val temperature: Double? = null,
+    @ConfigDoc("Maximum output tokens override for this agent (null = use model default)")
+    val maxOutputTokens: Int? = null,
+)
+
+@Serializable
+data class AgentMemoryOverride(
+    @ConfigDoc("Daily consolidation config override for this agent")
+    val consolidation: DailyConsolidationConfig? = null,
+    @ConfigDoc("Chunking config override for this agent")
+    val chunking: ChunkingConfig? = null,
+    @ConfigDoc("Search config override for this agent")
+    val search: SearchConfig? = null,
+    @ConfigDoc("Auto-RAG config override for this agent")
+    val autoRag: AutoRagConfig? = null,
+)
+
+@Serializable
+data class AgentHeartbeatOverride(
+    @ConfigDoc("Enable or disable heartbeat for this agent")
+    val enabled: Boolean? = null,
+    @ConfigDoc("Heartbeat interval as ISO-8601 duration or 'off'")
+    val interval: String? = null,
+    @ConfigDoc("Cron expression for heartbeat schedule (alternative to interval)")
+    val cron: String? = null,
+    @ConfigDoc("Model reference for heartbeat generation")
+    val model: String? = null,
+    @ConfigDoc("Channel to deliver heartbeat messages to")
+    val channel: String? = null,
+    @ConfigDoc("Chat ID to inject heartbeat messages into (overrides global heartbeat.injectInto)")
+    val injectInto: String? = null,
+)
+
+@Serializable
+data class AgentToolsConfig(
+    @ConfigDoc("Docker sandbox code execution settings for this agent")
+    val sandbox: CodeExecutionConfig? = null,
+    @ConfigDoc("Host command execution settings for this agent")
+    val hostExec: HostExecutionConfig? = null,
+)
+
+@Serializable
+data class AgentVisionOverride(
+    @ConfigDoc("Enable or disable vision for this agent")
+    val enabled: Boolean? = null,
+    @ConfigDoc("Model reference for vision analysis for this agent")
+    val model: String? = null,
+)
+
+@Serializable
+data class AgentLimitsConfig(
+    @ConfigDoc("Maximum concurrent requests for this agent (0 = unlimited)")
+    val maxConcurrentRequests: Int = 0,
+    @ConfigDoc("Maximum messages per minute for this agent (0 = unlimited)")
+    val maxMessagesPerMinute: Int = 0,
+) {
+    init {
+        require(maxConcurrentRequests >= 0) {
+            "maxConcurrentRequests must be >= 0, got $maxConcurrentRequests"
+        }
+        require(maxMessagesPerMinute >= 0) {
+            "maxMessagesPerMinute must be >= 0, got $maxMessagesPerMinute"
+        }
     }
 }

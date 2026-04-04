@@ -17,14 +17,17 @@ object TelegramNormalizer {
         chatTitle: String? = null,
         platformMessageId: String? = null,
         attachments: List<AttachmentInfo> = emptyList(),
+        agentId: String = "default",
+        channelName: String = "telegram",
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
             id = messageId,
-            channel = "telegram",
+            channel = channelName,
             chatId = "telegram_$chatId",
             content = text,
             ts = ts,
+            agentId = agentId,
             userId = userId?.toString(),
             isCommand = parsed.isCommand,
             commandName = parsed.commandName,

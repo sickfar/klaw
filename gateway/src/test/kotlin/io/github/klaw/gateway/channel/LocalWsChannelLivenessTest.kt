@@ -1,5 +1,6 @@
 package io.github.klaw.gateway.channel
 
+import io.github.klaw.common.config.GatewayConfig
 import io.github.klaw.gateway.jsonl.ConversationJsonlWriter
 import io.micronaut.websocket.WebSocketSession
 import io.mockk.mockk
@@ -16,7 +17,8 @@ class LocalWsChannelLivenessTest {
     @TempDir
     lateinit var tempDir: File
 
-    private fun makeChannel(): LocalWsChannel = LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath))
+    private fun makeChannel(): LocalWsChannel =
+        LocalWsChannel(ConversationJsonlWriter(tempDir.absolutePath), GatewayConfig())
 
     private fun mockSession(): WebSocketSession = mockk(relaxed = true)
 
@@ -32,7 +34,7 @@ class LocalWsChannelLivenessTest {
             val channel = makeChannel()
             val session = mockSession()
 
-            channel.handleIncoming("hello", session)
+            channel.handleIncoming("default", "hello", session)
 
             assertTrue(channel.isAlive())
             channel.stop()
@@ -46,7 +48,7 @@ class LocalWsChannelLivenessTest {
             val latch = CountDownLatch(1)
 
             channel.onBecameAlive = { latch.countDown() }
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             assertTrue(latch.await(2, TimeUnit.SECONDS), "onBecameAlive should be called")
             channel.stop()
@@ -59,13 +61,13 @@ class LocalWsChannelLivenessTest {
             val session = mockSession()
 
             // Register first session
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             var callbackCount = 0
             channel.onBecameAlive = { callbackCount++ }
 
             // Register again - should NOT fire callback (already alive)
-            channel.registerSession(session)
+            channel.registerSession("default", session)
 
             assertTrue(callbackCount == 0, "onBecameAlive should not fire when already alive")
             channel.stop()
@@ -79,14 +81,14 @@ class LocalWsChannelLivenessTest {
             val session2 = mockSession()
 
             // Register first session (no callback yet)
-            channel.registerSession(session1)
+            channel.registerSession("default", session1)
 
             var callbackCount = 0
             channel.onBecameAlive = { callbackCount++ }
 
             // Register a DIFFERENT session while old one is still active (race condition scenario)
             // clearSession may not have been called yet when reconnect happens quickly
-            channel.registerSession(session2)
+            channel.registerSession("default", session2)
 
             assertTrue(callbackCount == 1, "onBecameAlive should fire when a different session replaces the old one")
             channel.stop()
@@ -98,10 +100,10 @@ class LocalWsChannelLivenessTest {
             val channel = makeChannel()
             val session = mockSession()
 
-            channel.registerSession(session)
+            channel.registerSession("default", session)
             assertTrue(channel.isAlive())
 
-            channel.clearSession(session)
+            channel.clearSession("default", session)
             assertFalse(channel.isAlive())
             channel.stop()
         }
@@ -113,11 +115,11 @@ class LocalWsChannelLivenessTest {
             val session1 = mockSession()
             val session2 = mockSession()
 
-            channel.registerSession(session1)
+            channel.registerSession("default", session1)
             assertTrue(channel.isAlive())
 
             // Clearing a different session should not affect the active one
-            channel.clearSession(session2)
+            channel.clearSession("default", session2)
             assertTrue(channel.isAlive())
             channel.stop()
         }

@@ -1,5 +1,6 @@
 package io.github.klaw.engine.message
 
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
 import io.github.klaw.common.config.ContextConfig
@@ -26,6 +27,9 @@ import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.CompactionRunner
 import io.github.klaw.engine.context.ContextBuilder
@@ -106,6 +110,7 @@ class MessageProcessorStreamingTest {
                     keepAliveMaxExecutions = 100,
                 ),
             files = FilesConfig(maxFileSizeBytes = 10485760L),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun makeSession(
@@ -175,24 +180,39 @@ class MessageProcessorStreamingTest {
         messageEmbeddingService: MessageEmbeddingService = mockk(relaxed = true),
         shutdownController: ShutdownController = mockk(relaxed = true),
         compactionRunner: CompactionRunner = mockk(relaxed = true),
-    ): MessageProcessor =
-        MessageProcessor(
-            sessionManager = sessionManager,
-            messageRepository = messageRepository,
-            contextBuilder = contextBuilder,
+    ): MessageProcessor {
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = messageRepository,
+                        contextBuilder = contextBuilder,
+                        messageEmbeddingService = messageEmbeddingService,
+                        compactionRunner = compactionRunner,
+                    ),
+            ),
+        )
+        return MessageProcessor(
             llmRouter = llmRouter,
             toolExecutor = toolExecutor,
             socketServerProvider = socketServerProvider,
             commandHandler = commandHandler,
             config = config,
-            messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = mockk(relaxed = true),
             approvalService = mockk(relaxed = true),
             shutdownController = shutdownController,
-            compactionRunner = compactionRunner,
             subagentRunRepository = mockk<SubagentRunRepository>(relaxed = true),
             activeSubagentJobs = ActiveSubagentJobs(),
+            agentRegistry = agentRegistry,
         )
+    }
 
     /**
      * Calls the private suspend function `processMessages` via reflection.

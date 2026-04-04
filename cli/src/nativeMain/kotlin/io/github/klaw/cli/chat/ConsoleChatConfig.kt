@@ -7,10 +7,11 @@ internal data class ConsoleChatConfig(
     val enabled: Boolean,
     val port: Int = 37474,
     val apiToken: String = "",
+    val agentId: String = "default",
 ) {
     val wsUrl: String
         get() {
-            val base = "ws://localhost:$port/ws/chat"
+            val base = "ws://localhost:$port/ws/chat/$agentId"
             return if (apiToken.isNotBlank()) "$base?token=$apiToken" else base
         }
 
@@ -63,12 +64,14 @@ internal fun readConsoleChatConfig(configDir: String): ConsoleChatConfig {
     val text = readFileText("$configDir/gateway.json") ?: return ConsoleChatConfig(enabled = false)
     return try {
         val config = parseGatewayConfig(text)
-        val localWs = config.channels.localWs
+        val localWs =
+            config.channels.websocket.values
+                .firstOrNull()
         if (localWs != null) {
             val rawToken = config.webui.apiToken
             val dotenvContent = readFileText("$configDir/.env")
             val resolvedToken = resolveFromDotenv(rawToken, dotenvContent)
-            ConsoleChatConfig(enabled = localWs.enabled, port = localWs.port, apiToken = resolvedToken)
+            ConsoleChatConfig(enabled = true, port = localWs.port, apiToken = resolvedToken)
         } else {
             ConsoleChatConfig(enabled = false)
         }

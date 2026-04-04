@@ -19,21 +19,25 @@ class ContextDiagnoseHandler(
     private val contextBuilder: ContextBuilder,
 ) {
     @Suppress("ReturnCount")
-    suspend fun handle(params: Map<String, String>): String {
+    suspend fun handle(
+        params: Map<String, String>,
+        effectiveSessionManager: SessionManager = sessionManager,
+        effectiveContextBuilder: ContextBuilder = contextBuilder,
+    ): String {
         val chatId = params["chat_id"]
         val jsonOutput = params["json"]?.toBoolean() ?: false
 
         val session =
             if (chatId != null) {
-                sessionManager.getSession(chatId)
+                effectiveSessionManager.getSession(chatId)
                     ?: return """{"error":"session not found: ${escapeJson(chatId)}"}"""
             } else {
-                sessionManager.getMostRecentSession()
+                effectiveSessionManager.getMostRecentSession()
                     ?: return """{"error":"no active sessions"}"""
             }
 
         val result =
-            contextBuilder.buildContext(
+            effectiveContextBuilder.buildContext(
                 session = session,
                 pendingMessages = listOf("(diagnostic simulation)"),
                 isSubagent = false,

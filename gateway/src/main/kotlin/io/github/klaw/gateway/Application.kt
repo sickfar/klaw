@@ -42,7 +42,9 @@ object Application {
         return try {
             val raw = EnvVarResolver.resolveAll(configFile.readText())
             val config = parseGatewayConfig(raw)
-            config.channels.localWs?.port ?: DEFAULT_PORT
+            config.channels.websocket.values
+                .firstOrNull()
+                ?.port ?: DEFAULT_PORT
         } catch (_: Exception) {
             DEFAULT_PORT
         }

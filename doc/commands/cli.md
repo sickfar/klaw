@@ -650,6 +650,28 @@ klaw reindex
 
 ---
 
+## Agent Selection
+
+In multi-agent setups, several command groups accept an `--agent` flag to target a specific agent. When omitted, commands target the `default` agent.
+
+| Command group | Flag | Short | Default |
+|--------------|------|-------|---------|
+| `klaw memory` | `--agent <id>` | `-a` | `default` |
+| `klaw sessions` | `--agent <id>` | `-a` | `default` |
+| `klaw schedule` | `--agent <id>` | `-a` | `default` |
+| `klaw context` | `--agent <id>` | `-a` | `default` |
+
+Examples:
+
+```bash
+klaw memory --agent assistant search "project plan"
+klaw sessions --agent assistant list
+klaw schedule --agent assistant list
+klaw context --agent assistant
+```
+
+See [multi-agent architecture](../architecture/multi-agent.md) for a full guide on running multiple agents.
+
 ## Global Options
 
 | Flag | Description |

@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
@@ -26,6 +27,9 @@ import io.github.klaw.common.config.SearchConfig
 import io.github.klaw.common.config.TaskRoutingConfig
 import io.github.klaw.common.llm.LlmMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
+import io.github.klaw.engine.agent.AgentContext
+import io.github.klaw.engine.agent.AgentRegistry
+import io.github.klaw.engine.agent.AgentServices
 import io.github.klaw.engine.command.CommandHandler
 import io.github.klaw.engine.context.ContextBuilder
 import io.github.klaw.engine.context.SkillRegistry
@@ -130,6 +134,7 @@ class MessageProcessorEmbeddingTest {
                     keepAliveMaxExecutions = 10,
                 ),
             files = FilesConfig(maxFileSizeBytes = 1_000_000),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
     }
 
@@ -207,24 +212,38 @@ class MessageProcessorEmbeddingTest {
 
         val cliCommandDispatcher = mockk<CliCommandDispatcher>(relaxed = true)
 
+        val agentRegistry = AgentRegistry()
+        agentRegistry.register(
+            "default",
+            AgentContext(
+                agentId = "default",
+                agentConfig =
+                    io.github.klaw.common.config
+                        .AgentConfig(workspace = "/tmp/test"),
+                services =
+                    AgentServices(
+                        sessionManager = sessionManager,
+                        messageRepository = messageRepository,
+                        contextBuilder = builder,
+                        messageEmbeddingService = messageEmbeddingService,
+                        compactionRunner = mockk(relaxed = true),
+                    ),
+            ),
+        )
         return MessageProcessor(
-            sessionManager = sessionManager,
-            messageRepository = messageRepository,
-            contextBuilder = builder,
             llmRouter = buildLlmRouter(config),
             toolExecutor = toolExecutor,
             socketServerProvider = { socketServer },
             commandHandler = commandHandler,
             config = config,
-            messageEmbeddingService = messageEmbeddingService,
             cliCommandDispatcher = cliCommandDispatcher,
             approvalService = mockk(relaxed = true),
             shutdownController = mockk(relaxed = true),
-            compactionRunner = mockk(relaxed = true),
             subagentRunRepository = mockk(relaxed = true),
             activeSubagentJobs =
                 io.github.klaw.engine.tools
                     .ActiveSubagentJobs(),
+            agentRegistry = agentRegistry,
         )
     }
 

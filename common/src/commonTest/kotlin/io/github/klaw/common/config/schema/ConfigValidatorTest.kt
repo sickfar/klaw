@@ -102,14 +102,14 @@ class ConfigValidatorTest {
 
     @Test
     fun `nested missing required reports full path`() {
-        // Remove tasks.summarization
+        // Remove routing.default (required field)
         val json =
             parse(
                 """
             {
               "providers": {"p": {"type": "openai-compatible", "endpoint": "http://localhost"}},
               "models": {},
-              "routing": {"default": "p/m", "fallback": [], "tasks": {"subagent": "p/m"}},
+              "routing": {"fallback": [], "tasks": {}},
               "memory": {"embedding": {"type": "onnx", "model": "m"}, "chunking": {"size": 100, "overlap": 10}, "search": {"topK": 5}},
               "context": {"tokenBudget": 100, "subagentHistory": 3},
               "processing": {"debounceMs": 100, "maxConcurrentLlm": 1, "maxToolCallRounds": 1}
@@ -118,7 +118,7 @@ class ConfigValidatorTest {
             )
         val errors = validateConfig(schema, json)
         assertTrue(
-            errors.any { ".routing.tasks.summarization" in it.path },
+            errors.any { ".routing.default" in it.path },
             "Should report missing nested required field: $errors",
         )
     }
@@ -252,7 +252,7 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `gateway schema validates correctly`() {
+    fun `gateway schema validates correctly with channels`() {
         val gwSchema = gatewayJsonSchema()
         val validGw = parse("""{"channels": {}}""")
         val errors = validateConfig(gwSchema, validGw)
@@ -260,10 +260,10 @@ class ConfigValidatorTest {
     }
 
     @Test
-    fun `gateway schema reports missing channels`() {
+    fun `gateway schema validates empty object - channels is optional`() {
         val gwSchema = gatewayJsonSchema()
-        val invalid = parse("""{}""")
-        val errors = validateConfig(gwSchema, invalid)
-        assertTrue(errors.any { ".channels" in it.path }, "Should report missing channels: $errors")
+        val valid = parse("""{}""")
+        val errors = validateConfig(gwSchema, valid)
+        assertEquals(emptyList(), errors, "Empty gateway config should pass (channels has default): $errors")
     }
 }

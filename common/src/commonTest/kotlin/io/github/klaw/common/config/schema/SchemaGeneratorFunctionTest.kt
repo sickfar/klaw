@@ -270,10 +270,11 @@ class SchemaGeneratorFunctionTest {
         assertTrue("providers" in required)
         assertTrue("models" in required)
         assertTrue("routing" in required)
-        assertTrue("memory" in required)
-        assertTrue("context" in required)
-        assertTrue("processing" in required)
         // Fields with defaults — should NOT be required
+        assertTrue("memory" !in required)
+        assertTrue("context" !in required)
+        assertTrue("processing" !in required)
+        assertTrue("agents" !in required)
         assertTrue("llm" !in required)
         assertTrue("logging" !in required)
         assertTrue("codeExecution" !in required)
@@ -288,8 +289,9 @@ class SchemaGeneratorFunctionTest {
                     .serializer()
                     .descriptor,
             )
-        val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        assertTrue("channels" in required)
+        // channels has a default value so it is not required
+        val required = schema["required"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+        assertTrue("channels" !in required, "channels is optional (has default)")
         assertTrue("commands" !in required)
     }
 

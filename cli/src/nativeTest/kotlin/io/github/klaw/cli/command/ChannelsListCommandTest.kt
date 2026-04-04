@@ -6,10 +6,10 @@ import io.github.klaw.cli.util.writeFileText
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.AllowedGuild
 import io.github.klaw.common.config.ChannelsConfig
-import io.github.klaw.common.config.DiscordConfig
+import io.github.klaw.common.config.DiscordChannelConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.config.encodeGatewayConfig
 import platform.posix.getpid
 import platform.posix.mkdir
@@ -40,7 +40,7 @@ class ChannelsListCommandTest {
 
     private fun makeCli(): KlawCli =
         KlawCli(
-            requestFn = { _, _ -> "{}" },
+            requestFn = { _, _, _ -> "{}" },
             configDir = configDir,
             modelsDir = "/nonexistent",
             logDir = "/nonexistent/logs",
@@ -53,12 +53,16 @@ class ChannelsListCommandTest {
                 channels =
                     ChannelsConfig(
                         telegram =
-                            TelegramConfig(
-                                token = "tok",
-                                allowedChats =
-                                    listOf(
-                                        AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
-                                        AllowedChat(chatId = "chat_2", allowedUserIds = listOf("u2")),
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats =
+                                            listOf(
+                                                AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
+                                                AllowedChat(chatId = "chat_2", allowedUserIds = listOf("u2")),
+                                            ),
                                     ),
                             ),
                     ),
@@ -78,12 +82,15 @@ class ChannelsListCommandTest {
                 channels =
                     ChannelsConfig(
                         discord =
-                            DiscordConfig(
-                                enabled = true,
-                                token = "tok",
-                                allowedGuilds =
-                                    listOf(
-                                        AllowedGuild(guildId = "guild_1", allowedUserIds = listOf("u1")),
+                            mapOf(
+                                "default" to
+                                    DiscordChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedGuilds =
+                                            listOf(
+                                                AllowedGuild(guildId = "guild_1", allowedUserIds = listOf("u1")),
+                                            ),
                                     ),
                             ),
                     ),
@@ -97,12 +104,12 @@ class ChannelsListCommandTest {
     }
 
     @Test
-    fun `localWs configured shows enabled and port`() {
+    fun `websocket configured shows port`() {
         val config =
             GatewayConfig(
                 channels =
                     ChannelsConfig(
-                        localWs = LocalWsConfig(enabled = true, port = 9999),
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default", port = 9999)),
                     ),
             )
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(config))
@@ -110,8 +117,8 @@ class ChannelsListCommandTest {
         val result = makeCli().test("channels list")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(
-            result.output.contains("localWs") || result.output.contains("local"),
-            "Expected localWs in: ${result.output}",
+            result.output.contains("websocket") || result.output.contains("local"),
+            "Expected websocket in: ${result.output}",
         )
         assertTrue(result.output.contains("9999"), "Expected port '9999' in: ${result.output}")
     }
@@ -123,14 +130,18 @@ class ChannelsListCommandTest {
                 channels =
                     ChannelsConfig(
                         telegram =
-                            TelegramConfig(
-                                token = "tok",
-                                allowedChats =
-                                    listOf(
-                                        AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats =
+                                            listOf(
+                                                AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
+                                            ),
                                     ),
                             ),
-                        localWs = LocalWsConfig(enabled = true, port = 37474),
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default", port = 37474)),
                     ),
             )
         writeFileText("$configDir/gateway.json", encodeGatewayConfig(config))
@@ -139,8 +150,8 @@ class ChannelsListCommandTest {
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("telegram"), "Expected 'telegram' in: ${result.output}")
         assertTrue(
-            result.output.contains("localWs") || result.output.contains("local"),
-            "Expected localWs in: ${result.output}",
+            result.output.contains("websocket") || result.output.contains("local"),
+            "Expected websocket in: ${result.output}",
         )
     }
 
@@ -177,12 +188,16 @@ class ChannelsListCommandTest {
                 channels =
                     ChannelsConfig(
                         telegram =
-                            TelegramConfig(
-                                token = "tok",
-                                allowedChats =
-                                    listOf(
-                                        AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
-                                        AllowedChat(chatId = "chat_2", allowedUserIds = listOf("u2")),
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats =
+                                            listOf(
+                                                AllowedChat(chatId = "chat_1", allowedUserIds = listOf("u1")),
+                                                AllowedChat(chatId = "chat_2", allowedUserIds = listOf("u2")),
+                                            ),
                                     ),
                             ),
                     ),
@@ -192,7 +207,7 @@ class ChannelsListCommandTest {
         val result = makeCli().test("channels list --json")
         assertEquals(0, result.statusCode, "output: ${result.output}")
         assertTrue(result.output.contains("\"channels\""), "Expected JSON 'channels' key in: ${result.output}")
-        assertTrue(result.output.contains("\"telegram\""), "Expected 'telegram' in JSON output: ${result.output}")
+        assertTrue(result.output.contains("telegram"), "Expected 'telegram' in JSON output: ${result.output}")
         assertTrue(
             result.output.contains("\"paired\"") || result.output.contains("2"),
             "Expected paired count in JSON: ${result.output}",

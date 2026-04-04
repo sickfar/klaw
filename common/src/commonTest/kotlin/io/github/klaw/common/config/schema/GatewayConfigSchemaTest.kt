@@ -26,54 +26,60 @@ class GatewayConfigSchemaTest {
     }
 
     @Test
-    fun `required contains channels`() {
-        val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        assertContains(required, "channels")
+    fun channelsIsOptionalNotInRequired() {
+        val required = schema["required"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+        assertTrue("channels" !in required, "channels has a default so it should not be required")
     }
 
     @Test
-    fun `required does not contain commands`() {
-        val required = schema["required"]!!.jsonArray.map { it.jsonPrimitive.content }
-        assertTrue("commands" !in required, "commands is optional")
-    }
-
-    @Test
-    fun `channels properties are all optional`() {
+    fun channelPropertiesAreMapBased() {
         val channels = schema["properties"]!!.jsonObject["channels"]!!.jsonObject
-        val required = channels["required"]
-        // channels should have no required fields (all channel types are optional)
-        assertTrue(
-            required == null || (required.jsonArray).isEmpty(),
-            "all channel configs should be optional",
-        )
+        val channelProps = channels["properties"]!!.jsonObject
+        // each channel type uses additionalProperties (map-based), not properties with named fields
+        assertNotNull(channelProps["telegram"]?.jsonObject?.get("additionalProperties"))
+        assertNotNull(channelProps["discord"]?.jsonObject?.get("additionalProperties"))
+        assertNotNull(channelProps["websocket"]?.jsonObject?.get("additionalProperties"))
     }
 
     @Test
-    fun `telegram token is required within telegram object`() {
+    fun `telegram channel entry requires agentId and token`() {
         val channels = schema["properties"]!!.jsonObject["channels"]!!.jsonObject
-        val telegram = channels["properties"]!!.jsonObject["telegram"]!!.jsonObject
-        val required = telegram["required"]!!.jsonArray.map { it.jsonPrimitive.content }
+        val telegramEntry =
+            channels["properties"]!!
+                .jsonObject["telegram"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val required = telegramEntry["required"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertContains(required, "agentId")
         assertContains(required, "token")
     }
 
     @Test
-    fun `localWs port is integer type`() {
+    fun `websocket channel entry port is integer type`() {
         val channels = schema["properties"]!!.jsonObject["channels"]!!.jsonObject
-        val console = channels["properties"]!!.jsonObject["localWs"]!!.jsonObject
-        val port = console["properties"]!!.jsonObject["port"]!!.jsonObject
+        val wsEntry =
+            channels["properties"]!!
+                .jsonObject["websocket"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val port = wsEntry["properties"]!!.jsonObject["port"]!!.jsonObject
         assertEquals("integer", port["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `discord token is string type`() {
+    fun `discord channel entry token is string type`() {
         val channels = schema["properties"]!!.jsonObject["channels"]!!.jsonObject
-        val discord = channels["properties"]!!.jsonObject["discord"]!!.jsonObject
-        val token = discord["properties"]!!.jsonObject["token"]!!.jsonObject
+        val discordEntry =
+            channels["properties"]!!
+                .jsonObject["discord"]!!
+                .jsonObject["additionalProperties"]!!
+                .jsonObject
+        val token = discordEntry["properties"]!!.jsonObject["token"]!!.jsonObject
         assertEquals("string", token["type"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun `additionalProperties is true at top level`() {
+    fun `additionalProperties is present at top level`() {
         val addlProps = schema["additionalProperties"]
         assertNotNull(addlProps)
     }

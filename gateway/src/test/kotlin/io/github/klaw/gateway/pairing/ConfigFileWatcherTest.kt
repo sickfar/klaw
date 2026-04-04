@@ -3,7 +3,7 @@ package io.github.klaw.gateway.pairing
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
 import io.github.klaw.common.config.encodeGatewayConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -42,9 +42,13 @@ class ConfigFileWatcherTest {
                     channels =
                         ChannelsConfig(
                             telegram =
-                                TelegramConfig(
-                                    token = "new-token",
-                                    allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(
+                                            agentId = "default",
+                                            token = "new-token",
+                                            allowedChats = listOf(AllowedChat("telegram_123", listOf("user1"))),
+                                        ),
                                 ),
                         ),
                 )
@@ -54,10 +58,10 @@ class ConfigFileWatcherTest {
             assertTrue(received, "Callback was not invoked within timeout")
             val parsed = receivedConfig.get()
             assertNotNull(parsed)
-            assertEquals("new-token", parsed.channels.telegram?.token)
+            assertEquals("new-token", parsed.channels.telegram["default"]?.token)
             assertEquals(
                 1,
-                parsed.channels.telegram
+                parsed.channels.telegram["default"]
                     ?.allowedChats
                     ?.size,
             )
@@ -114,7 +118,11 @@ class ConfigFileWatcherTest {
                 GatewayConfig(
                     channels =
                         ChannelsConfig(
-                            telegram = TelegramConfig(token = "t", allowedChats = emptyList()),
+                            telegram =
+                                mapOf(
+                                    "default" to
+                                        TelegramChannelConfig(agentId = "default", token = "t"),
+                                ),
                         ),
                 )
             configFile.writeText(encodeGatewayConfig(updatedConfig))

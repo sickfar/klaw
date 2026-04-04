@@ -104,7 +104,7 @@ internal class DoctorCommand(
 
     private fun runDeepProbe(): DoctorDeepResult? =
         try {
-            val response = requestFn("doctor_deep", emptyMap())
+            val response = requestFn("doctor_deep", emptyMap(), "default")
             CliLogger.debug { "deep probe response length: ${response.length}" }
             DoctorDeepResult(response)
         } catch (_: EngineNotRunningException) {
@@ -120,7 +120,7 @@ internal class DoctorCommand(
 
     private fun checkSkills(): List<DoctorCheckResult> =
         try {
-            requestFn("skills_validate", emptyMap())
+            requestFn("skills_validate", emptyMap(), "default")
             CliLogger.debug { "skills validation passed" }
             listOf(DoctorCheckResult("Skills", CheckStatus.OK, "valid"))
         } catch (_: EngineNotRunningException) {

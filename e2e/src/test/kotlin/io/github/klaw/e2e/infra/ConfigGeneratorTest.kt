@@ -42,13 +42,13 @@ class ConfigGeneratorTest {
     }
 
     @Test
-    fun `generated gateway json has localWs channel enabled on port 37474`() {
+    fun `generated gateway json has websocket default channel on port 37474`() {
         val gatewayJson = ConfigGenerator.gatewayJson()
 
         val root = json.parseToJsonElement(gatewayJson).jsonObject
-        val localWs = root["channels"]!!.jsonObject["localWs"]!!.jsonObject
-        assertTrue(localWs["enabled"]!!.jsonPrimitive.boolean)
-        assertEquals(37474, localWs["port"]!!.jsonPrimitive.int)
+        val ws = root["channels"]!!.jsonObject["websocket"]!!.jsonObject["default"]!!.jsonObject
+        assertEquals("default", ws["agentId"]!!.jsonPrimitive.content)
+        assertEquals(37474, ws["port"]!!.jsonPrimitive.int)
     }
 
     @Test
@@ -202,8 +202,8 @@ class ConfigGeneratorTest {
             )
 
         val root = json.parseToJsonElement(gatewayJson).jsonObject
-        val discord = root["channels"]!!.jsonObject["discord"]!!.jsonObject
-        assertTrue(discord["enabled"]!!.jsonPrimitive.boolean)
+        val discord = root["channels"]!!.jsonObject["discord"]!!.jsonObject["default"]!!.jsonObject
+        assertEquals("default", discord["agentId"]!!.jsonPrimitive.content)
         assertEquals("my-bot-token", discord["token"]!!.jsonPrimitive.content)
         assertEquals("http://host.testcontainers.internal:9999", discord["apiBaseUrl"]!!.jsonPrimitive.content)
 

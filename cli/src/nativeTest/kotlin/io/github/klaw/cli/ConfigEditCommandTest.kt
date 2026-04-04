@@ -60,7 +60,7 @@ class ConfigEditCommandTest {
         // and can be invoked (it will return immediately due to no terminal in test).
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -77,7 +77,7 @@ class ConfigEditCommandTest {
         writeFileText("$tmpDir/gateway.json", MINIMAL_GATEWAY_JSON)
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -91,7 +91,7 @@ class ConfigEditCommandTest {
         // No config file written — should print a helpful error
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -109,7 +109,7 @@ class ConfigEditCommandTest {
     fun `config edit rejects unknown target`() {
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -123,7 +123,7 @@ class ConfigEditCommandTest {
     fun `config edit is registered as subcommand of config`() {
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",

@@ -3,8 +3,8 @@ package io.github.klaw.gateway.socket
 import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.protocol.StreamDeltaSocketMessage
 import io.github.klaw.common.protocol.StreamEndSocketMessage
 import io.github.klaw.gateway.channel.Channel
@@ -33,7 +33,14 @@ class GatewayOutboundStreamTest {
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
             GatewayConfig(
-                ChannelsConfig(TelegramConfig("tok", allowedChats), localWs = LocalWsConfig(enabled = true)),
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = allowedChats),
+                        ),
+                    websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
+                ),
             )
         return InboundAllowlistService(config)
     }
@@ -99,7 +106,7 @@ class GatewayOutboundStreamTest {
 
             // Verify JSONL was written
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should exist")
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
@@ -203,7 +210,7 @@ class GatewayOutboundStreamTest {
 
             // JSONL should still be written (allowlist passes for local_ws_default)
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "local_ws_default/$today.jsonl")
+            val file = File(tempDir, "default/local_ws_default/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should exist even when no matching channel found")
 
             // channel.sendStreamEnd should NOT be called (wrong channel name)
@@ -220,7 +227,19 @@ class GatewayOutboundStreamTest {
                     channels = listOf(channel),
                     allowlistService =
                         InboundAllowlistService(
-                            GatewayConfig(ChannelsConfig(TelegramConfig("tok", emptyList()))),
+                            GatewayConfig(
+                                ChannelsConfig(
+                                    telegram =
+                                        mapOf(
+                                            "default" to
+                                                TelegramChannelConfig(
+                                                    agentId = "default",
+                                                    token = "tok",
+                                                    allowedChats = emptyList(),
+                                                ),
+                                        ),
+                                ),
+                            ),
                         ),
                     jsonlWriter = ConversationJsonlWriter(tempDir.absolutePath),
                     applicationContext = mockk<ApplicationContext>(relaxed = true),

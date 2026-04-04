@@ -4,8 +4,8 @@ import io.github.klaw.common.config.AllowedChat
 import io.github.klaw.common.config.ChannelsConfig
 import io.github.klaw.common.config.DeliveryConfig
 import io.github.klaw.common.config.GatewayConfig
-import io.github.klaw.common.config.LocalWsConfig
-import io.github.klaw.common.config.TelegramConfig
+import io.github.klaw.common.config.TelegramChannelConfig
+import io.github.klaw.common.config.WebSocketChannelConfig
 import io.github.klaw.common.protocol.ApprovalRequestMessage
 import io.github.klaw.common.protocol.OutboundSocketMessage
 import io.github.klaw.common.protocol.SocketMessage
@@ -40,7 +40,13 @@ class GatewayOutboundHandlerBufferTest {
     private fun makeAllowlistService(allowedChats: List<AllowedChat>): InboundAllowlistService {
         val config =
             GatewayConfig(
-                ChannelsConfig(TelegramConfig("tok", allowedChats)),
+                ChannelsConfig(
+                    telegram =
+                        mapOf(
+                            "default" to
+                                TelegramChannelConfig(agentId = "default", token = "tok", allowedChats = allowedChats),
+                        ),
+                ),
             )
         return InboundAllowlistService(config)
     }
@@ -198,7 +204,7 @@ class GatewayOutboundHandlerBufferTest {
             handler.handleOutbound(outboundMsg(chatId = "telegram_123", content = "buffered message"))
 
             val today = LocalDate.now().toString()
-            val file = File(tempDir, "telegram_123/$today.jsonl")
+            val file = File(tempDir, "default/telegram_123/$today.jsonl")
             assertTrue(file.exists(), "JSONL file should be written even when channel not alive")
             val line = file.readLines().first()
             val json = Json.parseToJsonElement(line).jsonObject
@@ -226,8 +232,16 @@ class GatewayOutboundHandlerBufferTest {
             val config =
                 GatewayConfig(
                     ChannelsConfig(
-                        TelegramConfig("tok", listOf(AllowedChat("telegram_123"))),
-                        localWs = LocalWsConfig(enabled = true),
+                        telegram =
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats = listOf(AllowedChat("telegram_123")),
+                                    ),
+                            ),
+                        websocket = mapOf("default" to WebSocketChannelConfig(agentId = "default")),
                     ),
                 )
             val handler =
@@ -330,7 +344,18 @@ class GatewayOutboundHandlerBufferTest {
     ): GatewayOutboundHandler {
         val config =
             GatewayConfig(
-                channels = ChannelsConfig(TelegramConfig("tok", allowedChats)),
+                channels =
+                    ChannelsConfig(
+                        telegram =
+                            mapOf(
+                                "default" to
+                                    TelegramChannelConfig(
+                                        agentId = "default",
+                                        token = "tok",
+                                        allowedChats = allowedChats,
+                                    ),
+                            ),
+                    ),
                 delivery = DeliveryConfig(channelDrainBudgetSeconds = channelDrainBudgetSeconds),
             )
         return GatewayOutboundHandler(

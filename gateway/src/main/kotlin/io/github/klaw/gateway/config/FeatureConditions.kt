@@ -7,7 +7,11 @@ import io.micronaut.context.condition.ConditionContext
 class WsEnabledCondition : Condition {
     override fun matches(context: ConditionContext<*>): Boolean {
         val config = context.beanContext.findBean(GatewayConfig::class.java).orElse(null)
-        return config?.channels?.localWs?.enabled == true
+        return config
+            ?.channels
+            ?.websocket
+            ?.values
+            ?.any { it.port > 0 } == true
     }
 }
 

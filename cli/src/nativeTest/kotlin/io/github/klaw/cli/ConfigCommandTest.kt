@@ -23,7 +23,8 @@ class ConfigCommandTest {
               "routing": {"default": "glm/glm-4-plus", "fallback": [], "tasks": {"summarization": "test/test-model", "subagent": "test/test-model"}},
               "memory": {"embedding": {"type": "onnx", "model": "all-MiniLM-L6-v2"}, "chunking": {"size": 512, "overlap": 64}, "search": {"topK": 10}},
               "context": {"tokenBudget": 4096, "subagentHistory": 5},
-              "processing": {"debounceMs": 100, "maxConcurrentLlm": 2, "maxToolCallRounds": 5}
+              "processing": {"debounceMs": 100, "maxConcurrentLlm": 2, "maxToolCallRounds": 5},
+              "agents": {"default": {"workspace": "/tmp/klaw-workspace"}}
             }
             """.trimIndent()
     }
@@ -44,7 +45,7 @@ class ConfigCommandTest {
         writeFileText("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -61,7 +62,7 @@ class ConfigCommandTest {
         writeFileText("$tmpDir/engine.json", MINIMAL_ENGINE_JSON)
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",
@@ -75,7 +76,7 @@ class ConfigCommandTest {
     fun `config set handles missing engine json gracefully`() {
         val cli =
             KlawCli(
-                requestFn = { _, _ -> "{}" },
+                requestFn = { _, _, _ -> "{}" },
                 configDir = tmpDir,
                 modelsDir = "/nonexistent",
                 logDir = "/nonexistent/logs",

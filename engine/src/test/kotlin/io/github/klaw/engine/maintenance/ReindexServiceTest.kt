@@ -1,6 +1,7 @@
 package io.github.klaw.engine.maintenance
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import io.github.klaw.common.config.AgentConfig
 import io.github.klaw.common.config.AutoRagConfig
 import io.github.klaw.common.config.ChunkingConfig
 import io.github.klaw.common.config.CodeExecutionConfig
@@ -109,6 +110,7 @@ class ReindexServiceTest {
             codeExecution = CodeExecutionConfig("img", 30, false, "128m", "0.5", true, false, 5, 10),
             files = FilesConfig(1048576),
             commands = emptyList(),
+            agents = mapOf("default" to AgentConfig(workspace = "/tmp/klaw-test-workspace")),
         )
 
     private fun writeJsonl(

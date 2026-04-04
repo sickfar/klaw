@@ -24,28 +24,35 @@ class ConversationJsonlWriter(
 
     companion object {
         private val CHAT_ID_REGEX = Regex("^[a-zA-Z0-9][a-zA-Z0-9_:.-]*$")
+        private val AGENT_ID_REGEX = Regex("^[a-zA-Z0-9][a-zA-Z0-9_:.-]*$")
     }
 
-    private fun mutexFor(chatId: String): Mutex = mutexes.computeIfAbsent(chatId) { Mutex() }
+    private fun mutexFor(key: String): Mutex = mutexes.computeIfAbsent(key) { Mutex() }
 
-    private fun fileFor(chatId: String): File {
+    private fun fileFor(
+        agentId: String,
+        chatId: String,
+    ): File {
         val date = LocalDate.now().toString()
-        return File("$conversationsDir/$chatId/$date.jsonl")
+        return File("$conversationsDir/$agentId/$chatId/$date.jsonl")
     }
 
     private suspend fun appendLine(
+        agentId: String,
         chatId: String,
         jsonLine: String,
     ) {
+        require(agentId.matches(AGENT_ID_REGEX)) { "Invalid agentId format" }
         require(chatId.matches(CHAT_ID_REGEX)) { "Invalid chatId format" }
-        mutexFor(chatId).withLock {
-            val file = fileFor(chatId)
+        val key = "$agentId/$chatId"
+        mutexFor(key).withLock {
+            val file = fileFor(agentId, chatId)
             val created = file.parentFile?.mkdirs() == true
             if (created) {
-                logger.debug { "JSONL directory created for chatId=$chatId" }
+                logger.debug { "JSONL directory created for agentId=$agentId chatId=$chatId" }
             }
             file.appendText(jsonLine + "\n")
-            logger.trace { "JSONL line appended: chatId=$chatId, length=${jsonLine.length}" }
+            logger.trace { "JSONL line appended: agentId=$agentId chatId=$chatId, length=${jsonLine.length}" }
         }
     }
 
@@ -71,11 +78,12 @@ class ConversationJsonlWriter(
                     }
                 }
             }
-        logger.trace { "Writing inbound message to JSONL for chatId=${message.chatId}" }
-        appendLine(message.chatId, json.toString())
+        logger.trace { "Writing inbound message to JSONL for agentId=${message.agentId} chatId=${message.chatId}" }
+        appendLine(message.agentId, message.chatId, json.toString())
     }
 
     suspend fun writeOutbound(
+        agentId: String = "default",
         chatId: String,
         content: String,
         model: String? = null,
@@ -88,7 +96,7 @@ class ConversationJsonlWriter(
                 put("content", content)
                 if (model != null) put("model", model)
             }
-        logger.trace { "Writing outbound message to JSONL for chatId=$chatId" }
-        appendLine(chatId, json.toString())
+        logger.trace { "Writing outbound message to JSONL for agentId=$agentId chatId=$chatId" }
+        appendLine(agentId, chatId, json.toString())
     }
 }

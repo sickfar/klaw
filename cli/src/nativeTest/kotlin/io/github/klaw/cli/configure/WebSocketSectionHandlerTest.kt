@@ -42,8 +42,10 @@ class WebSocketSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        val ws = state.gatewayConfig.channels.localWs
-        assertTrue(ws != null && ws.enabled)
+        val ws =
+            state.gatewayConfig.channels.websocket.values
+                .firstOrNull()
+        assertTrue(ws != null)
         assertEquals(8080, ws.port)
     }
 
@@ -58,8 +60,10 @@ class WebSocketSectionHandlerTest {
             )
         val changed = handler.run(state)
         assertTrue(changed)
-        val ws = state.gatewayConfig.channels.localWs
-        assertTrue(ws == null || !ws.enabled)
+        assertTrue(
+            state.gatewayConfig.channels.websocket
+                .isEmpty(),
+        )
     }
 
     @Test
@@ -75,7 +79,8 @@ class WebSocketSectionHandlerTest {
         assertTrue(changed)
         assertEquals(
             37474,
-            state.gatewayConfig.channels.localWs
+            state.gatewayConfig.channels.websocket.values
+                .firstOrNull()
                 ?.port,
         )
     }
