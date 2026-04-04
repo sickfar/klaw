@@ -72,7 +72,8 @@
   },
   "agents": {
     "default": {
-      "workspace": "/tmp/klaw-test-workspace"
+      "workspace": "/tmp/klaw-test-workspace",
+      "enabled": false
     }
   }
 }

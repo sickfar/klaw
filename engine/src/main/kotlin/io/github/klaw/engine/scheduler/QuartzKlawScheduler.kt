@@ -399,6 +399,7 @@ class QuartzKlawScheduler(
         internal const val JOB_GROUP = "klaw"
         internal const val TRIGGER_GROUP = "klaw"
         private const val SCHEDULER_NAME = "KlawScheduler"
+        private const val HASH_RADIX = 36
 
         // Lock SQL without FOR UPDATE — SQLite does not support row-level locking.
         // With isClustered=false, Quartz uses in-process SimpleSemaphore anyway.
@@ -433,7 +434,8 @@ class QuartzKlawScheduler(
 
         internal fun buildProps(dbPath: String): Properties =
             Properties().apply {
-                setProperty("org.quartz.scheduler.instanceName", SCHEDULER_NAME)
+                val suffix = dbPath.hashCode().toUInt().toString(HASH_RADIX)
+                setProperty("org.quartz.scheduler.instanceName", "$SCHEDULER_NAME-$suffix")
                 setProperty("org.quartz.scheduler.instanceId", "AUTO")
                 setProperty("org.quartz.threadPool.class", "org.quartz.simpl.SimpleThreadPool")
                 setProperty("org.quartz.threadPool.threadCount", "2")
@@ -442,17 +444,18 @@ class QuartzKlawScheduler(
                     "org.quartz.jobStore.driverDelegateClass",
                     SQLiteDelegate::class.java.name,
                 )
-                setProperty("org.quartz.jobStore.dataSource", "klawScheduler")
+                val dsName = "klawScheduler-$suffix"
+                setProperty("org.quartz.jobStore.dataSource", dsName)
                 setProperty("org.quartz.jobStore.tablePrefix", "QRTZ_")
                 setProperty("org.quartz.jobStore.isClustered", "false")
                 setProperty("org.quartz.jobStore.misfireThreshold", "60000")
                 setProperty("org.quartz.jobStore.selectWithLockSQL", SQLITE_LOCK_SQL)
                 setProperty(
-                    "org.quartz.dataSource.klawScheduler.connectionProvider.class",
+                    "org.quartz.dataSource.$dsName.connectionProvider.class",
                     SqliteConnectionProvider::class.java.name,
                 )
                 setProperty(
-                    "org.quartz.dataSource.klawScheduler.URL",
+                    "org.quartz.dataSource.$dsName.URL",
                     "jdbc:sqlite:$dbPath",
                 )
             }

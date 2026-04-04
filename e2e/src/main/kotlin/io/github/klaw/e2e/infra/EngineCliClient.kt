@@ -18,6 +18,7 @@ private val logger = KotlinLogging.logger {}
 data class CliRequestMessage(
     val command: String,
     val params: Map<String, String> = emptyMap(),
+    val agentId: String = "default",
 )
 
 /**
@@ -33,9 +34,10 @@ class EngineCliClient(
     fun request(
         command: String,
         params: Map<String, String> = emptyMap(),
+        agentId: String = "default",
     ): String {
-        logger.debug { "CLI request: command=$command paramKeys=${params.keys}" }
-        val message = json.encodeToString(CliRequestMessage.serializer(), CliRequestMessage(command, params))
+        logger.debug { "CLI request: command=$command agentId=$agentId paramKeys=${params.keys}" }
+        val message = json.encodeToString(CliRequestMessage.serializer(), CliRequestMessage(command, params, agentId))
         Socket(host, port).use { socket ->
             socket.soTimeout = RECV_TIMEOUT_MS
             val writer = PrintWriter(socket.getOutputStream(), true)

@@ -39,8 +39,9 @@ class SQLiteDelegateTest {
     @Test
     fun `buildProps uses SqliteConnectionProvider`() {
         val props = QuartzKlawScheduler.buildProps("/tmp/test-scheduler.db")
+        val dsName = "klawScheduler-" + "/tmp/test-scheduler.db".hashCode().toUInt().toString(36)
         val providerClass =
-            props.getProperty("org.quartz.dataSource.klawScheduler.connectionProvider.class")
+            props.getProperty("org.quartz.dataSource.$dsName.connectionProvider.class")
         assertNotNull(providerClass, "connectionProvider.class must be set")
         assertTrue(
             providerClass.contains("SqliteConnectionProvider"),
