@@ -24,25 +24,30 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): Boolean {
-        if (channel == "local_ws") {
-            logger.trace { "local_ws channel always allowed" }
+        if (isWebSocketChannel(channel)) {
+            logger.trace { "websocket channel=$channel always allowed" }
             return true
         }
-        return when (channel) {
-            "telegram" -> {
-                isAllowedTelegram(chatId, userId)
-            }
-
-            "discord" -> {
-                isAllowedDiscord(chatId, userId)
-            }
-
+        return when (resolveChannelType(channel)) {
+            "telegram" -> isAllowedTelegram(chatId, userId)
+            "discord" -> isAllowedDiscord(chatId, userId)
             else -> {
                 logger.trace { "unknown channel=$channel, denied" }
                 false
             }
         }
     }
+
+    private fun isWebSocketChannel(channel: String): Boolean =
+        channel == "local_ws" || config.channels.websocket.containsKey(channel)
+
+    private fun resolveChannelType(channel: String): String =
+        when {
+            config.channels.telegram.containsKey(channel) -> "telegram"
+            config.channels.discord.containsKey(channel) -> "discord"
+            config.channels.websocket.containsKey(channel) -> "websocket"
+            else -> channel // fallback to raw name for backward compat
+        }
 
     private fun isAllowedTelegram(
         chatId: String,
@@ -95,9 +100,9 @@ class InboundAllowlistService(
         chatId: String,
         userId: String?,
     ): PairingStatus =
-        when (channel) {
-            "local_ws" -> PairingStatus.AlreadyPaired
-            "discord" -> isStartAllowedDiscord(userId)
+        when {
+            isWebSocketChannel(channel) -> PairingStatus.AlreadyPaired
+            resolveChannelType(channel) == "discord" -> isStartAllowedDiscord(userId)
             else -> isStartAllowedChat(channel, chatId, userId)
         }
 
@@ -141,10 +146,10 @@ class InboundAllowlistService(
         channel: String,
         chatId: String,
     ): Boolean =
-        when (channel) {
-            "local_ws" -> chatId == "local_ws_default"
-            "telegram" -> isChatAllowedTelegram(chatId)
-            "discord" -> isChatAllowedDiscord()
+        when {
+            isWebSocketChannel(channel) -> true
+            resolveChannelType(channel) == "telegram" -> isChatAllowedTelegram(chatId)
+            resolveChannelType(channel) == "discord" -> isChatAllowedDiscord()
             else -> false
         }
 

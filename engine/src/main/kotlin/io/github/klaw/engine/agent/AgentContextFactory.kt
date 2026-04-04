@@ -13,6 +13,7 @@ import io.github.klaw.engine.context.KlawWorkspaceLoader
 import io.github.klaw.engine.context.SubagentHistoryLoader
 import io.github.klaw.engine.context.SummaryRepository
 import io.github.klaw.engine.db.BackupService
+import io.github.klaw.engine.db.PersistentConnectionManager
 import io.github.klaw.engine.db.KlawDatabase
 import io.github.klaw.engine.db.VirtualTableSetup
 import io.github.klaw.engine.docs.DocsServiceImpl
@@ -474,12 +475,26 @@ class AgentContextFactory(
         File(dbPath).parentFile?.mkdirs()
         val props = Properties()
         props["enable_load_extension"] = "true"
-        val driver = JdbcSqliteDriver("jdbc:sqlite:$dbPath", props)
+        val busyTimeoutMs = shared.globalConfig.database.busyTimeoutMs
+        val connectionManager = PersistentConnectionManager(dbPath, props, busyTimeoutMs)
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY, props)
+        replaceConnectionManager(driver, connectionManager)
         KlawDatabase.Schema.create(driver)
         shared.sqliteVecLoader.loadExtension(driver)
         VirtualTableSetup.createVirtualTables(driver, shared.sqliteVecLoader.isAvailable())
         logger.debug { "Database initialized for agent $agentId: $dbPath" }
         return driver
+    }
+
+    private fun replaceConnectionManager(
+        driver: JdbcSqliteDriver,
+        newManager: app.cash.sqldelight.driver.jdbc.ConnectionManager,
+    ) {
+        val delegateField = driver.javaClass.getDeclaredField("\$\$delegate_0")
+        delegateField.isAccessible = true
+        val oldManager = delegateField.get(driver) as app.cash.sqldelight.driver.jdbc.ConnectionManager
+        delegateField.set(driver, newManager)
+        oldManager.close()
     }
 
     @Suppress("LongParameterList")

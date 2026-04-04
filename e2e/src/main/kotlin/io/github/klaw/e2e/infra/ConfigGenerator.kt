@@ -72,6 +72,7 @@ object ConfigGenerator {
         heartbeatModel: String? = null,
         heartbeatChannel: String? = null,
         heartbeatInjectInto: String? = null,
+        agents: Map<String, AgentEntry> = mapOf("default" to AgentEntry(workspace = "/workspace")),
     ): String {
         val root =
             buildJsonObject {
@@ -131,9 +132,15 @@ object ConfigGenerator {
                     webSearchEndpoint,
                 )
                 buildVision(visionEnabled, visionModel, visionMaxTokens, visionAttachmentsDirectory)
+                buildAgents(agents)
             }
         return root.toString()
     }
+
+    data class AgentEntry(
+        val workspace: String,
+        val enabled: Boolean = true,
+    )
 
     @Suppress("LongParameterList")
     fun gatewayJson(
@@ -143,27 +150,38 @@ object ConfigGenerator {
         discordEnabled: Boolean = false,
         discordToken: String? = null,
         discordApiBaseUrl: String? = null,
+        discordAgentId: String = "default",
         discordAllowedGuilds: List<Triple<String, List<String>, List<String>>> = emptyList(),
         telegramEnabled: Boolean = false,
         telegramToken: String? = null,
         telegramApiBaseUrl: String? = null,
+        telegramAgentId: String = "default",
         telegramAllowedChats: List<Pair<String, List<String>>> = emptyList(),
         attachmentsDirectory: String = "",
         webuiEnabled: Boolean = true,
         apiToken: String = "",
+        websocketChannels: Map<String, WsChannelEntry> = mapOf(
+            "default" to WsChannelEntry(agentId = "default", port = GATEWAY_LOCAL_WS_PORT),
+        ),
     ): String {
         val root =
             buildJsonObject {
                 putJsonObject("channels") {
-                    putJsonObject("localWs") {
-                        put("enabled", true)
-                        put("port", GATEWAY_LOCAL_WS_PORT)
+                    if (websocketChannels.isNotEmpty()) {
+                        putJsonObject("websocket") {
+                            websocketChannels.forEach { (name, entry) ->
+                                putJsonObject(name) {
+                                    put("agentId", entry.agentId)
+                                    put("port", entry.port)
+                                }
+                            }
+                        }
                     }
                     if (discordEnabled) {
-                        buildDiscordChannel(discordToken, discordApiBaseUrl, discordAllowedGuilds)
+                        buildDiscordChannel(discordToken, discordApiBaseUrl, discordAgentId, discordAllowedGuilds)
                     }
                     if (telegramEnabled) {
-                        buildTelegramChannel(telegramToken, telegramApiBaseUrl, telegramAllowedChats)
+                        buildTelegramChannel(telegramToken, telegramApiBaseUrl, telegramAgentId, telegramAllowedChats)
                     }
                 }
                 putJsonObject("webui") {
@@ -188,26 +206,34 @@ object ConfigGenerator {
         return root.toString()
     }
 
+    data class WsChannelEntry(
+        val agentId: String,
+        val port: Int = GATEWAY_LOCAL_WS_PORT,
+    )
+
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildDiscordChannel(
         discordToken: String?,
         discordApiBaseUrl: String?,
+        agentId: String,
         discordAllowedGuilds: List<Triple<String, List<String>, List<String>>>,
     ) {
         putJsonObject("discord") {
-            put("enabled", true)
-            put("token", discordToken ?: "test-discord-token")
-            if (discordApiBaseUrl != null) {
-                put("apiBaseUrl", discordApiBaseUrl)
-            }
-            putJsonArray("allowedGuilds") {
-                discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
-                    addJsonObject {
-                        put("guildId", guildId)
-                        putJsonArray("allowedChannelIds") {
-                            channelIds.forEach { add(JsonPrimitive(it)) }
-                        }
-                        putJsonArray("allowedUserIds") {
-                            userIds.forEach { add(JsonPrimitive(it)) }
+            putJsonObject("default") {
+                put("agentId", agentId)
+                put("token", discordToken ?: "test-discord-token")
+                if (discordApiBaseUrl != null) {
+                    put("apiBaseUrl", discordApiBaseUrl)
+                }
+                putJsonArray("allowedGuilds") {
+                    discordAllowedGuilds.forEach { (guildId, channelIds, userIds) ->
+                        addJsonObject {
+                            put("guildId", guildId)
+                            putJsonArray("allowedChannelIds") {
+                                channelIds.forEach { add(JsonPrimitive(it)) }
+                            }
+                            putJsonArray("allowedUserIds") {
+                                userIds.forEach { add(JsonPrimitive(it)) }
+                            }
                         }
                     }
                 }
@@ -218,19 +244,23 @@ object ConfigGenerator {
     private fun kotlinx.serialization.json.JsonObjectBuilder.buildTelegramChannel(
         telegramToken: String?,
         telegramApiBaseUrl: String?,
+        agentId: String,
         telegramAllowedChats: List<Pair<String, List<String>>>,
     ) {
         putJsonObject("telegram") {
-            put("token", telegramToken ?: "test-bot-token")
-            if (telegramApiBaseUrl != null) {
-                put("apiBaseUrl", telegramApiBaseUrl)
-            }
-            putJsonArray("allowedChats") {
-                telegramAllowedChats.forEach { (chatId, userIds) ->
-                    addJsonObject {
-                        put("chatId", chatId)
-                        putJsonArray("allowedUserIds") {
-                            userIds.forEach { add(JsonPrimitive(it)) }
+            putJsonObject("default") {
+                put("agentId", agentId)
+                put("token", telegramToken ?: "test-bot-token")
+                if (telegramApiBaseUrl != null) {
+                    put("apiBaseUrl", telegramApiBaseUrl)
+                }
+                putJsonArray("allowedChats") {
+                    telegramAllowedChats.forEach { (chatId, userIds) ->
+                        addJsonObject {
+                            put("chatId", chatId)
+                            putJsonArray("allowedUserIds") {
+                                userIds.forEach { add(JsonPrimitive(it)) }
+                            }
                         }
                     }
                 }
@@ -431,6 +461,17 @@ object ConfigGenerator {
                 }
                 if (attachmentsDirectory.isNotBlank()) {
                     put("attachmentsDirectory", attachmentsDirectory)
+                }
+            }
+        }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.buildAgents(agents: Map<String, AgentEntry>) {
+        putJsonObject("agents") {
+            agents.forEach { (name, entry) ->
+                putJsonObject(name) {
+                    put("enabled", entry.enabled)
+                    put("workspace", entry.workspace)
                 }
             }
         }
