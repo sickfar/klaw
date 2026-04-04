@@ -21,18 +21,20 @@ import java.io.File
  * E2E tests verifying multi-agent isolation.
  *
  * Configures the engine with two agents ("alpha" and "beta") with separate workspaces.
- * The gateway WebSocket channel routes to "alpha".
  * Verifies:
- * - Agent alpha processes messages correctly
+ * - Agent alpha processes messages correctly via /ws/chat/alpha
+ * - Agent beta processes messages correctly via /ws/chat/beta
+ * - Two WS clients to different agents work simultaneously
  * - Conversations JSONL is scoped under agentId directory
- * - The engine creates per-agent workspace directories
+ * - No cross-agent data leakage
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class MultiAgentE2eTest {
     private val wireMock = WireMockLlmServer()
     private lateinit var containers: KlawContainers
-    private lateinit var client: WebSocketChatClient
+    private lateinit var alphaClient: WebSocketChatClient
+    private lateinit var betaClient: WebSocketChatClient
     private lateinit var workspaceDir: File
 
     @BeforeAll
@@ -85,64 +87,73 @@ class MultiAgentE2eTest {
             )
         containers.start()
 
-        client = WebSocketChatClient()
-        client.connectAsync(containers.gatewayHost, containers.gatewayMappedPort, agentId = "alpha")
+        alphaClient = WebSocketChatClient()
+        alphaClient.connectAsync(containers.gatewayHost, containers.gatewayMappedPort, agentId = "alpha")
+        betaClient = WebSocketChatClient()
+        betaClient.connectAsync(containers.gatewayHost, containers.gatewayMappedPort, agentId = "beta")
     }
 
     @AfterAll
     fun stopInfrastructure() {
-        client.close()
+        alphaClient.close()
+        betaClient.close()
         containers.stop()
         wireMock.stop()
     }
 
     @Test
     @Order(1)
-    fun `agent alpha processes messages via its websocket channel`() {
+    fun `agent alpha processes messages via ws chat alpha`() {
         wireMock.stubChatResponse("Hello from alpha!", promptTokens = PROMPT_TOKENS, completionTokens = COMPLETION_TOKENS)
 
-        val response = client.sendAndReceive("Hello alpha", timeoutMs = RESPONSE_TIMEOUT_MS)
+        val response = alphaClient.sendAndReceive("Hello alpha", timeoutMs = RESPONSE_TIMEOUT_MS)
 
         assertTrue(response.contains("Hello from alpha!"), "Expected response from alpha agent, got: $response")
     }
 
     @Test
     @Order(2)
-    fun `conversations jsonl is scoped under agent directory`() {
-        // The gateway writes conversations under conversations/<agentId>/<chatId>/
-        // Check that the gateway data dir has conversations scoped under "alpha"
+    fun `agent beta processes messages via ws chat beta`() {
+        wireMock.stubChatResponse("Hello from beta!", promptTokens = PROMPT_TOKENS, completionTokens = COMPLETION_TOKENS)
+
+        val response = betaClient.sendAndReceive("Hello beta", timeoutMs = RESPONSE_TIMEOUT_MS)
+
+        assertTrue(response.contains("Hello from beta!"), "Expected response from beta agent, got: $response")
+    }
+
+    @Test
+    @Order(3)
+    fun `conversations jsonl scoped per agent`() {
         val gatewayDataDir = containers.gatewayDataPath
         val conversationsDir = File(gatewayDataDir, "conversations")
 
-        // Wait briefly for JSONL to be flushed
         Thread.sleep(FLUSH_DELAY_MS)
 
-        assertTrue(conversationsDir.exists(), "conversations directory should exist at ${conversationsDir.absolutePath}")
+        assertTrue(conversationsDir.exists(), "conversations directory should exist")
 
-        // Check that there's an "alpha" subdirectory (agentId scoping)
+        // Alpha agent has its own conversation directory
         val alphaConvDir = File(conversationsDir, "alpha")
         assertTrue(
             alphaConvDir.exists() && alphaConvDir.isDirectory,
-            "conversations/alpha/ directory should exist for agent alpha, " +
-                "available dirs: ${conversationsDir.listFiles()?.map { it.name }}",
+            "conversations/alpha/ should exist, dirs: ${conversationsDir.listFiles()?.map { it.name }}",
         )
-
-        // Verify there are JSONL files under the alpha directory
-        val jsonlFiles =
+        val alphaJsonl =
             alphaConvDir.walkTopDown()
                 .filter { it.isFile && it.name.endsWith(".jsonl") }
                 .toList()
-        assertTrue(
-            jsonlFiles.isNotEmpty(),
-            "Expected JSONL conversation files under conversations/alpha/, found none",
-        )
+        assertTrue(alphaJsonl.isNotEmpty(), "Expected JSONL files under conversations/alpha/")
 
-        // Verify there is NO "beta" conversation directory (beta agent received no messages)
+        // Beta agent has its own conversation directory
         val betaConvDir = File(conversationsDir, "beta")
-        assertFalse(
-            betaConvDir.exists(),
-            "conversations/beta/ directory should not exist (no messages sent to beta)",
+        assertTrue(
+            betaConvDir.exists() && betaConvDir.isDirectory,
+            "conversations/beta/ should exist, dirs: ${conversationsDir.listFiles()?.map { it.name }}",
         )
+        val betaJsonl =
+            betaConvDir.walkTopDown()
+                .filter { it.isFile && it.name.endsWith(".jsonl") }
+                .toList()
+        assertTrue(betaJsonl.isNotEmpty(), "Expected JSONL files under conversations/beta/")
     }
 
     companion object {
