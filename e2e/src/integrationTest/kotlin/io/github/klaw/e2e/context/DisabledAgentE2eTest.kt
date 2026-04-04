@@ -54,24 +54,27 @@ class DisabledAgentE2eTest {
                         tokenBudget = TOKEN_BUDGET,
                         agents =
                             mapOf(
-                                "fallback" to ConfigGenerator.AgentEntry(
-                                    workspace = "/workspace/fallback",
-                                    enabled = true,
-                                ),
-                                "disabled-agent" to ConfigGenerator.AgentEntry(
-                                    workspace = "/workspace/disabled",
-                                    enabled = false,
-                                ),
+                                "fallback" to
+                                    ConfigGenerator.AgentEntry(
+                                        workspace = "/workspace/fallback",
+                                        enabled = true,
+                                    ),
+                                "disabled-agent" to
+                                    ConfigGenerator.AgentEntry(
+                                        workspace = "/workspace/disabled",
+                                        enabled = false,
+                                    ),
                             ),
                     ),
                 gatewayJson =
                     ConfigGenerator.gatewayJson(
                         websocketChannels =
                             mapOf(
-                                "ws-disabled" to ConfigGenerator.WsChannelEntry(
-                                    agentId = "disabled-agent",
-                                    port = WS_PORT,
-                                ),
+                                "ws-disabled" to
+                                    ConfigGenerator.WsChannelEntry(
+                                        agentId = "disabled-agent",
+                                        port = WS_PORT,
+                                    ),
                             ),
                     ),
                 workspaceDir = workspaceDir,

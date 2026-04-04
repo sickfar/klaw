@@ -13,8 +13,8 @@ import io.github.klaw.engine.context.KlawWorkspaceLoader
 import io.github.klaw.engine.context.SubagentHistoryLoader
 import io.github.klaw.engine.context.SummaryRepository
 import io.github.klaw.engine.db.BackupService
-import io.github.klaw.engine.db.PersistentConnectionManager
 import io.github.klaw.engine.db.KlawDatabase
+import io.github.klaw.engine.db.PersistentConnectionManager
 import io.github.klaw.engine.db.VirtualTableSetup
 import io.github.klaw.engine.docs.DocsServiceImpl
 import io.github.klaw.engine.mcp.McpToolRegistry

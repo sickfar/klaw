@@ -29,8 +29,14 @@ class InboundAllowlistService(
             return true
         }
         return when (resolveChannelType(channel)) {
-            "telegram" -> isAllowedTelegram(chatId, userId)
-            "discord" -> isAllowedDiscord(chatId, userId)
+            "telegram" -> {
+                isAllowedTelegram(chatId, userId)
+            }
+
+            "discord" -> {
+                isAllowedDiscord(chatId, userId)
+            }
+
             else -> {
                 logger.trace { "unknown channel=$channel, denied" }
                 false

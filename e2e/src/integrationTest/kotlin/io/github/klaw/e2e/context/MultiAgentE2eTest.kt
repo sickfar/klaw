@@ -77,10 +77,11 @@ class MultiAgentE2eTest {
                     ConfigGenerator.gatewayJson(
                         websocketChannels =
                             mapOf(
-                                "ws-alpha" to ConfigGenerator.WsChannelEntry(
-                                    agentId = "alpha",
-                                    port = WS_PORT,
-                                ),
+                                "ws-alpha" to
+                                    ConfigGenerator.WsChannelEntry(
+                                        agentId = "alpha",
+                                        port = WS_PORT,
+                                    ),
                             ),
                     ),
                 workspaceDir = workspaceDir,
@@ -104,7 +105,11 @@ class MultiAgentE2eTest {
     @Test
     @Order(1)
     fun `agent alpha processes messages via ws chat alpha`() {
-        wireMock.stubChatResponse("Hello from alpha!", promptTokens = PROMPT_TOKENS, completionTokens = COMPLETION_TOKENS)
+        wireMock.stubChatResponse(
+            "Hello from alpha!",
+            promptTokens = PROMPT_TOKENS,
+            completionTokens = COMPLETION_TOKENS,
+        )
 
         val response = alphaClient.sendAndReceive("Hello alpha", timeoutMs = RESPONSE_TIMEOUT_MS)
 
@@ -114,7 +119,11 @@ class MultiAgentE2eTest {
     @Test
     @Order(2)
     fun `agent beta processes messages via ws chat beta`() {
-        wireMock.stubChatResponse("Hello from beta!", promptTokens = PROMPT_TOKENS, completionTokens = COMPLETION_TOKENS)
+        wireMock.stubChatResponse(
+            "Hello from beta!",
+            promptTokens = PROMPT_TOKENS,
+            completionTokens = COMPLETION_TOKENS,
+        )
 
         val response = betaClient.sendAndReceive("Hello beta", timeoutMs = RESPONSE_TIMEOUT_MS)
 
@@ -138,7 +147,8 @@ class MultiAgentE2eTest {
             "conversations/alpha/ should exist, dirs: ${conversationsDir.listFiles()?.map { it.name }}",
         )
         val alphaJsonl =
-            alphaConvDir.walkTopDown()
+            alphaConvDir
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith(".jsonl") }
                 .toList()
         assertTrue(alphaJsonl.isNotEmpty(), "Expected JSONL files under conversations/alpha/")
@@ -150,7 +160,8 @@ class MultiAgentE2eTest {
             "conversations/beta/ should exist, dirs: ${conversationsDir.listFiles()?.map { it.name }}",
         )
         val betaJsonl =
-            betaConvDir.walkTopDown()
+            betaConvDir
+                .walkTopDown()
                 .filter { it.isFile && it.name.endsWith(".jsonl") }
                 .toList()
         assertTrue(betaJsonl.isNotEmpty(), "Expected JSONL files under conversations/beta/")

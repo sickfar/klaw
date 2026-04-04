@@ -48,7 +48,11 @@ class CliCommandDispatcher(
 ) {
     suspend fun dispatch(request: CliRequestMessage): String {
         logger.debug { "CLI command: ${request.command} agentId=${request.agentId}" }
-        dispatchGlobalCommand(request)?.let { return it }
+        when (request.command) {
+            "commands_list" -> return withContext(Dispatchers.VT) { commandsCliHandler.handleCommandsList() }
+            "models_list" -> return withContext(Dispatchers.VT) { handleModelsList() }
+            "doctor_deep" -> return withContext(Dispatchers.VT) { doctorDeepProbe.probe() }
+        }
         val ctx = agentRegistry.getOrNull(request.agentId)
         if (ctx == null) {
             logger.warn { "Unknown agentId=${request.agentId} for CLI command ${request.command}" }
@@ -67,16 +71,6 @@ class CliCommandDispatcher(
         logger.trace { "CLI response: command=${request.command} responseLen=${result.length}" }
         return result
     }
-
-    private suspend fun dispatchGlobalCommand(request: CliRequestMessage): String? =
-        withContext(Dispatchers.VT) {
-            when (request.command) {
-                "commands_list" -> commandsCliHandler.handleCommandsList()
-                "models_list" -> handleModelsList()
-                "doctor_deep" -> doctorDeepProbe.probe()
-                else -> null
-            }
-        }
 
     private suspend fun dispatchMemoryCommand(
         request: CliRequestMessage,
@@ -177,7 +171,6 @@ class CliCommandDispatcher(
                 "skills_list" -> {
                     handleSkillsList(effectiveSkills)
                 }
-
 
                 "context_diagnose" -> {
                     contextDiagnoseHandler.handle(request.params)

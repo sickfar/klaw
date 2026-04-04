@@ -160,9 +160,10 @@ object ConfigGenerator {
         attachmentsDirectory: String = "",
         webuiEnabled: Boolean = true,
         apiToken: String = "",
-        websocketChannels: Map<String, WsChannelEntry> = mapOf(
-            "default" to WsChannelEntry(agentId = "default", port = GATEWAY_LOCAL_WS_PORT),
-        ),
+        websocketChannels: Map<String, WsChannelEntry> =
+            mapOf(
+                "default" to WsChannelEntry(agentId = "default", port = GATEWAY_LOCAL_WS_PORT),
+            ),
     ): String {
         val root =
             buildJsonObject {

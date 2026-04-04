@@ -24,7 +24,8 @@ class ChatWebSocketEndpointApprovalTest {
 
         runBlocking {
             endpoint.onOpen("default", session)
-            endpoint.onMessage("default", 
+            endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-99","approved":true}""",
                 session,
             )
@@ -48,7 +49,8 @@ class ChatWebSocketEndpointApprovalTest {
 
         runBlocking {
             endpoint.onOpen("default", session)
-            endpoint.onMessage("default", 
+            endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-100","approved":false}""",
                 session,
             )
@@ -72,7 +74,8 @@ class ChatWebSocketEndpointApprovalTest {
 
         runBlocking {
             endpoint.onOpen("default", session)
-            endpoint.onMessage("default", 
+            endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approved":true}""",
                 session,
             )
@@ -96,7 +99,8 @@ class ChatWebSocketEndpointApprovalTest {
 
         runBlocking {
             endpoint.onOpen("default", session)
-            endpoint.onMessage("default", 
+            endpoint.onMessage(
+                "default",
                 """{"type":"approval_response","approvalId":"apr-101"}""",
                 session,
             )
