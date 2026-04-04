@@ -21,11 +21,12 @@ object DiscordNormalizer {
         guildId: String? = null,
         attachments: List<AttachmentInfo> = emptyList(),
         agentId: String = "default",
+        channelName: String = "discord",
     ): IncomingMessage {
         val parsed = CommandParser.parse(text)
         return IncomingMessage(
             id = messageId,
-            channel = "discord",
+            channel = channelName,
             chatId = "discord_$channelId",
             content = text,
             ts = ts,

@@ -504,6 +504,7 @@ class DiscordChannel(
                 guildId = guildId,
                 attachments = imageAttachments,
                 agentId = agentId,
+                channelName = name,
             )
 
         logger.trace { "discord message normalized chatId=${incoming.chatId} chatType=$chatType" }

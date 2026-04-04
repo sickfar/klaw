@@ -217,10 +217,11 @@ class TelegramChannel(
                 chatTitle = chatTitleStr,
                 platformMessageId = platformMsgId,
                 agentId = agentId,
+                channelName = name,
             )
         chatTypes[incoming.chatId] = chatTypeStr
         startTyping(incoming.chatId, chatId)
-        logger.trace { "Telegram update received: chatId=$chatId isCommand=${incoming.isCommand}" }
+        logger.trace { "Telegram update received: chatId=$chatId channel=$name isCommand=${incoming.isCommand}" }
         runCatching {
             jsonlWriter.writeInbound(incoming)
             onMessage(incoming)
@@ -425,6 +426,7 @@ class TelegramChannel(
                 platformMessageId = platformMsgId,
                 attachments = attachments,
                 agentId = agentId,
+                channelName = name,
             )
         chatTypes[incoming.chatId] = chatTypeStr
         startTyping(incoming.chatId, chatId)
