@@ -71,6 +71,7 @@ class CliCommandDispatcherContextTest {
                         scheduler = klawScheduler,
                         memoryService = memoryService,
                         skillRegistry = skillRegistry,
+                        contextBuilder = contextBuilder,
                     ),
             ),
         )

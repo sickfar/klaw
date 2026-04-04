@@ -3,6 +3,7 @@ package io.github.klaw.engine.socket
 import io.github.klaw.common.config.EngineConfig
 import io.github.klaw.common.error.KlawError
 import io.github.klaw.common.protocol.CliRequestMessage
+import io.github.klaw.engine.agent.AgentContext
 import io.github.klaw.engine.agent.AgentRegistry
 import io.github.klaw.engine.context.SkillRegistry
 import io.github.klaw.engine.init.InitCliHandler
@@ -66,7 +67,13 @@ class CliCommandDispatcher(
         val result =
             withContext(Dispatchers.VT) {
                 dispatchMemoryCommand(request, effectiveMemoryService)
-                    ?: dispatchCoreCommand(request, effectiveSessionManager, effectiveScheduler, effectiveSkillRegistry)
+                    ?: dispatchCoreCommand(
+                        request,
+                        ctx,
+                        effectiveSessionManager,
+                        effectiveScheduler,
+                        effectiveSkillRegistry,
+                    )
             }
         logger.trace { "CLI response: command=${request.command} responseLen=${result.length}" }
         return result
@@ -141,6 +148,7 @@ class CliCommandDispatcher(
 
     private suspend fun dispatchCoreCommand(
         request: CliRequestMessage,
+        ctx: AgentContext,
         effectiveSession: SessionManager,
         effectiveScheduler: KlawScheduler,
         effectiveSkills: SkillRegistry,
@@ -173,7 +181,11 @@ class CliCommandDispatcher(
                 }
 
                 "context_diagnose" -> {
-                    contextDiagnoseHandler.handle(request.params)
+                    contextDiagnoseHandler.handle(
+                        request.params,
+                        effectiveSession,
+                        ctx.contextBuilder!!,
+                    )
                 }
 
                 else -> {
